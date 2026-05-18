@@ -18,7 +18,9 @@ export const ProjectDetail = ({
 }: ProjectManagerProps) => {
   const [project, setProject] = useState(initialProject)
 
-  const updateProjectData = async (updates: any) => {
+  const updateProjectData = async (
+    updates: Partial<Omit<TTSProject, 'id' | 'createdAt'>>,
+  ) => {
     try {
       const response = await client.api.tts.projects[':id'].$put({
         param: { id: project.id },
@@ -39,10 +41,6 @@ export const ProjectDetail = ({
     updateProjectData({ characters })
   }
 
-  const handleUpdateDialogues = (dialogues: any[]) => {
-    updateProjectData({ dialogues })
-  }
-
   return (
     <div className="rounded-xl bg-white p-6 pt-2 shadow-sm">
       <Tabs
@@ -56,7 +54,6 @@ export const ProjectDetail = ({
               <DialogueList
                 dialogues={project.dialogues || []}
                 characters={project.characters || []}
-                onUpdateDialogues={handleUpdateDialogues}
                 onUpdateProject={updateProjectData}
               />
             ),

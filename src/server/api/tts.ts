@@ -131,7 +131,7 @@ const ttsApi = new Hono()
   .put(
     '/projects/:id',
     zValidator('param', z.object({ id: z.string() })),
-    zValidator('json', z.any()), // Assuming we accept partial project updates
+    zValidator('json', z.any()),
     async (c) => {
       try {
         const { id } = c.req.valid('param')

@@ -2,7 +2,7 @@ import fs from 'fs-extra'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { getTTSInworldApiKey } from '../../common/config'
-import { TTS_INWORLD_OUTPUT_DIR } from './constants'
+import { TTS_INWORLD_MODEL_ID, TTS_INWORLD_OUTPUT_DIR } from './constants'
 
 export interface InworldVoiceItem {
   name: string
@@ -54,7 +54,7 @@ export const generateAndSaveAudioInworld = async ({
     body: JSON.stringify({
       text,
       voiceId,
-      modelId: 'inworld-tts-2',
+      modelId: TTS_INWORLD_MODEL_ID,
       deliveryMode: 'BALANCED',
       applyTextNormalization: 'ON',
     }),

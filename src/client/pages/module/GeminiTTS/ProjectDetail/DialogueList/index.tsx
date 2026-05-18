@@ -3,36 +3,37 @@ import {
   EditOutlined,
   LoadingOutlined,
   PlayCircleOutlined,
-  PlusOutlined,
 } from '@ant-design/icons'
 import { Button, message, Space, Table, Tag, Tooltip } from 'antd'
 import { useMemo, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { TTSCharacter, TTSDialogue } from '../../../../../../server/module/tts'
+import {
+  TTSCharacter,
+  TTSDialogue,
+  TTSProject,
+} from '../../../../../../server/module/tts'
 import { CustomAudio } from '../components/Audio'
 import { generateTTS } from '../generate'
 import { DialogueModal, DialogueModalRef } from './DialogueModal'
 
 import { useTTSStore } from '../../store'
 import { inworldSourceMap } from '../VoiceList'
-import { ImportRenpyModal, ImportRenpyModalRef } from './ImportRenpyModal'
+import { ControlPanel } from './ControlPanel'
 
 interface DialogueListProps {
   dialogues: TTSDialogue[]
   characters: TTSCharacter[]
-  onUpdateDialogues: (dialogues: TTSDialogue[]) => void
-  onUpdateProject?: (updates: any) => void
+  onUpdateProject: (
+    updates: Partial<Omit<TTSProject, 'id' | 'createdAt'>>,
+  ) => void
 }
 
 export const DialogueList = ({
   dialogues = [],
   characters = [],
-  onUpdateDialogues,
   onUpdateProject,
 }: DialogueListProps) => {
   const modalRef = useRef<DialogueModalRef>(null)
-  const importModalRef = useRef<ImportRenpyModalRef>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
   const { voiceList } = useTTSStore()
 
@@ -65,12 +66,12 @@ export const DialogueList = ({
       ]
     }
 
-    onUpdateDialogues(newDialogues)
+    onUpdateProject({ dialogues: newDialogues })
   }
 
   const handleDelete = (id: string) => {
     const newDialogues = dialogues.filter((d) => d.id !== id)
-    onUpdateDialogues(newDialogues)
+    onUpdateProject({ dialogues: newDialogues })
   }
 
   const handleGenerate = async (dialogue: TTSDialogue) => {
@@ -89,38 +90,12 @@ export const DialogueList = ({
       const newDialogues = dialogues.map((d) =>
         d.id === dialogue.id ? { ...d, audioUrl: url } : d,
       )
-      onUpdateDialogues(newDialogues)
+      onUpdateProject({ dialogues: newDialogues })
       message.success('生成成功')
     } catch (error: any) {
       message.error(error.message || '网络错误')
     } finally {
       setGeneratingId(null)
-    }
-  }
-
-  const handleImportClick = () => {
-    fileInputRef.current?.click()
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      importModalRef.current?.open(file)
-    }
-    e.target.value = ''
-  }
-
-  const handleImportConfirm = (
-    newCharacters: TTSCharacter[],
-    newDialogues: TTSDialogue[],
-  ) => {
-    if (onUpdateProject) {
-      onUpdateProject({
-        characters: [...characters, ...newCharacters],
-        dialogues: [...dialogues, ...newDialogues],
-      })
-    } else {
-      onUpdateDialogues([...dialogues, ...newDialogues])
     }
   }
 
@@ -144,10 +119,7 @@ export const DialogueList = ({
             <div className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
               <span>音色：</span>
               <span className="font-bold">{voice?.displayName}</span>
-              {
-                !voice &&
-                <Tag color='red'>暂无音色</Tag>
-              }
+              {!voice && <Tag color="red">暂无音色</Tag>}
             </div>
             <div>
               {voice?.source && (
@@ -233,28 +205,12 @@ export const DialogueList = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-slate-700">对话列表</h3>
-        <Space>
-          <input
-            type="file"
-            accept=".tab,.txt"
-            style={{ display: 'none' }}
-            ref={fileInputRef}
-            onChange={handleFileChange}
-          />
-          <Button onClick={handleImportClick}>
-            从 Renpy Dialogue.tab 创建
-          </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => handleOpenModal()}
-          >
-            添加对话
-          </Button>
-        </Space>
-      </div>
+      <ControlPanel
+        dialogues={dialogues}
+        characters={characters}
+        onAddClick={() => handleOpenModal()}
+        onUpdateProject={onUpdateProject}
+      />
 
       <Table
         columns={columns}
@@ -277,11 +233,6 @@ export const DialogueList = ({
         ref={modalRef}
         characters={characters}
         onSave={handleSave}
-      />
-      <ImportRenpyModal
-        ref={importModalRef}
-        characters={characters}
-        onConfirm={handleImportConfirm}
       />
     </div>
   )
