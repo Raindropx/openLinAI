@@ -5,7 +5,7 @@ import {
   PlayCircleOutlined,
   PlusOutlined,
 } from '@ant-design/icons'
-import { Button, message, Space, Table } from 'antd'
+import { Button, message, Space, Table, Tag, Tooltip } from 'antd'
 import { useMemo, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { TTSCharacter, TTSDialogue } from '../../../../../../server/module/tts'
@@ -13,6 +13,8 @@ import { CustomAudio } from '../components/Audio'
 import { generateTTS } from '../generate'
 import { DialogueModal, DialogueModalRef } from './DialogueModal'
 
+import { useTTSStore } from '../../store'
+import { inworldSourceMap } from '../VoiceList'
 import { ImportRenpyModal, ImportRenpyModalRef } from './ImportRenpyModal'
 
 interface DialogueListProps {
@@ -32,6 +34,7 @@ export const DialogueList = ({
   const importModalRef = useRef<ImportRenpyModalRef>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
+  const { voiceList } = useTTSStore()
 
   const sortedDialogues = useMemo(() => {
     return [...dialogues].sort((a, b) => a.createdAt - b.createdAt)
@@ -51,11 +54,7 @@ export const DialogueList = ({
           ? {
               ...d,
               ...values,
-              audioUrl:
-                d.content !== values.content ||
-                d.instruction !== values.instruction
-                  ? undefined
-                  : d.audioUrl,
+              audioUrl: d.content !== values.content ? undefined : d.audioUrl,
             }
           : d,
       )
@@ -85,7 +84,6 @@ export const DialogueList = ({
     try {
       const url = await generateTTS({
         text: dialogue.content,
-        instruction: dialogue.instruction || '',
         voiceId: character.voiceId,
       })
       const newDialogues = dialogues.map((d) =>
@@ -131,53 +129,65 @@ export const DialogueList = ({
       title: '人物',
       dataIndex: 'characterId',
       key: 'character',
-      width: 100,
+      width: 150,
       render: (characterId: string) => {
         const character = characters.find((c) => c.id === characterId)
+        if (!character) {
+          return <span className="font-bold text-red-500">人物已删除</span>
+        }
+
+        const voice = voiceList?.find((v) => v.voiceId === character.voiceId)
+
         return (
-          <span className="font-bold text-slate-700">
-            {character ? (
-              character.name
-            ) : (
-              <span className="text-red-500">人物已删除</span>
-            )}
-          </span>
+          <div className="flex flex-col gap-1">
+            <span className="font-bold text-slate-700">{character.name}</span>
+            <div className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
+              <span>音色：</span>
+              <span className="font-bold">{voice?.displayName}</span>
+              {
+                !voice &&
+                <Tag color='red'>暂无音色</Tag>
+              }
+            </div>
+            <div>
+              {voice?.source && (
+                <Tag
+                  color="green"
+                  className="m-0 border-none px-1 text-[10px] leading-[14px]"
+                >
+                  {inworldSourceMap[voice.source] || voice.source}
+                </Tag>
+              )}
+            </div>
+          </div>
         )
       },
     },
     {
-      title: '音色',
-      dataIndex: 'characterId',
-      key: 'voice',
-      width: 150,
-      render: () => {
-        return null
-      },
-    },
-    {
-      title: '对话内容/指令控制',
+      title: '对话内容',
       dataIndex: 'content',
       key: 'content',
       render: (content: string, record: TTSDialogue) => (
         <div className="flex min-w-[100px] flex-col gap-1">
           {record.data?.renpyId && (
-            <div className="mb-1 font-mono text-xs text-slate-400">
-              ID: {record.data.renpyId}
-            </div>
+            <Tooltip title={record.data.renpyId}>
+              <div className="mb-1 line-clamp-1 text-xs break-all text-slate-400">
+                RenpyID: {record.data.renpyId}
+              </div>
+            </Tooltip>
           )}
-          <div className="whitespace-pre-wrap text-slate-600">{content}</div>
-          {record.instruction && (
-            <div className="text-sm text-slate-400">
-              指令：{record.instruction}
+          <Tooltip title={content}>
+            <div className="line-clamp-2 whitespace-pre-wrap text-slate-600">
+              {content}
             </div>
-          )}
+          </Tooltip>
         </div>
       ),
     },
     {
       title: '音频',
       key: 'audio',
-      width: 250,
+      width: 200,
       render: (_: any, record: TTSDialogue) => {
         const character = characters.find((c) => c.id === record.characterId)
         const isGenerating = generatingId === record.id

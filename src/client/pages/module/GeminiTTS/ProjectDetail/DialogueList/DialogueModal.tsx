@@ -83,10 +83,6 @@ export const DialogueModal = forwardRef<DialogueModalRef, DialogueModalProps>(
             </Select>
           </Form.Item>
 
-          <Form.Item name="instruction" label="指令控制">
-            <Input placeholder="请输入指令控制 (可选)" />
-          </Form.Item>
-
           <Form.Item
             name="content"
             label="对话内容"

@@ -31,12 +31,6 @@ export const CharacterModal = forwardRef<
       defaultValue: '你好，我是当前音色的测试语音。',
     },
   )
-  const [previewInstruction] = useLocalStorageState(
-    'gemini-tts-preview-instruction',
-    {
-      defaultValue: '',
-    },
-  )
   const [previewAudio, setPreviewAudio] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
 
@@ -45,7 +39,8 @@ export const CharacterModal = forwardRef<
     return voiceList.map((voice) => ({
       value: voice.voiceId,
       remark: voice.remark,
-      searchText: `${voice.voiceId} ${voice.remark || ''}`,
+      displayName: voice.displayName,
+      searchText: `${voice.voiceId} ${voice.remark || ''} ${voice.name || ''}`,
     }))
   }, [voiceList])
 
@@ -64,21 +59,19 @@ export const CharacterModal = forwardRef<
   }))
 
   const handleCloseModal = () => {
-    setIsModalOpen(false)
-    setEditingCharacter(null)
-    form.resetFields()
-    setPreviewAudio(null)
-  }
-
-  const handleSave = () => {
-    form.validateFields().then((values) => {
+    const values = form.getFieldsValue()
+    if (values.name && values.voiceId) {
       if (editingCharacter) {
         onSave({ ...editingCharacter, ...values })
       } else {
         onSave(values)
       }
-      handleCloseModal()
-    })
+    }
+
+    setIsModalOpen(false)
+    setEditingCharacter(null)
+    form.resetFields()
+    setPreviewAudio(null)
   }
 
   const handlePreview = async () => {
@@ -111,7 +104,7 @@ export const CharacterModal = forwardRef<
       title={editingCharacter ? '编辑人物' : '添加人物'}
       open={isModalOpen}
       onCancel={handleCloseModal}
-      onOk={handleSave}
+      footer={null}
       destroyOnClose
     >
       <Form form={form} layout="vertical">
@@ -144,11 +137,18 @@ export const CharacterModal = forwardRef<
                 value={option.value}
                 searchText={option.searchText}
               >
-                <div className="flex items-center justify-between">
-                  <span className="truncate">{option.value}</span>
-                  {option.remark && (
-                    <span className="ml-2 max-w-[150px] text-sm text-gray-400">
-                      {option.remark}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 items-center">
+                    <span className="truncate">{option.value}</span>
+                    {option.remark && (
+                      <span className="ml-2 max-w-[150px] truncate text-sm text-gray-400">
+                        {option.remark}
+                      </span>
+                    )}
+                  </div>
+                  {option.displayName && (
+                    <span className="shrink-0 text-sm text-gray-400">
+                      {option.displayName}
                     </span>
                   )}
                 </div>

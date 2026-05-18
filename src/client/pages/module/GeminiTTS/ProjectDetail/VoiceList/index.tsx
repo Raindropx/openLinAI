@@ -1,10 +1,14 @@
 import { CopyOutlined, SyncOutlined } from '@ant-design/icons'
-import { Button, Empty, Input, List, message, Tooltip } from 'antd'
+import { Button, Empty, Input, List, message, Tag, Tooltip } from 'antd'
 import copy from 'copy-to-clipboard'
 import { useMemo, useState } from 'react'
 import { useGlobalStore } from '../../../../../store/global'
 import { openSettingModal } from '../../../../common/SettingModal'
 import { useTTSStore } from '../../store'
+
+export const inworldSourceMap: Record<string, string> = {
+  IVC: '音色克隆',
+}
 
 export const VoiceList = () => {
   const [keyword, setKeyword] = useState('')
@@ -58,11 +62,11 @@ export const VoiceList = () => {
         </Button>
       </div>
       <List
-        grid={{ gutter: 16, xs: 1, sm: 2, md: 2, lg: 3, xl: 4, xxl: 4 }}
+        grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 3, xl: 4, xxl: 4 }}
         dataSource={data || []}
         loading={loadingVoiceList}
         pagination={{ pageSize: 12 }}
-        renderItem={(item: any) => (
+        renderItem={(item) => (
           <List.Item>
             <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 pt-2 shadow-sm transition-shadow hover:shadow-md">
               <div className="flex items-center justify-between gap-2">
@@ -86,22 +90,21 @@ export const VoiceList = () => {
                   </Tooltip>
                 </div>
               </div>
-              <div className="space-y-2 text-xs text-gray-500">
+              <div className="flex flex-col gap-2 text-sm text-gray-700">
                 <div>
-                  <span className="font-medium text-gray-700">名称:</span>{' '}
-                  {item.displayName || item.name}
+                  <span>名称:</span>{' '}
+                  <span className="font-bold text-black">
+                    {item.displayName || item.name}
+                  </span>
                 </div>
-                <div>
-                  <span className="font-medium text-gray-700">语言:</span>{' '}
-                  {item.langCode}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">性别:</span>{' '}
-                  {item.gender}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">来源:</span>{' '}
-                  {item.source}
+                <div className="flex flex-wrap gap-1">
+                  {item.langCode && <Tag color="blue">{item.langCode}</Tag>}
+                  {item.gender && <Tag color="orange">{item.gender}</Tag>}
+                  {item.source && (
+                    <Tag color="green">
+                      {inworldSourceMap[item.source] || item.source}
+                    </Tag>
+                  )}
                 </div>
               </div>
               {item.description && (
