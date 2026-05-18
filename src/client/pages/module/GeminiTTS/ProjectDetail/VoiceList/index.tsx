@@ -9,8 +9,7 @@ import { useTTSStore } from '../../store'
 export const VoiceList = () => {
   const [keyword, setKeyword] = useState('')
   const { ttsInworldApiKey } = useGlobalStore()
-  const { voiceList, loadingVoiceList, fetchVoiceList, updateVoiceRemark } =
-    useTTSStore()
+  const { voiceList, loadingVoiceList, fetchVoiceList } = useTTSStore()
 
   const data = useMemo(() => {
     if (!keyword) return voiceList

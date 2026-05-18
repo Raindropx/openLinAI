@@ -7,13 +7,11 @@ import { ProjectCard } from './ProjectCard'
 const client = hc<AppType>('/')
 
 interface ProjectListProps {
-  onSelectProject: (project: any) => void
   onEditProject: (project: any) => void
   refreshTrigger: number
 }
 
 export const ProjectList = ({
-  onSelectProject,
   onEditProject,
   refreshTrigger,
 }: ProjectListProps) => {
@@ -49,7 +47,6 @@ export const ProjectList = ({
             <Col xs={24} sm={12} md={8} lg={6} key={project.id}>
               <ProjectCard
                 project={project}
-                onSelectProject={onSelectProject}
                 onUpdate={fetchProjects}
                 onEdit={onEditProject}
               />

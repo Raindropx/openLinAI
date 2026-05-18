@@ -1,19 +1,29 @@
-import { EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons'
+import {
+  DeleteOutlined,
+  EditOutlined,
+  ExclamationCircleFilled,
+} from '@ant-design/icons'
 import { Card, Modal, Tooltip, message } from 'antd'
 import { hc } from 'hono/client'
 import type { AppType } from '../../../../../server'
+import { useTTSStore } from '../store'
 
 const { confirm } = Modal
 const client = hc<AppType>('/')
 
 interface ProjectCardProps {
   project: any
-  onSelectProject: (project: any) => void
   onUpdate: () => void
   onEdit: (project: any) => void
 }
 
-export const ProjectCard = ({ project, onSelectProject, onUpdate, onEdit }: ProjectCardProps) => {
+export const ProjectCard = ({
+  project,
+  onUpdate,
+  onEdit,
+}: ProjectCardProps) => {
+  const { setSelectedProjectId } = useTTSStore()
+
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
     confirm({
@@ -47,8 +57,8 @@ export const ProjectCard = ({ project, onSelectProject, onUpdate, onEdit }: Proj
   return (
     <Card
       hoverable
-      className="h-full cursor-pointer relative group"
-      onClick={() => onSelectProject(project)}
+      className="group relative h-full cursor-pointer"
+      onClick={() => setSelectedProjectId(project.id)}
       actions={[
         <Tooltip title="编辑" key="edit">
           <EditOutlined onClick={handleEdit} />
@@ -61,7 +71,7 @@ export const ProjectCard = ({ project, onSelectProject, onUpdate, onEdit }: Proj
       <Card.Meta
         title={project.name}
         description={
-          <div className="line-clamp-2 text-slate-500 h-10">
+          <div className="line-clamp-2 h-10 text-slate-500">
             {project.description || '暂无描述'}
           </div>
         }

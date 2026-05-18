@@ -31,7 +31,7 @@ export const CharacterModal = forwardRef<
       defaultValue: '你好，我是当前音色的测试语音。',
     },
   )
-  const [previewInstruction, setPreviewInstruction] = useLocalStorageState(
+  const [previewInstruction] = useLocalStorageState(
     'gemini-tts-preview-instruction',
     {
       defaultValue: '',
@@ -96,7 +96,6 @@ export const CharacterModal = forwardRef<
     try {
       const url = await generateTTS({
         text: previewText,
-        instruction: previewInstruction || '',
         voiceId,
       })
       setPreviewAudio(url)

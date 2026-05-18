@@ -5,11 +5,9 @@ const client = hc<AppType>('/')
 
 export async function generateTTS({
   text,
-  instruction,
   voiceId,
 }: {
   text: string
-  instruction?: string
   voiceId: string
 }): Promise<string> {
   const response = await client.api['tts-inworld'].generate.$post({
