@@ -1,0 +1,6 @@
+Identifier	Character	Dialogue	Filename	Line Number	Ren'Py Script
+demo_character_e7e1b1bb	e	我们已经看过如何在Ren'Py中定义一个角色（Character）。但我想更详细地谈谈什么是Character。	game/tl/schinese/indepth_character.rpy	6	e "[what]"
+demo_character_d7908a94	e	这里还有一些其他的角色。	game/tl/schinese/indepth_character.rpy	12	e "[what]"
+demo_character_275ef8b9	e	每个语句创建一个Character对象，并给它一个参数，名字。如果名字为None，则不显示名称。	game/tl/schinese/indepth_character.rpy	18	e "[what]"
+demo_character_a63aea0c	e	后面可以是设置字符属性的命名参数。命名参数由属性名、等号和值组成。	game/tl/schinese/indepth_character.rpy	24	e "[what]"
+demo_character_636a502e	e	多个参数应该用逗号分隔，就像它们在这里一样。让我们看看那些角色的动作。	game/tl/schinese/indepth_character.rpy	30	e "[what]"

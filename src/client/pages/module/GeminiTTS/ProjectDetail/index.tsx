@@ -57,6 +57,7 @@ export const ProjectDetail = ({
                 dialogues={project.dialogues || []}
                 characters={project.characters || []}
                 onUpdateDialogues={handleUpdateDialogues}
+                onUpdateProject={updateProjectData}
               />
             ),
           },

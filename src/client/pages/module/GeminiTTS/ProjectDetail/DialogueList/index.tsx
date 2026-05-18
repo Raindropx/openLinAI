@@ -13,18 +13,24 @@ import { CustomAudio } from '../components/Audio'
 import { generateTTS } from '../generate'
 import { DialogueModal, DialogueModalRef } from './DialogueModal'
 
+import { ImportRenpyModal, ImportRenpyModalRef } from './ImportRenpyModal'
+
 interface DialogueListProps {
   dialogues: TTSDialogue[]
   characters: TTSCharacter[]
   onUpdateDialogues: (dialogues: TTSDialogue[]) => void
+  onUpdateProject?: (updates: any) => void
 }
 
 export const DialogueList = ({
   dialogues = [],
   characters = [],
   onUpdateDialogues,
+  onUpdateProject,
 }: DialogueListProps) => {
   const modalRef = useRef<DialogueModalRef>(null)
+  const importModalRef = useRef<ImportRenpyModalRef>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
 
   const sortedDialogues = useMemo(() => {
@@ -94,6 +100,32 @@ export const DialogueList = ({
     }
   }
 
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      importModalRef.current?.open(file)
+    }
+    e.target.value = ''
+  }
+
+  const handleImportConfirm = (
+    newCharacters: TTSCharacter[],
+    newDialogues: TTSDialogue[],
+  ) => {
+    if (onUpdateProject) {
+      onUpdateProject({
+        characters: [...characters, ...newCharacters],
+        dialogues: [...dialogues, ...newDialogues],
+      })
+    } else {
+      onUpdateDialogues([...dialogues, ...newDialogues])
+    }
+  }
+
   const columns = [
     {
       title: '人物',
@@ -128,6 +160,11 @@ export const DialogueList = ({
       key: 'content',
       render: (content: string, record: TTSDialogue) => (
         <div className="flex min-w-[100px] flex-col gap-1">
+          {record.data?.renpyId && (
+            <div className="mb-1 font-mono text-xs text-slate-400">
+              ID: {record.data.renpyId}
+            </div>
+          )}
           <div className="whitespace-pre-wrap text-slate-600">{content}</div>
           {record.instruction && (
             <div className="text-sm text-slate-400">
@@ -188,13 +225,25 @@ export const DialogueList = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold text-slate-700">对话列表</h3>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => handleOpenModal()}
-        >
-          添加对话
-        </Button>
+        <Space>
+          <input
+            type="file"
+            accept=".tab,.txt"
+            style={{ display: 'none' }}
+            ref={fileInputRef}
+            onChange={handleFileChange}
+          />
+          <Button onClick={handleImportClick}>
+            从 Renpy Dialogue.tab 创建
+          </Button>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => handleOpenModal()}
+          >
+            添加对话
+          </Button>
+        </Space>
       </div>
 
       <Table
@@ -218,6 +267,11 @@ export const DialogueList = ({
         ref={modalRef}
         characters={characters}
         onSave={handleSave}
+      />
+      <ImportRenpyModal
+        ref={importModalRef}
+        characters={characters}
+        onConfirm={handleImportConfirm}
       />
     </div>
   )

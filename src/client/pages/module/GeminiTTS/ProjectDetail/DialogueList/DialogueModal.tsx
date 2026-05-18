@@ -11,13 +11,17 @@ export interface DialogueModalRef {
 
 interface DialogueModalProps {
   characters: TTSCharacter[]
-  onSave: (dialogueData: Omit<TTSDialogue, 'id' | 'createdAt'> | TTSDialogue) => void
+  onSave: (
+    dialogueData: Omit<TTSDialogue, 'id' | 'createdAt'> | TTSDialogue,
+  ) => void
 }
 
 export const DialogueModal = forwardRef<DialogueModalRef, DialogueModalProps>(
   ({ characters, onSave }, ref) => {
     const [isModalOpen, setIsModalOpen] = useState(false)
-    const [editingDialogue, setEditingDialogue] = useState<TTSDialogue | null>(null)
+    const [editingDialogue, setEditingDialogue] = useState<TTSDialogue | null>(
+      null,
+    )
     const [form] = Form.useForm()
 
     useImperativeHandle(ref, () => ({
@@ -79,10 +83,7 @@ export const DialogueModal = forwardRef<DialogueModalRef, DialogueModalProps>(
             </Select>
           </Form.Item>
 
-          <Form.Item
-            name="instruction"
-            label="指令控制"
-          >
+          <Form.Item name="instruction" label="指令控制">
             <Input placeholder="请输入指令控制 (可选)" />
           </Form.Item>
 

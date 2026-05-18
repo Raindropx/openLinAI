@@ -15,6 +15,9 @@ export interface TTSDialogue {
   instruction?: string
   audioUrl?: string
   createdAt: number
+  data?: {
+    renpyId: string
+  }
 }
 
 export interface TTSProject {
