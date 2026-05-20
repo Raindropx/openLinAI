@@ -35,6 +35,6 @@ export const useCustomVoiceTagsStore = create<CustomVoiceTagsState>()(
     }),
     {
       name: 'voice-custom-tags-storage',
-    }
-  )
+    },
+  ),
 )

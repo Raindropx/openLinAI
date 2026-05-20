@@ -70,7 +70,9 @@ export const CharacterList = ({
           <CharacterCard
             key={character.id}
             character={character}
-            dialoguesCount={dialogues.filter((d) => d.characterId === character.id).length}
+            dialoguesCount={
+              dialogues.filter((d) => d.characterId === character.id).length
+            }
             onEdit={handleOpenModal}
             onDelete={handleDelete}
           />

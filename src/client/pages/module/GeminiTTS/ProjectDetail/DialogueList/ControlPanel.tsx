@@ -7,6 +7,7 @@ import {
 import { Button, message } from 'antd'
 import { useMemo, useRef } from 'react'
 import { TTSCharacter, TTSDialogue } from '../../../../../../server/module/tts'
+import { ExportAudioButton } from './ExportAudioButton'
 import { ImportRenpyModal, ImportRenpyModalRef } from './ImportRenpyModal'
 
 interface ControlPanelProps {
@@ -125,6 +126,7 @@ export const ControlPanel = ({
             >
               批量生成语音
             </Button>
+            <ExportAudioButton dialogues={dialogues} />
           </div>
         </div>
       </div>

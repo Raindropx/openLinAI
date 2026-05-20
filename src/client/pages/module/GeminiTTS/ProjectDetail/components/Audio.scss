@@ -16,7 +16,7 @@
     flex: 0 0 auto !important;
     margin: 0 !important;
   }
-  
+
   /* Progress Section */
   .rhap_progress-section {
     flex: 1 1 auto !important;
@@ -29,7 +29,9 @@
   .rhap_time {
     font-size: 12px !important;
     color: #8c8c8c !important;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+      'Courier New', monospace !important;
     user-select: none;
     flex-shrink: 0 !important; // Prevent time text from shrinking
     margin: 0 !important;
@@ -96,7 +98,7 @@
     transition: all 0.3s;
     margin: 0 !important;
     cursor: pointer;
-    
+
     &:hover {
       background-color: #4096ff !important;
       transform: scale(1.05);
