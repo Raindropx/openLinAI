@@ -1,5 +1,6 @@
 import { Button, Input, Modal, message } from 'antd'
 import { useEffect, useState } from 'react'
+import { DEFAULT_PROMPT_TEMPLATE, PROMPT_TEMPLATE_STORAGE_KEY } from '.'
 
 interface PromptTemplateEditModalProps {
   open: boolean
@@ -32,6 +33,11 @@ export function PromptTemplateEditModal({
       return
     }
 
+    // 重置为默认模板，清空 localStorage 数据
+    if (trimmedTemplate === DEFAULT_PROMPT_TEMPLATE) {
+      localStorage.removeItem(PROMPT_TEMPLATE_STORAGE_KEY)
+    }
+
     onSave(trimmedTemplate)
     messageApi.success('优化模板已保存')
     onClose()
@@ -46,7 +52,7 @@ export function PromptTemplateEditModal({
     <>
       {contextHolder}
       <Modal
-        title="修改优化模板"
+        title="修改模板"
         open={open}
         onCancel={onClose}
         destroyOnHidden

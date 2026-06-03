@@ -30,9 +30,10 @@ export const DEFAULT_PROMPT_TEMPLATE = `
 - 构图清晰：优先明确近景、半身、全身、远景、特写、俯拍、仰拍、居中、对称等信息。
 - 光线与风格具体：尽量把“高级感”“唯美”“电影感”改成可执行的视觉描述。
 - 细节适度：补全必要信息，但不要无根据地添加过多剧情。
+- 输出中需要完整保留用户提到的任何图片引用参考信息（如：图1中、参考图1等）
 - 默认输出中文；如果用户明确要求英文，则输出自然简洁的英文 prompt。
 - 默认不输出负面提示词，不伪造特定模型参数，除非用户明确要求。
-- 多行分点列举，结果易于理解和二次修改
+- 分为多行分点列举，结果易于理解和二次修改
 
 ## 处理规则
 
@@ -42,10 +43,6 @@ export const DEFAULT_PROMPT_TEMPLATE = `
 
 ## 输出要求
 
-- 默认直接输出可复制结果，不写大段分析。
-- 除非确有必要，不额外添加说明。
-- 只输出提示词正文。
-
 默认输出格式：
 
 [优化后的完整提示词]
@@ -54,7 +51,7 @@ export const DEFAULT_PROMPT_TEMPLATE = `
 
 {{ USER_PROMPT }}
 `.trim()
-const PROMPT_TEMPLATE_STORAGE_KEY = 'prompt-optimize-template'
+export const PROMPT_TEMPLATE_STORAGE_KEY = 'prompt-optimize-template'
 const PROMPT_USAGE_TIPS = [
   '输入提示词可以按照生文的风格编写提出要求，而不仅仅是生图的提示词的具体直白风格',
   '生成的提示词并不总是好用，可能造成过拟合，建议对生成的提示词进行人工校对和修改',
@@ -170,6 +167,7 @@ export function PromptOptimizeModal({
   const [messageApi, contextHolder] = message.useMessage()
   const [sourcePrompt, setSourcePrompt] = useState(prompt)
   const [optimizedPrompt, setOptimizedPrompt] = useState('')
+  const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [templateModalOpen, setTemplateModalOpen] = useState(false)
   const [promptTemplate = DEFAULT_PROMPT_TEMPLATE, setPromptTemplate] =
@@ -181,6 +179,7 @@ export function PromptOptimizeModal({
     if (open) {
       setSourcePrompt(prompt)
       setOptimizedPrompt('')
+      setHasGeneratedOnce(false)
     }
   }, [open, prompt])
 
@@ -205,14 +204,14 @@ export function PromptOptimizeModal({
             {
               role: 'user',
               content: [
-                {
-                  type: 'text',
-                  text: renderedTemplate,
-                },
                 ...imageUrls.map((url) => ({
                   type: 'image_url' as const,
                   image_url: { url },
                 })),
+                {
+                  type: 'text',
+                  text: renderedTemplate,
+                },
               ],
             },
           ],
@@ -232,6 +231,7 @@ export function PromptOptimizeModal({
       }
 
       setOptimizedPrompt(nextPrompt)
+      setHasGeneratedOnce(true)
       messageApi.success('提示词优化成功')
     } catch (error) {
       messageApi.error(extractErrorMessage(error) || '提示词优化请求失败')
@@ -259,11 +259,11 @@ export function PromptOptimizeModal({
               取消
             </Button>
             <Button
-              type={optimizedPrompt ? 'default' : 'primary'}
+              type={hasGeneratedOnce ? 'default' : 'primary'}
               onClick={handleGenerate}
               loading={generating}
             >
-              生成
+              {hasGeneratedOnce ? '再次生成' : '生成'}
             </Button>
             <Button
               type={optimizedPrompt ? 'primary' : 'default'}
@@ -322,7 +322,7 @@ export function PromptOptimizeModal({
                 icon={<EditOutlined />}
                 onClick={() => setTemplateModalOpen(true)}
               >
-                修改优化模板
+                修改模板
               </Button>
             </div>
             <Input.TextArea
