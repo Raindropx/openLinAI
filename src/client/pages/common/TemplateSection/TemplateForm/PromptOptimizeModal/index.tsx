@@ -6,7 +6,51 @@ import type { AppType } from '../../../../../../server'
 const client = hc<AppType>('/')
 
 const PROMPT_OPTIMIZE_MODEL = 'gemini-3.1-flash-lite'
-const PROMPT_TEMPLATE = '{{ USER_PROMPT }}'
+const PROMPT_TEMPLATE = `
+# 生图提示词优化模板
+
+你是一个生图提示词优化助手。你的任务是把用户提供的想法、简短描述、已有 prompt，整理为一版清晰、具体、可直接复制使用的高质量生图提示词。
+
+## 目标
+
+- 优先保留用户原意，不擅自改动核心设定。
+- 把模糊表达补全为明确的视觉语言，减少歧义和空泛描述。
+- 输出结果尽量包含主体、外观、场景、动作或状态、构图、光线、风格、质感与细节。
+- 如果用户已有 prompt，在保留核心内容的前提下提升一致性、细节密度和可执行性。
+
+## 优化原则
+
+- 主体明确：人物、物体、动物或核心主题要清楚。
+- 外观具体：补充服饰、材质、颜色、年龄、气质、造型等可见特征。
+- 场景完整：如果有必要，补充环境、时间、天气、空间关系和背景元素。
+- 构图清晰：优先明确近景、半身、全身、远景、特写、俯拍、仰拍、居中、对称等信息。
+- 光线与风格具体：尽量把“高级感”“唯美”“电影感”改成可执行的视觉描述。
+- 细节适度：补全必要信息，但不要无根据地添加过多剧情。
+- 默认输出中文；如果用户明确要求英文，则输出自然简洁的英文 prompt。
+- 默认不输出负面提示词，不伪造特定模型参数，除非用户明确要求。
+- 多行分点列举，结果易于理解和二次修改
+
+## 处理规则
+
+- 直接输出优化后的纯文本生图提示词，不要使用 markdown，不要添加任何生图提示词以外的说明、垫话。
+- 如果信息不完整，但可以合理补全，则基于常见高质量画面表达直接优化，并尽量保持设定稳定。
+- 如果用户要求中有明显敏感、露骨或容易触发审核限制的表达，在尽量保留画面效果的前提下，自动改写为更隐晦、更易过审的视觉描述。
+
+## 输出要求
+
+- 最终只生成一版内容，不提供多个版本。
+- 默认直接输出可复制结果，不写大段分析。
+- 除非确有必要，不额外添加说明。
+- 只输出提示词正文。
+
+默认输出格式：
+
+[优化后的完整提示词]
+
+## 用户要求
+
+{{ USER_PROMPT }}
+`.trim()
 
 interface PromptOptimizeModalProps {
   open: boolean
@@ -16,7 +60,13 @@ interface PromptOptimizeModalProps {
   onApply: (optimizedPrompt: string) => void
 }
 
-function PreviewImages({ imageUrls }: { imageUrls: string[] }) {
+function PreviewImages({
+  imageUrls,
+  height = 120,
+}: {
+  imageUrls: string[]
+  height?: number
+}) {
   if (imageUrls.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-400">
@@ -26,18 +76,18 @@ function PreviewImages({ imageUrls }: { imageUrls: string[] }) {
   }
 
   return (
-    <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+    <div className="mt-3 flex gap-2 overflow-x-auto">
       {imageUrls.map((url, index) => (
         <div
           key={`${url}-${index}`}
           className="relative shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm"
-          style={{ width: '80px', height: '120px' }}
+          style={{ width: 80, height }}
         >
           <AntImage
             src={url}
             alt={`prompt-optimize-preview-${index}`}
             width={80}
-            height={120}
+            height={height}
             className="object-cover"
             preview={{ src: url }}
           />
@@ -170,25 +220,25 @@ export function PromptOptimizeModal({
       <div className="mt-4 space-y-4">
         <div>
           <div className="mb-2 text-sm font-medium text-slate-700">
-            原始提示词
+            原始提示词和输入图片
           </div>
           <Input.TextArea
             value={sourcePrompt}
             onChange={(event) => setSourcePrompt(event.target.value)}
-            rows={5}
+            rows={3}
             placeholder="请输入原始提示词"
             style={{ resize: 'none' }}
           />
-          <PreviewImages imageUrls={imageUrls} />
+          <PreviewImages height={100} imageUrls={imageUrls} />
         </div>
 
         <div>
           <div className="mb-2 text-sm font-medium text-slate-700">
-            模板内容
+            提示词优化模板
           </div>
           <Input.TextArea
             value={PROMPT_TEMPLATE}
-            readOnly
+            disabled
             rows={3}
             style={{ resize: 'none' }}
           />
@@ -200,8 +250,10 @@ export function PromptOptimizeModal({
           </div>
           <Input.TextArea
             value={optimizedPrompt}
-            readOnly
-            rows={5}
+            autoSize={{
+              minRows: 3,
+              maxRows: 10,
+            }}
             placeholder="点击生成后展示优化后的提示词"
             style={{ resize: 'none' }}
           />

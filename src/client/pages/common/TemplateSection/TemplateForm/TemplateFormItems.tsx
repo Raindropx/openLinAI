@@ -84,7 +84,11 @@ function PromptFormItem({
             </Button>
           </div>
         }
-        className={className}
+        className={classnames(
+          className,
+          '[&_.ant-form-item-label>label]:w-full',
+          '[&_.ant-form-item-label>label]:max-w-full',
+        )}
         rules={[{ required: true, message: '请填写提示词' }]}
       >
         <Input.TextArea
