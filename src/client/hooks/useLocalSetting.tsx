@@ -23,11 +23,13 @@ export const defaultGPTImageSettings: GPTImageSettings = {
 
 export interface LocalSettingState {
   gptImageSettings: GPTImageSettings
+  promptOptimizeEnabled: boolean
   yunwuSystemToken?: string
   yunwuUserId?: string
   setGptImageSettings: (
     settings: GPTImageSettings | ((prev: GPTImageSettings) => GPTImageSettings),
   ) => void
+  setPromptOptimizeEnabled: (enabled: boolean) => void
   setYunwuSystemToken: (token: string) => void
   setYunwuUserId: (userId: string) => void
 }
@@ -36,6 +38,7 @@ const useLocalSettingStore = create<LocalSettingState>()(
   persist(
     (set) => ({
       gptImageSettings: defaultGPTImageSettings,
+      promptOptimizeEnabled: true,
       yunwuSystemToken: undefined,
       yunwuUserId: undefined,
       setGptImageSettings: (settings) =>
@@ -45,6 +48,8 @@ const useLocalSettingStore = create<LocalSettingState>()(
               ? settings(state.gptImageSettings)
               : settings,
         })),
+      setPromptOptimizeEnabled: (enabled) =>
+        set({ promptOptimizeEnabled: enabled }),
       setYunwuSystemToken: (token) => set({ yunwuSystemToken: token }),
       setYunwuUserId: (userId) => set({ yunwuUserId: userId }),
     }),
@@ -62,8 +67,14 @@ export function useLocalSetting() {
     (state) => state.yunwuSystemToken,
   )
   const yunwuUserId = useLocalSettingStore((state) => state.yunwuUserId)
+  const promptOptimizeEnabled = useLocalSettingStore(
+    (state) => state.promptOptimizeEnabled,
+  )
   const setGptImageSettings = useLocalSettingStore(
     (state) => state.setGptImageSettings,
+  )
+  const setPromptOptimizeEnabled = useLocalSettingStore(
+    (state) => state.setPromptOptimizeEnabled,
   )
   const setYunwuSystemToken = useLocalSettingStore(
     (state) => state.setYunwuSystemToken,
@@ -77,9 +88,11 @@ export function useLocalSetting() {
 
   return {
     gptImageSettings: mergedSettings,
+    promptOptimizeEnabled,
     yunwuSystemToken,
     yunwuUserId,
     setGptImageSettings,
+    setPromptOptimizeEnabled,
     setYunwuSystemToken,
     setYunwuUserId,
   }

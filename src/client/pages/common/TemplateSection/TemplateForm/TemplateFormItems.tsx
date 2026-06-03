@@ -64,6 +64,7 @@ function PromptFormItem({
   imageUrls: string[]
 }) {
   const [openPromptOptimizeModal, setOpenPromptOptimizeModal] = useState(false)
+  const { promptOptimizeEnabled } = useLocalSetting()
   const prompt = Form.useWatch('prompt', form) || ''
 
   return (
@@ -73,15 +74,17 @@ function PromptFormItem({
         label={
           <div className="flex w-full items-center justify-between gap-4">
             <span>{label}</span>
-            <Button
-              type="link"
-              size="small"
-              icon={<BulbOutlined />}
-              className="px-0!"
-              onClick={() => setOpenPromptOptimizeModal(true)}
-            >
-              提示词优化
-            </Button>
+            {promptOptimizeEnabled && (
+              <Button
+                type="link"
+                size="small"
+                icon={<BulbOutlined />}
+                className="px-0!"
+                onClick={() => setOpenPromptOptimizeModal(true)}
+              >
+                提示词优化
+              </Button>
+            )}
           </div>
         }
         className={classnames(

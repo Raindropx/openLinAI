@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AdminSetting, AdminSettingRef } from './AdminSetting'
 import { GPTImageSetting, GPTImageSettingRef } from './GPTImageSetting'
+import { SideSetting } from './SideSetting'
 import { TTSSetting, TTSSettingRef } from './TTSSetting'
 import { UploadImageSetting } from './UploadImageSetting'
 
@@ -68,6 +69,11 @@ export function openSettingModal(options?: {
         key: 'upload-image',
         label: '通用图片设置',
         children: <UploadImageSetting />,
+      },
+      {
+        key: 'side-setting',
+        label: '辅助功能',
+        children: <SideSetting />,
       },
     ]
 
