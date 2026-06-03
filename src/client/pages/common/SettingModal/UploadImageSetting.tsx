@@ -1,4 +1,4 @@
-import { Button, Checkbox, message, Modal, Switch } from 'antd'
+import { Button, message, Modal, Switch } from 'antd'
 import { hc } from 'hono/client'
 import { forwardRef } from 'react'
 import type { AppType } from '../../../../server'

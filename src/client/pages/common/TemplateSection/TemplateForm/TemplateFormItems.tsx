@@ -1,9 +1,11 @@
-import { Form, Input, InputNumber, Select } from 'antd'
+import { BulbOutlined } from '@ant-design/icons'
+import { Button, Form, Input, InputNumber, Select } from 'antd'
 import classnames from 'classnames'
-import React from 'react'
+import React, { useState } from 'react'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { FolderFormItem } from './FolderSelectInput'
 import { ImageUpload } from './ImageUpload'
+import { PromptOptimizeModal } from './PromptOptimizeModal'
 
 function TitleFormItem({ className }: { className?: string }) {
   return (
@@ -53,26 +55,58 @@ function CountFormItem({ className }: { className?: string }) {
 function PromptFormItem({
   className,
   label = '提示词',
+  form,
+  imageUrls,
 }: {
   className?: string
   label?: React.ReactNode
+  form: any
+  imageUrls: string[]
 }) {
+  const [openPromptOptimizeModal, setOpenPromptOptimizeModal] = useState(false)
+  const prompt = Form.useWatch('prompt', form) || ''
+
   return (
-    <Form.Item
-      name="prompt"
-      label={label}
-      className={className}
-      rules={[{ required: true, message: '请填写提示词' }]}
-    >
-      <Input.TextArea
-        autoSize={{
-          minRows: 5,
-          maxRows: 10,
+    <>
+      <Form.Item
+        name="prompt"
+        label={
+          <div className="flex w-full items-center justify-between gap-4">
+            <span>{label}</span>
+            <Button
+              type="link"
+              size="small"
+              icon={<BulbOutlined />}
+              className="px-0!"
+              onClick={() => setOpenPromptOptimizeModal(true)}
+            >
+              提示词优化
+            </Button>
+          </div>
+        }
+        className={className}
+        rules={[{ required: true, message: '请填写提示词' }]}
+      >
+        <Input.TextArea
+          autoSize={{
+            minRows: 5,
+            maxRows: 10,
+          }}
+          placeholder="请输入生成内容的提示词..."
+          style={{ resize: 'none' }}
+        />
+      </Form.Item>
+      <PromptOptimizeModal
+        open={openPromptOptimizeModal}
+        prompt={prompt}
+        imageUrls={imageUrls}
+        onClose={() => setOpenPromptOptimizeModal(false)}
+        onApply={(optimizedPrompt) => {
+          form.setFieldsValue({ prompt: optimizedPrompt })
+          setOpenPromptOptimizeModal(false)
         }}
-        placeholder="请输入生成内容的提示词..."
-        style={{ resize: 'none' }}
       />
-    </Form.Item>
+    </>
   )
 }
 
@@ -114,6 +148,8 @@ export function TemplateFormFields({
       </div>
 
       <PromptFormItem
+        form={form}
+        imageUrls={imageUrls}
         label={
           <div className="flex items-center gap-2">
             <span>提示词</span>
