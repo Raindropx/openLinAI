@@ -205,10 +205,15 @@ export function PromptOptimizeModal({
           <Button onClick={onClose} disabled={generating}>
             取消
           </Button>
-          <Button type="primary" onClick={handleGenerate} loading={generating}>
+          <Button
+            type={optimizedPrompt ? 'default' : 'primary'}
+            onClick={handleGenerate}
+            loading={generating}
+          >
             生成
           </Button>
           <Button
+            type={optimizedPrompt ? 'primary' : 'default'}
             onClick={() => onApply(optimizedPrompt)}
             disabled={!optimizedPrompt || generating}
           >
