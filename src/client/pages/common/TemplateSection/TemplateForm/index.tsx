@@ -175,7 +175,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
             <Radio.Button value="image" className="flex-1 text-center">
               GPT 图片生成
             </Radio.Button>
-            <Radio.Button value="video" className="flex-1 text-center">
+            <Radio.Button value="video" disabled className="flex-1 text-center">
               Wan 视频生成
             </Radio.Button>
           </Radio.Group>

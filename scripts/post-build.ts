@@ -28,7 +28,7 @@ async function main() {
         .map((t) => t.trim())
       if (existingTags.includes(tagName)) {
         console.error(
-          `❌ [Post-build] 标签 ${tagName} 已存在，请在 package.json 中更新版本号。`
+          `❌ [Post-build] 标签 ${tagName} 已存在，请在 package.json 中更新版本号。`,
         )
         process.exit(1)
       }
@@ -41,7 +41,9 @@ async function main() {
       process.exit(1)
     }
   } else {
-    console.log('⏭️ [Post-build] Skipping git status and tag check (not a version build).')
+    console.log(
+      '⏭️ [Post-build] Skipping git status and tag check (not a version build).',
+    )
   }
 
   // 1. package.json 已经在 tsup 构建时自动生成到了 dist 目录，无需复制
@@ -54,7 +56,7 @@ async function main() {
     console.log('✅ [Post-build] Copied dist-template contents to dist/')
   } else {
     console.log(
-      `⚠️ [Post-build] Directory ${templateDir} does not exist, skipping.`
+      `⚠️ [Post-build] Directory ${templateDir} does not exist, skipping.`,
     )
   }
 
@@ -65,21 +67,32 @@ async function main() {
   fs.copySync('data-template', 'dist/data', { overwrite: true })
   console.log('✅ [Post-build] Copied data-template contents to dist/data/')
 
-  // 4. 在 dist 目录中安装生产环境依赖
+  // 4. 将 pnpm 项目级配置复制到 dist，确保 allowBuilds 等设置对独立安装生效
+  const pnpmWorkspacePath = 'pnpm-workspace.yaml'
+  const distPnpmWorkspacePath = path.join('dist', 'pnpm-workspace.yaml')
+  if (fs.existsSync(pnpmWorkspacePath)) {
+    fs.copySync(pnpmWorkspacePath, distPnpmWorkspacePath, { overwrite: true })
+    console.log('✅ [Post-build] Copied pnpm-workspace.yaml to dist/')
+  }
+
+  // 5. 在 dist 目录中安装生产环境依赖
   console.log('📦 [Post-build] Installing production dependencies in dist/ ...')
-  execSync('pnpm install --prod --shamefully-hoist --ignore-workspace', {
+  execSync('pnpm install --prod --shamefully-hoist', {
     cwd: 'dist',
-    stdio: 'inherit'
+    stdio: 'inherit',
   })
 
-  // 5. 删除依赖配置
+  // 6. 删除依赖配置
   fs.removeSync('dist/package.json')
   fs.removeSync('dist/pnpm-lock.yaml')
+  if (fs.existsSync(distPnpmWorkspacePath)) {
+    fs.removeSync(distPnpmWorkspacePath)
+  }
   console.log(
-    '✅ [Post-build] Removed package.json and pnpm-lock.yaml from dist/'
+    '✅ [Post-build] Removed package.json, pnpm-lock.yaml and pnpm-workspace.yaml from dist/',
   )
 
-  // 6. 打包 dist 目录
+  // 7. 打包 dist 目录
   try {
     const pkg = fs.readJsonSync('package.json')
     const version = pkg.version
@@ -116,12 +129,14 @@ async function main() {
       type: 'nodebuffer',
       compression: 'DEFLATE',
       compressionOptions: {
-        level: 9
-      }
+        level: 9,
+      },
     })
     fs.writeFileSync(zipName, content)
     const sizeMB = (content.length / (1024 * 1024)).toFixed(2)
-    console.log(`✅ [Post-build] Successfully created ${zipName} (大小: ${sizeMB} MB)`)
+    console.log(
+      `✅ [Post-build] Successfully created ${zipName} (大小: ${sizeMB} MB)`,
+    )
   } catch (error) {
     console.error('❌ [Post-build] 打包压缩文件失败:', error)
     process.exit(1)
