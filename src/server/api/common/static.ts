@@ -2,7 +2,6 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import {
-  clearUnreferencedInputImages,
   deleteUnreferencedImages,
   listImages,
   openImageDirectory,
@@ -91,15 +90,6 @@ const staticApi = new Hono()
     try {
       openImageDirectory('input')
       return c.json({ success: true })
-    } catch (error: any) {
-      return c.json({ success: false, error: error.message }, 500)
-    }
-  })
-  .post('/images/input/clear-unreferenced', async (c) => {
-    try {
-      const { deletedCount } = await clearUnreferencedInputImages()
-
-      return c.json({ success: true, deletedCount })
     } catch (error: any) {
       return c.json({ success: false, error: error.message }, 500)
     }

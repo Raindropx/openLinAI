@@ -288,11 +288,6 @@ export async function deleteUnreferencedImages(
   return { deletedCount, skippedCount }
 }
 
-export async function clearUnreferencedInputImages() {
-  const { deletedCount } = await deleteUnreferencedImages({ type: 'input' })
-  return { deletedCount }
-}
-
 async function getFilesInfo(
   dir: string,
   apiPath: string,

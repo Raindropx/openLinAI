@@ -106,10 +106,10 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
   )
 
   useEffect(() => {
-    if (visible) {
+    if (visible && referencesReady) {
       fetchImages()
     }
-  }, [visible])
+  }, [visible, referencesReady])
 
   useEffect(() => {
     setImages((prev) =>
@@ -289,32 +289,34 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
           {
             key: 'input',
             label: '输入图片',
-            children: loading ? (
-              <div className="p-8 text-center">
-                <Spin />
-              </div>
-            ) : (
-              renderImageGrid(
-                images
-                  .filter((img) => img.type === 'input')
-                  .map((img) => img.url),
-              )
-            ),
+            children:
+              loading || !referencesReady ? (
+                <div className="p-8 text-center">
+                  <Spin />
+                </div>
+              ) : (
+                renderImageGrid(
+                  images
+                    .filter((img) => img.type === 'input')
+                    .map((img) => img.url),
+                )
+              ),
           },
           {
             key: 'generated',
             label: '生成图片',
-            children: loading ? (
-              <div className="p-8 text-center">
-                <Spin />
-              </div>
-            ) : (
-              renderImageGrid(
-                images
-                  .filter((img) => img.type === 'generated')
-                  .map((img) => img.url),
-              )
-            ),
+            children:
+              loading || !referencesReady ? (
+                <div className="p-8 text-center">
+                  <Spin />
+                </div>
+              ) : (
+                renderImageGrid(
+                  images
+                    .filter((img) => img.type === 'generated')
+                    .map((img) => img.url),
+                )
+              ),
           },
         ]}
       />
