@@ -7,7 +7,7 @@ import {
   GENERATED_IMAGES_API_PATH,
   GENERATED_IMAGES_DIR,
   INPUT_IMAGES_DIR,
-} from '../../api/common/static'
+} from '../../common/static'
 import { taskManager } from '../../api/common/task'
 import { TaskTemplate } from '../../common/template-manager'
 import { logger } from '../utils/logger'

@@ -4,8 +4,8 @@ import { Hono } from 'hono'
 import path from 'path'
 import { z } from 'zod'
 import { getYunwuApiKey } from '../common/config'
+import { INPUT_IMAGES_API_PATH, INPUT_IMAGES_DIR } from '../common/static'
 import { createChatCompletion } from '../module/chat'
-import { INPUT_IMAGES_API_PATH, INPUT_IMAGES_DIR } from './common/static'
 
 const chatContentPartSchema = z.discriminatedUnion('type', [
   z

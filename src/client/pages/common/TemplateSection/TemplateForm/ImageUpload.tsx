@@ -1,9 +1,14 @@
-import { CloseCircleFilled, UploadOutlined } from '@ant-design/icons'
+import {
+  CloseCircleFilled,
+  PictureOutlined,
+  UploadOutlined,
+} from '@ant-design/icons'
 import { useLocalStorageState } from 'ahooks'
 import { Image as AntImage, Button, message, Upload } from 'antd'
 import { hc } from 'hono/client'
 import { useEffect, useRef } from 'react'
 import type { AppType } from '../../../../../server'
+import { openGallery } from '../../components/Gallery'
 
 const client = hc<AppType>('/')
 
@@ -43,47 +48,6 @@ function getClosestAspectRatio(width: number, height: number) {
 
 const LOCAL_STORAGE_KEY = 'recent_uploaded_images'
 
-function RecentImages({
-  recentImages,
-  currentValue,
-  onSelect,
-  onRemove,
-  onClear,
-}: {
-  recentImages: string[]
-  currentValue: string[]
-  onSelect: (url: string) => void
-  onRemove: (url: string) => void
-  onClear: () => void
-}) {
-  const displayImages = recentImages
-    .filter((url) => !currentValue.includes(url))
-    .slice(0, 3)
-
-  if (displayImages.length === 0) return null
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-sm text-slate-400">最近:</span>
-      {displayImages.map((url) => (
-        <img
-          key={url}
-          src={url}
-          alt="recent"
-          className="h-8 w-8 cursor-pointer rounded border border-slate-200 object-cover transition-colors hover:border-blue-500"
-          onClick={() => onSelect(url)}
-          onError={() => onRemove(url)}
-        />
-      ))}
-      <CloseCircleFilled
-        className="cursor-pointer text-slate-400! transition-colors hover:text-slate-600!"
-        onClick={onClear}
-        title="清空最近图片"
-      />
-    </div>
-  )
-}
-
 export function ImageUpload({
   value = [],
   onChange,
@@ -91,7 +55,7 @@ export function ImageUpload({
   onFirstImageRatio,
 }: ImageUploadProps) {
   const uploadingCountRef = useRef(0)
-  const [recentImages = [], setRecentImages] = useLocalStorageState<string[]>(
+  const [, setRecentImages] = useLocalStorageState<string[]>(
     LOCAL_STORAGE_KEY,
     { defaultValue: [] },
   )
@@ -210,30 +174,29 @@ export function ImageUpload({
         >
           <Button icon={<UploadOutlined />}>拖入/选择图片</Button>
         </Upload>
-        <RecentImages
-          recentImages={recentImages}
-          currentValue={value}
-          onSelect={(url) => {
-            if (latestValueRef.current.length === 0 && onFirstImageRatio) {
-              const img = new Image()
-              img.onload = () => {
-                const ratio = getClosestAspectRatio(img.width, img.height)
-                onFirstImageRatio(ratio)
-              }
-              img.src = url
-            }
-            const newUrls = [...latestValueRef.current, url]
-            latestValueRef.current = newUrls
-            onChange?.(newUrls)
-            addRecentImage(url)
+        <Button
+          icon={<PictureOutlined />}
+          onClick={() => {
+            openGallery({
+              onSelect: (url: string) => {
+                if (latestValueRef.current.length === 0 && onFirstImageRatio) {
+                  const img = new Image()
+                  img.onload = () => {
+                    const ratio = getClosestAspectRatio(img.width, img.height)
+                    onFirstImageRatio(ratio)
+                  }
+                  img.src = url
+                }
+                const newUrls = [...latestValueRef.current, url]
+                latestValueRef.current = newUrls
+                onChange?.(newUrls)
+                addRecentImage(url)
+              },
+            })
           }}
-          onRemove={(url) => {
-            setRecentImages((prev = []) => prev.filter((u) => u !== url))
-          }}
-          onClear={() => {
-            setRecentImages([])
-          }}
-        />
+        >
+          图库
+        </Button>
       </div>
       {value.length > 0 && (
         <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
