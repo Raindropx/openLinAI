@@ -1,4 +1,4 @@
-import { Button, Modal, Spin, Tabs } from 'antd'
+import { Modal, Spin, Tabs } from 'antd'
 import { hc } from 'hono/client'
 import { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -10,6 +10,8 @@ import {
 import { useRecentImages } from '../../../../hooks/useRecentImages'
 import { useTasks } from '../../../../hooks/useTasks'
 import { useTemplates } from '../../../../hooks/useTemplates'
+import type { GalleryDeleteSuccessPayload } from './Footer'
+import { GalleryFooter } from './Footer'
 
 const client = hc<AppType>('/')
 
@@ -23,6 +25,7 @@ type ImageItem = {
   url: string
   type: 'input' | 'generated'
   createdAt: number
+  isReferenced: boolean
 }
 
 export type GalleryImageSelection = Pick<ImageItem, 'url' | 'type'>
@@ -37,12 +40,37 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
   const { data: tasks = [], loading: tasksLoading } = useTasks()
 
   const referencesReady = !templatesLoading && !tasksLoading
+  const normalizeComparableUrl = (url: string) =>
+    url
+      .replace(/^https?:\/\/[^/]+/i, '')
+      .split('?')[0]
+      .split('#')[0]
+      .trim()
+
+  const getComparableImageUrl = (
+    type: ImageItem['type'],
+    url: string,
+  ): string | null => {
+    const apiPath =
+      type === 'input' ? INPUT_IMAGES_API_PATH : GENERATED_IMAGES_API_PATH
+    const normalizedUrl = normalizeComparableUrl(url)
+
+    if (!normalizedUrl.startsWith(`${apiPath}/`)) {
+      return null
+    }
+
+    return normalizedUrl
+  }
 
   const referencedInputUrls = useMemo(
     () =>
       new Set(
         templates.flatMap((template) =>
-          Array.isArray(template.images) ? template.images : [],
+          Array.isArray(template.images)
+            ? template.images
+                .map((url) => getComparableImageUrl('input', url))
+                .filter((url): url is string => Boolean(url))
+            : [],
         ),
       ),
     [templates],
@@ -52,16 +80,23 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
     const urls = tasks.flatMap((task) => {
       if (Array.isArray(task.outputUrls) && task.outputUrls.length > 0) {
         return task.outputUrls
+          .map((url) => getComparableImageUrl('generated', url))
+          .filter((url): url is string => Boolean(url))
       }
 
-      return task.outputUrl ? [task.outputUrl] : []
+      if (!task.outputUrl) {
+        return []
+      }
+
+      const normalizedUrl = getComparableImageUrl('generated', task.outputUrl)
+      return normalizedUrl ? [normalizedUrl] : []
     })
 
     return new Set(urls)
   }, [tasks])
 
-  const imageTypeByUrl = useMemo(
-    () => new Map(images.map((image) => [image.url, image.type])),
+  const imageByUrl = useMemo(
+    () => new Map(images.map((image) => [image.url, image])),
     [images],
   )
 
@@ -76,19 +111,54 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
     }
   }, [visible])
 
-  const fetchImages = async () => {
+  useEffect(() => {
+    setImages((prev) =>
+      prev.map((image) => ({
+        ...image,
+        isReferenced: resolveIsReferenced(image),
+      })),
+    )
+  }, [referencesReady, referencedInputUrls, referencedGeneratedUrls])
+
+  const resolveIsReferenced = (
+    image: Pick<ImageItem, 'url' | 'type'>,
+  ): boolean => {
+    if (!referencesReady) {
+      return true
+    }
+
+    const comparableUrl = getComparableImageUrl(image.type, image.url)
+    if (!comparableUrl) {
+      return true
+    }
+
+    return image.type === 'input'
+      ? referencedInputUrls.has(comparableUrl)
+      : referencedGeneratedUrls.has(comparableUrl)
+  }
+
+  const fetchImages = async (): Promise<ImageItem[]> => {
     setLoading(true)
     try {
       const res = await client.api.static.images.list.$get()
       const data = await res.json()
       if (data.success) {
-        setImages(data.data as ImageItem[])
+        const nextImages = (
+          data.data as Array<Omit<ImageItem, 'isReferenced'>>
+        ).map((image) => ({
+          ...image,
+          isReferenced: resolveIsReferenced(image),
+        }))
+        setImages(nextImages)
+        return nextImages
       }
     } catch (e) {
       console.error('Failed to fetch images', e)
     } finally {
       setLoading(false)
     }
+
+    return []
   }
 
   const handleSelect = (url: string) => {
@@ -105,18 +175,17 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
     onSelect(
       selectedUrls.map((url) => ({
         url,
-        type: getImageType(url) ?? 'input',
+        type: resolveImageType(url) ?? 'input',
       })),
     )
     onClose()
   }
 
-  const getImageType = (url: string): ImageItem['type'] | undefined => {
-    const type = imageTypeByUrl.get(url)
-    if (type) {
-      return type
+  const resolveImageType = (url: string): ImageItem['type'] | undefined => {
+    const image = imageByUrl.get(url)
+    if (image) {
+      return image.type
     }
-
     if (url.includes(INPUT_IMAGES_API_PATH)) {
       return 'input'
     }
@@ -127,22 +196,13 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
 
     return undefined
   }
+  const handleDeleteImages = async ({ urls }: GalleryDeleteSuccessPayload) => {
+    const nextImages = await fetchImages()
+    const existingUrlSet = new Set(nextImages.map((image) => image.url))
 
-  const isUnreferenced = (url: string) => {
-    if (!referencesReady) {
-      return false
-    }
-
-    const type = getImageType(url)
-    if (type === 'input') {
-      return !referencedInputUrls.has(url)
-    }
-
-    if (type === 'generated') {
-      return !referencedGeneratedUrls.has(url)
-    }
-
-    return false
+    setSelectedUrls((prev) =>
+      prev.filter((url) => !urls.includes(url) || existingUrlSet.has(url)),
+    )
   }
 
   const renderImageGrid = (urls: string[]) => {
@@ -172,11 +232,12 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
-                {isUnreferenced(url) && (
-                  <div className="absolute top-1 left-1 z-10 rounded bg-red-500 px-2 py-0.5 text-xs text-white shadow-sm">
-                    无引用
-                  </div>
-                )}
+                {referencesReady &&
+                  imageByUrl.get(url)?.isReferenced === false && (
+                    <div className="absolute top-1 left-1 z-10 rounded bg-red-500 px-2 py-0.5 text-xs text-white shadow-sm">
+                      无引用
+                    </div>
+                  )}
                 <div
                   className={`absolute inset-0 flex items-center justify-center transition-colors ${
                     selected ? 'bg-blue-500/45' : 'bg-black/0 hover:bg-black/5'
@@ -202,21 +263,16 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
       open={visible}
       onCancel={onClose}
       footer={
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-slate-500">
-            已选择 {selectedUrls.length} 张图片
-          </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={onClose}>取消</Button>
-            <Button
-              type="primary"
-              onClick={handleConfirm}
-              disabled={selectedUrls.length === 0}
-            >
-              确认选择
-            </Button>
-          </div>
-        </div>
+        referencesReady ? (
+          <GalleryFooter
+            activeKey={activeKey}
+            selectedUrls={selectedUrls}
+            images={images}
+            onCancel={onClose}
+            onConfirm={handleConfirm}
+            onDelete={handleDeleteImages}
+          />
+        ) : null
       }
       width={800}
       destroyOnClose

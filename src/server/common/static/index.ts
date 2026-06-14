@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import fs from 'fs-extra'
 import path from 'path'
 import sharp from 'sharp'
+import { taskManager } from '../task-manager'
 import { templateManager } from '../template-manager'
 import { GENERATED_IMAGES_API_PATH, INPUT_IMAGES_API_PATH } from './enum'
 
@@ -35,6 +36,11 @@ interface ListedImageInfo {
   createdAt: number
 }
 
+interface DeleteUnreferencedImagesOptions {
+  type: ImageDirectoryType
+  urls?: string[]
+}
+
 fs.ensureDirSync(GENERATED_IMAGES_DIR)
 fs.ensureDirSync(INPUT_IMAGES_DIR)
 fs.ensureDirSync(THUMB_IMAGES_DIR)
@@ -45,6 +51,12 @@ function getImageDirectory(type: ImageDirectoryType) {
 
 function getThumbnailPath(type: ImageDirectoryType, filename: string) {
   return path.join(THUMB_IMAGES_DIR, type, `${path.parse(filename).name}.webp`)
+}
+
+function getImageApiPath(type: ImageDirectoryType) {
+  return type === 'generated'
+    ? GENERATED_IMAGES_API_PATH
+    : INPUT_IMAGES_API_PATH
 }
 
 function getImageMimeType(filename: string) {
@@ -162,42 +174,122 @@ export function openImageDirectory(type: ImageDirectoryType) {
   exec(command)
 }
 
-export async function clearUnreferencedInputImages() {
-  const templates = await templateManager.getTemplates()
+function getFilenameFromUrl(type: ImageDirectoryType, url: string) {
+  const apiPath = getImageApiPath(type)
+
+  if (!url.startsWith(apiPath)) {
+    return null
+  }
+
+  const filename = url
+    .slice(apiPath.length + 1)
+    .split('?')[0]
+    .split('#')[0]
+    .trim()
+
+  return filename ? path.basename(filename) : null
+}
+
+async function getReferencedImageFilenames(type: ImageDirectoryType) {
   const referencedImages = new Set<string>()
 
-  for (const template of templates) {
-    if (!template.images || !Array.isArray(template.images)) {
-      continue
-    }
+  if (type === 'input') {
+    const templates = await templateManager.getTemplates()
 
-    for (const imgUrl of template.images) {
-      if (!imgUrl.startsWith(INPUT_IMAGES_API_PATH)) {
+    for (const template of templates) {
+      if (!Array.isArray(template.images)) {
         continue
       }
 
-      const filename = imgUrl.split('/').pop()
+      for (const imageUrl of template.images) {
+        const filename = getFilenameFromUrl(type, imageUrl)
+        if (filename) {
+          referencedImages.add(filename)
+        }
+      }
+    }
+
+    return referencedImages
+  }
+
+  const tasks = await taskManager.getTasks()
+
+  for (const task of tasks) {
+    const imageUrls = Array.isArray(task.outputUrls)
+      ? task.outputUrls
+      : task.outputUrl
+        ? [task.outputUrl]
+        : []
+
+    for (const imageUrl of imageUrls) {
+      const filename = getFilenameFromUrl(type, imageUrl)
       if (filename) {
         referencedImages.add(filename)
       }
     }
   }
 
-  const files = await fs.readdir(INPUT_IMAGES_DIR)
+  return referencedImages
+}
+
+async function deleteImageFile(type: ImageDirectoryType, filename: string) {
+  const filePath = path.join(getImageDirectory(type), filename)
+  const thumbPath = getThumbnailPath(type, filename)
+
+  if (await fs.pathExists(filePath)) {
+    await fs.remove(filePath)
+  }
+
+  if (await fs.pathExists(thumbPath)) {
+    await fs.remove(thumbPath)
+  }
+}
+
+export async function deleteUnreferencedImages(
+  options: DeleteUnreferencedImagesOptions,
+) {
+  const { type, urls } = options
+  const referencedImages = await getReferencedImageFilenames(type)
+  const targetDir = getImageDirectory(type)
+  const targetFilenames = new Set<string>()
+
+  if (Array.isArray(urls) && urls.length > 0) {
+    for (const url of urls) {
+      const filename = getFilenameFromUrl(type, url)
+      if (filename) {
+        targetFilenames.add(filename)
+      }
+    }
+  } else {
+    const files = await fs.readdir(targetDir)
+
+    for (const file of files) {
+      const filePath = path.join(targetDir, file)
+      const stat = await fs.stat(filePath)
+      if (stat.isFile()) {
+        targetFilenames.add(file)
+      }
+    }
+  }
+
   let deletedCount = 0
+  let skippedCount = 0
 
-  for (const file of files) {
-    const filePath = path.join(INPUT_IMAGES_DIR, file)
-    const stat = await fs.stat(filePath)
-
-    if (!stat.isFile() || referencedImages.has(file)) {
+  for (const filename of targetFilenames) {
+    if (referencedImages.has(filename)) {
+      skippedCount++
       continue
     }
 
-    await fs.remove(filePath)
+    await deleteImageFile(type, filename)
     deletedCount++
   }
 
+  return { deletedCount, skippedCount }
+}
+
+export async function clearUnreferencedInputImages() {
+  const { deletedCount } = await deleteUnreferencedImages({ type: 'input' })
   return { deletedCount }
 }
 

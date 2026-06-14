@@ -216,3 +216,5 @@ export class TaskManager extends EventEmitter {
     return true
   }
 }
+
+export const taskManager = new TaskManager()

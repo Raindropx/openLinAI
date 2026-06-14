@@ -8,7 +8,7 @@ import {
   INPUT_IMAGES_DIR,
 } from '../../common/static'
 import { GENERATED_IMAGES_API_PATH } from '../../common/static/enum'
-import { taskManager } from '../../api/common/task'
+import { taskManager } from '../../common/task-manager'
 import { TaskTemplate } from '../../common/template-manager'
 import { logger } from '../utils/logger'
 import { GPT_IMAGE_SOURCE_MODEL, GptImageQuality, GptImageSize } from './enum'

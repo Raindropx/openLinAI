@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import {
   clearUnreferencedInputImages,
+  deleteUnreferencedImages,
   listImages,
   openImageDirectory,
   serveImage,
@@ -103,6 +104,26 @@ const staticApi = new Hono()
       return c.json({ success: false, error: error.message }, 500)
     }
   })
+  .post(
+    '/images/delete-unreferenced',
+    zValidator(
+      'json',
+      z.object({
+        type: z.enum(['input', 'generated']),
+        urls: z.array(z.string()).optional(),
+      }),
+    ),
+    async (c) => {
+      try {
+        const { type, urls } = c.req.valid('json')
+        const result = await deleteUnreferencedImages({ type, urls })
+
+        return c.json({ success: true, ...result })
+      } catch (error: any) {
+        return c.json({ success: false, error: error.message }, 500)
+      }
+    },
+  )
   .get('/images/list', async (c) => {
     try {
       return c.json({ success: true, data: await listImages() })
