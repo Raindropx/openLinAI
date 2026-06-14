@@ -16,7 +16,7 @@ const client = hc<AppType>('/')
 interface GalleryModalProps {
   visible: boolean
   onClose: () => void
-  onSelect: (urls: string[]) => void
+  onSelect: (images: GalleryImageSelection[]) => void
 }
 
 type ImageItem = {
@@ -24,6 +24,8 @@ type ImageItem = {
   type: 'input' | 'generated'
   createdAt: number
 }
+
+export type GalleryImageSelection = Pick<ImageItem, 'url' | 'type'>
 
 function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
   const [activeKey, setActiveKey] = useState('recent')
@@ -100,7 +102,12 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
       return
     }
 
-    onSelect(selectedUrls)
+    onSelect(
+      selectedUrls.map((url) => ({
+        url,
+        type: getImageType(url) ?? 'input',
+      })),
+    )
     onClose()
   }
 
@@ -259,7 +266,9 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
   )
 }
 
-export function openGallery(options: { onSelect: (urls: string[]) => void }) {
+export function openGallery(options: {
+  onSelect: (images: GalleryImageSelection[]) => void
+}) {
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)

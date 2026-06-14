@@ -8,7 +8,10 @@ import { hc } from 'hono/client'
 import { useEffect, useRef } from 'react'
 import type { AppType } from '../../../../../server'
 import { useRecentImages } from '../../../../hooks/useRecentImages'
-import { openGallery } from '../../components/Gallery'
+import {
+  openGallery,
+  type GalleryImageSelection,
+} from '../../components/Gallery'
 
 const client = hc<AppType>('/')
 
@@ -64,6 +67,38 @@ export function ImageUpload({
     onUploadingChange?.(newCount > 0)
   }
 
+  const uploadImageBase64 = async (base64: string) => {
+    const res = await client.api.static.images.upload.$post({
+      json: { image: base64 },
+    })
+    const data = await res.json()
+
+    if (!data.success || !('url' in data)) {
+      throw new Error((data as any).error || '图片上传失败')
+    }
+
+    return data.url as string
+  }
+
+  const blobToBase64 = (blob: Blob) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error('图片读取失败'))
+      reader.readAsDataURL(blob)
+    })
+
+  const uploadImageFromUrl = async (url: string) => {
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error('图片下载失败')
+    }
+
+    const blob = await response.blob()
+    const base64 = await blobToBase64(blob)
+    return uploadImageBase64(base64)
+  }
+
   const handleUpload = (file: File) => {
     const reader = new FileReader()
     reader.onload = async (e) => {
@@ -80,22 +115,16 @@ export function ImageUpload({
 
       handleUploadCountChange(1)
       try {
-        const res = await client.api.static.images.upload.$post({
-          json: { image: base64 },
-        })
-        const data = await res.json()
-        if (data.success && 'url' in data) {
-          const url = data.url as string
-          const newUrls = [...latestValueRef.current, url]
-          latestValueRef.current = newUrls
-          onChange?.(newUrls)
-          addRecentImages(url)
-          message.success('图片上传成功')
-        } else {
-          message.error((data as any).error || '图片上传失败')
-        }
+        const url = await uploadImageBase64(base64)
+        const newUrls = [...latestValueRef.current, url]
+        latestValueRef.current = newUrls
+        onChange?.(newUrls)
+        addRecentImages(url)
+        message.success('图片上传成功')
       } catch (error) {
-        message.error('图片上传请求失败')
+        message.error(
+          error instanceof Error ? error.message : '图片上传请求失败',
+        )
       } finally {
         handleUploadCountChange(-1)
       }
@@ -160,14 +189,14 @@ export function ImageUpload({
           beforeUpload={handleUpload}
           multiple
         >
-          <Button icon={<UploadOutlined />}>拖入/选择图片</Button>
+          <Button icon={<UploadOutlined />}>拖入/选择本地图片</Button>
         </Upload>
         <Button
           icon={<PictureOutlined />}
           onClick={() => {
             openGallery({
-              onSelect: (urls: string[]) => {
-                if (urls.length === 0) {
+              onSelect: async (images: GalleryImageSelection[]) => {
+                if (images.length === 0) {
                   return
                 }
 
@@ -177,13 +206,27 @@ export function ImageUpload({
                     const ratio = getClosestAspectRatio(img.width, img.height)
                     onFirstImageRatio(ratio)
                   }
-                  img.src = urls[0]
+                  img.src = images[0].url
                 }
 
-                const newUrls = [...latestValueRef.current, ...urls]
-                latestValueRef.current = newUrls
-                onChange?.(newUrls)
-                addRecentImages(urls)
+                handleUploadCountChange(images.length)
+                try {
+                  const processedUrls = await Promise.all(
+                    images.map(({ url, type }) =>
+                      type === 'generated' ? uploadImageFromUrl(url) : url,
+                    ),
+                  )
+                  const newUrls = [...latestValueRef.current, ...processedUrls]
+                  latestValueRef.current = newUrls
+                  onChange?.(newUrls)
+                  addRecentImages(processedUrls)
+                } catch (error) {
+                  message.error(
+                    error instanceof Error ? error.message : '图库图片处理失败',
+                  )
+                } finally {
+                  handleUploadCountChange(-images.length)
+                }
               },
             })
           }}
