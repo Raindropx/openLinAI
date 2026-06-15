@@ -1,5 +1,6 @@
 import { Home } from './pages/common/Home'
 import { TTS } from './pages/module/GeminiTTS'
+import { MediaClassifier } from './pages/module/MediaClassifier'
 
 export const appRoutes = [
   {
@@ -13,5 +14,11 @@ export const appRoutes = [
     label: '语音合成',
     element: <TTS />,
     key: 'tts',
+  },
+  {
+    path: '/media-classifier',
+    label: '图片整理',
+    element: <MediaClassifier />,
+    key: 'media-classifier',
   },
 ]

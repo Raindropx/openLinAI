@@ -11,6 +11,7 @@ import templateApi from './api/common/template'
 import chatApi from './api/chat'
 import geminiApi from './api/gemini'
 import gptImageApi from './api/gpt-image'
+import mediaClassifierApi from './api/media-classifier'
 import ttsApi from './api/tts'
 import ttsInworldApi from './api/tts-inworld'
 import type WanApiType from './api/wan'
@@ -31,6 +32,7 @@ const routes = app
   .route('/api/tts', ttsApi)
   .route('/api/tts-inworld', ttsInworldApi)
   .route('/api/gptImage', gptImageApi)
+  .route('/api/media-classifier', mediaClassifierApi)
   // common
   .route('/api/task', taskApi)
   .route('/api/template', templateApi)
