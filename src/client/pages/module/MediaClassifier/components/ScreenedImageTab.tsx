@@ -6,12 +6,10 @@ import {
   Spin,
   Tag,
   Typography,
-  message,
 } from 'antd'
 import dayjs from 'dayjs'
-import { useEffect, useState } from 'react'
-import { getMediaImages } from '../api'
-import type { MediaImageListResult } from '../types'
+import { useEffect, useMemo, useState } from 'react'
+import type { MediaImageItem, MediaImageListResult } from '../types'
 
 const PAGE_SIZE = 18
 
@@ -26,30 +24,42 @@ const formatFileSize = (size: number) => {
 }
 
 interface ScreenedImageTabProps {
+  images: MediaImageItem[]
+  loading: boolean
   refreshKey: number
 }
 
-export function ScreenedImageTab({ refreshKey }: ScreenedImageTabProps) {
+export function ScreenedImageTab({
+  images,
+  loading,
+  refreshKey,
+}: ScreenedImageTabProps) {
   const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<MediaImageListResult | null>(null)
-
-  const loadData = async (pageNumber = 1) => {
-    setLoading(true)
-    try {
-      const nextData = await getMediaImages('screened', pageNumber, PAGE_SIZE)
-      setData(nextData)
-      setPage(pageNumber)
-    } catch (error: any) {
-      message.error(error.message || '获取筛选后的图片失败')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   useEffect(() => {
-    void loadData(1)
+    setPage(1)
   }, [refreshKey])
+
+  useEffect(() => {
+    const maxPage = Math.max(Math.ceil(images.length / PAGE_SIZE), 1)
+    setPage((currentPage) => Math.min(currentPage, maxPage))
+  }, [images.length])
+
+  const data = useMemo<MediaImageListResult | null>(() => {
+    if (images.length === 0) {
+      return null
+    }
+
+    const start = (page - 1) * PAGE_SIZE
+    const end = start + PAGE_SIZE
+    return {
+      items: images.slice(start, end),
+      total: images.length,
+      page,
+      pageSize: PAGE_SIZE,
+      hasMore: end < images.length,
+    }
+  }, [images, page])
 
   if (loading) {
     return (
@@ -79,10 +89,10 @@ export function ScreenedImageTab({ refreshKey }: ScreenedImageTabProps) {
               筛选后的图片
             </Typography.Title>
             <Typography.Text type="secondary">
-              这里先展示已保留的图片，后续再补分类操作。
+              这里展示当前浏览器本地标记为保留的图片。
             </Typography.Text>
           </div>
-          <Tag color="success">已同步到结果目录</Tag>
+          <Tag color="success">本地保留标记</Tag>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -127,7 +137,7 @@ export function ScreenedImageTab({ refreshKey }: ScreenedImageTabProps) {
             pageSize={data.pageSize}
             total={data.total}
             showSizeChanger={false}
-            onChange={(pageNumber) => void loadData(pageNumber)}
+            onChange={setPage}
           />
         </div>
       </Card>

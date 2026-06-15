@@ -4,16 +4,10 @@ import { z } from 'zod'
 import {
   deleteMediaImagePermanently,
   getAllMediaImages,
-  getMediaImages,
   getMediaWorkspaceSnapshot,
-  markMediaImage,
   readMediaImageBinary,
-  restoreMediaImage,
   setMediaWorkspace,
 } from '../module/media-classifier'
-
-const mediaStageSchema = z.enum(['original', 'screened', 'classified', 'trash'])
-const mediaStatusSchema = z.enum(['pending', 'keep', 'delete'])
 
 const mediaClassifierApi = new Hono()
   .get('/workspace', async (c) => {
@@ -47,89 +41,16 @@ const mediaClassifierApi = new Hono()
       }
     },
   )
-  .get(
-    '/images',
-    zValidator(
-      'query',
-      z.object({
-        stage: mediaStageSchema,
-        page: z.coerce.number().optional().default(1),
-        pageSize: z.coerce.number().optional().default(24),
-      }),
-    ),
-    async (c) => {
-      try {
-        const { stage, page, pageSize } = c.req.valid('query')
-        return c.json({
-          success: true,
-          data: await getMediaImages(stage, page, pageSize),
-        })
-      } catch (error: any) {
-        return c.json({ success: false, error: error.message }, 500)
-      }
-    },
-  )
-  .get(
-    '/images/all',
-    zValidator(
-      'query',
-      z.object({
-        stage: mediaStageSchema,
-      }),
-    ),
-    async (c) => {
-      try {
-        const { stage } = c.req.valid('query')
-        return c.json({
-          success: true,
-          data: await getAllMediaImages(stage),
-        })
-      } catch (error: any) {
-        return c.json({ success: false, error: error.message }, 500)
-      }
-    },
-  )
-  .post(
-    '/images/mark',
-    zValidator(
-      'json',
-      z.object({
-        relativePath: z.string(),
-        status: mediaStatusSchema,
-      }),
-    ),
-    async (c) => {
-      try {
-        const { relativePath, status } = c.req.valid('json')
-        return c.json({
-          success: true,
-          data: await markMediaImage(relativePath, status),
-        })
-      } catch (error: any) {
-        return c.json({ success: false, error: error.message }, 500)
-      }
-    },
-  )
-  .post(
-    '/trash/restore',
-    zValidator(
-      'json',
-      z.object({
-        relativePath: z.string(),
-      }),
-    ),
-    async (c) => {
-      try {
-        const { relativePath } = c.req.valid('json')
-        return c.json({
-          success: true,
-          data: await restoreMediaImage(relativePath),
-        })
-      } catch (error: any) {
-        return c.json({ success: false, error: error.message }, 500)
-      }
-    },
-  )
+  .get('/images/all', async (c) => {
+    try {
+      return c.json({
+        success: true,
+        data: await getAllMediaImages(),
+      })
+    } catch (error: any) {
+      return c.json({ success: false, error: error.message }, 500)
+    }
+  })
   .post(
     '/trash/delete',
     zValidator(

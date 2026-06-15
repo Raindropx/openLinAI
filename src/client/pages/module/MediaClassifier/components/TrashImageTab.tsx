@@ -2,16 +2,16 @@ import { DeleteOutlined, ReloadOutlined } from '@ant-design/icons'
 import { Button, Card, Empty, Modal, Spin, Typography, message } from 'antd'
 import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
-import {
-  deleteMediaImagePermanently,
-  getMediaImages,
-  restoreMediaImage,
-} from '../api'
+import { deleteMediaImagePermanently } from '../api'
+import { updateMediaLocalMark } from '../localMarks'
 import type { MediaImageItem } from '../types'
 
 const TRASH_PAGE_SIZE = 20
 
 interface TrashImageTabProps {
+  images: MediaImageItem[]
+  loading: boolean
+  onImagesChange: (images: MediaImageItem[]) => void
   refreshKey: number
   onMutated: () => Promise<void> | void
 }
@@ -142,7 +142,13 @@ function TrashPanel({
   )
 }
 
-export function TrashImageTab({ refreshKey, onMutated }: TrashImageTabProps) {
+export function TrashImageTab({
+  images,
+  loading,
+  onImagesChange,
+  refreshKey,
+  onMutated,
+}: TrashImageTabProps) {
   const [trashItems, setTrashItems] = useState<MediaImageItem[]>([])
   const [trashTotal, setTrashTotal] = useState(0)
   const [trashPage, setTrashPage] = useState(1)
@@ -152,7 +158,9 @@ export function TrashImageTab({ refreshKey, onMutated }: TrashImageTabProps) {
   const [actionKey, setActionKey] = useState<string | null>(null)
 
   const loadTrash = async (reset = false) => {
+    const trashImages = images.filter((item) => item.status === 'delete')
     const nextPage = reset ? 1 : trashPage + 1
+    const maxVisible = nextPage * TRASH_PAGE_SIZE
 
     if (reset) {
       setTrashLoading(true)
@@ -160,32 +168,32 @@ export function TrashImageTab({ refreshKey, onMutated }: TrashImageTabProps) {
       setTrashLoadingMore(true)
     }
 
-    try {
-      const data = await getMediaImages('trash', nextPage, TRASH_PAGE_SIZE)
-      setTrashItems((currentItems) =>
-        reset ? data.items : [...currentItems, ...data.items],
-      )
-      setTrashTotal(data.total)
-      setTrashPage(nextPage)
-      setTrashHasMore(data.hasMore)
-    } catch (error: any) {
-      message.error(error.message || '获取回收站失败')
-    } finally {
-      setTrashLoading(false)
-      setTrashLoadingMore(false)
-    }
+    setTrashItems(trashImages.slice(0, maxVisible))
+    setTrashTotal(trashImages.length)
+    setTrashPage(nextPage)
+    setTrashHasMore(maxVisible < trashImages.length)
+    setTrashLoading(false)
+    setTrashLoadingMore(false)
   }
 
   useEffect(() => {
     void loadTrash(true)
-  }, [refreshKey])
+  }, [images, refreshKey])
 
   const handleRestore = async (relativePath: string) => {
     setActionKey(`${relativePath}:restore`)
     try {
-      await restoreMediaImage(relativePath)
-      await loadTrash(true)
-      await onMutated()
+      const nextImages = images.map((item) =>
+        item.relativePath === relativePath
+          ? updateMediaLocalMark(item, 'pending')
+          : item,
+      )
+      const nextTrashImages = nextImages.filter((item) => item.status === 'delete')
+
+      onImagesChange(nextImages)
+      setTrashItems(nextTrashImages.slice(0, trashPage * TRASH_PAGE_SIZE))
+      setTrashTotal(nextTrashImages.length)
+      setTrashHasMore(trashPage * TRASH_PAGE_SIZE < nextTrashImages.length)
       message.success('图片已还原')
     } catch (error: any) {
       message.error(error.message || '还原失败')
@@ -203,7 +211,6 @@ export function TrashImageTab({ refreshKey, onMutated }: TrashImageTabProps) {
         setActionKey(`${relativePath}:permanent-delete`)
         try {
           await deleteMediaImagePermanently(relativePath)
-          await loadTrash(true)
           await onMutated()
           message.success('图片已彻底删除')
         } catch (error: any) {
@@ -220,7 +227,7 @@ export function TrashImageTab({ refreshKey, onMutated }: TrashImageTabProps) {
       items={trashItems}
       total={trashTotal}
       hasMore={trashHasMore}
-      loading={trashLoading}
+      loading={loading || trashLoading}
       loadingMore={trashLoadingMore}
       actionKey={actionKey}
       onLoadMore={() => loadTrash(false)}

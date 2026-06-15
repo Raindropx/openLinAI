@@ -6,7 +6,7 @@ import {
 } from '@ant-design/icons'
 import { Button, Card, Empty, Spin } from 'antd'
 import dayjs from 'dayjs'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { MediaDecisionStatus, MediaImageItem } from '../../types'
 import { MediaStatusImage } from './MediaStatusImage'
 
@@ -33,6 +33,21 @@ const formatFileSize = (size: number) => {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
+const PRELOAD_RANGE = 2
+
+const preloadImage = (src: string) =>
+  new Promise<void>((resolve, reject) => {
+    const image = new window.Image()
+    image.decoding = 'async'
+    image.onload = () => resolve()
+    image.onerror = () => reject(new Error(`图片预加载失败: ${src}`))
+    image.src = src
+
+    if (image.complete) {
+      resolve()
+    }
+  })
+
 export function OriginalImageScreeningView({
   images,
   loading,
@@ -41,6 +56,8 @@ export function OriginalImageScreeningView({
   onMark,
   actionKey,
 }: OriginalImageScreeningViewProps) {
+  const preloadedUrlsRef = useRef(new Set<string>())
+  const preloadingUrlsRef = useRef(new Set<string>())
   const currentImage = images[currentIndex]
   const previousImage = currentIndex > 0 ? images[currentIndex - 1] : null
   const nextImage =
@@ -89,6 +106,38 @@ export function OriginalImageScreeningView({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [currentImage, currentIndex, images.length, onChangeIndex, onMark])
+
+  useEffect(() => {
+    if (images.length === 0) {
+      return
+    }
+
+    const startIndex = Math.max(currentIndex - PRELOAD_RANGE, 0)
+    const endIndex = Math.min(currentIndex + PRELOAD_RANGE, images.length - 1)
+
+    for (let index = startIndex; index <= endIndex; index += 1) {
+      const previewUrl = images[index]?.previewUrl
+      if (
+        !previewUrl ||
+        preloadedUrlsRef.current.has(previewUrl) ||
+        preloadingUrlsRef.current.has(previewUrl)
+      ) {
+        continue
+      }
+
+      preloadingUrlsRef.current.add(previewUrl)
+      void preloadImage(previewUrl)
+        .then(() => {
+          preloadedUrlsRef.current.add(previewUrl)
+        })
+        .catch(() => {
+          preloadedUrlsRef.current.delete(previewUrl)
+        })
+        .finally(() => {
+          preloadingUrlsRef.current.delete(previewUrl)
+        })
+    }
+  }, [currentIndex, images])
 
   if (loading) {
     return (

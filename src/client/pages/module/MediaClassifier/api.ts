@@ -1,12 +1,6 @@
 import { hc } from 'hono/client'
 import type { AppType } from '../../../../server'
-import type {
-  MediaDecisionStatus,
-  MediaImageItem,
-  MediaImageListResult,
-  MediaImageStage,
-  MediaWorkspaceSnapshot,
-} from './types'
+import type { MediaImageItem, MediaWorkspaceSnapshot } from './types'
 
 const client = hc<AppType>('/')
 
@@ -47,48 +41,9 @@ export const saveMediaWorkspace = async (
     }),
   )
 
-export const getMediaImages = async (
-  stage: MediaImageStage,
-  page: number,
-  pageSize: number,
-) =>
-  unwrapResponse<MediaImageListResult>(
-    await client.api['media-classifier'].images.$get({
-      query: {
-        stage,
-        page: String(page),
-        pageSize: String(pageSize),
-      },
-    }),
-  )
-
-export const getAllMediaImages = async (stage: MediaImageStage) =>
+export const getAllMediaImages = async () =>
   unwrapResponse<MediaImageItem[]>(
-    await client.api['media-classifier'].images.all.$get({
-      query: { stage },
-    }),
-  )
-
-export const markMediaImage = async (
-  relativePath: string,
-  status: MediaDecisionStatus,
-) =>
-  unwrapResponse<MediaImageItem>(
-    await client.api['media-classifier'].images.mark.$post({
-      json: {
-        relativePath,
-        status,
-      },
-    }),
-  )
-
-export const restoreMediaImage = async (relativePath: string) =>
-  unwrapResponse<MediaImageItem>(
-    await client.api['media-classifier'].trash.restore.$post({
-      json: {
-        relativePath,
-      },
-    }),
+    await client.api['media-classifier'].images.all.$get(),
   )
 
 export const deleteMediaImagePermanently = async (relativePath: string) =>

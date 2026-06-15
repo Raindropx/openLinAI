@@ -1,12 +1,13 @@
 import { Card, Spin, Tabs, message } from 'antd'
-import { useEffect, useState } from 'react'
-import { getMediaWorkspace, saveMediaWorkspace } from './api'
+import { useEffect, useMemo, useState } from 'react'
+import { getAllMediaImages, getMediaWorkspace, saveMediaWorkspace } from './api'
 import { DirectorySelector } from './components/DirectorySelector'
 import { OriginalImageTab } from './components/OriginalImageTab'
 import { PlaceholderTab } from './components/PlaceholderTab'
 import { ScreenedImageTab } from './components/ScreenedImageTab'
 import { TrashImageTab } from './components/TrashImageTab'
-import type { MediaWorkspaceSnapshot } from './types'
+import { mergeMediaImagesWithLocalMarks } from './localMarks'
+import type { MediaImageItem, MediaWorkspaceSnapshot } from './types'
 
 export function MediaClassifier() {
   const [workspace, setWorkspace] = useState<MediaWorkspaceSnapshot | null>(
@@ -17,6 +18,8 @@ export function MediaClassifier() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [images, setImages] = useState<MediaImageItem[]>([])
+  const [imagesLoading, setImagesLoading] = useState(false)
 
   const syncWorkspace = (nextWorkspace: MediaWorkspaceSnapshot) => {
     setWorkspace(nextWorkspace)
@@ -45,6 +48,23 @@ export function MediaClassifier() {
     void loadWorkspace()
   }, [])
 
+  const loadImages = async (silent = false) => {
+    if (!silent) {
+      setImagesLoading(true)
+    }
+
+    try {
+      const nextImages = await getAllMediaImages()
+      setImages(mergeMediaImagesWithLocalMarks(nextImages))
+    } catch (error: any) {
+      message.error(error.message || '获取图片失败')
+    } finally {
+      if (!silent) {
+        setImagesLoading(false)
+      }
+    }
+  }
+
   const handleSaveWorkspace = async () => {
     setSaving(true)
     try {
@@ -66,6 +86,33 @@ export function MediaClassifier() {
 
   const configured = Boolean(workspace?.sourceDir && workspace?.resultDir)
 
+  useEffect(() => {
+    if (!configured) {
+      setImages([])
+      return
+    }
+
+    void loadImages()
+  }, [configured, refreshKey])
+
+  const summary = useMemo(() => {
+    const originalCount = images.length
+    const screenedCount = images.filter((item) => item.status === 'keep').length
+    const trashCount = images.filter((item) => item.status === 'delete').length
+
+    return {
+      originalCount,
+      screenedCount,
+      trashCount,
+      classifiedCount: 0,
+      pendingCount: Math.max(originalCount - screenedCount - trashCount, 0),
+    }
+  }, [images])
+
+  const screenedImages = useMemo(
+    () => images.filter((item) => item.status === 'keep'),
+    [images],
+  )
   if (loading) {
     return (
       <Card className="border-slate-200 shadow-sm">
@@ -97,22 +144,29 @@ export function MediaClassifier() {
         items={[
           {
             key: 'original',
-            label: `总图片（${workspace?.summary.originalCount ?? 0}）`,
+            label: `总图片（${summary.originalCount}）`,
             children: (
               <OriginalImageTab
-                refreshKey={refreshKey}
-                onMutated={handleMutated}
+                images={images}
+                loading={imagesLoading}
+                onImagesChange={setImages}
               />
             ),
           },
           {
             key: 'screened',
-            label: `筛选后的图片（${workspace?.summary.screenedCount ?? 0}）`,
-            children: <ScreenedImageTab refreshKey={refreshKey} />,
+            label: `筛选后的图片（${summary.screenedCount}）`,
+            children: (
+              <ScreenedImageTab
+                images={screenedImages}
+                loading={imagesLoading}
+                refreshKey={refreshKey}
+              />
+            ),
           },
           {
             key: 'classified',
-            label: `分类后的图片（${workspace?.summary.classifiedCount ?? 0}）`,
+            label: `分类后的图片（${summary.classifiedCount}）`,
             children: (
               <PlaceholderTab
                 title="分类后的图片"
@@ -122,9 +176,12 @@ export function MediaClassifier() {
           },
           {
             key: 'trash',
-            label: `回收站（${workspace?.summary.trashCount ?? 0}）`,
+            label: `回收站（${summary.trashCount}）`,
             children: (
               <TrashImageTab
+                images={images}
+                onImagesChange={setImages}
+                loading={imagesLoading}
                 refreshKey={refreshKey}
                 onMutated={handleMutated}
               />

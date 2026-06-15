@@ -1,5 +1,4 @@
 export type MediaDecisionStatus = 'pending' | 'keep' | 'delete'
-export type MediaImageStage = 'original' | 'screened' | 'classified' | 'trash'
 
 export interface MediaWorkspaceSnapshot {
   sourceDir: string
@@ -20,6 +19,8 @@ export interface MediaImageItem {
   resultPath: string | null
   size: number
   mtimeMs: number
+  infoHash: string
+  fileHash: string
   status: MediaDecisionStatus
   updatedAt: number | null
   previewUrl: string

@@ -1,4 +1,4 @@
-import { Image, Tag } from 'antd'
+import { Image } from 'antd'
 import type { KeyboardEvent } from 'react'
 import type { MediaImageItem } from '../../types'
 
@@ -14,11 +14,17 @@ interface MediaStatusImageProps {
 const statusConfig = {
   keep: {
     label: '已保留',
-    className: 'border-blue-200 bg-blue-500/90 text-white',
+    overlayClassName:
+      'bg-gradient-to-t from-blue-950/70 via-blue-700/20 to-slate-950/5 shadow-[inset_0_-140px_120px_rgba(30,64,175,0.42)]',
+    badgeClassName:
+      'border-blue-100/70 bg-blue-500/92 text-white shadow-[0_18px_50px_rgba(30,64,175,0.35)]',
   },
   delete: {
     label: '预删除',
-    className: 'border-red-200 bg-red-500/90 text-white',
+    overlayClassName:
+      'bg-gradient-to-t from-red-950/75 via-red-700/25 to-slate-950/5 shadow-[inset_0_-140px_120px_rgba(153,27,27,0.45)]',
+    badgeClassName:
+      'border-red-100/70 bg-red-500/92 text-white shadow-[0_18px_50px_rgba(153,27,27,0.38)]',
   },
 } as const
 
@@ -66,13 +72,18 @@ export function MediaStatusImage({
       />
 
       {status ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <Tag
-            bordered={false}
-            className={`rounded-full px-4 py-1 text-base font-medium shadow-sm ${status.className}`}
-          >
-            {status.label}
-          </Tag>
+        <div className="pointer-events-none absolute inset-0">
+          <div
+            className={`absolute inset-0 ${status.overlayClassName}`.trim()}
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div
+              className={`rounded border px-1 text-base backdrop-blur-[2px] ${status.badgeClassName}`.trim()}
+            >
+              {status.label}
+            </div>
+          </div>
         </div>
       ) : null}
     </div>

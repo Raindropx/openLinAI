@@ -13,6 +13,10 @@ const MEDIA_CLASSIFIER_STATE_FILE = path.join(
   MEDIA_CLASSIFIER_DATA_DIR,
   'state.json',
 )
+const MEDIA_CLASSIFIER_HASH_CACHE_FILE = path.join(
+  MEDIA_CLASSIFIER_DATA_DIR,
+  'hash-cache.json',
+)
 const MEDIA_CLASSIFIER_THUMB_DIR = path.join(
   MEDIA_CLASSIFIER_DATA_DIR,
   'thumb-cache',
@@ -32,18 +36,15 @@ const IMAGE_EXTENSIONS = new Set([
 ])
 
 export type MediaDecisionStatus = 'pending' | 'keep' | 'delete'
-export type MediaImageStage = 'original' | 'screened' | 'classified' | 'trash'
 type MediaWorkspaceKind = 'source' | 'result'
-
-interface StoredMediaDecision {
-  status: Exclude<MediaDecisionStatus, 'pending'>
-  updatedAt: number
-}
 
 interface MediaClassifierState {
   sourceDir: string
   resultDir: string
-  decisions: Record<string, StoredMediaDecision>
+}
+
+interface MediaHashCache {
+  fileHashes: Record<string, string>
 }
 
 interface ScannedImageRecord {
@@ -52,6 +53,8 @@ interface ScannedImageRecord {
   name: string
   size: number
   mtimeMs: number
+  infoHash: string
+  fileHash: string
 }
 
 export interface MediaImageItem {
@@ -61,6 +64,8 @@ export interface MediaImageItem {
   resultPath: string | null
   size: number
   mtimeMs: number
+  infoHash: string
+  fileHash: string
   status: MediaDecisionStatus
   updatedAt: number | null
   previewUrl: string
@@ -98,7 +103,10 @@ fs.ensureDirSync(MEDIA_CLASSIFIER_THUMB_DIR)
 const createDefaultState = (): MediaClassifierState => ({
   sourceDir: '',
   resultDir: '',
-  decisions: {},
+})
+
+const createDefaultHashCache = (): MediaHashCache => ({
+  fileHashes: {},
 })
 
 const normalizeAbsolutePath = (inputPath: string) =>
@@ -172,33 +180,6 @@ const buildImageUrl = (relativePath: string, thumb = false) =>
     thumb ? '&thumb=true' : ''
   }`
 
-const getDecisionStatus = (
-  decisions: MediaClassifierState['decisions'],
-  relativePath: string,
-): MediaDecisionStatus => decisions[relativePath]?.status ?? 'pending'
-
-const getDecisionUpdatedAt = (
-  decisions: MediaClassifierState['decisions'],
-  relativePath: string,
-) => decisions[relativePath]?.updatedAt ?? null
-
-const filterImagesByStage = (
-  images: MediaImageItem[],
-  stage: MediaImageStage,
-): MediaImageItem[] => {
-  switch (stage) {
-    case 'screened':
-      return images.filter((image) => image.status === 'keep')
-    case 'trash':
-      return images.filter((image) => image.status === 'delete')
-    case 'classified':
-      return []
-    case 'original':
-    default:
-      return images
-  }
-}
-
 const readState = async (): Promise<MediaClassifierState> => {
   if (!(await fs.pathExists(MEDIA_CLASSIFIER_STATE_FILE))) {
     return createDefaultState()
@@ -214,16 +195,56 @@ const readState = async (): Promise<MediaClassifierState> => {
       typeof rawState?.resultDir === 'string'
         ? normalizeAbsolutePath(rawState.resultDir)
         : '',
-    decisions:
-      rawState?.decisions && typeof rawState.decisions === 'object'
-        ? rawState.decisions
-        : {},
   }
 }
 
 const writeState = async (state: MediaClassifierState) => {
   await fs.outputJson(MEDIA_CLASSIFIER_STATE_FILE, state, { spaces: 2 })
 }
+
+const readHashCache = async (): Promise<MediaHashCache> => {
+  if (!(await fs.pathExists(MEDIA_CLASSIFIER_HASH_CACHE_FILE))) {
+    return createDefaultHashCache()
+  }
+
+  const rawHashCache = await fs.readJson(MEDIA_CLASSIFIER_HASH_CACHE_FILE)
+  return {
+    fileHashes:
+      rawHashCache?.fileHashes && typeof rawHashCache.fileHashes === 'object'
+        ? rawHashCache.fileHashes
+        : {},
+  }
+}
+
+const writeHashCache = async (hashCache: MediaHashCache) => {
+  await fs.outputJson(MEDIA_CLASSIFIER_HASH_CACHE_FILE, hashCache, {
+    spaces: 2,
+  })
+}
+
+const buildImageInfoHash = (
+  absolutePath: string,
+  mtimeMs: number,
+  size: number,
+) =>
+  crypto
+    .createHash('md5')
+    .update(`${path.resolve(absolutePath)}:${mtimeMs}:${size}`)
+    .digest('hex')
+
+const buildImageFileHash = async (absolutePath: string) =>
+  await new Promise<string>((resolve, reject) => {
+    const hash = crypto.createHash('sha256')
+    const stream = fs.createReadStream(absolutePath)
+
+    stream.on('data', (chunk) => {
+      hash.update(chunk)
+    })
+    stream.on('error', reject)
+    stream.on('end', () => {
+      resolve(hash.digest('hex'))
+    })
+  })
 
 const hasDirectoryAccess = async (
   directoryPath: string,
@@ -285,6 +306,8 @@ const scanImageFiles = async (
   sourceDir: string,
 ): Promise<ScannedImageRecord[]> => {
   const records: ScannedImageRecord[] = []
+  const hashCache = await readHashCache()
+  let hashCacheChanged = false
 
   const walk = async (currentDir: string) => {
     const entries = await fs.readdir(currentDir, { withFileTypes: true })
@@ -301,6 +324,15 @@ const scanImageFiles = async (
       }
 
       const stat = await fs.stat(absolutePath)
+      const infoHash = buildImageInfoHash(absolutePath, stat.mtimeMs, stat.size)
+      let fileHash = hashCache.fileHashes[infoHash]
+
+      if (!fileHash) {
+        fileHash = await buildImageFileHash(absolutePath)
+        hashCache.fileHashes[infoHash] = fileHash
+        hashCacheChanged = true
+      }
+
       records.push({
         relativePath: path
           .relative(sourceDir, absolutePath)
@@ -309,11 +341,17 @@ const scanImageFiles = async (
         name: path.basename(absolutePath),
         size: stat.size,
         mtimeMs: stat.mtimeMs,
+        infoHash,
+        fileHash,
       })
     }
   }
 
   await walk(sourceDir)
+
+  if (hashCacheChanged) {
+    await writeHashCache(hashCache)
+  }
 
   return records.sort((left, right) => {
     if (right.mtimeMs !== left.mtimeMs) {
@@ -335,20 +373,6 @@ const loadStateAndImages = async () => {
   }
 
   const images = await scanImageFiles(state.sourceDir)
-  const validPaths = new Set(images.map((image) => image.relativePath))
-  let changed = false
-
-  for (const relativePath of Object.keys(state.decisions)) {
-    if (!validPaths.has(relativePath)) {
-      delete state.decisions[relativePath]
-      changed = true
-    }
-  }
-
-  if (changed) {
-    await writeState(state)
-  }
-
   return {
     state,
     images,
@@ -367,8 +391,10 @@ const buildImageItem = (
     : null,
   size: image.size,
   mtimeMs: image.mtimeMs,
-  status: getDecisionStatus(state.decisions, image.relativePath),
-  updatedAt: getDecisionUpdatedAt(state.decisions, image.relativePath),
+  infoHash: image.infoHash,
+  fileHash: image.fileHash,
+  status: 'pending',
+  updatedAt: null,
   previewUrl: buildImageUrl(image.relativePath),
   thumbUrl: buildImageUrl(image.relativePath, true),
 })
@@ -378,28 +404,16 @@ const buildWorkspaceSnapshot = (
   images: ScannedImageRecord[],
 ): MediaWorkspaceSnapshot => {
   const originalCount = images.length
-  let screenedCount = 0
-  let trashCount = 0
-
-  for (const image of images) {
-    const status = getDecisionStatus(state.decisions, image.relativePath)
-    if (status === 'keep') {
-      screenedCount += 1
-    }
-    if (status === 'delete') {
-      trashCount += 1
-    }
-  }
 
   return {
     sourceDir: state.sourceDir,
     resultDir: state.resultDir,
     summary: {
       originalCount,
-      screenedCount,
-      trashCount,
+      screenedCount: 0,
+      trashCount: 0,
       classifiedCount: 0,
-      pendingCount: Math.max(originalCount - screenedCount - trashCount, 0),
+      pendingCount: originalCount,
     },
   }
 }
@@ -457,17 +471,6 @@ const removeResultFileIfExists = async (
   }
 }
 
-const syncKeptImage = async (
-  sourcePath: string,
-  resultDir: string,
-  relativePath: string,
-) => {
-  const targetPath = resolveResultPath(resultDir, relativePath)
-  await fs.ensureDir(path.dirname(targetPath))
-  await fs.copy(sourcePath, targetPath, { overwrite: true })
-  return targetPath
-}
-
 export const getMediaWorkspaceSnapshot =
   async (): Promise<MediaWorkspaceSnapshot> => {
     const { state, images } = await loadStateAndImages()
@@ -480,120 +483,20 @@ export const setMediaWorkspace = async (
 ) => {
   const nextSourceDir = await validateWorkspaceDirectory(sourceDir, 'source')
   const nextResultDir = await validateWorkspaceDirectory(resultDir, 'result')
-  const previousState = await readState()
   const nextState: MediaClassifierState = {
     sourceDir: nextSourceDir,
     resultDir: nextResultDir,
-    decisions:
-      normalizeComparePath(previousState.sourceDir) ===
-      normalizeComparePath(nextSourceDir)
-        ? previousState.decisions
-        : {},
   }
 
   await writeState(nextState)
   const images = await scanImageFiles(nextSourceDir)
-
-  for (const image of images) {
-    if (getDecisionStatus(nextState.decisions, image.relativePath) === 'keep') {
-      await syncKeptImage(image.absolutePath, nextResultDir, image.relativePath)
-    }
-  }
-
   return buildWorkspaceSnapshot(nextState, images)
 }
 
-export const getMediaImages = async (
-  stage: MediaImageStage,
-  page = 1,
-  pageSize = 24,
-): Promise<MediaImageListResult> => {
+export const getAllMediaImages = async () => {
   const { state, images } = await loadStateAndImages()
-  const filteredImages = filterImagesByStage(
-    images.map((image) => buildImageItem(state, image)),
-    stage,
-  )
-
-  const safePage = Math.max(page, 1)
-  const safePageSize = Math.max(pageSize, 1)
-  const start = (safePage - 1) * safePageSize
-  const items = filteredImages.slice(start, start + safePageSize)
-
-  return {
-    items,
-    total: filteredImages.length,
-    page: safePage,
-    pageSize: safePageSize,
-    hasMore: start + items.length < filteredImages.length,
-  }
+  return images.map((image) => buildImageItem(state, image))
 }
-
-export const getAllMediaImages = async (stage: MediaImageStage) => {
-  const { state, images } = await loadStateAndImages()
-  return filterImagesByStage(
-    images.map((image) => buildImageItem(state, image)),
-    stage,
-  )
-}
-
-export const markMediaImage = async (
-  relativePath: string,
-  status: MediaDecisionStatus,
-) => {
-  const { state } = await loadStateAndImages()
-  await ensureWorkspaceReady(state, status === 'keep')
-  const sourceDir = state.sourceDir
-  const resolvedImagePath = ensureRelativeSourcePath(sourceDir, relativePath)
-
-  if (!(await fs.pathExists(resolvedImagePath.absolutePath))) {
-    throw new Error('图片不存在')
-  }
-
-  const stat = await fs.stat(resolvedImagePath.absolutePath)
-  if (!stat.isFile() || !isSupportedImageFile(resolvedImagePath.absolutePath)) {
-    throw new Error('不支持的图片文件')
-  }
-
-  const now = Date.now()
-  if (status === 'pending') {
-    delete state.decisions[resolvedImagePath.relativePath]
-    await removeResultFileIfExists(
-      state.resultDir,
-      resolvedImagePath.relativePath,
-    )
-  } else {
-    state.decisions[resolvedImagePath.relativePath] = {
-      status,
-      updatedAt: now,
-    }
-
-    if (status === 'keep') {
-      await syncKeptImage(
-        resolvedImagePath.absolutePath,
-        state.resultDir,
-        resolvedImagePath.relativePath,
-      )
-    } else {
-      await removeResultFileIfExists(
-        state.resultDir,
-        resolvedImagePath.relativePath,
-      )
-    }
-  }
-
-  await writeState(state)
-
-  return buildImageItem(state, {
-    relativePath: resolvedImagePath.relativePath,
-    absolutePath: resolvedImagePath.absolutePath,
-    name: path.basename(resolvedImagePath.absolutePath),
-    size: stat.size,
-    mtimeMs: stat.mtimeMs,
-  })
-}
-
-export const restoreMediaImage = async (relativePath: string) =>
-  markMediaImage(relativePath, 'pending')
 
 export const deleteMediaImagePermanently = async (relativePath: string) => {
   const { state } = await loadStateAndImages()
@@ -612,9 +515,6 @@ export const deleteMediaImagePermanently = async (relativePath: string) => {
     state.resultDir,
     resolvedImagePath.relativePath,
   )
-  delete state.decisions[resolvedImagePath.relativePath]
-  await writeState(state)
-
   return getMediaWorkspaceSnapshot()
 }
 

@@ -1,6 +1,6 @@
 import { Card, Segmented, message } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
-import { getAllMediaImages, markMediaImage } from '../../api'
+import { updateMediaLocalMark } from '../../localMarks'
 import type {
   MediaDecisionStatus,
   MediaImageItem,
@@ -12,8 +12,9 @@ import { OriginalImageScreeningView } from './OriginalImageScreeningView'
 const LIST_PAGE_SIZE = 24
 
 interface OriginalImageTabProps {
-  refreshKey: number
-  onMutated: () => Promise<void> | void
+  images: MediaImageItem[]
+  loading: boolean
+  onImagesChange: (images: MediaImageItem[]) => void
 }
 
 const resolveNextScreeningIndex = (
@@ -40,31 +41,14 @@ const resolveNextScreeningIndex = (
 }
 
 export function OriginalImageTab({
-  refreshKey,
-  onMutated,
+  images,
+  loading,
+  onImagesChange,
 }: OriginalImageTabProps) {
   const [viewMode, setViewMode] = useState<'list' | 'screen'>('list')
   const [listPage, setListPage] = useState(1)
-  const [images, setImages] = useState<MediaImageItem[]>([])
-  const [imagesLoading, setImagesLoading] = useState(false)
   const [screeningIndex, setScreeningIndex] = useState(0)
   const [actionKey, setActionKey] = useState<string | null>(null)
-
-  const loadImages = async () => {
-    setImagesLoading(true)
-    try {
-      const items = await getAllMediaImages('original')
-      setImages(items)
-    } catch (error: any) {
-      message.error(error.message || '获取原始图片失败')
-    } finally {
-      setImagesLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    void loadImages()
-  }, [refreshKey])
 
   useEffect(() => {
     const maxPage = Math.max(Math.ceil(images.length / LIST_PAGE_SIZE), 1)
@@ -97,19 +81,24 @@ export function OriginalImageTab({
   ) => {
     setActionKey(`${relativePath}:${status}`)
     try {
-      const updatedImage = await markMediaImage(relativePath, status)
+      const targetImage = images.find(
+        (item) => item.relativePath === relativePath,
+      )
+      if (!targetImage) {
+        throw new Error('图片不存在')
+      }
+
+      const updatedImage = updateMediaLocalMark(targetImage, status)
       const nextImages = images.map((item) =>
         item.relativePath === updatedImage.relativePath ? updatedImage : item,
       )
-      setImages(nextImages)
+      onImagesChange(nextImages)
 
       if (autoAdvance) {
         setScreeningIndex((currentIndex) =>
           resolveNextScreeningIndex(nextImages, currentIndex),
         )
       }
-
-      await onMutated()
     } catch (error: any) {
       message.error(error.message || '更新图片状态失败')
     } finally {
@@ -137,14 +126,14 @@ export function OriginalImageTab({
         {viewMode === 'list' ? (
           <OriginalImageList
             data={listData}
-            loading={imagesLoading}
+            loading={loading}
             page={listPage}
             onPageChange={setListPage}
           />
         ) : (
           <OriginalImageScreeningView
             images={images}
-            loading={imagesLoading}
+            loading={loading}
             currentIndex={screeningIndex}
             actionKey={actionKey}
             onChangeIndex={setScreeningIndex}
