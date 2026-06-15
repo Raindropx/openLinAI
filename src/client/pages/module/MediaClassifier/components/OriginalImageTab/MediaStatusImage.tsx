@@ -8,7 +8,6 @@ interface MediaStatusImageProps {
   rootClassName?: string
   imageClassName?: string
   onClick?: () => void
-  ariaLabel?: string
 }
 
 const statusConfig = {
@@ -34,7 +33,6 @@ export function MediaStatusImage({
   rootClassName = '',
   imageClassName = '',
   onClick,
-  ariaLabel,
 }: MediaStatusImageProps) {
   const status =
     item.status === 'keep' || item.status === 'delete'
@@ -59,7 +57,6 @@ export function MediaStatusImage({
       onKeyDown={handleKeyDown}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
-      aria-label={ariaLabel}
     >
       <Image
         src={item.previewUrl}

@@ -78,6 +78,7 @@ const mediaClassifierApi = new Hono()
       z.object({
         relativePath: z.string(),
         thumb: z.string().optional(),
+        v: z.string().optional(),
       }),
     ),
     async (c) => {
@@ -87,7 +88,7 @@ const mediaClassifierApi = new Hono()
         return new Response(new Uint8Array(file.file), {
           headers: {
             'Content-Type': file.contentType,
-            'Cache-Control': 'no-store',
+            'Cache-Control': 'private, max-age=31536000, immutable',
           },
         })
       } catch (error: any) {

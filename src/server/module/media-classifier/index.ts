@@ -163,10 +163,25 @@ const ensureRelativeSourcePath = (sourceDir: string, relativePath: string) => {
 const resolveResultPath = (resultDir: string, relativePath: string) =>
   ensureSubPath(resultDir, path.join(resultDir, relativePath))
 
-const buildImageUrl = (relativePath: string, thumb = false) =>
-  `/api/media-classifier/image?relativePath=${encodeURIComponent(relativePath)}${
-    thumb ? '&thumb=true' : ''
-  }`
+const buildImageUrl = (
+  relativePath: string,
+  thumb = false,
+  version?: string,
+) => {
+  const searchParams = new URLSearchParams({
+    relativePath,
+  })
+
+  if (thumb) {
+    searchParams.set('thumb', 'true')
+  }
+
+  if (version) {
+    searchParams.set('v', version)
+  }
+
+  return `/api/media-classifier/image?${searchParams.toString()}`
+}
 
 const readState = async (): Promise<MediaClassifierState> => {
   if (!(await fs.pathExists(MEDIA_CLASSIFIER_STATE_FILE))) {
@@ -319,22 +334,26 @@ const loadStateAndImages = async () => {
 const buildImageItem = (
   state: MediaClassifierState,
   image: ScannedImageRecord,
-): MediaImageItem => ({
-  relativePath: image.relativePath,
-  name: image.name,
-  sourcePath: image.absolutePath,
-  resultPath: state.resultDir
-    ? resolveResultPath(state.resultDir, image.relativePath)
-    : null,
-  size: image.size,
-  mtimeMs: image.mtimeMs,
-  infoHash: image.infoHash,
-  fileHash: image.fileHash,
-  status: 'pending',
-  updatedAt: null,
-  previewUrl: buildImageUrl(image.relativePath),
-  thumbUrl: buildImageUrl(image.relativePath, true),
-})
+): MediaImageItem => {
+  const imageVersion = image.fileHash || image.infoHash
+
+  return {
+    relativePath: image.relativePath,
+    name: image.name,
+    sourcePath: image.absolutePath,
+    resultPath: state.resultDir
+      ? resolveResultPath(state.resultDir, image.relativePath)
+      : null,
+    size: image.size,
+    mtimeMs: image.mtimeMs,
+    infoHash: image.infoHash,
+    fileHash: image.fileHash,
+    status: 'pending',
+    updatedAt: null,
+    previewUrl: buildImageUrl(image.relativePath, false, imageVersion),
+    thumbUrl: buildImageUrl(image.relativePath, true, imageVersion),
+  }
+}
 
 const buildWorkspaceSnapshot = (
   state: MediaClassifierState,

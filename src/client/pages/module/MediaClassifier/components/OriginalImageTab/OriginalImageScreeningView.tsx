@@ -1,9 +1,4 @@
-import {
-  DeleteOutlined,
-  EnterOutlined,
-  LeftOutlined,
-  RightOutlined,
-} from '@ant-design/icons'
+import { DeleteOutlined, EnterOutlined } from '@ant-design/icons'
 import { Button, Card, Empty, Spin } from 'antd'
 import dayjs from 'dayjs'
 import { useEffect, useRef } from 'react'
@@ -33,7 +28,7 @@ const formatFileSize = (size: number) => {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const PRELOAD_RANGE = 2
+const PRELOAD_RANGE = 4
 
 const preloadImage = (src: string) =>
   new Promise<void>((resolve, reject) => {
@@ -166,17 +161,9 @@ export function OriginalImageScreeningView({
                     item={previousImage}
                     preview={false}
                     onClick={() => onChangeIndex(currentIndex - 1)}
-                    ariaLabel={`查看上一张：${previousImage.name}`}
                     rootClassName="h-[60%] w-full opacity-80"
                     imageClassName="object-contain"
                   />
-                  <Button
-                    type="text"
-                    icon={<LeftOutlined />}
-                    onClick={() => onChangeIndex(currentIndex - 1)}
-                  >
-                    上一张
-                  </Button>
                 </div>
               ) : null}
             </div>
@@ -196,18 +183,9 @@ export function OriginalImageScreeningView({
                     item={nextImage}
                     preview={false}
                     onClick={() => onChangeIndex(currentIndex + 1)}
-                    ariaLabel={`查看下一张：${nextImage.name}`}
                     rootClassName="h-[60%] w-full opacity-80"
                     imageClassName="object-contain"
                   />
-                  <Button
-                    type="text"
-                    icon={<RightOutlined />}
-                    iconPosition="end"
-                    onClick={() => onChangeIndex(currentIndex + 1)}
-                  >
-                    下一张
-                  </Button>
                 </div>
               ) : null}
             </div>
