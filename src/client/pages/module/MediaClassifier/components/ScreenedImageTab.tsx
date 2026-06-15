@@ -1,8 +1,17 @@
-import { Card, Empty, Image, Pagination, Spin, Tag, Typography, message } from 'antd'
+import {
+  Card,
+  Empty,
+  Image,
+  Pagination,
+  Spin,
+  Tag,
+  Typography,
+  message,
+} from 'antd'
 import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
 import { getMediaImages } from '../api'
-import type { MediaImageListResult, MediaWorkspaceSnapshot } from '../types'
+import type { MediaImageListResult } from '../types'
 
 const PAGE_SIZE = 18
 
@@ -17,26 +26,15 @@ const formatFileSize = (size: number) => {
 }
 
 interface ScreenedImageTabProps {
-  workspace: MediaWorkspaceSnapshot | null
   refreshKey: number
 }
 
-export function ScreenedImageTab({
-  workspace,
-  refreshKey,
-}: ScreenedImageTabProps) {
+export function ScreenedImageTab({ refreshKey }: ScreenedImageTabProps) {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<MediaImageListResult | null>(null)
 
-  const isReady = Boolean(workspace?.sourceDir && workspace?.resultDir)
-
   const loadData = async (pageNumber = 1) => {
-    if (!isReady) {
-      setData(null)
-      return
-    }
-
     setLoading(true)
     try {
       const nextData = await getMediaImages('screened', pageNumber, PAGE_SIZE)
@@ -51,11 +49,7 @@ export function ScreenedImageTab({
 
   useEffect(() => {
     void loadData(1)
-  }, [isReady, refreshKey])
-
-  if (!isReady) {
-    return <Empty description="请先完成目录配置" />
-  }
+  }, [refreshKey])
 
   if (loading) {
     return (

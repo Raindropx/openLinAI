@@ -1,12 +1,8 @@
-import { execFile } from 'child_process'
 import crypto from 'crypto'
 import { constants } from 'fs'
 import fs from 'fs-extra'
 import path from 'path'
 import sharp from 'sharp'
-import { promisify } from 'util'
-
-const execFileAsync = promisify(execFile)
 
 const MEDIA_CLASSIFIER_DATA_DIR = path.join(
   process.cwd(),
@@ -37,7 +33,7 @@ const IMAGE_EXTENSIONS = new Set([
 
 export type MediaDecisionStatus = 'pending' | 'keep' | 'delete'
 export type MediaImageStage = 'original' | 'screened' | 'classified' | 'trash'
-export type MediaWorkspaceKind = 'source' | 'result'
+type MediaWorkspaceKind = 'source' | 'result'
 
 interface StoredMediaDecision {
   status: Exclude<MediaDecisionStatus, 'pending'>
@@ -202,8 +198,6 @@ const filterImagesByStage = (
       return images
   }
 }
-
-const escapePowerShellString = (value: string) => value.replace(/'/g, "''")
 
 const readState = async (): Promise<MediaClassifierState> => {
   if (!(await fs.pathExists(MEDIA_CLASSIFIER_STATE_FILE))) {
@@ -507,61 +501,6 @@ export const setMediaWorkspace = async (
   }
 
   return buildWorkspaceSnapshot(nextState, images)
-}
-
-export const pickMediaDirectory = async (
-  kind: MediaWorkspaceKind,
-  initialPath?: string,
-) => {
-  const dialogTitle = kind === 'source' ? '选择源图片文件夹' : '选择结果文件夹'
-
-  try {
-    if (process.platform === 'win32') {
-      const initialPathScript =
-        initialPath && path.isAbsolute(initialPath)
-          ? `$dialog.SelectedPath = '${escapePowerShellString(initialPath)}'`
-          : ''
-
-      const script = `
-Add-Type -AssemblyName System.Windows.Forms
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.Description = '${escapePowerShellString(dialogTitle)}'
-$dialog.ShowNewFolderButton = $true
-${initialPathScript}
-if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-  Write-Output $dialog.SelectedPath
-}
-`
-      const { stdout } = await execFileAsync(
-        'powershell',
-        ['-NoProfile', '-STA', '-Command', script],
-        { maxBuffer: 1024 * 1024 },
-      )
-      return stdout.trim() || null
-    }
-
-    if (process.platform === 'darwin') {
-      const { stdout } = await execFileAsync('osascript', [
-        '-e',
-        `POSIX path of (choose folder with prompt "${dialogTitle}")`,
-      ])
-      return stdout.trim() || null
-    }
-
-    const { stdout } = await execFileAsync('zenity', [
-      '--file-selection',
-      '--directory',
-      `--title=${dialogTitle}`,
-    ])
-    return stdout.trim() || null
-  } catch (error: any) {
-    if (typeof error?.code === 'number' && error.code === 1) {
-      return null
-    }
-
-    throw new Error(`打开文件夹选择器失败：${error?.message || '未知错误'}`)
-  }
 }
 
 export const getMediaImages = async (

@@ -10,13 +10,11 @@ import {
 import type {
   MediaDecisionStatus,
   MediaImageItem,
-  MediaWorkspaceSnapshot,
 } from '../types'
 
 const TRASH_PAGE_SIZE = 20
 
 interface TrashImageTabProps {
-  workspace: MediaWorkspaceSnapshot | null
   refreshKey: number
   onMutated: () => Promise<void> | void
 }
@@ -167,7 +165,6 @@ function TrashPanel({
 }
 
 export function TrashImageTab({
-  workspace,
   refreshKey,
   onMutated,
 }: TrashImageTabProps) {
@@ -179,17 +176,7 @@ export function TrashImageTab({
   const [trashLoadingMore, setTrashLoadingMore] = useState(false)
   const [actionKey, setActionKey] = useState<string | null>(null)
 
-  const isReady = Boolean(workspace?.sourceDir && workspace?.resultDir)
-
   const loadTrash = async (reset = false) => {
-    if (!isReady) {
-      setTrashItems([])
-      setTrashTotal(0)
-      setTrashPage(1)
-      setTrashHasMore(false)
-      return
-    }
-
     const nextPage = reset ? 1 : trashPage + 1
 
     if (reset) {
@@ -215,16 +202,8 @@ export function TrashImageTab({
   }
 
   useEffect(() => {
-    if (!isReady) {
-      setTrashItems([])
-      setTrashTotal(0)
-      setTrashPage(1)
-      setTrashHasMore(false)
-      return
-    }
-
     void loadTrash(true)
-  }, [isReady, refreshKey])
+  }, [refreshKey])
 
   const handleRestore = async (relativePath: string) => {
     setActionKey(`${relativePath}:restore`)
@@ -259,10 +238,6 @@ export function TrashImageTab({
         }
       },
     })
-  }
-
-  if (!isReady) {
-    return <Empty description="请先在上方配置源目录和结果目录" />
   }
 
   return (

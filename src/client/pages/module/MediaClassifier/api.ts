@@ -5,7 +5,6 @@ import type {
   MediaImageItem,
   MediaImageListResult,
   MediaImageStage,
-  MediaWorkspaceKind,
   MediaWorkspaceSnapshot,
 } from './types'
 
@@ -33,19 +32,6 @@ const unwrapResponse = async <T>(response: Response) => {
 export const getMediaWorkspace = async () =>
   unwrapResponse<MediaWorkspaceSnapshot>(
     await client.api['media-classifier'].workspace.$get(),
-  )
-
-export const pickMediaFolder = async (
-  kind: MediaWorkspaceKind,
-  initialPath?: string,
-) =>
-  unwrapResponse<{ path: string | null }>(
-    await client.api['media-classifier'].workspace['select-folder'].$post({
-      json: {
-        kind,
-        initialPath,
-      },
-    }),
   )
 
 export const saveMediaWorkspace = async (

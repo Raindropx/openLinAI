@@ -1,6 +1,5 @@
 export type MediaDecisionStatus = 'pending' | 'keep' | 'delete'
 export type MediaImageStage = 'original' | 'screened' | 'classified' | 'trash'
-export type MediaWorkspaceKind = 'source' | 'result'
 
 export interface MediaWorkspaceSnapshot {
   sourceDir: string

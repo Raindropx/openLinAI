@@ -7,7 +7,6 @@ import {
   getMediaImages,
   getMediaWorkspaceSnapshot,
   markMediaImage,
-  pickMediaDirectory,
   readMediaImageBinary,
   restoreMediaImage,
   setMediaWorkspace,
@@ -15,7 +14,6 @@ import {
 
 const mediaStageSchema = z.enum(['original', 'screened', 'classified', 'trash'])
 const mediaStatusSchema = z.enum(['pending', 'keep', 'delete'])
-const workspaceKindSchema = z.enum(['source', 'result'])
 
 const mediaClassifierApi = new Hono()
   .get('/workspace', async (c) => {
@@ -28,28 +26,6 @@ const mediaClassifierApi = new Hono()
       return c.json({ success: false, error: error.message }, 500)
     }
   })
-  .post(
-    '/workspace/select-folder',
-    zValidator(
-      'json',
-      z.object({
-        kind: workspaceKindSchema,
-        initialPath: z.string().optional(),
-      }),
-    ),
-    async (c) => {
-      try {
-        const { kind, initialPath } = c.req.valid('json')
-        const selectedPath = await pickMediaDirectory(kind, initialPath)
-        return c.json({
-          success: true,
-          data: { path: selectedPath },
-        })
-      } catch (error: any) {
-        return c.json({ success: false, error: error.message }, 500)
-      }
-    },
-  )
   .post(
     '/workspace',
     zValidator(

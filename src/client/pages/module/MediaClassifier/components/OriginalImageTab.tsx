@@ -22,14 +22,12 @@ import type {
   MediaDecisionStatus,
   MediaImageItem,
   MediaImageListResult,
-  MediaWorkspaceSnapshot,
 } from '../types'
 import { OriginalImageScreeningView } from './OriginalImageScreeningView'
 
 const LIST_PAGE_SIZE = 12
 
 interface OriginalImageTabProps {
-  workspace: MediaWorkspaceSnapshot | null
   refreshKey: number
   onMutated: () => Promise<void> | void
 }
@@ -214,7 +212,6 @@ function OriginalImageList({
 }
 
 export function OriginalImageTab({
-  workspace,
   refreshKey,
   onMutated,
 }: OriginalImageTabProps) {
@@ -227,14 +224,7 @@ export function OriginalImageTab({
   const [screeningIndex, setScreeningIndex] = useState(0)
   const [actionKey, setActionKey] = useState<string | null>(null)
 
-  const isReady = Boolean(workspace?.sourceDir && workspace?.resultDir)
-
   const loadList = async (pageNumber = 1) => {
-    if (!isReady) {
-      setListData(null)
-      return
-    }
-
     setListLoading(true)
     try {
       const data = await getMediaImages('original', pageNumber, LIST_PAGE_SIZE)
@@ -248,11 +238,6 @@ export function OriginalImageTab({
   }
 
   const loadScreeningItems = async () => {
-    if (!isReady) {
-      setScreeningItems([])
-      return
-    }
-
     setScreeningLoading(true)
     try {
       const items = await getAllMediaImages('original')
@@ -268,20 +253,14 @@ export function OriginalImageTab({
   }
 
   useEffect(() => {
-    if (!isReady) {
-      setListData(null)
-      setScreeningItems([])
-      return
-    }
-
     void loadList(1)
-  }, [isReady, refreshKey])
+  }, [refreshKey])
 
   useEffect(() => {
-    if (viewMode === 'screen' && isReady) {
+    if (viewMode === 'screen') {
       void loadScreeningItems()
     }
-  }, [viewMode, isReady, refreshKey])
+  }, [viewMode, refreshKey])
 
   useEffect(() => {
     setScreeningIndex((currentIndex) =>
@@ -330,10 +309,6 @@ export function OriginalImageTab({
     } finally {
       setActionKey(null)
     }
-  }
-
-  if (!isReady) {
-    return <Empty description="请先在上方配置源目录和结果目录" />
   }
 
   return (
