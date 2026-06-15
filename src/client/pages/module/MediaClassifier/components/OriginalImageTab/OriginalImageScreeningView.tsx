@@ -5,10 +5,10 @@ import {
   ReloadOutlined,
   RightOutlined,
 } from '@ant-design/icons'
-import { Button, Card, Empty, Space, Spin, Tag, Typography } from 'antd'
+import { Button, Card, Empty, Space, Spin, Typography } from 'antd'
 import dayjs from 'dayjs'
 import { useEffect, useMemo } from 'react'
-import type { MediaDecisionStatus, MediaImageItem } from '../types'
+import type { MediaDecisionStatus, MediaImageItem } from '../../types'
 
 interface OriginalImageScreeningViewProps {
   images: MediaImageItem[]
@@ -31,32 +31,6 @@ const formatFileSize = (size: number) => {
     return `${(size / 1024).toFixed(1)} KB`
   }
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
-}
-
-const getStatusMeta = (status: MediaDecisionStatus) => {
-  switch (status) {
-    case 'keep':
-      return {
-        label: '保留',
-        color: 'success',
-      } as const
-    case 'delete':
-      return {
-        label: '删除',
-        color: 'error',
-      } as const
-    case 'pending':
-    default:
-      return {
-        label: '待筛选',
-        color: 'default',
-      } as const
-  }
-}
-
-function StatusTag({ status }: { status: MediaDecisionStatus }) {
-  const meta = getStatusMeta(status)
-  return <Tag color={meta.color}>{meta.label}</Tag>
 }
 
 export function OriginalImageScreeningView({
@@ -136,7 +110,6 @@ export function OriginalImageScreeningView({
           <Typography.Text strong>
             {currentIndex + 1} / {images.length}
           </Typography.Text>
-          <StatusTag status={currentImage.status} />
           <Typography.Text type="secondary">
             待筛选 {pendingCount} 张
           </Typography.Text>
