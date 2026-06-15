@@ -1,6 +1,7 @@
 import { animate, type JSAnimation } from 'animejs'
 import { Image } from 'antd'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { usePreloadedImages } from '../../../../../hooks/usePreloadedImages'
 import type { MediaImageItem } from '../../types'
 import { MediaStatusImage } from './MediaStatusImage'
 
@@ -24,7 +25,7 @@ interface TransitionState {
   targetIndex: number
 }
 
-// const PRELOAD_RANGE = 4
+const PRELOAD_RANGE = 8
 
 const SLOT_STYLES: Record<
   SlotName,
@@ -235,6 +236,25 @@ const buildTransitionCards = (
   return cards
 }
 
+const buildPreloadUrls = (
+  images: MediaImageItem[],
+  centerIndex: number,
+  range: number,
+) => {
+  const urls: string[] = []
+  const startIndex = Math.max(centerIndex - range, 0)
+  const endIndex = Math.min(centerIndex + range, images.length - 1)
+
+  for (let index = startIndex; index <= endIndex; index += 1) {
+    const previewUrl = images[index]?.previewUrl
+    if (previewUrl) {
+      urls.push(previewUrl)
+    }
+  }
+
+  return urls
+}
+
 const getTargetSlot = (slot: SlotName, direction: -1 | 1): SlotName => {
   if (direction > 0) {
     switch (slot) {
@@ -278,6 +298,9 @@ export function AnimatedScreeningImageStrip({
   )
   const [transition, setTransition] = useState<TransitionState | null>(null)
   const [previewVisible, setPreviewVisible] = useState(false)
+  const [resolvedPreviewUrls, setResolvedPreviewUrls] = useState<
+    Record<string, string>
+  >({})
   const animationRef = useRef<JSAnimation | null>(null)
   const cardRefs = useRef(new Map<string, HTMLDivElement>())
 
@@ -286,10 +309,52 @@ export function AnimatedScreeningImageStrip({
     [currentIndex, images.length],
   )
   const currentImage = images[clampedCurrentIndex] ?? null
+  const preloadUrls = useMemo(
+    () => buildPreloadUrls(images, clampedCurrentIndex, PRELOAD_RANGE),
+    [clampedCurrentIndex, images],
+  )
+  const { getImageData } = usePreloadedImages(preloadUrls)
 
   useEffect(() => {
     setPreviewVisible(false)
   }, [clampedCurrentIndex])
+
+  useEffect(() => {
+    const trackedUrls = new Set(preloadUrls)
+    setResolvedPreviewUrls((current) => {
+      const nextEntries = Object.entries(current).filter(([url]) =>
+        trackedUrls.has(url),
+      )
+
+      if (nextEntries.length === Object.keys(current).length) {
+        return current
+      }
+
+      return Object.fromEntries(nextEntries)
+    })
+  }, [preloadUrls])
+
+  useEffect(() => {
+    let cancelled = false
+
+    preloadUrls.forEach((url) => {
+      void getImageData(url)
+        .then((data) => {
+          if (cancelled) {
+            return
+          }
+
+          setResolvedPreviewUrls((current) =>
+            current[url] === data ? current : { ...current, [url]: data },
+          )
+        })
+        .catch(() => undefined)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [getImageData, preloadUrls])
 
   useEffect(() => {
     if (images.length === 0) {
@@ -369,7 +434,7 @@ export function AnimatedScreeningImageStrip({
           height: targetStyle.height,
           opacity: targetStyle.opacity,
           scale: targetStyle.scale,
-          duration: 260,
+          duration: 150,
           ease: 'inOutQuad',
         })
       })
@@ -403,6 +468,12 @@ export function AnimatedScreeningImageStrip({
     <div className="relative h-full overflow-hidden rounded-2xl">
       {cards.map((card) => {
         const style = SLOT_STYLES[card.slot]
+        const resolvedPreviewUrl =
+          resolvedPreviewUrls[card.item.previewUrl] ?? card.item.previewUrl
+        const displayItem =
+          resolvedPreviewUrl === card.item.previewUrl
+            ? card.item
+            : { ...card.item, previewUrl: resolvedPreviewUrl }
         const handleClick =
           transition !== null
             ? undefined
@@ -434,7 +505,7 @@ export function AnimatedScreeningImageStrip({
             }}
           >
             <MediaStatusImage
-              item={card.item}
+              item={displayItem}
               preview={false}
               onClick={handleClick}
               rootClassName="h-full w-full bg-white shadow-sm"
@@ -446,7 +517,10 @@ export function AnimatedScreeningImageStrip({
       {previewVisible && currentImage ? (
         <div className="hidden">
           <Image
-            src={currentImage.previewUrl}
+            src={
+              resolvedPreviewUrls[currentImage.previewUrl] ??
+              currentImage.previewUrl
+            }
             alt={currentImage.name}
             preview={{
               visible: previewVisible,

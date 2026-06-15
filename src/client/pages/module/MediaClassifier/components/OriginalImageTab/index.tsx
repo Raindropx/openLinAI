@@ -1,5 +1,5 @@
 import { Button, Card, Segmented, message } from 'antd'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { updateMediaLocalMark } from '../../localMarks'
 import type {
   MediaDecisionStatus,
@@ -144,6 +144,24 @@ export function OriginalImageTab({
     setViewMode(nextViewMode)
   }
 
+  const blurActiveElement = () => {
+    window.requestAnimationFrame(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
+    })
+  }
+
+  const handleViewModeMouseDown = (event: MouseEvent<HTMLDivElement>) => {
+    // Keep the click behavior, but avoid leaving focus on Segmented.
+    event.preventDefault()
+  }
+
+  const handleViewModeSelect = (nextViewMode: 'list' | 'screen') => {
+    handleViewModeChange(nextViewMode)
+    blurActiveElement()
+  }
+
   const handleBatchMark = async (status: MediaDecisionStatus) => {
     const currentPageItems = listData?.items ?? []
     const targetRelativePaths =
@@ -192,7 +210,8 @@ export function OriginalImageTab({
           <Segmented<'list' | 'screen'>
             size="large"
             value={viewMode}
-            onChange={handleViewModeChange}
+            onChange={handleViewModeSelect}
+            onMouseDown={handleViewModeMouseDown}
             options={[
               { label: '列表模式', value: 'list' },
               { label: '筛选模式', value: 'screen' },
