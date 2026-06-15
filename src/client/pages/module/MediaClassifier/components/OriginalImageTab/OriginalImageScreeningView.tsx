@@ -10,11 +10,7 @@ interface OriginalImageScreeningViewProps {
   loading: boolean
   currentIndex: number
   onChangeIndex: (index: number) => void
-  onMark: (
-    relativePath: string,
-    status: MediaDecisionStatus,
-    autoAdvance?: boolean,
-  ) => Promise<void>
+  onMark: (relativePath: string, status: MediaDecisionStatus) => Promise<void>
   actionKey: string | null
 }
 
@@ -51,6 +47,7 @@ export function OriginalImageScreeningView({
   onMark,
   actionKey,
 }: OriginalImageScreeningViewProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const preloadedUrlsRef = useRef(new Set<string>())
   const preloadingUrlsRef = useRef(new Set<string>())
   const currentImage = images[currentIndex]
@@ -63,44 +60,49 @@ export function OriginalImageScreeningView({
       return
     }
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      const tagName = target?.tagName?.toLowerCase()
-      if (
-        target?.isContentEditable ||
-        tagName === 'input' ||
-        tagName === 'textarea'
-      ) {
-        return
-      }
+    containerRef.current?.focus({ preventScroll: true })
+  }, [currentImage])
 
-      if (event.key === 'Enter') {
-        event.preventDefault()
-        void onMark(currentImage.relativePath, 'keep', true)
-        return
-      }
-
-      if (event.key === 'd' || event.key === 'D') {
-        event.preventDefault()
-        void onMark(currentImage.relativePath, 'delete', true)
-        return
-      }
-
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault()
-        onChangeIndex(Math.max(currentIndex - 1, 0))
-        return
-      }
-
-      if (event.key === 'ArrowRight') {
-        event.preventDefault()
-        onChangeIndex(Math.min(currentIndex + 1, images.length - 1))
-      }
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!currentImage || actionKey || event.repeat) {
+      return
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currentImage, currentIndex, images.length, onChangeIndex, onMark])
+    const target = event.target as HTMLElement | null
+    const tagName = target?.tagName?.toLowerCase()
+    if (
+      target?.isContentEditable ||
+      tagName === 'input' ||
+      tagName === 'textarea'
+    ) {
+      return
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      void onMark(currentImage.relativePath, 'keep')
+      onChangeIndex(Math.min(currentIndex + 1, images.length - 1))
+      return
+    }
+
+    if (event.key === 'd' || event.key === 'D') {
+      event.preventDefault()
+      void onMark(currentImage.relativePath, 'delete')
+      onChangeIndex(Math.min(currentIndex + 1, images.length - 1))
+      return
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      onChangeIndex(Math.max(currentIndex - 1, 0))
+      return
+    }
+
+    if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      onChangeIndex(Math.min(currentIndex + 1, images.length - 1))
+    }
+  }
 
   useEffect(() => {
     if (images.length === 0) {
@@ -147,7 +149,12 @@ export function OriginalImageScreeningView({
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      className="space-y-4 outline-none"
+      onKeyDown={handleKeyDown}
+    >
       <div className="flex flex-col gap-4">
         <Card
           className="border-slate-200 shadow-sm"
@@ -234,9 +241,7 @@ export function OriginalImageScreeningView({
               className="w-full"
               icon={<EnterOutlined />}
               loading={actionKey === `${currentImage.relativePath}:keep`}
-              onClick={() =>
-                void onMark(currentImage.relativePath, 'keep', true)
-              }
+              onClick={() => void onMark(currentImage.relativePath, 'keep')}
             >
               保留（回车）
             </Button>
@@ -246,9 +251,7 @@ export function OriginalImageScreeningView({
               className="w-full"
               icon={<DeleteOutlined />}
               loading={actionKey === `${currentImage.relativePath}:delete`}
-              onClick={() =>
-                void onMark(currentImage.relativePath, 'delete', true)
-              }
+              onClick={() => void onMark(currentImage.relativePath, 'delete')}
             >
               删除（D）
             </Button>

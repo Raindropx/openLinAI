@@ -7,6 +7,8 @@ interface OriginalImageListProps {
   loading: boolean
   page: number
   onPageChange: (pageNumber: number) => void
+  selectedRelativePaths: Set<string>
+  onToggleSelect: (relativePath: string) => void
 }
 
 export function OriginalImageList({
@@ -14,6 +16,8 @@ export function OriginalImageList({
   loading,
   page,
   onPageChange,
+  selectedRelativePaths,
+  onToggleSelect,
 }: OriginalImageListProps) {
   if (loading) {
     return (
@@ -36,6 +40,9 @@ export function OriginalImageList({
             item={item}
             rootClassName="aspect-3/4"
             imageClassName="object-cover"
+            selectionMode
+            selected={selectedRelativePaths.has(item.relativePath)}
+            onSelect={() => onToggleSelect(item.relativePath)}
           />
         ))}
       </div>

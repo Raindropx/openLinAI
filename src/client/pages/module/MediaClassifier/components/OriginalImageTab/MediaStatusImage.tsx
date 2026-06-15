@@ -1,5 +1,6 @@
+import { FullscreenOutlined } from '@ant-design/icons'
 import { Image } from 'antd'
-import type { KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent, type MouseEvent } from 'react'
 import type { MediaImageItem } from '../../types'
 
 interface MediaStatusImageProps {
@@ -8,6 +9,9 @@ interface MediaStatusImageProps {
   rootClassName?: string
   imageClassName?: string
   onClick?: () => void
+  selectionMode?: boolean
+  selected?: boolean
+  onSelect?: () => void
 }
 
 const statusConfig = {
@@ -33,40 +37,95 @@ export function MediaStatusImage({
   rootClassName = '',
   imageClassName = '',
   onClick,
+  selectionMode = false,
+  selected = false,
+  onSelect,
 }: MediaStatusImageProps) {
+  const [previewVisible, setPreviewVisible] = useState(false)
   const status =
     item.status === 'keep' || item.status === 'delete'
       ? statusConfig[item.status]
       : null
+  const isInteractive = selectionMode ? Boolean(onSelect) : Boolean(onClick)
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!onClick) {
+    if (!isInteractive) {
       return
     }
 
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      onClick()
+      if (selectionMode) {
+        onSelect?.()
+        return
+      }
+
+      onClick?.()
     }
+  }
+
+  const handleContainerClick = () => {
+    if (selectionMode) {
+      onSelect?.()
+      return
+    }
+
+    onClick?.()
+  }
+
+  const handlePreviewClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setPreviewVisible(true)
   }
 
   return (
     <div
-      className={`relative overflow-hidden rounded-xl bg-slate-100 ${onClick ? 'cursor-pointer transition hover:opacity-100' : ''} ${rootClassName}`.trim()}
-      onClick={onClick}
+      className={`group relative overflow-hidden rounded-xl bg-slate-100 ${isInteractive ? 'cursor-pointer transition hover:opacity-100' : ''} ${selected ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white' : ''} ${rootClassName}`.trim()}
+      onClick={handleContainerClick}
       onKeyDown={handleKeyDown}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
     >
       <Image
         src={item.previewUrl}
         alt={item.name}
-        preview={preview}
+        preview={selectionMode ? false : preview}
         classNames={{
           root: 'h-full w-full',
           image: `h-full! w-full! ${imageClassName}`.trim(),
         }}
       />
+
+      {selected ? (
+        <div
+          className="pointer-events-none absolute inset-0 bg-sky-400/30"
+          aria-hidden="true"
+        />
+      ) : null}
+
+      {selectionMode ? (
+        <>
+          <button
+            type="button"
+            className="absolute top-2 right-2 z-20 flex h-8 w-8 cursor-pointer items-center justify-center rounded border border-white/40 bg-gray-700/20 text-white opacity-0 shadow-sm backdrop-blur-sm transition group-hover:opacity-100"
+            onClick={handlePreviewClick}
+            aria-label={`预览图片 ${item.name}`}
+          >
+            <FullscreenOutlined />
+          </button>
+          <div className="hidden">
+            <Image
+              src={item.previewUrl}
+              alt={item.name}
+              preview={{
+                visible: previewVisible,
+                onVisibleChange: setPreviewVisible,
+              }}
+            />
+          </div>
+        </>
+      ) : null}
 
       {status ? (
         <div className="pointer-events-none absolute inset-0">
