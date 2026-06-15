@@ -1,13 +1,14 @@
-import { DeleteOutlined, EnterOutlined } from '@ant-design/icons'
+import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons'
 import { Button, Card, Empty, Spin } from 'antd'
 import dayjs from 'dayjs'
 import { useEffect, useRef } from 'react'
 import type { MediaDecisionStatus, MediaImageItem } from '../../types'
-import { MediaStatusImage } from './MediaStatusImage'
+import { AnimatedScreeningImageStrip } from './AnimatedScreeningImageStrip'
 
 interface OriginalImageScreeningViewProps {
   images: MediaImageItem[]
   loading: boolean
+  active: boolean
   currentIndex: number
   onChangeIndex: (index: number) => void
   onMark: (relativePath: string, status: MediaDecisionStatus) => Promise<void>
@@ -24,44 +25,25 @@ const formatFileSize = (size: number) => {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const PRELOAD_RANGE = 4
-
-const preloadImage = (src: string) =>
-  new Promise<void>((resolve, reject) => {
-    const image = new window.Image()
-    image.decoding = 'async'
-    image.onload = () => resolve()
-    image.onerror = () => reject(new Error(`图片预加载失败: ${src}`))
-    image.src = src
-
-    if (image.complete) {
-      resolve()
-    }
-  })
-
 export function OriginalImageScreeningView({
   images,
   loading,
+  active,
   currentIndex,
   onChangeIndex,
   onMark,
   actionKey,
 }: OriginalImageScreeningViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const preloadedUrlsRef = useRef(new Set<string>())
-  const preloadingUrlsRef = useRef(new Set<string>())
   const currentImage = images[currentIndex]
-  const previousImage = currentIndex > 0 ? images[currentIndex - 1] : null
-  const nextImage =
-    currentIndex < images.length - 1 ? images[currentIndex + 1] : null
 
   useEffect(() => {
-    if (!currentImage) {
+    if (!active || !currentImage) {
       return
     }
 
     containerRef.current?.focus({ preventScroll: true })
-  }, [currentImage])
+  }, [active, currentImage])
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (!currentImage || actionKey || event.repeat) {
@@ -78,14 +60,14 @@ export function OriginalImageScreeningView({
       return
     }
 
-    if (event.key === 'Enter') {
+    if (event.key === 'ArrowUp') {
       event.preventDefault()
       void onMark(currentImage.relativePath, 'keep')
       onChangeIndex(Math.min(currentIndex + 1, images.length - 1))
       return
     }
 
-    if (event.key === 'd' || event.key === 'D') {
+    if (event.key === 'ArrowDown') {
       event.preventDefault()
       void onMark(currentImage.relativePath, 'delete')
       onChangeIndex(Math.min(currentIndex + 1, images.length - 1))
@@ -103,38 +85,6 @@ export function OriginalImageScreeningView({
       onChangeIndex(Math.min(currentIndex + 1, images.length - 1))
     }
   }
-
-  useEffect(() => {
-    if (images.length === 0) {
-      return
-    }
-
-    const startIndex = Math.max(currentIndex - PRELOAD_RANGE, 0)
-    const endIndex = Math.min(currentIndex + PRELOAD_RANGE, images.length - 1)
-
-    for (let index = startIndex; index <= endIndex; index += 1) {
-      const previewUrl = images[index]?.previewUrl
-      if (
-        !previewUrl ||
-        preloadedUrlsRef.current.has(previewUrl) ||
-        preloadingUrlsRef.current.has(previewUrl)
-      ) {
-        continue
-      }
-
-      preloadingUrlsRef.current.add(previewUrl)
-      void preloadImage(previewUrl)
-        .then(() => {
-          preloadedUrlsRef.current.add(previewUrl)
-        })
-        .catch(() => {
-          preloadedUrlsRef.current.delete(previewUrl)
-        })
-        .finally(() => {
-          preloadingUrlsRef.current.delete(previewUrl)
-        })
-    }
-  }, [currentIndex, images])
 
   if (loading) {
     return (
@@ -161,40 +111,12 @@ export function OriginalImageScreeningView({
           classNames={{ body: 'p-3! md:p-5!' }}
         >
           <div className="flex h-[500px] items-center justify-center gap-3 rounded-2xl bg-slate-100 p-4 md:gap-5">
-            <div className="flex h-full w-36 items-center justify-center md:w-44">
-              {previousImage ? (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-3">
-                  <MediaStatusImage
-                    item={previousImage}
-                    preview={false}
-                    onClick={() => onChangeIndex(currentIndex - 1)}
-                    rootClassName="h-[60%] w-full opacity-80"
-                    imageClassName="object-contain"
-                  />
-                </div>
-              ) : null}
-            </div>
-
             <div className="h-full min-w-0 flex-1">
-              <MediaStatusImage
-                item={currentImage}
-                rootClassName="h-full w-full shadow-sm"
-                imageClassName="max-w-full object-contain"
+              <AnimatedScreeningImageStrip
+                images={images}
+                currentIndex={currentIndex}
+                onChangeIndex={onChangeIndex}
               />
-            </div>
-
-            <div className="flex h-full w-36 items-center justify-center md:w-44">
-              {nextImage ? (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-3">
-                  <MediaStatusImage
-                    item={nextImage}
-                    preview={false}
-                    onClick={() => onChangeIndex(currentIndex + 1)}
-                    rootClassName="h-[60%] w-full opacity-80"
-                    imageClassName="object-contain"
-                  />
-                </div>
-              ) : null}
             </div>
           </div>
         </Card>
@@ -239,21 +161,21 @@ export function OriginalImageScreeningView({
               type="primary"
               size="large"
               className="w-full"
-              icon={<EnterOutlined />}
+              icon={<ArrowUpOutlined />}
               loading={actionKey === `${currentImage.relativePath}:keep`}
               onClick={() => void onMark(currentImage.relativePath, 'keep')}
             >
-              保留（回车）
+              保留
             </Button>
             <Button
               danger
               size="large"
               className="w-full"
-              icon={<DeleteOutlined />}
+              icon={<ArrowDownOutlined />}
               loading={actionKey === `${currentImage.relativePath}:delete`}
               onClick={() => void onMark(currentImage.relativePath, 'delete')}
             >
-              删除（D）
+              预删除
             </Button>
           </div>
         </Card>

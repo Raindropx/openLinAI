@@ -17,41 +17,25 @@ interface OriginalImageTabProps {
   onImagesChange: (images: MediaImageItem[]) => void
 }
 
-const resolveNextScreeningIndex = (
-  images: MediaImageItem[],
-  currentIndex: number,
-) => {
-  if (images.length === 0) {
-    return 0
-  }
-
-  for (let index = currentIndex + 1; index < images.length; index += 1) {
-    if (images[index].status === 'pending') {
-      return index
-    }
-  }
-
-  for (let index = 0; index < currentIndex; index += 1) {
-    if (images[index].status === 'pending') {
-      return index
-    }
-  }
-
-  return Math.min(currentIndex, images.length - 1)
-}
-
 export function OriginalImageTab({
   images,
   loading,
   onImagesChange,
 }: OriginalImageTabProps) {
   const [viewMode, setViewMode] = useState<'list' | 'screen'>('list')
+  const [hasMountedScreenView, setHasMountedScreenView] = useState(false)
   const [listPage, setListPage] = useState(1)
   const [screeningIndex, setScreeningIndex] = useState(0)
   const [actionKey, setActionKey] = useState<string | null>(null)
   const [selectedRelativePaths, setSelectedRelativePaths] = useState<
     Set<string>
   >(() => new Set())
+
+  useEffect(() => {
+    if (viewMode === 'screen') {
+      setHasMountedScreenView(true)
+    }
+  }, [viewMode])
 
   useEffect(() => {
     const maxPage = Math.max(Math.ceil(images.length / LIST_PAGE_SIZE), 1)
@@ -236,7 +220,7 @@ export function OriginalImageTab({
           ) : null}
         </div>
 
-        {viewMode === 'list' ? (
+        <div className={viewMode === 'list' ? undefined : 'hidden'}>
           <OriginalImageList
             data={listData}
             loading={loading}
@@ -248,16 +232,21 @@ export function OriginalImageTab({
             selectedRelativePaths={selectedRelativePaths}
             onToggleSelect={handleToggleSelect}
           />
-        ) : (
-          <OriginalImageScreeningView
-            images={images}
-            loading={loading}
-            currentIndex={screeningIndex}
-            actionKey={actionKey}
-            onChangeIndex={setScreeningIndex}
-            onMark={handleMark}
-          />
-        )}
+        </div>
+
+        {viewMode === 'screen' || hasMountedScreenView ? (
+          <div className={viewMode === 'screen' ? undefined : 'hidden'}>
+            <OriginalImageScreeningView
+              images={images}
+              loading={loading}
+              active={viewMode === 'screen'}
+              currentIndex={screeningIndex}
+              actionKey={actionKey}
+              onChangeIndex={setScreeningIndex}
+              onMark={handleMark}
+            />
+          </div>
+        ) : null}
       </Card>
     </div>
   )
