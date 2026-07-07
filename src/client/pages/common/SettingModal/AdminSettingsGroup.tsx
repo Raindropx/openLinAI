@@ -183,10 +183,12 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
                     onChange={(e) => setRoutingPriority(e.target.value)}
                   >
                     <div className="space-y-2">
-                      {ROUTING_OPTIONS.map((opt) => (
+                      {ROUTING_OPTIONS.map((opt, i) => (
                         <div
                           key={opt.value}
-                          className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-gray-50"
+                          className={`flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-gray-50 ${
+                            i === ROUTING_OPTIONS.length - 1 ? 'mb-3' : ''
+                          }`}
                           onClick={() => setRoutingPriority(opt.value)}
                         >
                           <Radio value={opt.value} />
@@ -204,7 +206,6 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
               <Checkbox
                 checked={manualMode}
                 onChange={(e) => setManualMode(e.target.checked)}
-                className="mt-2!"
               >
                 关闭智能路由，手动选分组
               </Checkbox>
