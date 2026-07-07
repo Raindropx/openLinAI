@@ -50,7 +50,7 @@ export const TemplateList = forwardRef<TemplateListRef, unknown>((_, ref) => {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          {loading ? (
+          {loading && imageTemplates.length === 0 ? (
             <div className="flex h-40 items-center justify-center">
               <Spin />
             </div>

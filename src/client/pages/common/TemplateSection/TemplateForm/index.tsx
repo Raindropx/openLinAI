@@ -112,6 +112,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
     try {
       const payload = {
         ...values,
+        usageType: 'image' as const,
         images: imageUrls,
       }
 
