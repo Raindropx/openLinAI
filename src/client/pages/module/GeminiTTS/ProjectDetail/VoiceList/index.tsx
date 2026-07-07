@@ -4,7 +4,7 @@ import {
   PlayCircleOutlined,
   SyncOutlined,
 } from '@ant-design/icons'
-import { Button, Empty, Input, List, Tag, Tooltip, message } from 'antd'
+import { Button, Empty, Input, Spin, Tag, Tooltip, message } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { TTSCharacter } from '../../../../../../server/module/tts'
 import { useGlobalStore } from '../../../../../store/global'
@@ -107,73 +107,53 @@ export const VoiceList = ({ characters = [] }: VoiceListProps) => {
           刷新列表
         </Button>
       </div>
-      <List
-        grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 3, xl: 4, xxl: 4 }}
-        dataSource={data || []}
-        loading={loadingVoiceList}
-        renderItem={(item) => {
-          const linkedCharacters = characters.filter(
-            (c) => c.voiceId === item.voiceId,
-          )
-          return (
-            <List.Item>
-              <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-4 pt-2 shadow-sm transition-shadow hover:shadow-md">
+      {loadingVoiceList ? (
+        <div className="flex justify-center py-12"><Spin size="large" /></div>
+      ) : !data || data.length === 0 ? (
+        <Empty description="暂无语音" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          {data.map((item) => {
+            const linkedCharacters = characters.filter((c) => c.voiceId === item.voiceId)
+            return (
+              <div
+                key={item.voiceId}
+                className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-4 pt-2 shadow-sm transition-shadow hover:shadow-md"
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="truncate text-base leading-tight font-bold text-slate-800">
                       {item.displayName || item.name}
                     </span>
-                    {item.source && (
-                      <Tag color="green">
-                        {inworldSourceMap[item.source] || item.source}
-                      </Tag>
-                    )}
+                    {item.source && <Tag color="green">{inworldSourceMap[item.source] || item.source}</Tag>}
                   </div>
-                  <Button
-                    type="text"
-                    size="small"
-                    className="shrink-0"
-                    icon={
-                      playingId === `${item.voiceId}_loading` ? (
-                        <LoadingOutlined />
-                      ) : playingId === item.voiceId ? (
-                        <PauseCircleOutlined className="text-blue-500" />
-                      ) : (
-                        <PlayCircleOutlined />
-                      )
-                    }
+                  <Button type="text" size="small" className="shrink-0"
+                    icon={playingId === `${item.voiceId}_loading` ? <LoadingOutlined /> : playingId === item.voiceId ? <PauseCircleOutlined className="text-blue-500" /> : <PlayCircleOutlined />}
                     onClick={() => handlePreview(item.voiceId)}
                   />
                 </div>
                 <div className="flex gap-2">
                   <span className="shrink-0">Voice ID:</span>
                   <Tooltip title={item.voiceId}>
-                    <span className="line-clamp-1 break-all">
-                      {item.voiceId}
-                    </span>
+                    <span className="line-clamp-1 break-all">{item.voiceId}</span>
                   </Tooltip>
                 </div>
                 {item.description && (
                   <div className="text-xs text-gray-500">
-                    <span className="font-medium text-gray-700">描述:</span>{' '}
-                    {item.description}
+                    <span className="font-medium text-gray-700">描述:</span> {item.description}
                   </div>
                 )}
                 {linkedCharacters.length > 0 && (
                   <div className="flex items-center gap-1 text-xs text-gray-500">
                     <span className="font-medium text-gray-700">关联人物:</span>{' '}
-                    {linkedCharacters.map((c) => (
-                      <Tag key={c.id} color="purple">
-                        {c.name}
-                      </Tag>
-                    ))}
+                    {linkedCharacters.map((c) => <Tag key={c.id} color="purple">{c.name}</Tag>)}
                   </div>
                 )}
               </div>
-            </List.Item>
-          )
-        }}
-      />
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

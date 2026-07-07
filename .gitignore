@@ -6,3 +6,4 @@ downloads
 dist
 data
 tsconfig.tsbuildinfo
+.codegraph

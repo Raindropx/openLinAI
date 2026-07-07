@@ -58,8 +58,8 @@ export function TaskItemDeleteButton({
         <div>
           <p>
             {gptImageSettings.keepImageWhenDeleteTask
-              ? '删除任务不会删除其生成的图片/视频文件。'
-              : '删除任务将同时删除其生成的图片/视频文件，且不可恢复。'}
+              ? '删除任务不会删除其生成的图片文件。'
+              : '删除任务将同时删除其生成的图片文件，且不可恢复。'}
           </p>
           <Checkbox
             onChange={(e) => {

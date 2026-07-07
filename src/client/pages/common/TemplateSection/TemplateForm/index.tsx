@@ -1,6 +1,5 @@
 import { PlusOutlined } from '@ant-design/icons'
-import { useLocalStorageState } from 'ahooks'
-import { Button, Form, message, Radio } from 'antd'
+import { Button, Form, message } from 'antd'
 import { hc } from 'hono/client'
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/shallow'
@@ -10,7 +9,6 @@ import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { useGlobalStore } from '../../../../store/global'
 import { openSettingModal } from '../../SettingModal'
 import { TemplateFormFields } from './TemplateFormItems'
-import { WanVideoForm } from './WanVideoForm'
 
 const client = hc<AppType>('/')
 
@@ -24,12 +22,6 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
   const [submitting, setSubmitting] = useState(false)
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [uploadingCount, setUploadingCount] = useState(0)
-  const [localUsageType, setLocalUsageType] = useLocalStorageState<
-    'image' | 'video'
-  >('template-usage-type', {
-    defaultValue: 'image',
-  })
-  const usageType = Form.useWatch('usageType', form)
   const { gptImageApiKey, fillTemplateData, setFillTemplateData } =
     useGlobalStore(
       useShallow((state) => ({
@@ -49,7 +41,6 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
         aspectRatio: fillTemplateData.aspectRatio,
         n: fillTemplateData.n,
         prompt: fillTemplateData.prompt,
-        usageType: fillTemplateData.usageType || 'image',
       })
       if (fillTemplateData.images) {
         setImageUrls(fillTemplateData.images)
@@ -151,49 +142,20 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
         layout="vertical"
         onFinish={handleFinish}
         initialValues={{
-          usageType: localUsageType,
           aspectRatio: '1:1',
           n: 1,
         }}
-        onValuesChange={(changedValues) => {
-          if (changedValues.usageType) {
-            setLocalUsageType(changedValues.usageType)
-          }
-        }}
       >
         <div ref={formRef} />
-        <Form.Item
-          name="usageType"
-          label="模板用途"
-          rules={[{ required: true }]}
-        >
-          <Radio.Group
-            optionType="button"
-            buttonStyle="solid"
-            className="flex w-full"
-          >
-            <Radio.Button value="image" className="flex-1 text-center">
-              GPT 图片生成
-            </Radio.Button>
-            <Radio.Button value="video" disabled className="flex-1 text-center">
-              Wan 视频生成
-            </Radio.Button>
-          </Radio.Group>
-        </Form.Item>
-
-        {usageType === 'video' && <WanVideoForm />}
-        {usageType === 'image' && (
-          <TemplateFormFields
-            form={form}
-            imageUrls={imageUrls}
-            setImageUrls={setImageUrls}
-            setUploadingCount={setUploadingCount}
-          />
-        )}
-
+        <TemplateFormFields
+          form={form}
+          imageUrls={imageUrls}
+          setImageUrls={setImageUrls}
+          setUploadingCount={setUploadingCount}
+        />
         <Form.Item className="mb-0! border-t border-slate-100 pt-4">
           <div className="flex gap-4">
-            {usageType === 'image' && gptImageSettings.enable1K && (
+            {gptImageSettings.enable1K && (
               <Button
                 onClick={() => handleTrial('1k')}
                 disabled={uploadingCount > 0}
@@ -203,7 +165,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
                 生成1K图
               </Button>
             )}
-            {usageType === 'image' && gptImageSettings.enable2K && (
+            {gptImageSettings.enable2K && (
               <Button
                 onClick={() => handleTrial('2k')}
                 disabled={uploadingCount > 0}
@@ -213,7 +175,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
                 生成2K图
               </Button>
             )}
-            {usageType === 'image' && gptImageSettings.enable4K && (
+            {gptImageSettings.enable4K && (
               <Button
                 onClick={() => handleTrial('4k')}
                 disabled={uploadingCount > 0}
@@ -227,7 +189,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
               htmlType="submit"
               loading={submitting}
               disabled={uploadingCount > 0}
-              block={usageType !== 'image'}
+              block={false}
               className="grow"
               size="large"
             >
