@@ -161,7 +161,7 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
 
   const routingSection = !manualMode && (
     <>
-      <Divider className="my-3!" />
+      <Divider />
       <div className="mb-2 text-sm font-medium text-gray-700">智能路由</div>
       <Radio.Group value={routingPriority} onChange={(e) => setRoutingPriority(e.target.value)}>
         <div className="space-y-2">
@@ -201,39 +201,41 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
         </div>
       ))}
       {groups.length === 0 && <div className="py-2 text-center text-xs text-gray-400">暂无分组，请添加</div>}
-      <AutoComplete
-        value={newGroupName}
-        onChange={setNewGroupName}
-        className="w-full!"
-        popupClassName="!min-w-[360px]"
-        options={availableGroups
-          .filter((g) => g.name.toLowerCase().includes(newGroupName.toLowerCase()))
-          .map((g) => ({
-            value: g.name,
-            label: (
-              <div className="flex flex-col gap-0.5 py-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{g.name}</span>
-                  <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${
-                    g.ratio <= 1 ? 'border-green-200 bg-green-50 text-green-600'
-                      : g.ratio <= 4 ? 'border-blue-200 bg-blue-50 text-blue-600'
-                        : g.ratio <= 8 ? 'border-orange-200 bg-orange-50 text-orange-600'
-                          : 'border-red-200 bg-red-50 text-red-600'
-                  }`}>{g.ratio}x</span>
-                </div>
-                <div className="text-xs text-gray-400">{g.description}</div>
-              </div>
-            ),
-          }))}
-        filterOption={false}
-        onSelect={(value: string) => {
-          if (!groups.includes(value)) setGroups((prev) => [...prev, value])
-          setNewGroupName('')
-        }}
-      >
-        <Input.Search placeholder="输入或选择分组名称" onSearch={handleAddGroup} enterButton="添加" size="small" />
-      </AutoComplete>
-    </div>
+          <div className="w-full">
+            <AutoComplete
+              value={newGroupName}
+              onChange={setNewGroupName}
+              className="w-full"
+              classNames={{ popup: { root: '!min-w-[360px]' } }}
+              options={availableGroups
+                .filter((g) => g.name.toLowerCase().includes(newGroupName.toLowerCase()))
+                .map((g) => ({
+                  value: g.name,
+                  label: (
+                    <div className="flex flex-col gap-0.5 py-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{g.name}</span>
+                        <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${
+                          g.ratio <= 1 ? 'border-green-200 bg-green-50 text-green-600'
+                            : g.ratio <= 4 ? 'border-blue-200 bg-blue-50 text-blue-600'
+                              : g.ratio <= 8 ? 'border-orange-200 bg-orange-50 text-orange-600'
+                                : 'border-red-200 bg-red-50 text-red-600'
+                        }`}>{g.ratio}x</span>
+                      </div>
+                      <div className="text-xs text-gray-400">{g.description}</div>
+                    </div>
+                  ),
+                }))}
+              filterOption={false}
+              onSelect={(value: string) => {
+                if (!groups.includes(value)) setGroups((prev) => [...prev, value])
+                setNewGroupName('')
+              }}
+            >
+              <Input.Search placeholder="输入或选择分组名称" onSearch={handleAddGroup} enterButton="添加" size="small" />
+            </AutoComplete>
+          </div>
+        </div>
   )
 
   const tokenInfoContent = tokenData && (
@@ -246,7 +248,7 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
         关闭智能路由，手动选分组
       </Checkbox>
       {manualGroupSection}
-      <Divider className="my-3!" />
+      <Divider />
       <Button type="primary" onClick={handleSave} loading={saving} block>
         保存分组设置
       </Button>
