@@ -150,155 +150,114 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
     setNewGroupName('')
   }
 
+  const header = (
+    <div className="mb-3 flex items-center gap-2">
+      <Tag color={selectedTokenId ? 'blue' : 'default'}>
+        {selectedTokenId ? `已选中: #${selectedTokenId}` : '未选中令牌'}
+      </Tag>
+      <Button onClick={handleFetch} loading={loading} size="small">获取</Button>
+    </div>
+  )
+
+  const routingSection = !manualMode && (
+    <>
+      <Divider className="my-3!" />
+      <div className="mb-2 text-sm font-medium text-gray-700">智能路由</div>
+      <Radio.Group value={routingPriority} onChange={(e) => setRoutingPriority(e.target.value)}>
+        <div className="space-y-2">
+          {ROUTING_OPTIONS.map((opt, i) => (
+            <div
+              key={opt.value}
+              className={`flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-gray-50 ${i === ROUTING_OPTIONS.length - 1 ? 'mb-3' : ''}`}
+              onClick={() => setRoutingPriority(opt.value)}
+            >
+              <Radio value={opt.value} />
+              <div>
+                <div className="text-sm">{opt.label}</div>
+                <div className="text-xs text-gray-400">{opt.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Radio.Group>
+    </>
+  )
+
+  const manualGroupSection = manualMode && (
+    <div className="mt-3 space-y-2">
+      {groups.map((group, index) => (
+        <div
+          key={`${group}-${index}`}
+          className={`flex items-center gap-2 rounded-md border px-3 py-2 ${dragIndex === index ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}
+          draggable
+          onDragStart={() => handleDragStart(index)}
+          onDragOver={(e) => handleDragOver(e, index)}
+          onDragEnd={handleDragEnd}
+        >
+          <span className="cursor-grab text-xs text-gray-400">⠿</span>
+          <span className="mr-1 text-xs text-gray-400">#{index + 1}</span>
+          <span className="flex-1 text-sm">{group}</span>
+          <Button type="text" size="small" danger onClick={() => handleDeleteGroup(index)}>删除</Button>
+        </div>
+      ))}
+      {groups.length === 0 && <div className="py-2 text-center text-xs text-gray-400">暂无分组，请添加</div>}
+      <AutoComplete
+        value={newGroupName}
+        onChange={setNewGroupName}
+        className="w-full!"
+        popupClassName="!min-w-[360px]"
+        options={availableGroups
+          .filter((g) => g.name.toLowerCase().includes(newGroupName.toLowerCase()))
+          .map((g) => ({
+            value: g.name,
+            label: (
+              <div className="flex flex-col gap-0.5 py-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{g.name}</span>
+                  <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${
+                    g.ratio <= 1 ? 'border-green-200 bg-green-50 text-green-600'
+                      : g.ratio <= 4 ? 'border-blue-200 bg-blue-50 text-blue-600'
+                        : g.ratio <= 8 ? 'border-orange-200 bg-orange-50 text-orange-600'
+                          : 'border-red-200 bg-red-50 text-red-600'
+                  }`}>{g.ratio}x</span>
+                </div>
+                <div className="text-xs text-gray-400">{g.description}</div>
+              </div>
+            ),
+          }))}
+        filterOption={false}
+        onSelect={(value: string) => {
+          if (!groups.includes(value)) setGroups((prev) => [...prev, value])
+          setNewGroupName('')
+        }}
+      >
+        <Input.Search placeholder="输入或选择分组名称" onSearch={handleAddGroup} enterButton="添加" size="small" />
+      </AutoComplete>
+    </div>
+  )
+
+  const tokenInfoContent = tokenData && (
+    <>
+      <div className="mb-1 text-xs text-gray-500">
+        当前令牌: {tokenData.name} ({tokenData.key.substring(0, 12)}...)
+      </div>
+      {routingSection}
+      <Checkbox checked={manualMode} onChange={(e) => setManualMode(e.target.checked)}>
+        关闭智能路由，手动选分组
+      </Checkbox>
+      {manualGroupSection}
+      <Divider className="my-3!" />
+      <Button type="primary" onClick={handleSave} loading={saving} block>
+        保存分组设置
+      </Button>
+    </>
+  )
+
   const items = [
     {
       key: 'group',
       label: 'API Key 分组设置',
-      children: (
-        <>
-          <div className="mb-3 flex items-center gap-2">
-            <Tag color={selectedTokenId ? 'blue' : 'default'}>
-              {selectedTokenId ? `已选中: #${selectedTokenId}` : '未选中令牌'}
-            </Tag>
-            <Button onClick={handleFetch} loading={loading} size="small">
-              获取
-            </Button>
-          </div>
-
-          {tokenData && (
-            <>
-              <div className="mb-1 text-xs text-gray-500">
-                当前令牌: {tokenData.name} ({tokenData.key.substring(0, 12)}...)
-              </div>
-
-              <Divider className="my-3!" />
-
-              {!manualMode && (
-                <>
-                  <div className="mb-2 text-sm font-medium text-gray-700">
-                    智能路由
-                  </div>
-                  <Radio.Group
-                    value={routingPriority}
-                    onChange={(e) => setRoutingPriority(e.target.value)}
-                  >
-                    <div className="space-y-2">
-                      {ROUTING_OPTIONS.map((opt, i) => (
-                        <div
-                          key={opt.value}
-                          className={`flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-gray-50 ${
-                            i === ROUTING_OPTIONS.length - 1 ? 'mb-3' : ''
-                          }`}
-                          onClick={() => setRoutingPriority(opt.value)}
-                        >
-                          <Radio value={opt.value} />
-                          <div>
-                            <div className="text-sm">{opt.label}</div>
-                            <div className="text-xs text-gray-400">{opt.desc}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </Radio.Group>
-                </>
-              )}
-
-              <Checkbox
-                checked={manualMode}
-                onChange={(e) => setManualMode(e.target.checked)}
-              >
-                关闭智能路由，手动选分组
-              </Checkbox>
-
-              {manualMode && (
-                <div className="mt-3 space-y-2">
-                  {groups.map((group, index) => (
-                    <div
-                      key={`${group}-${index}`}
-                      className={`flex items-center gap-2 rounded-md border px-3 py-2 ${
-                        dragIndex === index ? 'border-blue-400 bg-blue-50' : 'border-slate-200'
-                      }`}
-                      draggable
-                      onDragStart={() => handleDragStart(index)}
-                      onDragOver={(e) => handleDragOver(e, index)}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <span className="cursor-grab text-xs text-gray-400">⠿</span>
-                      <span className="mr-1 text-xs text-gray-400">#{index + 1}</span>
-                      <span className="flex-1 text-sm">{group}</span>
-                      <Button
-                        type="text"
-                        size="small"
-                        danger
-                        onClick={() => handleDeleteGroup(index)}
-                      >
-                        删除
-                      </Button>
-                    </div>
-                  ))}
-                  {groups.length === 0 && (
-                    <div className="py-2 text-center text-xs text-gray-400">
-                      暂无分组，请添加
-                    </div>
-                  )}
-                  <AutoComplete
-                    value={newGroupName}
-                    onChange={setNewGroupName}
-                    className="w-full!"
-                    popupClassName="!min-w-[360px]"
-                    options={availableGroups
-                      .filter((g) => g.name.toLowerCase().includes(newGroupName.toLowerCase()))
-                      .map((g) => ({
-                        value: g.name,
-                        label: (
-                          <div className="flex flex-col gap-0.5 py-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">{g.name}</span>
-                              <span
-                                className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${
-                                  g.ratio <= 1
-                                    ? 'border-green-200 bg-green-50 text-green-600'
-                                    : g.ratio <= 4
-                                      ? 'border-blue-200 bg-blue-50 text-blue-600'
-                                      : g.ratio <= 8
-                                        ? 'border-orange-200 bg-orange-50 text-orange-600'
-                                        : 'border-red-200 bg-red-50 text-red-600'
-                                }`}
-                              >
-                                {g.ratio}x
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-400">{g.description}</div>
-                          </div>
-                        ),
-                      }))}
-                    filterOption={false}
-                    onSelect={(value: string) => {
-                      if (!groups.includes(value)) {
-                        setGroups((prev) => [...prev, value])
-                      }
-                      setNewGroupName('')
-                    }}
-                  >
-                    <Input.Search
-                      placeholder="输入或选择分组名称"
-                      onSearch={handleAddGroup}
-                      enterButton="添加"
-                      size="small"
-                    />
-                  </AutoComplete>
-                </div>
-              )}
-
-              <Divider className="my-3!" />
-
-              <Button type="primary" onClick={handleSave} loading={saving} block>
-                保存分组设置
-              </Button>
-            </>
-          )}
-        </>
-      ),
+      children: <>{header}{tokenInfoContent}</>,
     },
   ]
 
