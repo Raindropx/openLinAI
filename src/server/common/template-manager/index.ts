@@ -8,7 +8,7 @@ export interface TaskTemplate {
   images: string[]
   prompt: string
   createdAt: number
-  usageType: 'image' | 'video'
+  usageType: 'image'
   aspectRatio?: string
   folder?: string
   n?: number

@@ -14,19 +14,13 @@ import gptImageApi from './api/gpt-image'
 import mediaClassifierApi from './api/media-classifier'
 import ttsApi from './api/tts'
 import ttsInworldApi from './api/tts-inworld'
-import type WanApiType from './api/wan'
 
 dotenv.config()
 
 const app = new Hono()
 
-const wanApi = (
-  process.platform === 'android' ? new Hono() : require('./api/wan').default
-) as typeof WanApiType
-
 const routes = app
   // module
-  .route('/api/wan', wanApi)
   .route('/api/chat', chatApi)
   .route('/api/gemini', geminiApi)
   .route('/api/tts', ttsApi)
