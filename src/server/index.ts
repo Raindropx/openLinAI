@@ -14,6 +14,7 @@ import gptImageApi from './api/gpt-image'
 import mediaClassifierApi from './api/media-classifier'
 import ttsApi from './api/tts'
 import ttsInworldApi from './api/tts-inworld'
+import yunwuTokenApi from './api/yunwu-token'
 
 dotenv.config()
 
@@ -26,6 +27,7 @@ const routes = app
   .route('/api/tts', ttsApi)
   .route('/api/tts-inworld', ttsInworldApi)
   .route('/api/gptImage', gptImageApi)
+  .route('/api/gptImage', yunwuTokenApi)
   .route('/api/media-classifier', mediaClassifierApi)
   // common
   .route('/api/task', taskApi)

@@ -47,7 +47,7 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
         setTokenData(data)
         setRoutingPriority(data.routing_priority || '')
         setGroups(data.group ? data.group.split(',').filter(Boolean) : [])
-        setManualMode(false)
+        setManualMode(!data.routing_priority)
         handleFetchGroups()
       } else {
         message.error((result.error as string) || '获取令牌信息失败')
@@ -204,6 +204,7 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
               <Checkbox
                 checked={manualMode}
                 onChange={(e) => setManualMode(e.target.checked)}
+                className="mt-2!"
               >
                 关闭智能路由，手动选分组
               </Checkbox>
