@@ -1,11 +1,10 @@
-import { Button, Divider, Form, Input, message } from 'antd'
+import { Button, Form, Input, message } from 'antd'
 import { hc } from 'hono/client'
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import type { AppType } from '../../../../server'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
-import { AdminSettingsCollapse } from './AdminSettingsCollapse'
-import { AdminSettingsGroup } from './AdminSettingsGroup'
 import { AdminSettingsUser } from './AdminSettingsUser'
+import { AdminSettingsCollapse } from './AdminSettingsCollapse'
 import type { GenerateApiKeyResponse } from './types'
 
 export interface AdminSettingRef {
@@ -18,9 +17,8 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
   const [form] = Form.useForm()
   const { yunwuSystemToken, setYunwuSystemToken, yunwuUserId, setYunwuUserId } =
     useLocalSetting()
-  const [loading, setLoading] = useState(false)
   const [generatedApiKey, setGeneratedApiKey] = useState<string>('')
-  const [selectedTokenId, setSelectedTokenId] = useState<number | null>(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     form.setFieldsValue({
@@ -85,21 +83,13 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
         }}
       >
         <AdminSettingsUser form={form} onSave={handleSaveUser} />
-        <Divider />
         <AdminSettingsCollapse
           yunwuSystemToken={yunwuSystemToken}
           yunwuUserId={yunwuUserId}
           onGenerate={handleGenerate}
           loading={loading}
-          onSelectToken={setSelectedTokenId}
-        />
-        <AdminSettingsGroup
-          yunwuSystemToken={yunwuSystemToken}
-          yunwuUserId={yunwuUserId}
-          selectedTokenId={selectedTokenId}
         />
       </Form>
-
       {generatedApiKey && (
         <div className="mt-4 rounded-md border border-green-200 bg-green-50 p-4">
           <div className="mb-2 text-sm font-medium text-green-800">

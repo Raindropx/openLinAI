@@ -2,6 +2,7 @@ import { Button, Collapse, Form, Input, message, Radio, Tag } from 'antd'
 import { useState } from 'react'
 import { encryptApiKey } from '../../../../server/module/gpt-image/encrypt'
 import type { ApiKeySearchResult } from './types'
+import { AdminSettingsGroup } from './AdminSettingsGroup'
 interface Props {
   yunwuSystemToken?: string
   yunwuUserId?: string
@@ -188,11 +189,21 @@ export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerat
       )}
     </>
   )
-
   const items = [
     { key: 'search', label: `API Key 搜索${searchResults.length > 0 ? ` (${searchResults.length})` : ''}`, children: searchContent },
     { key: 'generate', label: 'API Key 生成', children: generateContent },
     { key: 'encrypt', label: 'API Key 加密转换', children: encryptContent },
+    {
+      key: 'group',
+      label: 'API Key 分组设置',
+      children: (
+        <AdminSettingsGroup
+          yunwuSystemToken={yunwuSystemToken}
+          yunwuUserId={yunwuUserId}
+          selectedTokenId={selectedId}
+        />
+      ),
+    },
   ]
 
   return (

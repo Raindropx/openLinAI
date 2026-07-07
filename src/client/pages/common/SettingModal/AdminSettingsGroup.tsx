@@ -18,7 +18,6 @@ const ROUTING_OPTIONS = [
 ]
 export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedTokenId }: Props) {
   const [tokenData, setTokenData] = useState<TokenData | null>(null)
-  const [groupActiveKey, setGroupActiveKey] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [routingPriority, setRoutingPriority] = useState('')
@@ -161,7 +160,6 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
 
   const routingSection = !manualMode && (
     <>
-      <Divider />
       <div className="mb-2 text-sm font-medium text-gray-700">智能路由</div>
       <Radio.Group value={routingPriority} onChange={(e) => setRoutingPriority(e.target.value)}>
         <div className="space-y-2">
@@ -243,7 +241,18 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
       <div className="mb-1 text-xs text-gray-500">
         当前令牌: {tokenData.name} ({tokenData.key.substring(0, 12)}...)
       </div>
-      {routingSection}
+      <Divider />
+      <Collapse
+        ghost
+        activeKey={manualMode ? [] : ['routing']}
+        items={[{
+          key: 'routing',
+          showArrow: false,
+          label: '',
+          children: routingSection,
+        }]}
+        className="[&_.ant-collapse-header]:!hidden [&_.ant-collapse-body]:!p-0 [&_.ant-collapse-content]:!p-0 [&_.ant-collapse-content-box]:!p-0"
+      />
       <Checkbox checked={manualMode} onChange={(e) => setManualMode(e.target.checked)}>
         关闭智能路由，手动选分组
       </Checkbox>
@@ -255,20 +264,5 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
     </>
   )
 
-  const items = [
-    {
-      key: 'group',
-      label: 'API Key 分组设置',
-      children: <>{header}{tokenInfoContent}</>,
-    },
-  ]
-
-  return (
-    <Collapse
-      activeKey={groupActiveKey}
-      onChange={(keys) => setGroupActiveKey(keys as string[])}
-      items={items}
-      className="[&_.ant-collapse-header]:!px-0 [&_.ant-collapse-content-box]:!px-0"
-    />
-  )
+  return <>{header}{tokenInfoContent}</>
 }
