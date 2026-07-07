@@ -8,10 +8,9 @@ interface Props {
   yunwuUserId?: string
   onGenerate: () => void
   loading: boolean
-  onSelectToken?: (id: number | null) => void
 }
 
-export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerate, loading, onSelectToken }: Props) {
+export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerate, loading }: Props) {
   const [searchMode, setSearchMode] = useState<'keyword' | 'token'>('keyword')
   const [searchResults, setSearchResults] = useState<ApiKeySearchResult[]>([])
   const [searching, setSearching] = useState(false)
@@ -63,9 +62,7 @@ export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerat
   }
 
   const handleToggleSelect = (id: number) => {
-    const next = selectedId === id ? null : id
-    setSelectedId(next)
-    onSelectToken?.(next)
+    setSelectedId((prev) => (prev === id ? null : id))
   }
 
   const handleToggleExpand = (id: number) => {
