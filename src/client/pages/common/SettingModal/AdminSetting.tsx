@@ -1,4 +1,4 @@
-import { Button, Form, Input, message } from 'antd'
+import { Button, Divider, Form, Input, message } from 'antd'
 import { hc } from 'hono/client'
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import type { AppType } from '../../../../server'
@@ -85,7 +85,7 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
         }}
       >
         <AdminSettingsUser form={form} onSave={handleSaveUser} />
-
+        <Divider />
         <AdminSettingsCollapse
           yunwuSystemToken={yunwuSystemToken}
           yunwuUserId={yunwuUserId}
@@ -93,7 +93,6 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
           loading={loading}
           onSelectToken={setSelectedTokenId}
         />
-
         <AdminSettingsGroup
           yunwuSystemToken={yunwuSystemToken}
           yunwuUserId={yunwuUserId}

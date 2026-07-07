@@ -16,9 +16,9 @@ const ROUTING_OPTIONS = [
   { value: 'speed', label: '速度优先', desc: '优先选择响应更快的渠道' },
   { value: 'success_rate', label: '成功率优先', desc: '优先选择近期更稳定的渠道' },
 ]
-
 export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedTokenId }: Props) {
   const [tokenData, setTokenData] = useState<TokenData | null>(null)
+  const [groupActiveKey, setGroupActiveKey] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [routingPriority, setRoutingPriority] = useState('')
@@ -265,9 +265,8 @@ export function AdminSettingsGroup({ yunwuSystemToken, yunwuUserId, selectedToke
 
   return (
     <Collapse
-      ghost
-      size="small"
-      defaultActiveKey={['group']}
+      activeKey={groupActiveKey}
+      onChange={(keys) => setGroupActiveKey(keys as string[])}
       items={items}
       className="[&_.ant-collapse-header]:!px-0 [&_.ant-collapse-content-box]:!px-0"
     />

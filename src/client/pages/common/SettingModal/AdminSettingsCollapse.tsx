@@ -20,8 +20,7 @@ export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerat
   const [rawApiKey, setRawApiKey] = useState('')
   const [encryptedApiKey, setEncryptedApiKey] = useState('')
   const [encrypting, setEncrypting] = useState(false)
-
-  const [collapseKeys, setCollapseKeys] = useState<string[]>(['generate', 'encrypt'])
+  const [collapseKeys, setCollapseKeys] = useState<string[]>([])
 
   const handleSearch = async (value?: string) => {
     const kw = (value || '').trim()
@@ -45,7 +44,10 @@ export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerat
         const items = (data.data as ApiKeySearchResult[]) || []
         setSearchResults(items)
         if (items.length > 0) {
-          setCollapseKeys((prev) => prev.includes('search') ? prev : [...prev, 'search'])
+          setCollapseKeys((prev) => {
+            const arr = prev ?? []
+            return arr.includes('search') ? arr : [...arr, 'search']
+          })
         } else {
           message.info('未找到匹配的 API Key')
         }
