@@ -12,7 +12,6 @@ interface Props {
 
 export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerate, loading }: Props) {
   const [searchMode, setSearchMode] = useState<'keyword' | 'token'>('keyword')
-  const [searchKeyword, setSearchKeyword] = useState('')
   const [searchResults, setSearchResults] = useState<ApiKeySearchResult[]>([])
   const [searching, setSearching] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -25,7 +24,7 @@ export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerat
   const [collapseKeys, setCollapseKeys] = useState<string[]>(['generate', 'encrypt'])
 
   const handleSearch = async (value?: string) => {
-    const kw = value ?? searchKeyword
+    const kw = (value || '').trim()
     if (!kw.trim()) return
     if (!yunwuSystemToken || !yunwuUserId) {
       message.warning('请先配置系统令牌和用户 ID')
@@ -101,7 +100,6 @@ export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerat
               value={searchMode}
               onChange={(e) => {
                 setSearchMode(e.target.value)
-                setSearchKeyword('')
                 setSearchResults([])
               }}
               optionType="button"
@@ -113,11 +111,6 @@ export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerat
             <Input.Search
               className="flex-1"
               placeholder={searchMode === 'keyword' ? '搜索 API Key 名称' : '搜索 API Key 密钥 (sk-xxx)'}
-              value={searchKeyword}
-              onChange={(e) => {
-                setSearchKeyword(e.target.value)
-                if (e.target.value) handleSearch(e.target.value)
-              }}
               onSearch={handleSearch}
               loading={searching}
               enterButton
@@ -241,6 +234,7 @@ export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerat
       activeKey={collapseKeys}
       onChange={(keys) => setCollapseKeys(keys as string[])}
       items={items}
+      className="[&_.ant-collapse-header]:!px-0 [&_.ant-collapse-content-box]:!px-0"
     />
   )
 }

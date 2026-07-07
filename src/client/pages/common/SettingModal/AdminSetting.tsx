@@ -72,7 +72,7 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
   }
 
   return (
-    <div className="px-4 py-2">
+    <div>
       <Form
         key={yunwuUserId ?? 'empty'}
         form={form}
