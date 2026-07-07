@@ -1,9 +1,10 @@
-import { Divider, Form, Input, message, Button } from 'antd'
+import { Button, Form, Input, message } from 'antd'
 import { hc } from 'hono/client'
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import type { AppType } from '../../../../server'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { AdminSettingsCollapse } from './AdminSettingsCollapse'
+import { AdminSettingsGroup } from './AdminSettingsGroup'
 import { AdminSettingsUser } from './AdminSettingsUser'
 import type { GenerateApiKeyResponse } from './types'
 
@@ -19,6 +20,7 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
     useLocalSetting()
   const [loading, setLoading] = useState(false)
   const [generatedApiKey, setGeneratedApiKey] = useState<string>('')
+  const [selectedTokenId, setSelectedTokenId] = useState<number | null>(null)
 
   useEffect(() => {
     form.setFieldsValue({
@@ -84,13 +86,18 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
       >
         <AdminSettingsUser form={form} onSave={handleSaveUser} />
 
-        <Divider />
-
         <AdminSettingsCollapse
           yunwuSystemToken={yunwuSystemToken}
           yunwuUserId={yunwuUserId}
           onGenerate={handleGenerate}
           loading={loading}
+          onSelectToken={setSelectedTokenId}
+        />
+
+        <AdminSettingsGroup
+          yunwuSystemToken={yunwuSystemToken}
+          yunwuUserId={yunwuUserId}
+          selectedTokenId={selectedTokenId}
         />
       </Form>
 

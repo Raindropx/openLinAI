@@ -226,4 +226,77 @@ const gptImageApi = new Hono()
     }
   })
 
+  .get('/token-info/:id', async (c) => {
+    const id = c.req.param('id')
+    const systemToken = c.req.header('x-system-token')
+    const userId = c.req.header('x-user-id')
+
+    if (!systemToken || !userId) {
+      return c.json(
+        { success: false as const, error: 'System token and User ID are required' },
+        400,
+      )
+    }
+
+    try {
+      const response = await fetch(`https://yunwu.ai/api/token/${id}`, {
+        headers: {
+          Authorization: systemToken,
+          'new-api-user': userId,
+        },
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        return c.json(
+          { success: false as const, error: data.message || '获取令牌信息失败' },
+          response.status as any,
+        )
+      }
+      return c.json({ success: true as const, data: data.data })
+    } catch (error: any) {
+      return c.json(
+        { success: false as const, error: error.message || '获取令牌信息失败' },
+        500,
+      )
+    }
+  })
+
+  .put('/token-update', async (c) => {
+    const systemToken = c.req.header('x-system-token')
+    const userId = c.req.header('x-user-id')
+    const body = await c.req.json()
+
+    if (!systemToken || !userId) {
+      return c.json(
+        { success: false as const, error: 'System token and User ID are required' },
+        400,
+      )
+    }
+
+    try {
+      const response = await fetch('https://yunwu.ai/api/token/', {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          Authorization: systemToken,
+          'new-api-user': userId,
+        },
+        body: JSON.stringify(body),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        return c.json(
+          { success: false as const, error: data.message || '更新令牌失败' },
+          response.status as any,
+        )
+      }
+      return c.json({ success: true as const, data: data.data })
+    } catch (error: any) {
+      return c.json(
+        { success: false as const, error: error.message || '更新令牌失败' },
+        500,
+      )
+    }
+  })
+
 export default gptImageApi

@@ -1,20 +1,20 @@
-import { Button, Checkbox, Collapse, Form, Input, message, Radio, Tag } from 'antd'
+import { Button, Collapse, Form, Input, message, Radio, Tag } from 'antd'
 import { useState } from 'react'
 import { encryptApiKey } from '../../../../server/module/gpt-image/encrypt'
 import type { ApiKeySearchResult } from './types'
-
 interface Props {
   yunwuSystemToken?: string
   yunwuUserId?: string
   onGenerate: () => void
   loading: boolean
+  onSelectToken?: (id: number | null) => void
 }
 
-export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerate, loading }: Props) {
+export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerate, loading, onSelectToken }: Props) {
   const [searchMode, setSearchMode] = useState<'keyword' | 'token'>('keyword')
   const [searchResults, setSearchResults] = useState<ApiKeySearchResult[]>([])
   const [searching, setSearching] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [selectedId, setSelectedId] = useState<number | null>(null)
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
   const [rawApiKey, setRawApiKey] = useState('')
@@ -60,12 +60,9 @@ export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerat
   }
 
   const handleToggleSelect = (id: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    const next = selectedId === id ? null : id
+    setSelectedId(next)
+    onSelectToken?.(next)
   }
 
   const handleToggleExpand = (id: number) => {
@@ -124,8 +121,8 @@ export function AdminSettingsCollapse({ yunwuSystemToken, yunwuUserId, onGenerat
                   className="rounded-md border border-slate-200"
                 >
                   <div className="flex items-center gap-2 px-3 py-2">
-                    <Checkbox
-                      checked={selectedIds.has(item.id)}
+                    <Radio
+                      checked={selectedId === item.id}
                       onChange={() => handleToggleSelect(item.id)}
                     />
                     <span
