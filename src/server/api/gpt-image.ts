@@ -186,5 +186,44 @@ const gptImageApi = new Hono()
       }
     },
   )
+  .get('/search-api-keys', async (c) => {
+    const keyword = c.req.query('keyword')
+    const token = c.req.query('token')
+    const systemToken = c.req.header('x-system-token')
+    const userId = c.req.header('x-user-id')
+
+    if (!systemToken || !userId) {
+      return c.json(
+        { success: false as const, error: 'System token and User ID are required' },
+        400,
+      )
+    }
+
+    try {
+      const url = new URL('https://yunwu.ai/api/token/search')
+      if (keyword) url.searchParams.append('keyword', keyword)
+      if (token) url.searchParams.append('token', token)
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          Authorization: systemToken,
+          'new-api-user': userId,
+        },
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        return c.json(
+          { success: false as const, error: data.message || '搜索失败' },
+          response.status as any,
+        )
+      }
+      return c.json({ success: true as const, data: data.data || [] })
+    } catch (error: any) {
+      return c.json(
+        { success: false as const, error: error.message || '搜索失败' },
+        500,
+      )
+    }
+  })
 
 export default gptImageApi

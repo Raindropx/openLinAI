@@ -1,9 +1,8 @@
-import { Button, Form, Input, message } from 'antd'
+import { Button, Checkbox, Divider, Form, Input, message, Tag } from 'antd'
 import { hc } from 'hono/client'
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import type { AppType } from '../../../../server'
 import { encryptApiKey } from '../../../../server/module/gpt-image/encrypt'
-import { isPublicApiKey } from '../../../hooks/useGPTImageQuota'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 
 export interface AdminSettingRef {
@@ -11,7 +10,6 @@ export interface AdminSettingRef {
 }
 
 const client = hc<AppType>('/')
-const fixedGroup = '限时特价,default,逆向,纯AZ,官转'
 
 export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
   const [form] = Form.useForm()
@@ -23,10 +21,12 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
   const [rawApiKey, setRawApiKey] = useState('')
   const [encryptedApiKey, setEncryptedApiKey] = useState('')
   const [encrypting, setEncrypting] = useState(false)
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searching, setSearching] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [expandedId, setExpandedId] = useState<number | null>(null)
 
-  const nameValue = Form.useWatch('name', form)
-  const isPublic = isPublicApiKey(nameValue)
-  const currentGroup = isPublic ? fixedGroup.replace(',官转', '') : fixedGroup
 
   useEffect(() => {
     form.setFieldsValue({
@@ -57,7 +57,7 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
           userId: values.yunwuUserId,
           name: values.name,
           quota: Number(values.quota),
-          group: currentGroup,
+          group: '',
         },
       })
       const data = await response.json()
@@ -92,38 +92,159 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
     }
   }
 
+  const handleSearch = async (keyword?: string) => {
+    const kw = keyword ?? searchKeyword
+    if (!kw.trim()) return
+    if (!yunwuSystemToken || !yunwuUserId) {
+      message.warning('请先配置系统令牌和用户 ID')
+      return
+    }
+    setSearching(true)
+    try {
+      const res = await client.api.gptImage['search-api-keys'].$get({
+        query: { keyword: kw.trim() },
+        headers: {
+          'x-system-token': yunwuSystemToken,
+          'x-user-id': yunwuUserId,
+        },
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSearchResults(data.data || [])
+        if ((data.data || []).length === 0) {
+          message.info('未找到匹配的 API Key')
+        }
+      } else {
+        message.error((data as any).error || '搜索失败')
+      }
+    } catch (error: any) {
+      message.error(error.message || '搜索请求失败')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleToggleExpand = (id: number) => {
+    setExpandedId((prev) => (prev === id ? null : id))
+  }
+
   return (
     <div className="px-4 py-2">
+      {/* 云雾用户设置 */}
+      <div className="mb-4 text-sm font-medium text-gray-800">
+        云雾用户设置
+      </div>
       <Form form={form} layout="vertical">
         <Form.Item
           name="yunwuSystemToken"
-          label="云雾系统令牌"
+          label="系统令牌"
           rules={[{ required: true, message: '请输入云雾系统令牌' }]}
         >
           <Input.Password placeholder="请输入云雾系统令牌" />
         </Form.Item>
         <Form.Item
           name="yunwuUserId"
-          label="云雾用户 ID"
+          label="用户 ID"
           rules={[{ required: true, message: '请输入云雾用户 ID' }]}
         >
           <Input placeholder="请输入云雾用户 ID" />
         </Form.Item>
+      </Form>
+
+      <Divider />
+
+      {/* API Key 搜索 */}
+      <div className="mb-4 text-sm font-medium text-gray-800">
+        API Key 搜索
+      </div>
+      <Input.Search
+        placeholder="搜索 API Key 名称"
+        value={searchKeyword}
+        onChange={(e) => {
+          setSearchKeyword(e.target.value)
+          if (e.target.value) handleSearch(e.target.value)
+        }}
+        onSearch={handleSearch}
+        loading={searching}
+        enterButton
+      />
+      {searchResults.length > 0 && (
+        <div className="mt-2 max-h-80 space-y-1 overflow-y-auto">
+          {searchResults.map((item: any) => (
+            <div
+              key={item.id}
+              className="rounded-md border border-slate-200"
+            >
+              <div className="flex items-center gap-2 px-3 py-2">
+                <Checkbox
+                  checked={selectedIds.has(item.id)}
+                  onChange={() => handleToggleSelect(item.id)}
+                />
+                <span
+                  className="flex-1 cursor-pointer text-sm"
+                  onClick={() => handleToggleExpand(item.id)}
+                >
+                  {item.name}
+                </span>
+                <Tag color={item.status === 1 ? 'green' : 'red'}>
+                  {item.status === 1 ? '启用' : '禁用'}
+                </Tag>
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={() => handleToggleExpand(item.id)}
+                >
+                  {expandedId === item.id ? '收起' : '详情'}
+                </Button>
+              </div>
+              {expandedId === item.id && (
+                <div className="space-y-1 border-t border-slate-100 px-3 py-2 text-xs text-gray-500">
+                  <div>Key: {item.key}</div>
+                  <div>ID: {item.id}</div>
+                  <div>分组: {item.group}</div>
+                  <div>已用额度: {item.used_quota?.toLocaleString()}</div>
+                  <div>剩余额度: {item.remain_quota?.toLocaleString()}</div>
+                  <div>无限额度: {item.unlimited_quota ? '是' : '否'}</div>
+                  <div>模型限制: {item.model_limits || '无'}</div>
+                  <div>创建: {item.created_time ? new Date(item.created_time * 1000).toLocaleString() : '-'}</div>
+                  <div>最后访问: {item.accessed_time ? new Date(item.accessed_time * 1000).toLocaleString() : '-'}</div>
+                  <div>过期: {item.expired_time && item.expired_time > 0 ? new Date(item.expired_time * 1000).toLocaleString() : '永不过期'}</div>
+                  <div>IP 限制: {item.allow_ips || '无'}</div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Divider />
+
+      {/* API Key 生成 */}
+      <div className="mb-4 text-sm font-medium text-gray-800">
+        API Key 生成
+      </div>
+      <Form form={form} layout="vertical">
         <Form.Item name="name" label="API Key 标题">
           <Input placeholder="请输入 API Key 标题" />
         </Form.Item>
-        <Form.Item name="quota" label="限额 (RMB)">
-          <Input type="number" placeholder="请输入限额" />
-        </Form.Item>
-        <Form.Item label="API Key 分组">
-          <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
-            {currentGroup.replace(/,/g, ' → ')}
+        <Form.Item label="限额 (RMB)">
+          <div className="flex gap-2">
+            <Form.Item name="quota" className="mb-0 flex-1" noStyle>
+              <Input type="number" placeholder="请输入限额" />
+            </Form.Item>
+            <Button type="primary" onClick={handleGenerate} loading={loading}>
+              生成 API Key
+            </Button>
           </div>
-        </Form.Item>
-        <Form.Item>
-          <Button type="primary" onClick={handleGenerate} loading={loading}>
-            生成 API Key
-          </Button>
         </Form.Item>
       </Form>
 
@@ -146,39 +267,41 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
         </div>
       )}
 
-      <div className="mt-6 border-t pt-4">
-        <h3 className="mb-4 text-sm font-medium text-gray-800">
-          API Key 加密转换
-        </h3>
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="请输入 sk- 开头的 API Key"
-            value={rawApiKey}
-            onChange={(e) => setRawApiKey(e.target.value)}
-          />
-          <Button loading={encrypting} onClick={handleEncrypt}>
-            转换
-          </Button>
-        </div>
-        {encryptedApiKey && (
-          <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-4">
-            <div className="mb-2 text-sm font-medium text-blue-800">
-              转换成功！请复制加密后的 API Key：
-            </div>
-            <div className="flex items-center gap-2">
-              <Input value={encryptedApiKey} readOnly />
-              <Button
-                onClick={() => {
-                  navigator.clipboard.writeText(encryptedApiKey)
-                  message.success('已复制到剪贴板')
-                }}
-              >
-                复制
-              </Button>
-            </div>
-          </div>
-        )}
+      <Divider />
+
+      {/* API Key 加密转换 */}
+      <div className="mb-4 text-sm font-medium text-gray-800">
+        API Key 加密转换
       </div>
+      <div className="flex w-full gap-2">
+        <Input
+          placeholder="请输入 sk- 开头的 API Key"
+          value={rawApiKey}
+          onChange={(e) => setRawApiKey(e.target.value)}
+          className="flex-1"
+        />
+        <Button loading={encrypting} onClick={handleEncrypt}>
+          转换
+        </Button>
+      </div>
+      {encryptedApiKey && (
+        <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-4">
+          <div className="mb-2 text-sm font-medium text-blue-800">
+            转换成功！请复制加密后的 API Key：
+          </div>
+          <div className="flex items-center gap-2">
+            <Input value={encryptedApiKey} readOnly />
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(encryptedApiKey)
+                message.success('已复制到剪贴板')
+              }}
+            >
+              复制
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 })
