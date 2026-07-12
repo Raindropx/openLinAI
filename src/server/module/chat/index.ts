@@ -1,5 +1,7 @@
 export const YUNWU_CHAT_COMPLETIONS_URL = 'https://yunwu.ai/v1/chat/completions'
 
+import { fetchWithTimeout } from '../utils/fetch'
+
 export interface ChatContentPart {
   type: 'text' | 'image_url'
   text?: string
@@ -41,9 +43,11 @@ async function parseChatResponse(response: Response) {
 
 export async function createChatCompletion(options: {
   apiKey: string
+  /** 端点 baseURL，拼 /chat/completions；不传则回退到云雾旧地址 */
+  baseURL?: string
   body: ChatCompletionRequest
 }) {
-  const { apiKey, body } = options
+  const { apiKey, body, baseURL } = options
 
   if (body.stream) {
     return {
@@ -55,16 +59,24 @@ export async function createChatCompletion(options: {
     }
   }
 
+  const url = baseURL
+    ? `${baseURL.replace(/\/$/, '')}/chat/completions`
+    : YUNWU_CHAT_COMPLETIONS_URL
+
   try {
-    const response = await fetch(YUNWU_CHAT_COMPLETIONS_URL, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+    const response = await fetchWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    })
+      120000,
+    )
 
     const data = await parseChatResponse(response)
 

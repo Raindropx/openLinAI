@@ -51,7 +51,10 @@ const staticApi = new Hono()
       }
 
       return new Response(new Uint8Array(result.file), {
-        headers: { 'Content-Type': result.contentType },
+        headers: {
+          'Content-Type': result.contentType,
+          'Cache-Control': 'public, max-age=86400, immutable',
+        },
       })
     },
   )
@@ -74,7 +77,10 @@ const staticApi = new Hono()
       }
 
       return new Response(new Uint8Array(result.file), {
-        headers: { 'Content-Type': result.contentType },
+        headers: {
+          'Content-Type': result.contentType,
+          'Cache-Control': 'public, max-age=86400, immutable',
+        },
       })
     },
   )

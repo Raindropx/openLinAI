@@ -11,7 +11,7 @@ import { GENERATED_IMAGES_API_PATH } from '../../common/static/enum'
 import { taskManager } from '../../common/task-manager'
 import { TaskTemplate } from '../../common/template-manager'
 import { logger } from '../utils/logger'
-import { GPT_IMAGE_SOURCE_MODEL, GptImageQuality, GptImageSize } from './enum'
+import { GptImageQuality, GptImageSize } from './enum'
 
 interface GPTImageResponse {
   created: number
@@ -32,6 +32,8 @@ interface GPTImageResponse {
 
 interface GenerateGPTImageOptions {
   apiKey: string
+  baseURL: string
+  model: string
   prompt: string
   size: string
   quality: GptImageQuality
@@ -39,7 +41,36 @@ interface GenerateGPTImageOptions {
   n?: number
 }
 
+/** OpenAI client 缓存，按 apiKey+baseURL 复用，避免每次请求重建连接池 */
+const openaiClientCache = new Map<string, OpenAI>()
+
+function getOpenAIClient(apiKey: string, baseURL: string): OpenAI {
+  const cacheKey = `${apiKey}:${baseURL}`
+  let client = openaiClientCache.get(cacheKey)
+  if (!client) {
+    client = new OpenAI({ apiKey, baseURL })
+    openaiClientCache.set(cacheKey, client)
+  }
+  return client
+}
+
+/**
+ * 根据模板生成最终提示词。当 injectAspectRatio 为 true 且 aspectRatio 有效（非 auto）时，
+ * 在提示词末尾追加“。画面比例X:Y”，用于不支持 size 参数的模型。
+ */
+export function buildPromptWithAspectRatio(template: TaskTemplate): string {
+  const prompt = template.prompt
+  if (!template.injectAspectRatio) return prompt
+  const ratio = template.aspectRatio
+  if (!ratio || ratio === 'auto') return prompt
+  return `${prompt}。画面比例${ratio}`
+}
+
 function calculateSize(aspectRatio: string, baseSize: GptImageSize): string {
+  // auto：交由模型自行决定尺寸（如 GPT-image-1 的 auto）
+  if (aspectRatio === 'auto') {
+    return 'auto'
+  }
   const [wStr, hStr] = aspectRatio.split(':')
   const wRatio = parseInt(wStr, 10)
   const hRatio = parseInt(hStr, 10)
@@ -93,11 +124,17 @@ function calculateSize(aspectRatio: string, baseSize: GptImageSize): string {
 }
 
 async function generateGPTImageNew(options: GenerateGPTImageOptions) {
-  const { apiKey, prompt, size, quality, imagePaths: images, n = 1 } = options
-  const client = new OpenAI({
+  const {
     apiKey,
-    baseURL: 'https://api.wlai.vip/v1',
-  })
+    baseURL,
+    model,
+    prompt,
+    size,
+    quality,
+    imagePaths: images,
+    n = 1,
+  } = options
+  const client = getOpenAIClient(apiKey, baseURL)
   const imagesToUpload = images.length
     ? await Promise.all(
         images.map(
@@ -112,7 +149,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
   let res: OpenAI.Images.ImagesResponse
   if (imagesToUpload) {
     res = await client.images.edit({
-      model: GPT_IMAGE_SOURCE_MODEL,
+      model,
       image: imagesToUpload || [],
       prompt: prompt,
       n,
@@ -121,7 +158,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
     })
   } else {
     res = await client.images.generate({
-      model: GPT_IMAGE_SOURCE_MODEL,
+      model,
       prompt,
       n,
       size: size as any,
@@ -153,20 +190,32 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
 
 export async function handleImageGeneration(options: {
   apiKey: string
+  baseURL: string
+  model: string
   template: TaskTemplate
   size?: GptImageSize
   quality?: GptImageQuality
+  endpointName?: string
 }) {
   try {
-    const { apiKey, template, size = '1k', quality = 'medium' } = options
+    const {
+      apiKey,
+      baseURL,
+      model,
+      template,
+      size = '1k',
+      quality = 'medium',
+      endpointName,
+    } = options
 
     logger.info(`Generating GPT image`)
 
     const task = await taskManager.createTaskFromTemplate({
       template,
-      source: GPT_IMAGE_SOURCE_MODEL,
+      source: model,
       size,
       quality,
+      endpointName,
     })
 
     if (!task) {
@@ -199,7 +248,9 @@ export async function handleImageGeneration(options: {
     try {
       const res = await generateGPTImageNew({
         apiKey,
-        prompt: template.prompt,
+        baseURL,
+        model,
+        prompt: buildPromptWithAspectRatio(template),
         size: finalSize,
         quality,
         imagePaths,

@@ -1,10 +1,10 @@
 import { Modal, Tabs } from 'antd'
 import { useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { usePlatform } from '../../../hooks/usePlatform'
 import { AdminSetting, AdminSettingRef } from './AdminSetting'
 import { GPTImageSetting, GPTImageSettingRef } from './GPTImageSetting'
-import { SideSetting } from './SideSetting'
-import { TTSSetting, TTSSettingRef } from './TTSSetting'
+import { LlmSetting, LlmSettingRef } from './LlmSetting'
 import { UploadImageSetting } from './UploadImageSetting'
 
 export const isAdmin = () => {
@@ -32,8 +32,9 @@ export function openSettingModal(options?: {
     const [activeTab, setActiveTab] = useState(
       options?.initialTab || 'gpt-image',
     )
+    const { isMobile } = usePlatform()
     const gptImageRef = useRef<GPTImageSettingRef>(null)
-    const ttsRef = useRef<TTSSettingRef>(null)
+    const llmRef = useRef<LlmSettingRef>(null)
     const adminRef = useRef<AdminSettingRef>(null)
 
     const handleSave = async () => {
@@ -43,8 +44,8 @@ export function openSettingModal(options?: {
           if (apiKey) {
             options?.onSuccess?.(apiKey)
           }
-        } else if (activeTab === 'tts') {
-          await ttsRef.current?.save()
+        } else if (activeTab === 'llm-endpoints') {
+          await llmRef.current?.save()
         } else if (activeTab === 'admin') {
           await adminRef.current?.save()
         }
@@ -57,23 +58,18 @@ export function openSettingModal(options?: {
     const items = [
       {
         key: 'gpt-image',
-        label: 'GPTImage 配置',
+        label: '图片端点',
         children: <GPTImageSetting ref={gptImageRef} />,
       },
       {
-        key: 'tts',
-        label: 'TTS 配置',
-        children: <TTSSetting ref={ttsRef} />,
+        key: 'llm-endpoints',
+        label: 'LLM 端点',
+        children: <LlmSetting ref={llmRef} />,
       },
       {
         key: 'upload-image',
         label: '通用图片设置',
         children: <UploadImageSetting />,
-      },
-      {
-        key: 'side-setting',
-        label: '辅助功能',
-        children: <SideSetting />,
       },
     ]
 
@@ -94,17 +90,20 @@ export function openSettingModal(options?: {
         okText={options?.onSuccess ? '保存并继续' : '保存'}
         cancelText="取消"
         destroyOnHidden
-        width={620}
+        width={isMobile ? '92vw' : 920}
+        styles={{
+          body: { maxHeight: '72vh', overflowY: 'auto' },
+        }}
       >
         <div className="min-h-[200px] pt-4">
           <Tabs
-            tabPlacement="start"
+            tabPosition={isMobile ? 'top' : 'left'}
             activeKey={activeTab}
             onChange={setActiveTab}
             items={items}
             styles={{
               item: {
-                padding: '8px 16px', // 你要的 padding
+                padding: '8px 16px',
               },
             }}
           />

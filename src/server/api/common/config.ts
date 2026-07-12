@@ -24,6 +24,37 @@ const configApi = new Hono()
       'json',
       z.object({
         gptImageApiKey: z.string().nullable().optional(),
+        endpoints: z
+          .array(
+            z.object({
+              id: z.string(),
+              name: z.string(),
+              baseURL: z.string(),
+              model: z.string(),
+              apiKey: z.string(),
+              type: z.enum(['yunwu', 'openrouter', 'custom']),
+              engine: z.enum(['openai-images', 'chat-completions']).optional(),
+            }),
+          )
+          .optional(),
+        llmEndpoints: z
+          .array(
+            z.object({
+              id: z.string(),
+              name: z.string(),
+              baseURL: z.string(),
+              model: z.string(),
+              apiKey: z.string(),
+            }),
+          )
+          .optional(),
+        llmPrompts: z
+          .object({
+            optimizePrompt: z.string(),
+            styleOptimizePrompt: z.string(),
+            charCardPrompt: z.string(),
+          })
+          .optional(),
         ttsInworldApiKey: z.string().nullable().optional(),
       }),
     ),
@@ -31,7 +62,7 @@ const configApi = new Hono()
       const body = c.req.valid('json')
       const newConfig = updateConfig(body)
       const ip = getLocalIpAddress()
-      const port = 3000
+      const port = BACKEND_PORT
       const localNetworkUrl = `http://${ip}:${port}`
 
       return c.json({

@@ -1,4 +1,6 @@
 node_modules
+.pnpm-store
+pnpm-debug.log*
 .env
 logs
 .user_data
@@ -6,3 +8,11 @@ downloads
 dist
 data
 tsconfig.tsbuildinfo
+
+# Build and release archives
+*.zip
+
+# Deployment-generated dependencies and build output
+deploy/**/node_modules
+deploy/**/.pnpm-store
+deploy/**/dist

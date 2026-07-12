@@ -1,3 +1,4 @@
+import { useLocalStorageState } from 'ahooks'
 import { Button, message, Switch } from 'antd'
 import { hc } from 'hono/client'
 import { forwardRef } from 'react'
@@ -8,6 +9,10 @@ const client = hc<AppType>('/')
 
 export const UploadImageSetting = forwardRef((_props, _ref) => {
   const { gptImageSettings, setGptImageSettings } = useLocalSetting()
+  const [skipDeleteConfirm, setSkipDeleteConfirm] = useLocalStorageState(
+    'skipDeleteTaskConfirm',
+    { defaultValue: false },
+  )
 
   const handleOpenDir = async () => {
     try {
@@ -60,6 +65,23 @@ export const UploadImageSetting = forwardRef((_props, _ref) => {
               }
             />
             <span>删除任务时不删除图片</span>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <Button
+              size="small"
+              disabled={!skipDeleteConfirm}
+              onClick={() => {
+                setSkipDeleteConfirm(false)
+                message.success('已恢复删除任务时的提醒')
+              }}
+            >
+              恢复删除提醒
+            </Button>
+            <span className="text-xs text-gray-400">
+              {skipDeleteConfirm
+                ? '当前：删除任务时不提醒'
+                : '当前：删除任务时会提醒'}
+            </span>
           </div>
         </div>
       </div>

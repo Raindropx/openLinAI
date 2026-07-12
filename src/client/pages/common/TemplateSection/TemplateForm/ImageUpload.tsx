@@ -26,9 +26,11 @@ const ASPECT_RATIOS = [
   { label: '21:9', value: '21:9', ratio: 21 / 9 },
   { label: '2:1', value: '2:1', ratio: 2 / 1 },
   { label: '16:9', value: '16:9', ratio: 16 / 9 },
+  { label: '3:2', value: '3:2', ratio: 3 / 2 },
   { label: '4:3', value: '4:3', ratio: 4 / 3 },
   { label: '1:1', value: '1:1', ratio: 1 / 1 },
   { label: '3:4', value: '3:4', ratio: 3 / 4 },
+  { label: '2:3', value: '2:3', ratio: 2 / 3 },
   { label: '9:16', value: '9:16', ratio: 9 / 16 },
   { label: '1:2', value: '1:2', ratio: 1 / 2 },
   { label: '9:21', value: '9:21', ratio: 9 / 21 },
@@ -182,17 +184,21 @@ export function ImageUpload({
 
   return (
     <div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         <Upload
           accept="image/jpeg,image/png,image/webp"
           showUploadList={false}
           beforeUpload={handleUpload}
           multiple
+          className="flex-1"
         >
-          <Button icon={<UploadOutlined />}>拖入/选择本地图片</Button>
+          <Button icon={<UploadOutlined />} className="w-full">
+            拖入/选择本地图片
+          </Button>
         </Upload>
         <Button
           icon={<PictureOutlined />}
+          className="flex-1"
           onClick={() => {
             openGallery({
               onSelect: async (images: GalleryImageSelection[]) => {

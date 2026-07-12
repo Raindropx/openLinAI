@@ -75,10 +75,10 @@ export function TaskListHeader({
         <div>
           <p className="mb-2 font-bold text-red-500">
             {gptImageSettings.keepImageWhenDeleteTask
-              ? '警告：将删除任务记录，但图片/视频文件将保留。'
+              ? '警告：将删除任务记录，但图片文件将保留。'
               : '警告：将删除源文件且无法找回！'}
           </p>
-          <p>请确保您已妥善保存好下载的图片/视频。</p>
+          <p>请确保您已妥善保存好下载的图片。</p>
           <p>共将删除 {toDelete.length} 个任务。</p>
         </div>
       ),

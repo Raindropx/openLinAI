@@ -11,8 +11,8 @@ import { hc } from 'hono/client'
 import type { AppType } from '../../../../server'
 import type { Task } from '../../../../server/common/task-manager'
 import { TRIAL_TEMPLATE_TITLE } from '../../../../server/common/template-manager/enum'
-import { GPT_IMAGE_SOURCE_MODEL } from '../../../../server/module/gpt-image/enum'
 import { useTasks } from '../../../hooks/useTasks'
+import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { ImageGroup } from '../../../pages/common/components/ImageGroup'
 import { useGlobalStore } from '../../../store/global'
 import { TaskItemDeleteButton } from './components/TaskItemDeleteButton'
@@ -25,6 +25,8 @@ const client = hc<AppType>('/')
 
 export function TaskList() {
   const { data: tasks = [], loading } = useTasks()
+  const { gptImageSettings } = useLocalSetting()
+  const endpoints = useGlobalStore((state) => state.endpoints)
   const [downloadedIds, setDownloadedIds] = useLocalStorageState<string[]>(
     'downloadedTaskIds',
     { defaultValue: [] },
@@ -34,6 +36,8 @@ export function TaskList() {
     await client.api.gptImage.generate.$post({
       json: {
         templateId: task.rawTemplate?.id || '',
+        endpointId:
+          gptImageSettings.selectedEndpointId || endpoints[0]?.id || '',
         size: (task.size as any) || '2k',
         quality: (task.quality as any) || 'medium',
       },
@@ -41,9 +45,13 @@ export function TaskList() {
     message.success('已创建重试任务')
   }
 
-  // 暂时仅显示 GPT-Image 任务
+  // 显示所有图片类任务（image / chat-image 两种引擎都展示）
   const gptImageTasks = tasks
-    .filter((t) => t.source === GPT_IMAGE_SOURCE_MODEL)
+    .filter(
+      (t) =>
+        t.rawTemplate?.usageType === 'image' ||
+        t.rawTemplate?.usageType === 'chat-image',
+    )
     .map((t) => ({
       ...t,
       outputUrls: t.outputUrls

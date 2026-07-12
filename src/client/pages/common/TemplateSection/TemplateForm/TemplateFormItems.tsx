@@ -1,11 +1,41 @@
-import { BulbOutlined } from '@ant-design/icons'
-import { Button, Form, Input, InputNumber, Select } from 'antd'
+import { BgColorsOutlined, ExperimentOutlined } from '@ant-design/icons'
+import { Button, Checkbox, Form, Input, InputNumber, Select } from 'antd'
 import classnames from 'classnames'
 import React, { useState } from 'react'
+import { useGlobalStore } from '../../../../store/global'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { FolderFormItem } from './FolderSelectInput'
 import { ImageUpload } from './ImageUpload'
-import { PromptOptimizeModal } from './PromptOptimizeModal'
+import { StyleExtractModal } from './StyleExtractModal'
+import { StylePresetModal } from './StylePresetModal'
+
+function EndpointSelectFormItem({ className }: { className?: string }) {
+  const endpoints = useGlobalStore((state) => state.endpoints)
+  const { gptImageSettings, setGptImageSettings } = useLocalSetting()
+  const selectedId =
+    gptImageSettings.selectedEndpointId || endpoints[0]?.id
+
+  return (
+    <Form.Item
+      label="生成端点"
+      className={className}
+      rules={[{ required: true, message: '请先在设置中添加端点' }]}
+    >
+      <Select
+        value={endpoints.length ? selectedId : undefined}
+        onChange={(id) =>
+          setGptImageSettings((prev) => ({ ...prev, selectedEndpointId: id }))
+        }
+        placeholder="请先在设置中添加端点"
+        options={endpoints.map((e) => ({
+          value: e.id,
+          label: e.name || '未命名端点',
+        }))}
+        notFoundContent="未配置端点，请到设置中添加"
+      />
+    </Form.Item>
+  )
+}
 
 function TitleFormItem({ className }: { className?: string }) {
   return (
@@ -18,24 +48,42 @@ function TitleFormItem({ className }: { className?: string }) {
 function AspectRatioFormItem({ className }: { className?: string }) {
   return (
     <Form.Item
-      name="aspectRatio"
       label="比例"
       className={className}
-      rules={[{ required: true, message: '请选择比例' }]}
+      // 仅用于展示 label 与容纳下拉框 + 复选框，本身不绑定字段
+      required
     >
-      <Select
-        options={[
-          { label: '21:9', value: '21:9' },
-          { label: '2:1', value: '2:1' },
-          { label: '16:9', value: '16:9' },
-          { label: '4:3', value: '4:3' },
-          { label: '1:1', value: '1:1' },
-          { label: '3:4', value: '3:4' },
-          { label: '9:16', value: '9:16' },
-          { label: '1:2', value: '1:2' },
-          { label: '9:21', value: '9:21' },
-        ]}
-      />
+      <div>
+        <Form.Item
+          name="aspectRatio"
+          rules={[{ required: true, message: '请选择比例' }]}
+          noStyle
+        >
+          <Select
+            options={[
+              { label: '21:9', value: '21:9' },
+              { label: '2:1', value: '2:1' },
+              { label: '16:9', value: '16:9' },
+              { label: '3:2', value: '3:2' },
+              { label: '4:3', value: '4:3' },
+              { label: '1:1', value: '1:1' },
+              { label: '3:4', value: '3:4' },
+              { label: '2:3', value: '2:3' },
+              { label: '9:16', value: '9:16' },
+              { label: '1:2', value: '1:2' },
+              { label: '9:21', value: '9:21' },
+              { label: 'Auto', value: 'auto' },
+            ]}
+          />
+        </Form.Item>
+        <Form.Item
+          name="injectAspectRatio"
+          valuePropName="checked"
+          noStyle
+        >
+          <Checkbox className="mt-1">注入提示</Checkbox>
+        </Form.Item>
+      </div>
     </Form.Item>
   )
 }
@@ -55,36 +103,45 @@ function CountFormItem({ className }: { className?: string }) {
 function PromptFormItem({
   className,
   label = '提示词',
+  optimizeButton,
   form,
-  imageUrls,
 }: {
   className?: string
   label?: React.ReactNode
+  optimizeButton?: React.ReactNode
   form: any
-  imageUrls: string[]
 }) {
-  const [openPromptOptimizeModal, setOpenPromptOptimizeModal] = useState(false)
-  const { promptOptimizeEnabled } = useLocalSetting()
-  const prompt = Form.useWatch('prompt', form) || ''
+  const [styleExtractOpen, setStyleExtractOpen] = useState(false)
+  const [stylePresetOpen, setStylePresetOpen] = useState(false)
 
   return (
     <>
       <Form.Item
         name="prompt"
         label={
-          <div className="flex w-full items-center justify-between gap-4">
+          <div className="flex w-full items-center justify-between">
             <span>{label}</span>
-            {promptOptimizeEnabled && (
+            <span className="flex items-center gap-2">
               <Button
                 type="link"
                 size="small"
-                icon={<BulbOutlined />}
+                icon={<BgColorsOutlined />}
                 className="px-0!"
-                onClick={() => setOpenPromptOptimizeModal(true)}
+                onClick={() => setStylePresetOpen(true)}
               >
-                提示词优化
+                风格预设
               </Button>
-            )}
+              <Button
+                type="link"
+                size="small"
+                icon={<ExperimentOutlined />}
+                className="px-0!"
+                onClick={() => setStyleExtractOpen(true)}
+              >
+                图片风格提取
+              </Button>
+              {optimizeButton}
+            </span>
           </div>
         }
         className={classnames(
@@ -95,22 +152,26 @@ function PromptFormItem({
         rules={[{ required: true, message: '请填写提示词' }]}
       >
         <Input.TextArea
-          autoSize={{
-            minRows: 5,
-            maxRows: 10,
-          }}
+          autoSize={{ minRows: 5, maxRows: 10 }}
           placeholder="请输入生成内容的提示词..."
           style={{ resize: 'none' }}
         />
       </Form.Item>
-      <PromptOptimizeModal
-        open={openPromptOptimizeModal}
-        prompt={prompt}
-        imageUrls={imageUrls}
-        onClose={() => setOpenPromptOptimizeModal(false)}
-        onApply={(optimizedPrompt) => {
-          form.setFieldsValue({ prompt: optimizedPrompt })
-          setOpenPromptOptimizeModal(false)
+      <StylePresetModal
+        open={stylePresetOpen}
+        currentPrompt={form.getFieldValue('prompt') || ''}
+        onClose={() => setStylePresetOpen(false)}
+        onApply={(prompt) => {
+          form.setFieldsValue({ prompt })
+          setStylePresetOpen(false)
+        }}
+      />
+      <StyleExtractModal
+        open={styleExtractOpen}
+        onClose={() => setStyleExtractOpen(false)}
+        onApply={(prompt) => {
+          form.setFieldsValue({ prompt })
+          setStyleExtractOpen(false)
         }}
       />
     </>
@@ -122,16 +183,20 @@ export function TemplateFormFields({
   imageUrls,
   setImageUrls,
   setUploadingCount,
+  optimizeButton,
 }: {
   form: any
   imageUrls: string[]
   setImageUrls: (urls: string[]) => void
   setUploadingCount: (count: number) => void
+  optimizeButton?: React.ReactNode
 }) {
   const { gptImageSettings } = useLocalSetting()
 
   return (
     <>
+      <EndpointSelectFormItem className="w-full" />
+
       <div className="flex gap-4">
         <TitleFormItem className="flex-1" />
         <FolderFormItem className="w-1/4" />
@@ -154,15 +219,7 @@ export function TemplateFormFields({
         {gptImageSettings.enableMultiple && <CountFormItem className="w-1/5" />}
       </div>
 
-      <PromptFormItem
-        form={form}
-        imageUrls={imageUrls}
-        label={
-          <div className="flex items-center gap-2">
-            <span>提示词</span>
-          </div>
-        }
-      />
+      <PromptFormItem form={form} optimizeButton={optimizeButton} />
     </>
   )
 }

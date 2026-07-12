@@ -1,6 +1,5 @@
 import { Home } from './pages/common/Home'
-import { TTS } from './pages/module/GeminiTTS'
-import { MediaClassifier } from './pages/module/MediaClassifier'
+import { CharacterCardPage } from './pages/common/CharacterCard'
 
 export const appRoutes = [
   {
@@ -10,15 +9,9 @@ export const appRoutes = [
     key: 'home',
   },
   {
-    path: '/tts',
-    label: '语音合成',
-    element: <TTS />,
-    key: 'tts',
-  },
-  {
-    path: '/media-classifier',
-    label: '图片整理',
-    element: <MediaClassifier />,
-    key: 'media-classifier',
+    path: '/character-card',
+    label: '角色卡生成',
+    element: <CharacterCardPage />,
+    key: 'character-card',
   },
 ]

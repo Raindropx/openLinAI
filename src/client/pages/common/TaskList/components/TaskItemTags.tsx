@@ -65,7 +65,7 @@ export function TaskItemTags({ task, downloadedIds }: TaskItemTagsProps) {
       )}
       {task.quality && (
         <Tag color={task.quality === 'high' ? 'red' : 'volcano'}>
-          {task.quality === 'high' ? 'High' : 'Medium'}
+          {task.quality === 'high' ? 'H' : 'M'}
         </Tag>
       )}
       {downloadedIds?.includes(task.id) ? (
@@ -80,6 +80,7 @@ export function TaskItemTags({ task, downloadedIds }: TaskItemTagsProps) {
           {(task.duration / 1000).toFixed(1)}s
         </Tag>
       )}
+      {task.endpointName && <Tag color="purple">{task.endpointName}</Tag>}
     </div>
   )
 }

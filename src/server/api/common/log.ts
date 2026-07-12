@@ -10,6 +10,8 @@ const logApi = new Hono()
     zValidator('param', z.object({ moduleId: z.string() })),
     (c) => {
       return streamSSE(c, async (stream) => {
+        let aborted = false
+
         // 发送初始日志
         const initialLogs = logger.getLogs(100)
         for (const log of initialLogs) {
@@ -21,6 +23,7 @@ const logApi = new Hono()
 
         // 监听新日志
         const onLog = async (message: string) => {
+          if (aborted) return
           try {
             await stream.writeSSE({
               data: message,
@@ -34,14 +37,21 @@ const logApi = new Hono()
 
         logger.on('log', onLog)
 
-        c.req.raw.signal.addEventListener('abort', () => {
+        // 客户端断开时清理
+        stream.onAbort(() => {
+          aborted = true
           logger.removeListener('log', onLog)
         })
 
-        // 保持连接
-        while (true) {
-          await new Promise((resolve) => setTimeout(resolve, 30000))
-          await stream.writeSSE({ data: 'ping', event: 'ping' })
+        // 保持连接，定期发送心跳
+        while (!aborted) {
+          await stream.sleep(30000)
+          if (aborted) break
+          try {
+            await stream.writeSSE({ data: 'ping', event: 'ping' })
+          } catch {
+            break
+          }
         }
       })
     },

@@ -1,0 +1,67 @@
+#!/bin/sh /etc/rc.common
+# LinAI GPT-image 服务（procd 托管）
+# 安装：拷到 /etc/init.d/linai，chmod +x，然后 /etc/init.d/linai enable && start
+#
+# 注意：本脚本依赖 $APP_DIR/run.sh wrapper。run.sh 负责设置环境变量，
+# 以避免某些 OpenWrt/procd 版本对 procd_set_param env KEY=value 支持不完整
+# 导致 DATA_DIR、IMAGE_BACKEND 等变量丢失。
+
+USE_PROCD=1
+START=99
+STOP=10
+
+# —— 可按需修改 ——
+APP_DIR=/mnt/sda1/linai
+NODE_BIN=/opt/bin/node
+FFMPEG_BIN=/opt/bin/ffmpeg
+PORT=3000
+# ————————
+
+SERVER=$APP_DIR/dist/server/index.js
+RUNNER=$APP_DIR/run.sh
+
+# 等待外接存储/Entware 就绪。OpenWrt 启动时 /mnt/sda1 与 /opt 的挂载
+# 可能晚于本 init 脚本执行时机，直接启动会导致 node 或服务文件找不到。
+wait_for_deps() {
+	local max_wait=60
+	local i=0
+	while [ $i -lt $max_wait ]; do
+		if [ -x "$RUNNER" ] && [ -d "$APP_DIR" ] && [ -f "$SERVER" ] && [ -x "$NODE_BIN" ] && [ -x "$FFMPEG_BIN" ]; then
+			return 0
+		fi
+		i=$((i + 1))
+		sleep 1
+	done
+	return 1
+}
+
+start_service() {
+	if ! wait_for_deps; then
+		logger -t linai "依赖未就绪：$RUNNER、$APP_DIR 或 $NODE_BIN 不可访问，跳过启动"
+		return 1
+	fi
+
+	mkdir -p "$APP_DIR/data"
+
+	procd_open_instance
+	# 通过 wrapper 设置环境变量，避免 procd_set_param env 在某些版本上失效
+	procd_set_param command "$RUNNER"
+	procd_set_param cwd "$APP_DIR"
+	# respawn：进程运行不足 60 秒就崩溃 → 等待 5 秒后重启，避免紧密 crash loop 磨损 Flash
+	procd_set_param respawn 60 5
+	procd_close_instance
+}
+
+reload_service() {
+	restart
+}
+
+service_triggers() {
+	# 老版本 procd 可能没有 procd_add_mount_trigger，用 raw trigger 兜底。
+	# 任意块设备/存储挂载事件发生后重试启动/重启，弥补启动时序问题。
+	if type procd_add_mount_trigger >/dev/null 2>&1; then
+		procd_add_mount_trigger
+	elif type procd_add_raw_trigger >/dev/null 2>&1; then
+		procd_add_raw_trigger "mount.add" 1000 /etc/init.d/linai restart
+	fi
+}

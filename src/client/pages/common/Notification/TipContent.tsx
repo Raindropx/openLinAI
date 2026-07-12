@@ -27,16 +27,6 @@ const TipContent = () => {
       ),
     },
     {
-      icon: '📦',
-      content: (
-        <>
-          <span className="font-bold text-gray-900">存储优化：</span>
-          为节省磁盘空间，上传的图片在本地存储时将自动压缩为 WebP
-          格式。您可以在系统设置中对此功能进行个性化配置。
-        </>
-      ),
-    },
-    {
       icon: '🌐',
       content: (
         <>

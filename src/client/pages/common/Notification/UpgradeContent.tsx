@@ -1,8 +1,29 @@
-import { message } from 'antd'
-import copy from 'copy-to-clipboard'
 import { MessageList } from './MessageList'
 
 const upgradeHistory = [
+  `LinAI v1.1.8 更新内容 🐱：
+🎨 新增「风格预设」功能：内置精选中文风格，可搜索、预览并一键注入当前提示词
+🗂️ 支持创建、编辑、复制和删除自定义风格预设，自定义内容独立持久化并置顶显示
+🖼️ 新增「图片风格提取」功能：通过支持视觉输入的 LLM 分析图片，可按维度选择、编辑并应用提取结果
+🔗 风格提取结果支持命名并直接加入自定义风格预设，自动补全提示词注入占位符
+🏷️ 风格提取预设增加独立来源标识、背景色与组合筛选，可与普通自定义预设分开管理
+🤖 新增风格模板 AI 优化：可将零散标签整理为自然语言预设，并自动校验 {prompt} 占位符
+🧹 优化全部内置风格描述：移除旧式负面提示词和重复质量词，减少模型对无关负面概念的关注
+📱 优化风格预设弹窗的响应式布局：桌面端充分利用页面宽度，移动端采用上下布局和独立滚动区域
+✨ 完善风格注入体验：实时预览最终提示词，支持 {prompt} 占位替换及无占位符自动追加`,
+  `LinAI v1.1.7 更新内容 🐱：
+🎭 角色卡生成页面新增「原始数据」编辑区：可查看 LLM 原始输出或角色卡 JSON，编辑后点击提交更新到编辑区域，自动保留非标准字段
+📱 设置弹窗加宽优化（620→920px），移动端标签页改为顶部布局，端点管理按钮自动换行
+🖥️ 整体布局加宽（max-w-6xl → 1400px），提升大屏幕空间利用率
+🗑️ 移除已过时的 WebP 存储优化提示（现为 JPG 格式以兼容 OpenWrt）`,
+  `LinAI v1.1.6 更新内容 🐱：
+🎨 新增 Nano Banana 等聊天式图片生成（chat-completions 引擎），端点可自选生成引擎
+🖼️ 图片生成端点支持「设为默认端点」，刷新后保留；端点类型新增 OpenRouter（可查 $ 余额）
+🗑️ 移除已废弃的 Wan 视频生成功能及模板分类入口，模板列表改为直接展示图片模板
+✨ 图片生成页新增「提示词优化」按钮，调用 LLM 优化提示词（弹框预览可编辑后采纳）
+🎭 新增「角色卡生成」页面：上传图片由 AI 生成 SillyTavern 角色卡，支持编辑、导入/导出 JSON 与内嵌角色卡信息的 PNG
+⚙️ 设置新增「LLM 端点」页：独立管理非图片生成的大模型端点，提示词优化与角色卡生成端点可分别指定，内置系统提示词可自定义
+🏷️ 任务列表新增端点名标签；画质标签 Medium/High 缩短为 M/H`,
   `LinAI v1.1.0 更新内容 🐱：
 🖼️ 支持批量生成和展示多张图像图片，可在设置中开启
 📁 设置新增输入图片管理功能，可清理无引用输入图片
@@ -32,29 +53,10 @@ const UpgradeContent = () => {
   return (
     <div className="max-h-[400px] overflow-y-scroll">
       <MessageList
-        messages={[
-          ...upgradeHistory.map((item) => ({
-            icon: '🔄',
-            content: <div className="whitespace-break-spaces">{item}</div>,
-          })),
-          {
-            icon: '🎁',
-            content: (
-              <div className="break-all">
-                感谢看到这里，这是你的奖励：
-                <span
-                  className="cursor-pointer font-medium text-blue-500 underline hover:text-blue-600"
-                  onClick={() => {
-                    copy('sk-defzkFuulVnFP7SCfmlrHzEHbQw6YiwDllyjbLnpO6FOEAof')
-                    message.success('API Key已复制')
-                  }}
-                >
-                  sk-defzkFuulVnFP7SCfmlrHzEHbQw6YiwDllyjbLnpO6FOEAof
-                </span>
-              </div>
-            ),
-          },
-        ]}
+        messages={upgradeHistory.map((item) => ({
+          icon: '🔄',
+          content: <div className="whitespace-break-spaces">{item}</div>,
+        }))}
       />
     </div>
   )

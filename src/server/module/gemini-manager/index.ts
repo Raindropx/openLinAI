@@ -3,6 +3,8 @@ import { logger } from '../utils/logger'
 
 export class GeminiManager {
   private static instance: GeminiManager
+  /** GoogleGenAI client 缓存，按 apiKey 复用 */
+  private clientCache = new Map<string, GoogleGenAI>()
 
   private constructor() {}
 
@@ -13,10 +15,19 @@ export class GeminiManager {
     return GeminiManager.instance
   }
 
+  private getClient(apiKey: string): GoogleGenAI {
+    let client = this.clientCache.get(apiKey)
+    if (!client) {
+      client = new GoogleGenAI({ apiKey })
+      this.clientCache.set(apiKey, client)
+    }
+    return client
+  }
+
   public async generateImage(apiKey: string, prompt: string) {
     logger.info('Generating image with Gemini')
     try {
-      const ai = new GoogleGenAI({ apiKey })
+      const ai = this.getClient(apiKey)
 
       const response = await ai.models.generateImages({
         model: 'gemini-3.1-flash-image-preview',

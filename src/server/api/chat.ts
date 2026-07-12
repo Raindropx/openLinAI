@@ -3,7 +3,7 @@ import fs from 'fs-extra'
 import { Hono } from 'hono'
 import path from 'path'
 import { z } from 'zod'
-import { getYunwuApiKey } from '../common/config'
+import { getLlmEndpointById } from '../common/config'
 import { INPUT_IMAGES_DIR } from '../common/static'
 import { INPUT_IMAGES_API_PATH } from '../common/static/enum'
 import { createChatCompletion } from '../module/chat'
@@ -37,7 +37,9 @@ const chatMessageSchema = z
 
 const chatCompletionSchema = z
   .object({
-    model: z.string().min(1, 'Model is required'),
+    endpointId: z.string().min(1, 'Endpoint ID is required'),
+    // model 可选：服务端会用 endpointId 对应端点的 model 覆盖
+    model: z.string().optional(),
     messages: z.array(chatMessageSchema).min(1, 'Messages are required'),
     stream: z.boolean().optional(),
   })
@@ -137,17 +139,19 @@ const chatApi = new Hono().post(
   '/completions',
   zValidator('json', chatCompletionSchema),
   async (c) => {
-    const apiKey = getYunwuApiKey()
-    if (!apiKey) {
+    const body = c.req.valid('json')
+    const endpoint = getLlmEndpointById(body.endpointId)
+    if (!endpoint) {
       return c.json(
-        { success: false as const, error: 'API Key is not configured' },
+        { success: false as const, error: 'LLM Endpoint not found' },
         400,
       )
     }
 
-    const body = c.req.valid('json')
     const normalizedBody = {
       ...body,
+      // 以端点配置的 model 为准（忽略请求体里的 model，保持与端点一致）
+      model: endpoint.model,
       messages: await Promise.all(
         body.messages.map(async (message) => ({
           ...message,
@@ -156,7 +160,8 @@ const chatApi = new Hono().post(
       ),
     }
     const result = await createChatCompletion({
-      apiKey,
+      apiKey: endpoint.apiKey,
+      baseURL: endpoint.baseURL,
       body: normalizedBody,
     })
 

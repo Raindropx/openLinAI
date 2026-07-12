@@ -5,6 +5,7 @@ import type { AppType } from '../../server'
 import type { GPTImageQuotaResponse } from '../../server/api/gpt-image'
 import { isAdmin } from '../pages/common/SettingModal'
 import { useGlobalStore } from '../store/global'
+import { useLocalSetting } from './useLocalSetting'
 import { useTasks } from './useTasks'
 
 // 人民币和积分的汇率
@@ -18,40 +19,45 @@ interface QuotaStore {
   data: GPTImageQuotaResponse['data'] | null
   error: string | null
   loading: boolean
-  lastApiKey: string | null
+  lastKey: string | null
   fetchPromise: Promise<void> | null
-  fetchQuota: (apiKey: string | null, force?: boolean) => Promise<void>
+  fetchQuota: (
+    endpointId: string | null,
+    force?: boolean,
+  ) => Promise<void>
 }
 
 const useQuotaStore = create<QuotaStore>((set, get) => ({
   data: null,
   error: null,
   loading: false,
-  lastApiKey: null,
+  lastKey: null,
   fetchPromise: null,
-  fetchQuota: async (apiKey, force = false) => {
-    if (!apiKey) {
-      set({ data: null, error: null, lastApiKey: null })
+  fetchQuota: async (endpointId, force = false) => {
+    if (!endpointId) {
+      set({ data: null, error: null, lastKey: null })
       return
     }
 
     const state = get()
     if (
       !force &&
-      state.lastApiKey === apiKey &&
+      state.lastKey === endpointId &&
       (state.data !== null || state.error !== null || state.loading)
     ) {
       return state.fetchPromise || Promise.resolve()
     }
 
-    if (state.loading && state.lastApiKey === apiKey) {
+    if (state.loading && state.lastKey === endpointId) {
       return state.fetchPromise || Promise.resolve()
     }
 
     const promise = (async () => {
-      set({ loading: true, error: null, lastApiKey: apiKey })
+      set({ loading: true, error: null, lastKey: endpointId })
       try {
-        const response = await client.api.gptImage.quota.$get()
+        const response = await client.api.gptImage.quota.$get({
+          query: { endpointId },
+        })
         const json = await response.json()
         if (!json.success) {
           throw new Error(json.error || '获取余额失败')
@@ -80,7 +86,20 @@ export const isPublicApiKey = (name?: string | null) =>
   false
 
 export function useGPTImageQuota() {
-  const gptImageApiKey = useGlobalStore((state) => state.gptImageApiKey)
+  const endpoints = useGlobalStore((state) => state.endpoints)
+  const { gptImageSettings } = useLocalSetting()
+  const selectedEndpointId = gptImageSettings.selectedEndpointId
+  const selectedEndpoint = useMemo(
+    () => endpoints.find((e) => e.id === selectedEndpointId) || endpoints[0],
+    [endpoints, selectedEndpointId],
+  )
+  // 仅 yunwu / openrouter 端点才查余额
+  const activeEndpointId =
+    selectedEndpoint?.type === 'yunwu' ||
+    selectedEndpoint?.type === 'openrouter'
+      ? selectedEndpoint.id
+      : null
+
   const { data: tasks } = useTasks()
   const knownCompletedTasks = useRef<Set<string> | null>(null)
 
@@ -95,11 +114,11 @@ export function useGPTImageQuota() {
   )
 
   useEffect(() => {
-    fetchQuota(gptImageApiKey)
-  }, [gptImageApiKey, fetchQuota])
+    fetchQuota(activeEndpointId)
+  }, [activeEndpointId, fetchQuota])
 
   useEffect(() => {
-    if (!tasks) return
+    if (!tasks || !activeEndpointId) return
 
     // 假设第一页任务数量为前 20 条
     const recentTasks = tasks.slice(0, 20)
@@ -126,15 +145,15 @@ export function useGPTImageQuota() {
     }
 
     if (hasNewCompletedTask) {
-      fetchQuota(gptImageApiKey, true)
+      fetchQuota(activeEndpointId, true)
     }
-  }, [tasks, gptImageApiKey, fetchQuota])
+  }, [tasks, activeEndpointId, fetchQuota])
 
   return {
     quota: data,
     loading,
     error,
     isPublic,
-    refresh: () => fetchQuota(gptImageApiKey, true),
+    refresh: () => fetchQuota(activeEndpointId, true),
   }
 }

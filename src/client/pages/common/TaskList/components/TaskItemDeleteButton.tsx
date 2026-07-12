@@ -19,7 +19,7 @@ export function TaskItemDeleteButton({
   onSuccess,
 }: DeleteTaskButtonProps) {
   const { gptImageSettings } = useLocalSetting()
-  const [skipDeleteConfirm, setSkipDeleteConfirm] = useLocalStorageState(
+  const [, setSkipDeleteConfirm] = useLocalStorageState(
     'skipDeleteTaskConfirm',
     {
       defaultValue: false,
@@ -45,7 +45,15 @@ export function TaskItemDeleteButton({
   }
 
   const handleDelete = () => {
-    if (skipDeleteConfirm || status === 'failed') {
+    // 直接从 localStorage 读取最新值，避免任务列表中各实例状态不同步导致“下次不再提醒”失效
+    let skip = false
+    try {
+      const raw = localStorage.getItem('skipDeleteTaskConfirm')
+      skip = raw === null ? false : JSON.parse(raw) === true
+    } catch {
+      skip = false
+    }
+    if (skip || status === 'failed') {
       doDelete()
       return
     }
@@ -58,8 +66,8 @@ export function TaskItemDeleteButton({
         <div>
           <p>
             {gptImageSettings.keepImageWhenDeleteTask
-              ? '删除任务不会删除其生成的图片/视频文件。'
-              : '删除任务将同时删除其生成的图片/视频文件，且不可恢复。'}
+              ? '删除任务不会删除其生成的图片文件。'
+              : '删除任务将同时删除其生成的图片文件，且不可恢复。'}
           </p>
           <Checkbox
             onChange={(e) => {

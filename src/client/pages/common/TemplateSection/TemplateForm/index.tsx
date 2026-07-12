@@ -1,16 +1,19 @@
-import { PlusOutlined } from '@ant-design/icons'
-import { useLocalStorageState } from 'ahooks'
-import { Button, Form, message, Radio } from 'antd'
+import { BulbOutlined, PlusOutlined } from '@ant-design/icons'
+import { Button, Form, message } from 'antd'
 import { hc } from 'hono/client'
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/shallow'
 import type { AppType } from '../../../../../server'
 import type { GptImageSize } from '../../../../../server/module/gpt-image/enum'
+import {
+  requestChatCompletion,
+  type ChatMessage,
+} from '../../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { useGlobalStore } from '../../../../store/global'
 import { openSettingModal } from '../../SettingModal'
 import { TemplateFormFields } from './TemplateFormItems'
-import { WanVideoForm } from './WanVideoForm'
+import { PromptOptimizeModal } from './PromptOptimizeModal'
 
 const client = hc<AppType>('/')
 
@@ -24,21 +27,22 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
   const [submitting, setSubmitting] = useState(false)
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [uploadingCount, setUploadingCount] = useState(0)
-  const [localUsageType, setLocalUsageType] = useLocalStorageState<
-    'image' | 'video'
-  >('template-usage-type', {
-    defaultValue: 'image',
-  })
-  const usageType = Form.useWatch('usageType', form)
-  const { gptImageApiKey, fillTemplateData, setFillTemplateData } =
+  const { endpoints, llmEndpoints, llmPrompts, fillTemplateData, setFillTemplateData } =
     useGlobalStore(
       useShallow((state) => ({
-        gptImageApiKey: state.gptImageApiKey,
+        endpoints: state.endpoints,
+        llmEndpoints: state.llmEndpoints,
+        llmPrompts: state.llmPrompts,
         fillTemplateData: state.fillTemplateData,
         setFillTemplateData: state.setFillTemplateData,
       })),
     )
-  const { gptImageSettings } = useLocalSetting()
+  const { gptImageSettings, optimizeEndpointId, setOptimizeEndpointId } =
+    useLocalSetting()
+  // 提示词优化弹框状态
+  const [optimizeOpen, setOptimizeOpen] = useState(false)
+  const [optimizeLoading, setOptimizeLoading] = useState(false)
+  const [optimizeText, setOptimizeText] = useState('')
 
   // 触发填入模板数据
   useEffect(() => {
@@ -47,6 +51,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
         title: fillTemplateData.title,
         folder: fillTemplateData.folder,
         aspectRatio: fillTemplateData.aspectRatio,
+        injectAspectRatio: fillTemplateData.injectAspectRatio,
         n: fillTemplateData.n,
         prompt: fillTemplateData.prompt,
         usageType: fillTemplateData.usageType || 'image',
@@ -70,13 +75,18 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
       return
     }
     const aspectRatio = form.getFieldValue('aspectRatio') || '1:1'
+    const injectAspectRatio = form.getFieldValue('injectAspectRatio') || false
+    const endpointId =
+      gptImageSettings.selectedEndpointId || endpoints[0]?.id
 
     message.success('任务提交成功')
     try {
       const res = await client.api.gptImage.trial.$post({
         json: {
           prompt,
+          endpointId,
           aspectRatio,
+          injectAspectRatio,
           images: imageUrls,
           size,
           quality: gptImageSettings.quality,
@@ -101,8 +111,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
       return
     }
 
-    const apiKey = gptImageApiKey
-    if (!apiKey) {
+    if (endpoints.length === 0) {
       openSettingModal({
         initialTab: 'gpt-image',
         onSuccess: () => {
@@ -113,6 +122,56 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
     }
 
     doTrial(size)
+  }
+
+  // —— 提示词优化 ——
+  const handlePromptOptimize = async () => {
+    const prompt = form.getFieldValue('prompt') as string | undefined
+    if (!prompt && imageUrls.length === 0) {
+      message.warning('请先填写提示词或上传图片')
+      return
+    }
+
+    const endpointId = optimizeEndpointId || llmEndpoints[0]?.id
+    if (!endpointId) {
+      openSettingModal({ initialTab: 'llm-endpoints' })
+      return
+    }
+    if (!optimizeEndpointId) {
+      setOptimizeEndpointId(endpointId)
+    }
+
+    setOptimizeOpen(true)
+    setOptimizeLoading(true)
+    setOptimizeText('')
+    try {
+      const content: any[] = []
+      // 系统提示词
+      const messages: ChatMessage[] = [
+        { role: 'system', content: llmPrompts.optimizePrompt },
+      ]
+      // 用户消息：文本 + 图片
+      if (prompt) content.push({ type: 'text', text: prompt })
+      for (const url of imageUrls) {
+        content.push({ type: 'image_url', image_url: { url } })
+      }
+      if (content.length > 0) {
+        messages.push({ role: 'user', content: content as any })
+      }
+      const result = await requestChatCompletion({ endpointId, messages })
+      setOptimizeText(result || '（优化结果为空）')
+    } catch (error: any) {
+      message.error(error.message || '提示词优化失败')
+      setOptimizeOpen(false)
+    } finally {
+      setOptimizeLoading(false)
+    }
+  }
+
+  const handleAdoptOptimize = (text: string) => {
+    form.setFieldsValue({ prompt: text })
+    setOptimizeOpen(false)
+    message.success('已采纳优化后的提示词')
   }
 
   const handleFinish = async (values: any) => {
@@ -151,49 +210,38 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
         layout="vertical"
         onFinish={handleFinish}
         initialValues={{
-          usageType: localUsageType,
+          usageType: 'image',
           aspectRatio: '1:1',
           n: 1,
         }}
-        onValuesChange={(changedValues) => {
-          if (changedValues.usageType) {
-            setLocalUsageType(changedValues.usageType)
-          }
-        }}
       >
         <div ref={formRef} />
-        <Form.Item
-          name="usageType"
-          label="模板用途"
-          rules={[{ required: true }]}
-        >
-          <Radio.Group
-            optionType="button"
-            buttonStyle="solid"
-            className="flex w-full"
-          >
-            <Radio.Button value="image" className="flex-1 text-center">
-              GPT 图片生成
-            </Radio.Button>
-            <Radio.Button value="video" disabled className="flex-1 text-center">
-              Wan 视频生成
-            </Radio.Button>
-          </Radio.Group>
+        {/* usageType 固定为 image（引擎由端点决定，无需在表单区分） */}
+        <Form.Item name="usageType" hidden initialValue="image">
+          <input />
         </Form.Item>
 
-        {usageType === 'video' && <WanVideoForm />}
-        {usageType === 'image' && (
-          <TemplateFormFields
-            form={form}
-            imageUrls={imageUrls}
-            setImageUrls={setImageUrls}
-            setUploadingCount={setUploadingCount}
-          />
-        )}
+        <TemplateFormFields
+          form={form}
+          imageUrls={imageUrls}
+          setImageUrls={setImageUrls}
+          setUploadingCount={setUploadingCount}
+          optimizeButton={
+            <Button
+              size="small"
+              type="link"
+              icon={<BulbOutlined />}
+              className="h-auto! px-1! text-xs"
+              onClick={handlePromptOptimize}
+            >
+              提示词优化
+            </Button>
+          }
+        />
 
         <Form.Item className="mb-0! border-t border-slate-100 pt-4">
           <div className="flex gap-4">
-            {usageType === 'image' && gptImageSettings.enable1K && (
+            {gptImageSettings.enable1K && (
               <Button
                 onClick={() => handleTrial('1k')}
                 disabled={uploadingCount > 0}
@@ -203,7 +251,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
                 生成1K图
               </Button>
             )}
-            {usageType === 'image' && gptImageSettings.enable2K && (
+            {gptImageSettings.enable2K && (
               <Button
                 onClick={() => handleTrial('2k')}
                 disabled={uploadingCount > 0}
@@ -213,11 +261,12 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
                 生成2K图
               </Button>
             )}
-            {usageType === 'image' && gptImageSettings.enable4K && (
+            {gptImageSettings.enable4K && (
               <Button
                 onClick={() => handleTrial('4k')}
                 disabled={uploadingCount > 0}
                 size="large"
+                className="grow"
               >
                 生成4K图
               </Button>
@@ -227,7 +276,6 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
               htmlType="submit"
               loading={submitting}
               disabled={uploadingCount > 0}
-              block={usageType !== 'image'}
               className="grow"
               size="large"
             >
@@ -236,6 +284,13 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
           </div>
         </Form.Item>
       </Form>
+      <PromptOptimizeModal
+        open={optimizeOpen}
+        loading={optimizeLoading}
+        initialText={optimizeText}
+        onCancel={() => setOptimizeOpen(false)}
+        onAdopt={handleAdoptOptimize}
+      />
     </>
   )
 }

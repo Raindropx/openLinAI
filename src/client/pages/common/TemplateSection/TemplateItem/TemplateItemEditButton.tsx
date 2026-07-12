@@ -26,6 +26,7 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
       title: template.title,
       prompt: template.prompt,
       aspectRatio: template.aspectRatio || '1:1',
+      injectAspectRatio: template.injectAspectRatio,
       folder: template.folder,
       n: template.n || 1,
     })
@@ -72,6 +73,7 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
           title: values.title,
           prompt: values.prompt,
           aspectRatio: values.aspectRatio,
+          injectAspectRatio: values.injectAspectRatio,
           folder: values.folder,
           usageType: template.usageType,
           images: imageUrls,

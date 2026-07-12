@@ -29,3 +29,8 @@
     pointer-events: none !important;
   }
 }
+
+/* 让 Upload 组件内部元素填满容器宽度 */
+.ant-upload-wrapper > .ant-upload {
+  width: 100%;
+}

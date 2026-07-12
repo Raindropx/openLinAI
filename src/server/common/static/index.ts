@@ -2,17 +2,18 @@ import { exec } from 'child_process'
 import crypto from 'crypto'
 import fs from 'fs-extra'
 import path from 'path'
-import sharp from 'sharp'
+import { getDataDir } from '../data-dir'
 import { taskManager } from '../task-manager'
 import { templateManager } from '../template-manager'
+import {
+  compressUploadImage,
+  generateThumbnailFile,
+  getImageOutputExtension,
+  getImageOutputMimeType,
+} from './imageProcessor'
 import { GENERATED_IMAGES_API_PATH, INPUT_IMAGES_API_PATH } from './enum'
 
-export const IMAGE_MAX_DIMENSION = 1600
-export const IMAGE_COMPRESS_QUALITY = 60
-export const THUMB_SIZE = 200
-const THUMB_COMPRESS_QUALITY = 40
-
-export const IMAGES_ROOT_DIR = path.join(process.cwd(), 'data', 'images')
+export const IMAGES_ROOT_DIR = path.join(getDataDir(), 'images')
 export const GENERATED_IMAGES_DIR = path.join(IMAGES_ROOT_DIR, 'generated')
 export const INPUT_IMAGES_DIR = path.join(IMAGES_ROOT_DIR, 'input')
 export const THUMB_IMAGES_DIR = path.join(IMAGES_ROOT_DIR, 'thumb')
@@ -50,7 +51,11 @@ function getImageDirectory(type: ImageDirectoryType) {
 }
 
 function getThumbnailPath(type: ImageDirectoryType, filename: string) {
-  return path.join(THUMB_IMAGES_DIR, type, `${path.parse(filename).name}.webp`)
+  return path.join(
+    THUMB_IMAGES_DIR,
+    type,
+    `${path.parse(filename).name}${getImageOutputExtension()}`,
+  )
 }
 
 function getImageApiPath(type: ImageDirectoryType) {
@@ -77,22 +82,12 @@ async function ensureThumbnail(
   await fs.ensureDir(path.dirname(thumbPath))
 
   if (!(await fs.pathExists(thumbPath))) {
-    const file = await fs.readFile(sourcePath)
-    const metadata = await sharp(file).metadata()
-
-    if (!metadata.width || !metadata.height) {
+    try {
+      await generateThumbnailFile(sourcePath, thumbPath)
+    } catch (error) {
+      // 编码失败时跳过缩略图，回退到原图
       return null
     }
-
-    const width = metadata.width > metadata.height ? undefined : THUMB_SIZE
-    const height = metadata.width > metadata.height ? THUMB_SIZE : undefined
-    const thumbBuffer = await sharp(file)
-      .resize(width, height)
-      .webp({
-        quality: THUMB_COMPRESS_QUALITY,
-      })
-      .toBuffer()
-    await fs.writeFile(thumbPath, thumbBuffer)
   }
 
   if (!(await fs.pathExists(thumbPath))) {
@@ -113,20 +108,14 @@ export async function uploadInputImage(image: string) {
   }
 
   const buffer = Buffer.from(matches[2], 'base64')
-  const webpBuffer = await sharp(buffer)
-    .resize(IMAGE_MAX_DIMENSION, IMAGE_MAX_DIMENSION, {
-      fit: 'inside',
-      withoutEnlargement: true,
-    })
-    .webp({ quality: IMAGE_COMPRESS_QUALITY })
-    .toBuffer()
+  const outputBuffer = await compressUploadImage(buffer)
 
-  const hash = crypto.createHash('md5').update(webpBuffer).digest('hex')
-  const filename = `${hash}.webp`
+  const hash = crypto.createHash('md5').update(outputBuffer).digest('hex')
+  const filename = `${hash}${getImageOutputExtension()}`
   const filepath = path.join(INPUT_IMAGES_DIR, filename)
 
   if (!(await fs.pathExists(filepath))) {
-    await fs.writeFile(filepath, webpBuffer)
+    await fs.writeFile(filepath, outputBuffer)
   }
 
   return {
@@ -151,7 +140,7 @@ export async function serveImage(
     if (thumbFile) {
       return {
         file: thumbFile,
-        contentType: 'image/webp',
+        contentType: getImageOutputMimeType(),
       }
     }
   }

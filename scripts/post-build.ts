@@ -104,7 +104,7 @@ async function main() {
       suffix = '-public'
     }
 
-    const zipName = `LinAI v${version}${suffix}.zip`
+    const zipName = `openLinAI v${version}${suffix}.zip`
     console.log(`📦 [Post-build] Zipping dist directory to ${zipName}...`)
 
     const zip = new JSZip()
