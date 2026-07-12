@@ -1,6 +1,6 @@
 # openLinAI
 
-支持 ARM 架构 OpenWrt 部署的 AI 生图 API 与任务管理平台。
+支持 Windows 本地运行和 ARM 架构 OpenWrt 部署的 AI 生图 API 与任务管理平台。
 
 本项目 fork 自 [libudu/LinAI](https://github.com/libudu/LinAI)，在原项目基础上针对轻量化部署、GPT Image 生图流程和本地数据管理进行了调整。
 
@@ -12,10 +12,18 @@
 - 角色卡生成与管理
 - API、模型和本地数据目录配置
 - 生成记录、任务状态与图片文件管理
+- 支持在 Windows PC 上本地运行
 - 支持使用 FFmpeg 作为图片处理后端
 - 支持 ARM64 OpenWrt、外接存储和 procd 自启动部署
 
-## 本地开发
+## 支持平台
+
+- **Windows**：适合在个人电脑上本地运行和开发，默认使用 Sharp 处理图片。
+- **ARM64 OpenWrt**：适合在路由器等低功耗设备上长期运行，可使用外接存储保存数据，并通过 FFmpeg 避免原生模块兼容问题。
+
+OpenWrt 是本项目额外适配的部署方式，并非唯一运行平台。普通 Windows 用户可以直接按照下方步骤安装依赖并启动项目。
+
+## Windows 本地运行与开发
 
 ### 环境要求
 
@@ -28,6 +36,8 @@
 pnpm install
 pnpm dev
 ```
+
+在 Windows PowerShell 或终端中执行以上命令即可。应用数据默认保存在项目运行目录下的 `data` 文件夹中。
 
 开发环境默认使用以下端口：
 
