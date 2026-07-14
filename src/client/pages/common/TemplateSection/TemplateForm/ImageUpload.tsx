@@ -184,21 +184,24 @@ export function ImageUpload({
 
   return (
     <div>
-      <div className="flex items-center gap-2">
+      <div className="grid min-w-0 grid-cols-2 gap-2">
         <Upload
           accept="image/jpeg,image/png,image/webp"
           showUploadList={false}
           beforeUpload={handleUpload}
           multiple
-          className="flex-1"
+          className="min-w-0 w-full [&_.ant-upload]:w-full"
         >
-          <Button icon={<UploadOutlined />} className="w-full">
+          <Button
+            icon={<UploadOutlined />}
+            className="h-auto! min-h-8 w-full whitespace-normal py-1!"
+          >
             拖入/选择本地图片
           </Button>
         </Upload>
         <Button
           icon={<PictureOutlined />}
-          className="flex-1"
+          className="h-auto! min-h-8 min-w-0 w-full whitespace-normal py-1!"
           onClick={() => {
             openGallery({
               onSelect: async (images: GalleryImageSelection[]) => {
