@@ -224,9 +224,9 @@ export function StylePresetModal({
         title="风格预设"
         open={open}
         onCancel={onClose}
-        width="min(1100px, calc(100vw - 24px))"
+        width="min(1100px, calc(100vw - 16px))"
         centered
-        className="[&_.ant-modal-body]:overflow-hidden max-md:[&_.ant-modal-content]:p-3! max-md:[&_.ant-modal-header]:mb-2!"
+        className="[&_.ant-modal-body]:overflow-hidden max-md:[&_.ant-modal-content]:p-3! max-md:[&_.ant-modal-footer]:grid max-md:[&_.ant-modal-footer]:grid-cols-2 max-md:[&_.ant-modal-footer]:gap-2 max-md:[&_.ant-modal-footer_.ant-btn]:m-0! max-md:[&_.ant-modal-footer_.ant-btn]:w-full max-md:[&_.ant-modal-header]:mb-2!"
         destroyOnHidden
         footer={[
           <Button key="cancel" onClick={onClose}>取消</Button>,
@@ -241,8 +241,8 @@ export function StylePresetModal({
         ]}
       >
         <Spin spinning={loading}>
-          <div className="grid h-[calc(100dvh-170px)] min-h-0 max-h-170 grid-rows-[210px_minmax(0,1fr)] gap-3 md:h-[min(62vh,560px)] md:grid-cols-[minmax(280px,34%)_minmax(0,1fr)] md:grid-rows-1 md:gap-4">
-            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 p-3">
+          <div className="grid h-[calc(100dvh-150px)] min-h-0 max-h-170 grid-rows-[250px_minmax(0,1fr)] gap-3 md:h-[min(62vh,560px)] md:grid-cols-[minmax(280px,34%)_minmax(0,1fr)] md:grid-rows-1 md:gap-4">
+            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 p-2 md:p-3">
               <Input
                 allowClear
                 prefix={<SearchOutlined />}
@@ -353,16 +353,20 @@ export function StylePresetModal({
                     )}
                   </div>
                 </div>
-                <div>
+                <div className="shrink-0">
                   <div className="mb-1 text-sm text-gray-500">预设模板</div>
-                  <Input.TextArea value={selected.prompt} readOnly autoSize={{ minRows: 5, maxRows: 8 }} />
+                  <Input.TextArea
+                    value={selected.prompt}
+                    readOnly
+                    autoSize={{ minRows: 3, maxRows: 6 }}
+                  />
                 </div>
                 <div className="min-h-0 flex-1">
                   <div className="mb-1 text-sm text-gray-500">注入结果预览</div>
                   <Input.TextArea
                     value={preview}
                     readOnly
-                    className="h-28! md:h-32!"
+                    className="h-24! md:h-32!"
                   />
                   <div className="mt-1 text-xs text-gray-400">
                     模板中的 {'{prompt}'} 会替换为当前提示词；没有占位符时会追加到当前提示词之后。
@@ -379,9 +383,9 @@ export function StylePresetModal({
       <Modal
         title={editingPreset ? '编辑自定义预设' : '新建自定义预设'}
         open={editorOpen}
-        width="min(620px, calc(100vw - 24px))"
+        width="min(620px, calc(100vw - 16px))"
         centered
-        className="max-md:[&_.ant-modal-content]:p-4!"
+        className="max-md:[&_.ant-modal-body]:max-h-[calc(100dvh-180px)] max-md:[&_.ant-modal-body]:overflow-y-auto max-md:[&_.ant-modal-content]:p-3! max-md:[&_.ant-modal-footer]:grid max-md:[&_.ant-modal-footer]:grid-cols-2 max-md:[&_.ant-modal-footer]:gap-2 max-md:[&_.ant-modal-footer_.ant-btn]:m-0! max-md:[&_.ant-modal-footer_.ant-btn]:w-full"
         onCancel={() => setEditorOpen(false)}
         onOk={() => void savePreset()}
         confirmLoading={loading}
@@ -413,11 +417,15 @@ export function StylePresetModal({
                 </Button>
               </div>
             }
-            className="[&_.ant-form-item-label>label]:w-full"
+            className="[&_.ant-form-item-label>label]:h-auto! [&_.ant-form-item-label>label]:w-full"
             extra="使用 {prompt} 表示原提示词；不使用占位符时，模板会追加到原提示词后。"
             rules={[{ required: true, whitespace: true, message: '请输入提示词模板' }]}
           >
-            <Input.TextArea autoSize={{ minRows: 8, maxRows: 14 }} maxLength={20000} showCount />
+            <Input.TextArea
+              autoSize={{ minRows: 6, maxRows: 12 }}
+              maxLength={20000}
+              showCount
+            />
           </Form.Item>
         </Form>
       </Modal>

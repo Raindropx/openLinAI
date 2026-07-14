@@ -231,7 +231,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
               size="small"
               type="link"
               icon={<BulbOutlined />}
-              className="h-auto! px-1! text-xs"
+              className="h-auto! px-0!"
               onClick={handlePromptOptimize}
             >
               提示词优化
@@ -240,7 +240,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
         />
 
         <Form.Item className="mb-0! border-t border-slate-100 pt-4">
-          <div className="flex gap-4">
+          <div className="grid grid-cols-2 gap-2 [&>:last-child:nth-child(odd)]:col-span-2 sm:flex sm:gap-4">
             {gptImageSettings.enable1K && (
               <Button
                 onClick={() => handleTrial('1k')}

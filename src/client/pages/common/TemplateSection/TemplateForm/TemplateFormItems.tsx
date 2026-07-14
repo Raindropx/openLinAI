@@ -1,4 +1,8 @@
-import { BgColorsOutlined, ExperimentOutlined } from '@ant-design/icons'
+import {
+  BgColorsOutlined,
+  DeleteOutlined,
+  ExperimentOutlined,
+} from '@ant-design/icons'
 import { Button, Checkbox, Form, Input, InputNumber, Select } from 'antd'
 import classnames from 'classnames'
 import React, { useState } from 'react'
@@ -81,7 +85,7 @@ function AspectRatioFormItem({ className }: { className?: string }) {
           valuePropName="checked"
           noStyle
         >
-          <Checkbox className="mt-1">注入提示</Checkbox>
+          <Checkbox className="mt-1 whitespace-nowrap">注入提示</Checkbox>
         </Form.Item>
       </div>
     </Form.Item>
@@ -119,9 +123,9 @@ function PromptFormItem({
       <Form.Item
         name="prompt"
         label={
-          <div className="flex w-full items-center justify-between">
+          <div className="flex w-full flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <span>{label}</span>
-            <span className="flex items-center gap-2">
+            <span className="grid grid-cols-2 items-center gap-x-4 gap-y-1 sm:flex sm:flex-wrap sm:gap-x-3">
               <Button
                 type="link"
                 size="small"
@@ -141,6 +145,15 @@ function PromptFormItem({
                 图片风格提取
               </Button>
               {optimizeButton}
+              <Button
+                type="link"
+                size="small"
+                icon={<DeleteOutlined />}
+                className="px-0!"
+                onClick={() => form.setFieldsValue({ prompt: '' })}
+              >
+                清空
+              </Button>
             </span>
           </div>
         }
@@ -148,6 +161,7 @@ function PromptFormItem({
           className,
           '[&_.ant-form-item-label>label]:w-full',
           '[&_.ant-form-item-label>label]:max-w-full',
+          '[&_.ant-form-item-label>label]:h-auto!',
         )}
         rules={[{ required: true, message: '请填写提示词' }]}
       >
@@ -197,14 +211,14 @@ export function TemplateFormFields({
     <>
       <EndpointSelectFormItem className="w-full" />
 
-      <div className="flex gap-4">
-        <TitleFormItem className="flex-1" />
-        <FolderFormItem className="w-1/4" />
-        <AspectRatioFormItem className="w-1/5" />
+      <div className="grid min-w-0 grid-cols-2 gap-x-3 sm:flex sm:gap-4">
+        <TitleFormItem className="col-span-2 min-w-0 sm:flex-1" />
+        <FolderFormItem className="min-w-0 sm:w-1/4" />
+        <AspectRatioFormItem className="min-w-0 sm:w-1/5" />
       </div>
 
-      <div className="flex gap-4">
-        <Form.Item label="上传图片" className="flex-1">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:gap-4">
+        <Form.Item label="上传图片" className="min-w-0 flex-1">
           <ImageUpload
             value={imageUrls}
             onChange={setImageUrls}
@@ -216,7 +230,9 @@ export function TemplateFormFields({
             }}
           />
         </Form.Item>
-        {gptImageSettings.enableMultiple && <CountFormItem className="w-1/5" />}
+        {gptImageSettings.enableMultiple && (
+          <CountFormItem className="w-full sm:w-1/5" />
+        )}
       </div>
 
       <PromptFormItem form={form} optimizeButton={optimizeButton} />
