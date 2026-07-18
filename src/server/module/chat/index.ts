@@ -28,6 +28,15 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+function getServiceLabel(baseURL?: string) {
+  if (!baseURL) return 'yunwu.ai'
+  try {
+    return new URL(baseURL).hostname || '上游服务'
+  } catch {
+    return '上游服务'
+  }
+}
+
 async function parseChatResponse(response: Response) {
   const contentType = response.headers.get('content-type') || ''
 
@@ -54,7 +63,7 @@ export async function createChatCompletion(options: {
       status: 400,
       data: {
         success: false as const,
-        error: 'stream mode is not supported',
+        error: '[服务] Stream mode is not supported',
       },
     }
   }
@@ -81,13 +90,17 @@ export async function createChatCompletion(options: {
     const data = await parseChatResponse(response)
 
     if (!response.ok) {
+      const upstreamError = isPlainObject(data) && typeof data.error === 'string'
+        ? data.error
+        : ''
+      const prefix = `[${getServiceLabel(baseURL)}] `
       return {
         status: response.status,
         data: isPlainObject(data)
-          ? data
+          ? { ...data, error: `${prefix}${upstreamError || 'Chat completion request failed'}` }
           : {
               success: false as const,
-              error: 'Chat completion request failed',
+              error: `${prefix}Chat completion request failed`,
             },
       }
     }
@@ -101,7 +114,7 @@ export async function createChatCompletion(options: {
       status: 500,
       data: {
         success: false as const,
-        error: error.message || 'Chat completion request failed',
+        error: `[网络] ${error.message || 'Chat completion request failed'}`,
       },
     }
   }

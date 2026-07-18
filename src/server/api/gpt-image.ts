@@ -93,7 +93,7 @@ const gptImageApi = new Hono()
       return c.json(
         {
           success: false as const,
-          error: '该端点不支持余额查询',
+          error: '[服务] 该端点不支持余额查询',
         },
         400,
       )
@@ -164,7 +164,7 @@ const gptImageApi = new Hono()
         return c.json(
           {
             success: false as const,
-            error: data?.message || '获取余额失败',
+            error: `[yunwu.ai] ${data?.message || '获取余额失败'}`,
           },
           500,
         )
@@ -175,7 +175,7 @@ const gptImageApi = new Hono()
       })
     } catch (error: any) {
       return c.json(
-        { success: false as const, error: error.message || '获取余额失败' },
+        { success: false as const, error: `[网络] ${error.message || '获取余额失败'}` },
         500,
       )
     }
@@ -196,7 +196,7 @@ const gptImageApi = new Hono()
       const endpoint = getEndpointById(endpointId)
       if (!endpoint) {
         return c.json(
-          { success: false as const, error: 'Endpoint not found' },
+          { success: false as const, error: '[配置] Endpoint not found' },
           400,
         )
       }
@@ -204,7 +204,7 @@ const gptImageApi = new Hono()
       const template = templates.find((t) => t.id === templateId)
       if (!template) {
         return c.json(
-          { success: false as const, error: 'Template not found' },
+          { success: false as const, error: '[服务] Template not found' },
           404,
         )
       }
@@ -263,7 +263,7 @@ const gptImageApi = new Hono()
       const endpoint = getEndpointById(endpointId)
       if (!endpoint) {
         return c.json(
-          { success: false as const, error: 'Endpoint not found' },
+          { success: false as const, error: '[配置] Endpoint not found' },
           400,
         )
       }
@@ -349,7 +349,7 @@ const gptImageApi = new Hono()
         return c.json(
           {
             success: false as const,
-            message: error.message || '生成失败',
+            message: `[网络] ${error.message || '生成失败'}`,
             data: null,
           },
           500,

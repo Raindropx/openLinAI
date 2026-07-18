@@ -12,6 +12,8 @@ import stylePresetApi from './api/common/style-preset'
 import taskApi from './api/common/task'
 import templateApi from './api/common/template'
 import gptImageApi from './api/gpt-image'
+import styleAnalyzeApi from './api/style-analyze'
+import yunwuTokenApi from './api/yunwu-token'
 
 dotenv.config()
 
@@ -19,8 +21,10 @@ const app = new Hono()
 
 const routes = app
   // module
-  .route('/api/gptImage', gptImageApi)
   .route('/api/chat', chatApi)
+  .route('/api/style-analyze', styleAnalyzeApi)
+  .route('/api/gptImage', gptImageApi)
+  .route('/api/gptImage', yunwuTokenApi)
   // common
   .route('/api/task', taskApi)
   .route('/api/template', templateApi)

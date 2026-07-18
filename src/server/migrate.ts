@@ -50,8 +50,7 @@ async function run() {
     return
   }
 
-  // 检查压缩包内是否包含 双击运行.bat
-  // 压缩包可能带有顶层目录，比如 wan-video-download-1.0.0/双击运行.bat
+  // 压缩包可能带有顶层目录
   let batZipPath: string | null = null
   let zipRootPath = ''
 
