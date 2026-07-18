@@ -25,9 +25,8 @@ export const TemplateItemGenerateButtons: React.FC<{
   const endpoints = useGlobalStore((state) => state.endpoints)
 
   const doGenerate = async (templateId: string, size: GptImageSize) => {
-    message.success('任务提交成功')
     try {
-      await client.api.gptImage.generate.$post({
+      const res = await client.api.gptImage.generate.$post({
         json: {
           templateId,
           endpointId:
@@ -36,8 +35,15 @@ export const TemplateItemGenerateButtons: React.FC<{
           quality: gptImageSettings.quality,
         },
       })
+      const data = await res.json()
+      if (!data.success) {
+        message.error(data.error || '生图失败')
+        return
+      }
+      message.success('任务提交成功')
     } catch (error) {
-      message.error('请求失败')
+      const msg = error instanceof Error ? error.message : '请求失败'
+      message.error(`[网络] ${msg}`)
     }
   }
 
@@ -102,31 +108,29 @@ export const TemplateItemGenerateButtons: React.FC<{
   }
 
   return (
-    template.usageType === 'image' && (
-      <>
-        {(
-          [
-            { size: '1K', key: 'enable1K', value: '1k' },
-            { size: '2K', key: 'enable2K', value: '2k' },
-            { size: '4K', key: 'enable4K', value: '4k' },
-          ] as const
-        ).map(
-          (item) =>
-            gptImageSettings[item.key] && (
-              <Tooltip key={item.key} title={`GPTImage2 生成 ${item.size} 图`}>
-                <Button
-                  className="flex items-center justify-center px-2!"
-                  variant="outlined"
-                  icon={<img src={openaiIcon} className="h-4 w-4 opacity-70" />}
-                  onClick={() => handleGenerate(template.id, item.value)}
-                >
-                  {item.size}
-                </Button>
-              </Tooltip>
-            ),
-        )}
-      </>
-    )
+    <>
+      {(
+        [
+          { size: '1K', key: 'enable1K', value: '1k' },
+          { size: '2K', key: 'enable2K', value: '2k' },
+          { size: '4K', key: 'enable4K', value: '4k' },
+        ] as const
+      ).map(
+        (item) =>
+          gptImageSettings[item.key] && (
+            <Tooltip key={item.key} title={`GPTImage2 生成 ${item.size} 图`}>
+              <Button
+                className="flex items-center justify-center px-2!"
+                variant="outlined"
+                icon={<img src={openaiIcon} className="h-4 w-4 opacity-70" />}
+                onClick={() => handleGenerate(template.id, item.value)}
+              >
+                {item.size}
+              </Button>
+            </Tooltip>
+          ),
+      )}
+    </>
   )
 }
 

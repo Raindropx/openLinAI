@@ -54,6 +54,15 @@ function getOpenAIClient(apiKey: string, baseURL: string): OpenAI {
   return client
 }
 
+function getServiceLabel(endpointName: string | undefined, baseURL: string) {
+  if (endpointName?.trim()) return endpointName.trim()
+  try {
+    return new URL(baseURL).hostname || '上游服务'
+  } catch {
+    return '上游服务'
+  }
+}
+
 /**
  * 根据模板生成最终提示词。当 injectAspectRatio 为 true 且 aspectRatio 有效（非 auto）时，
  * 在提示词末尾追加“。画面比例X:Y”，用于不支持 size 参数的模型。
@@ -207,6 +216,7 @@ export async function handleImageGeneration(options: {
       quality = 'medium',
       endpointName,
     } = options
+    const serviceLabel = getServiceLabel(endpointName, baseURL)
 
     logger.info(`Generating GPT image`)
 
@@ -221,7 +231,7 @@ export async function handleImageGeneration(options: {
     if (!task) {
       return {
         status: 500,
-        data: { success: false as const, error: 'Failed to create task' },
+        data: { success: false as const, error: '[服务] Failed to create task' },
       }
     }
 
@@ -238,7 +248,7 @@ export async function handleImageGeneration(options: {
         if (await fs.pathExists(imagePath)) {
           imagePaths.push(imagePath)
         } else {
-          throw new Error(`Template image not found on Input Dir: ${imagePath}`)
+          throw new Error(`[服务] Template image not found on Input Dir: ${imagePath}`)
         }
       }
     }
@@ -260,11 +270,12 @@ export async function handleImageGeneration(options: {
       filenames = res.filenames
       usage = res.usage
     } catch (error: any) {
-      logger.error(`Failed to generate GPT image`, error.message)
-      await taskManager.updateTaskStatus(task.id, 'failed', error.message)
+      const serviceError = `[${serviceLabel}] ${error.message}`
+      logger.error(`Failed to generate GPT image via ${serviceLabel}`, error.message)
+      await taskManager.updateTaskStatus(task.id, 'failed', serviceError)
       return {
         status: 500,
-        data: { success: false as const, error: error.message },
+        data: { success: false as const, error: serviceError },
       }
     }
 
@@ -286,7 +297,7 @@ export async function handleImageGeneration(options: {
     logger.error(`Failed to generate GPT image`, error.message)
     return {
       status: 500,
-      data: { success: false as const, error: error.message },
+      data: { success: false as const, error: `[服务] ${error.message}` },
     }
   }
 }

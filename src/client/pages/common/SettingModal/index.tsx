@@ -89,6 +89,7 @@ export function openSettingModal(options?: {
         onOk={handleSave}
         okText={options?.onSuccess ? '保存并继续' : '保存'}
         cancelText="取消"
+        footer={activeTab === 'admin' ? null : undefined}
         destroyOnHidden
         width={isMobile ? '92vw' : 920}
         styles={{
