@@ -131,6 +131,12 @@ export function ImageUpload({
         e.dataTransfer?.types &&
         Array.from(e.dataTransfer.types).includes('Files')
       ) {
+        if (
+          e.target instanceof Element &&
+          e.target.closest('.ant-upload-drag')
+        ) {
+          return
+        }
         e.preventDefault()
         e.stopPropagation()
       }
@@ -141,6 +147,12 @@ export function ImageUpload({
         e.dataTransfer?.types &&
         Array.from(e.dataTransfer.types).includes('Files')
       ) {
+        if (
+          e.target instanceof Element &&
+          e.target.closest('.ant-upload-drag')
+        ) {
+          return
+        }
         e.preventDefault()
         e.stopPropagation()
         const files = e.dataTransfer?.files
