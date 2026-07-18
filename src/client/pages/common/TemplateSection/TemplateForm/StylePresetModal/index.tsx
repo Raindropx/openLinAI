@@ -25,7 +25,10 @@ import type { AppType } from '../../../../../../server'
 import builtinData from '../../../../../../../styles_zh.json'
 import { useLocalSetting } from '../../../../../hooks/useLocalSetting'
 import { useGlobalStore } from '../../../../../store/global'
-import { optimizeStyleTemplate } from '../styleOptimize'
+import {
+  optimizeStyleTemplate,
+  resolveStylePrompt,
+} from '../styleOptimize'
 
 interface StylePreset {
   id: string
@@ -52,7 +55,7 @@ const builtins: StylePreset[] = builtinData.map((item, index) => ({
 function injectStyle(template: string, currentPrompt: string) {
   const prompt = currentPrompt.trim()
   if (template.includes('{prompt}')) {
-    return template.split('{prompt}').join(prompt).trim()
+    return resolveStylePrompt(template, prompt)
   }
   return [prompt, template.trim()].filter(Boolean).join('\n')
 }
@@ -366,10 +369,10 @@ export function StylePresetModal({
                   <Input.TextArea
                     value={preview}
                     readOnly
-                    className="h-24! md:h-32!"
+                    className="h-32! md:h-64!"
                   />
                   <div className="mt-1 text-xs text-gray-400">
-                    模板中的 {'{prompt}'} 会替换为当前提示词；没有占位符时会追加到当前提示词之后。
+                    模板中的 {'{prompt}'} 会替换为当前提示词，当前提示词为空时使用“此画面”；没有占位符时会追加到当前提示词之后。
                   </div>
                 </div>
               </div>
