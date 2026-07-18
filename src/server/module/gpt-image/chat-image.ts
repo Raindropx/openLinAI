@@ -144,26 +144,98 @@ function extractImageUrls(
   return { imageUrls, text }
 }
 
-/** 把图片（data URL 或 http URL）落盘到生成目录，返回文件名列表 */
+interface PersistedImageFormat {
+  extension: 'jpg' | 'png' | 'webp' | 'gif' | 'avif'
+}
+
+const MIME_FORMATS: Record<string, PersistedImageFormat> = {
+  'image/jpeg': { extension: 'jpg' },
+  'image/jpg': { extension: 'jpg' },
+  'image/png': { extension: 'png' },
+  'image/webp': { extension: 'webp' },
+  'image/gif': { extension: 'gif' },
+  'image/avif': { extension: 'avif' },
+}
+
+function detectImageFormat(
+  buffer: Buffer,
+  mimeHint?: string | null,
+): PersistedImageFormat | null {
+  if (
+    buffer.length >= 3 &&
+    buffer[0] === 0xff &&
+    buffer[1] === 0xd8 &&
+    buffer[2] === 0xff
+  ) {
+    return MIME_FORMATS['image/jpeg']
+  }
+
+  if (
+    buffer.length >= 8 &&
+    buffer.subarray(0, 8).equals(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    )
+  ) {
+    return MIME_FORMATS['image/png']
+  }
+
+  if (
+    buffer.length >= 12 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return MIME_FORMATS['image/webp']
+  }
+
+  if (buffer.length >= 6) {
+    const signature = buffer.toString('ascii', 0, 6)
+    if (signature === 'GIF87a' || signature === 'GIF89a') {
+      return MIME_FORMATS['image/gif']
+    }
+  }
+
+  if (
+    buffer.length >= 12 &&
+    buffer.toString('ascii', 4, 8) === 'ftyp' &&
+    ['avif', 'avis'].includes(buffer.toString('ascii', 8, 12))
+  ) {
+    return MIME_FORMATS['image/avif']
+  }
+
+  const normalizedMime = mimeHint?.split(';', 1)[0].trim().toLowerCase()
+  return normalizedMime ? MIME_FORMATS[normalizedMime] || null : null
+}
+
+/** 把图片（data URL 或 http URL）按真实格式落盘，返回文件名列表 */
 async function persistImages(imageUrls: string[]): Promise<string[]> {
   const filenames: string[] = []
   for (const url of imageUrls) {
     let buffer: Buffer
+    let mimeHint: string | null = null
     if (url.startsWith('data:')) {
-      const match = /^data:[^;]+;base64,(.*)$/.exec(url)
+      const match = /^data:([^;]+);base64,([\s\S]*)$/.exec(url)
       if (!match) continue
-      buffer = Buffer.from(match[1], 'base64')
+      mimeHint = match[1]
+      buffer = Buffer.from(match[2], 'base64')
     } else {
       const res = await fetchWithTimeout(url, {}, 30000)
       if (!res.ok) {
         logger.error(`Failed to fetch image: ${url} (${res.status})`)
         continue
       }
+      mimeHint = res.headers.get('content-type')
       const arrayBuffer = await res.arrayBuffer()
       buffer = Buffer.from(arrayBuffer)
     }
+
+    const format = detectImageFormat(buffer, mimeHint)
+    if (!format) {
+      logger.error(`Unsupported generated image format: ${mimeHint || 'unknown'}`)
+      continue
+    }
+
     const hash = crypto.createHash('md5').update(buffer).digest('hex')
-    const filename = `${hash}.png`
+    const filename = `${hash}.${format.extension}`
     const filepath = path.join(GENERATED_IMAGES_DIR, filename)
     await writeFile(filepath, buffer)
     filenames.push(filename)
@@ -286,6 +358,9 @@ export async function handleChatImageGeneration(options: {
       }
 
       filenames = await persistImages(imageUrls)
+      if (filenames.length === 0) {
+        throw new Error('模型返回的图片格式不受支持或下载失败')
+      }
       logger.info('Chat-completions image generated successfully')
     } catch (error: any) {
       logger.error(`Failed to generate image via chat-completions`, error.message)
