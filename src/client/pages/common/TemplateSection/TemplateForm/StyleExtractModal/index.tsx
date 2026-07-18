@@ -1,4 +1,5 @@
 import {
+  CloseOutlined,
   CopyOutlined,
   InboxOutlined,
   PictureOutlined,
@@ -9,6 +10,7 @@ import {
 import {
   Button,
   Checkbox,
+  Image as AntImage,
   Input,
   Modal,
   Select,
@@ -334,11 +336,48 @@ export function StyleExtractModal({
               showUploadList={false}
               beforeUpload={handleUpload}
               disabled={busy}
+              openFileDialogOnClick={!previewUrl}
               className="[&_.ant-upload]:!p-2"
             >
-              <div className="flex h-40 items-center justify-center">
+              <div className="relative flex h-40 w-full items-center justify-center overflow-hidden">
                 {previewUrl ? (
-                  <img src={previewUrl} alt="待分析图片" className="h-full w-full object-contain" />
+                  <>
+                    <AntImage
+                      src={previewUrl}
+                      alt="待分析图片"
+                      styles={{
+                        root: {
+                          display: 'block',
+                          width: '100%',
+                          height: '100%',
+                        },
+                        image: {
+                          display: 'block',
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                        },
+                      }}
+                      preview={{ mask: '预览图片' }}
+                    />
+                    <Button
+                      type="text"
+                      shape="circle"
+                      icon={<CloseOutlined />}
+                      aria-label="清除图片"
+                      className="bg-white/90! text-gray-600! shadow-sm"
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        zIndex: 10,
+                      }}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        reset()
+                      }}
+                    />
+                  </>
                 ) : (
                   <div className="text-center text-gray-400">
                     <InboxOutlined className="mb-2 text-3xl" />
