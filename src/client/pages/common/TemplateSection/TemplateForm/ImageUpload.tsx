@@ -8,6 +8,7 @@ import { hc } from 'hono/client'
 import { useEffect, useRef } from 'react'
 import type { AppType } from '../../../../../server'
 import { useRecentImages } from '../../../../hooks/useRecentImages'
+import { imageBlobToUploadDataUrl } from '../../../../utils/image'
 import {
   openGallery,
   type GalleryImageSelection,
@@ -82,56 +83,42 @@ export function ImageUpload({
     return data.url as string
   }
 
-  const blobToBase64 = (blob: Blob) =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = () => reject(new Error('图片读取失败'))
-      reader.readAsDataURL(blob)
-    })
-
   const uploadImageFromUrl = async (url: string) => {
     const response = await fetch(url)
     if (!response.ok) {
       throw new Error('图片下载失败')
     }
 
-    const blob = await response.blob()
-    const base64 = await blobToBase64(blob)
-    return uploadImageBase64(base64)
+    const uploadDataUrl = await imageBlobToUploadDataUrl(await response.blob())
+    return uploadImageBase64(uploadDataUrl)
   }
 
-  const handleUpload = (file: File) => {
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      const base64 = e.target?.result as string
-
+  const handleUpload = async (file: File) => {
+    handleUploadCountChange(1)
+    try {
+      const uploadDataUrl = await imageBlobToUploadDataUrl(file)
       if (latestValueRef.current.length === 0 && onFirstImageRatio) {
         const img = new Image()
         img.onload = () => {
           const ratio = getClosestAspectRatio(img.width, img.height)
           onFirstImageRatio(ratio)
         }
-        img.src = base64
+        img.src = uploadDataUrl
       }
 
-      handleUploadCountChange(1)
-      try {
-        const url = await uploadImageBase64(base64)
-        const newUrls = [...latestValueRef.current, url]
-        latestValueRef.current = newUrls
-        onChange?.(newUrls)
-        addRecentImages(url)
-        message.success('图片上传成功')
-      } catch (error) {
-        message.error(
-          error instanceof Error ? error.message : '图片上传请求失败',
-        )
-      } finally {
-        handleUploadCountChange(-1)
-      }
+      const url = await uploadImageBase64(uploadDataUrl)
+      const newUrls = [...latestValueRef.current, url]
+      latestValueRef.current = newUrls
+      onChange?.(newUrls)
+      addRecentImages(url)
+      message.success('图片上传成功')
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : '图片上传请求失败',
+      )
+    } finally {
+      handleUploadCountChange(-1)
     }
-    reader.readAsDataURL(file)
     return false
   }
 

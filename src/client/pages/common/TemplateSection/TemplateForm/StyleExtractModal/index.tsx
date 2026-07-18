@@ -23,6 +23,7 @@ import type { AppType } from '../../../../../../server'
 import { requestChatCompletion } from '../../../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../../../hooks/useLocalSetting'
 import { useGlobalStore } from '../../../../../store/global'
+import { imageBlobToUploadDataUrl } from '../../../../../utils/image'
 import {
   openGallery,
   type GalleryImageSelection,
@@ -95,37 +96,6 @@ function parseAnalysis(content: string): StyleAnalysis {
   return record as unknown as StyleAnalysis
 }
 
-function imageBlobToJpegDataUrl(blob: Blob) {
-  return new Promise<string>((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(blob)
-    const image = new Image()
-    image.onload = () => {
-      try {
-        const canvas = document.createElement('canvas')
-        canvas.width = image.naturalWidth
-        canvas.height = image.naturalHeight
-        const context = canvas.getContext('2d')
-        if (!context) throw new Error('浏览器无法转换图片')
-
-        // JPEG 不支持透明通道，使用白色背景避免透明区域变黑。
-        context.fillStyle = '#fff'
-        context.fillRect(0, 0, canvas.width, canvas.height)
-        context.drawImage(image, 0, 0)
-        resolve(canvas.toDataURL('image/jpeg', 0.92))
-      } catch (error) {
-        reject(error)
-      } finally {
-        URL.revokeObjectURL(objectUrl)
-      }
-    }
-    image.onerror = () => {
-      URL.revokeObjectURL(objectUrl)
-      reject(new Error('浏览器无法读取该图片'))
-    }
-    image.src = objectUrl
-  })
-}
-
 async function uploadDataUrl(image: string) {
   const res = await client.api.static.images.upload.$post({ json: { image } })
   const data = await res.json()
@@ -139,7 +109,7 @@ async function normalizeGalleryImage(image: GalleryImageSelection) {
   if (image.type === 'input') return image.url
   const response = await fetch(image.url)
   if (!response.ok) throw new Error('图库图片读取失败')
-  return uploadDataUrl(await imageBlobToJpegDataUrl(await response.blob()))
+  return uploadDataUrl(await imageBlobToUploadDataUrl(await response.blob()))
 }
 
 function composePrompt(
@@ -235,8 +205,8 @@ export function StyleExtractModal({
   const handleUpload: UploadProps['beforeUpload'] = async (file) => {
     setBusy(true)
     try {
-      // 浏览器先统一转成 JPEG，OpenWrt 的 ffmpeg 无需 WebP 解码能力。
-      const dataUrl = await imageBlobToJpegDataUrl(file)
+      // 仅 WebP 在浏览器中转成 JPEG，避免依赖 OpenWrt FFmpeg 的 WebP 解码器。
+      const dataUrl = await imageBlobToUploadDataUrl(file)
       setPreviewUrl(dataUrl)
       setImageUrl(await uploadDataUrl(dataUrl))
       setAnalysis(EMPTY_ANALYSIS)
