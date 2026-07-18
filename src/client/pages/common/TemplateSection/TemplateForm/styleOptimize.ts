@@ -5,6 +5,11 @@ function cleanModelOutput(content: string) {
   return (fenced ?? content).trim()
 }
 
+export function resolveStylePrompt(template: string, currentPrompt: string) {
+  const prompt = currentPrompt.trim() || '此画面'
+  return template.split('{prompt}').join(prompt).trim()
+}
+
 export async function optimizeStyleTemplate({
   endpointId,
   systemPrompt,

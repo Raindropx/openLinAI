@@ -182,6 +182,7 @@ function PromptFormItem({
       />
       <StyleExtractModal
         open={styleExtractOpen}
+        currentPrompt={form.getFieldValue('prompt') || ''}
         onClose={() => setStyleExtractOpen(false)}
         onApply={(prompt) => {
           form.setFieldsValue({ prompt })

@@ -27,7 +27,10 @@ import {
   openGallery,
   type GalleryImageSelection,
 } from '../../../components/Gallery'
-import { optimizeStyleTemplate } from '../styleOptimize'
+import {
+  optimizeStyleTemplate,
+  resolveStylePrompt,
+} from '../styleOptimize'
 
 const client = hc<AppType>('/')
 
@@ -151,10 +154,12 @@ function composePrompt(
 
 export function StyleExtractModal({
   open,
+  currentPrompt,
   onClose,
   onApply,
 }: {
   open: boolean
+  currentPrompt: string
   onClose: () => void
   onApply: (prompt: string) => void
 }) {
@@ -341,7 +346,12 @@ export function StyleExtractModal({
         >
           复制
         </Button>,
-        <Button key="apply" type="primary" disabled={!result} onClick={() => onApply(result)}>
+        <Button
+          key="apply"
+          type="primary"
+          disabled={!result}
+          onClick={() => onApply(resolveStylePrompt(result, currentPrompt))}
+        >
           应用到提示词
         </Button>,
       ]}
