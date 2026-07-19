@@ -17,6 +17,7 @@ export NODE_ENV=production
 export OPEN_BROWSER=false
 export IMAGE_BACKEND=ffmpeg
 export FFMPEG_BIN="$FFMPEG_BIN"
+export IMAGE_FFMPEG_CONCURRENCY="${IMAGE_FFMPEG_CONCURRENCY:-1}"
 export DATA_DIR="$APP_DIR/data"
 export PORT="$PORT"
 # Entware 库不在默认搜索路径，需显式指定避免 node 或 ffmpeg 加载动态库失败

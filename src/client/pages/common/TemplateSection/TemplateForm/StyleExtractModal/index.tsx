@@ -20,7 +20,7 @@ import {
 } from 'antd'
 import type { UploadProps } from 'antd'
 import { hc } from 'hono/client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AppType } from '../../../../../../server'
 import { requestChatCompletion } from '../../../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../../../hooks/useLocalSetting'
@@ -162,6 +162,7 @@ export function StyleExtractModal({
   const [presetName, setPresetName] = useState('')
   const [presetSaving, setPresetSaving] = useState(false)
   const [styleOptimizing, setStyleOptimizing] = useState(false)
+  const imageOperationIdRef = useRef(0)
 
   const composed = useMemo(
     () => composePrompt(analysis, selected),
@@ -173,6 +174,7 @@ export function StyleExtractModal({
   }, [composed, manualResult])
 
   const reset = () => {
+    imageOperationIdRef.current += 1
     setImageUrl('')
     setPreviewUrl('')
     setAnalysis(EMPTY_ANALYSIS)
@@ -190,33 +192,52 @@ export function StyleExtractModal({
   }
 
   const selectImage = async (selection: GalleryImageSelection) => {
+    const operationId = ++imageOperationIdRef.current
     setBusy(true)
+    setImageUrl('')
+    setAnalysis(EMPTY_ANALYSIS)
+    setSelected(new Set(DIMENSIONS.map(({ key }) => key)))
+    setResult('')
+    setManualResult(false)
     try {
       setPreviewUrl(selection.url)
-      setImageUrl(await normalizeGalleryImage(selection))
-      setAnalysis(EMPTY_ANALYSIS)
-      setManualResult(false)
+      const normalizedUrl = await normalizeGalleryImage(selection)
+      if (imageOperationIdRef.current !== operationId) return
+      setImageUrl(normalizedUrl)
     } catch (error) {
+      if (imageOperationIdRef.current !== operationId) return
       message.error(error instanceof Error ? error.message : '图片处理失败')
+      setImageUrl('')
       setPreviewUrl('')
     } finally {
-      setBusy(false)
+      if (imageOperationIdRef.current === operationId) setBusy(false)
     }
   }
 
   const handleUpload: UploadProps['beforeUpload'] = async (file) => {
+    const operationId = ++imageOperationIdRef.current
     setBusy(true)
+    setImageUrl('')
+    setPreviewUrl('')
+    setAnalysis(EMPTY_ANALYSIS)
+    setSelected(new Set(DIMENSIONS.map(({ key }) => key)))
+    setResult('')
+    setManualResult(false)
     try {
       // 仅 WebP 在浏览器中转成 JPEG，避免依赖 OpenWrt FFmpeg 的 WebP 解码器。
       const dataUrl = await imageBlobToUploadDataUrl(file)
+      if (imageOperationIdRef.current !== operationId) return false
       setPreviewUrl(dataUrl)
-      setImageUrl(await uploadDataUrl(dataUrl))
-      setAnalysis(EMPTY_ANALYSIS)
-      setManualResult(false)
+      const uploadedUrl = await uploadDataUrl(dataUrl)
+      if (imageOperationIdRef.current !== operationId) return false
+      setImageUrl(uploadedUrl)
     } catch (error) {
+      if (imageOperationIdRef.current !== operationId) return false
       message.error(error instanceof Error ? error.message : '图片上传失败')
+      setImageUrl('')
+      setPreviewUrl('')
     } finally {
-      setBusy(false)
+      if (imageOperationIdRef.current === operationId) setBusy(false)
     }
     return false
   }
@@ -365,6 +386,7 @@ export function StyleExtractModal({
                       shape="circle"
                       icon={<CloseOutlined />}
                       aria-label="清除图片"
+                      disabled={busy}
                       className="bg-white/90! text-gray-600! shadow-sm"
                       style={{
                         position: 'absolute',
@@ -390,6 +412,7 @@ export function StyleExtractModal({
               <Button
                 block
                 icon={<PictureOutlined />}
+                disabled={busy}
                 onClick={() => openGallery({
                   onSelect: (images) => {
                     if (images[0]) void selectImage(images[0])

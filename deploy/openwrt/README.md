@@ -26,6 +26,7 @@
 - 后端经 tsup 打包成**单个自包含 JS**（`dist/server/index.js`），除 `sharp`/`playwright` 外全部内联；本项目已用 ffmpeg 取代 sharp、并移除 wan(playwright) 路由，因此**路由器上无需 `node_modules`**，只要一个 `node` 二进制即可运行。
 - 所有数据路径由 `DATA_DIR` 环境变量决定（默认 `cwd/data`），本部署固定指向 `/mnt/sda1/linai/data`。
 - 图像处理（参考图压缩、缩略图）由 `IMAGE_BACKEND=ffmpeg` 调用系统 `ffmpeg`，避免 musl 上编译原生模块。Entware 的精简版 ffmpeg 不含 libwebp，因此 ffmpeg 后端**输出 JPEG**（用内置 `mjpeg` 编码器，无需额外库）；sharp 后端（PC 开发）输出 webp。后缀与 MIME 由后端自动决定。
+- 参考图单文件限制为 16 MiB、输入像素限制为 4000 万；ffmpeg 默认串行处理，内存充裕时可在 `run.sh` 中把 `IMAGE_FFMPEG_CONCURRENCY` 调为 `2`（最多 4）。
 
 ## 1. 安装 Entware（到 SSD）
 
@@ -57,9 +58,10 @@ wget -O - https://bin.entware.net/aarch64-k3.10/installer/generic.sh | sh
 /opt/bin/opkg install node ffmpeg
 /opt/bin/node -v                        # 期望输出版本号
 /opt/bin/ffmpeg -encoders | grep mjpeg  # 期望有 VFS... mjpeg 一行
+/opt/bin/ffmpeg -filters | grep -E ' (scale|split|drawbox|overlay) '  # 四项都应有输出
 ```
 
-> ffmpeg 后端用内置 `mjpeg` 编码器输出 JPEG，**不需要 libwebp**。Entware 精简版 ffmpeg 默认带 mjpeg，上面那条 grep 有输出即可。若连 mjpeg 都没有（极少见），才需考虑 `IMAGE_BACKEND=sharp` 并拷 musl-arm64 版 `node_modules/sharp` 到 SSD。
+> ffmpeg 后端用内置 `mjpeg` 编码器输出 JPEG，并用 `scale`、`split`、`drawbox`、`overlay` 滤镜完成缩放和透明背景合成，**不需要 libwebp**。Entware 精简版 ffmpeg 默认带这些内置能力；若有缺失，需换用包含对应编码器/滤镜的 ffmpeg 包。
 
 ## 3. 在 PC 上构建项目
 
@@ -227,7 +229,7 @@ scp deploy/openwrt/nginx.conf root@<路由器IP>:/etc/nginx/conf.d/linai.conf
   /etc/init.d/linai start
   ```
 - **`spawn ffmpeg ENOENT`**：procd 服务 PATH 不含 `/opt/bin`，ffmpeg 找不到。确认 init 脚本里设了 `FFMPEG_BIN=/opt/bin/ffmpeg`（仓库脚本已内置），重拷脚本并 `/etc/init.d/linai restart`。前台手跑也要带 `FFMPEG_BIN=/opt/bin/ffmpeg`。
-- **生成图片 500 / `Image processing failed`**：`/opt/bin/ffmpeg -encoders | grep mjpeg` 确认 mjpeg 编码器在（Entware 精简版默认带）。若在仍失败，前台跑（第 5 步）看 stderr 的 ffmpeg 报错；极少数情况无 mjpeg 才换 `IMAGE_BACKEND=sharp` 并拷 PC 端 `node_modules/sharp`（需 musl-arm64）。
+- **生成图片 500 / `Image processing failed`**：用第 2 步的命令确认 mjpeg 编码器和 `scale`、`split`、`drawbox`、`overlay` 滤镜都在。若仍失败，前台跑（第 5 步）看 stderr 的 ffmpeg 报错。
 - **端口被占**：改 init 脚本里的 `PORT=3000` 或用 nginx 反代。
 - **数据没落 SSD**：确认 `DATA_DIR` 指向 `/mnt/sda1/linai/data`（`ls /mnt/sda1/linai/data/images/generated`）。
 - **日志**：`logread -e linai` 或直接前台跑（第 5 步）看 stderr。

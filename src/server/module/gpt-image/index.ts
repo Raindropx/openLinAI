@@ -63,6 +63,26 @@ function getServiceLabel(endpointName: string | undefined, baseURL: string) {
   }
 }
 
+function getInputImageMimeType(filePath: string): string {
+  switch (path.extname(filePath).toLowerCase()) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.png':
+      return 'image/png'
+    case '.webp':
+      return 'image/webp'
+    case '.gif':
+      return 'image/gif'
+    case '.avif':
+      return 'image/avif'
+    default:
+      throw new Error(
+        `[服务] Unsupported input image format: ${path.extname(filePath) || 'unknown'}`,
+      )
+  }
+}
+
 /**
  * 根据模板生成最终提示词。当 injectAspectRatio 为 true 且 aspectRatio 有效（非 auto）时，
  * 在提示词末尾追加“。画面比例X:Y”，用于不支持 size 参数的模型。
@@ -148,8 +168,8 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
     ? await Promise.all(
         images.map(
           async (file) =>
-            await toFile(fs.createReadStream(file), null, {
-              type: 'image/png',
+            await toFile(fs.createReadStream(file), path.basename(file), {
+              type: getInputImageMimeType(file),
             }),
         ),
       )

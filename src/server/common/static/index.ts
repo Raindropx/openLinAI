@@ -17,6 +17,16 @@ export const IMAGES_ROOT_DIR = path.join(getDataDir(), 'images')
 export const GENERATED_IMAGES_DIR = path.join(IMAGES_ROOT_DIR, 'generated')
 export const INPUT_IMAGES_DIR = path.join(IMAGES_ROOT_DIR, 'input')
 export const THUMB_IMAGES_DIR = path.join(IMAGES_ROOT_DIR, 'thumb')
+export const IMAGE_UPLOAD_MAX_BYTES = 16 * 1024 * 1024
+export const IMAGE_UPLOAD_REQUEST_MAX_BYTES =
+  Math.ceil(IMAGE_UPLOAD_MAX_BYTES / 3) * 4 + 4096
+
+export class ImageUploadTooLargeError extends Error {
+  constructor() {
+    super('图片过大，请上传不超过 16 MiB 的图片')
+    this.name = 'ImageUploadTooLargeError'
+  }
+}
 
 export type ImageDirectoryType = 'generated' | 'input'
 
@@ -108,6 +118,9 @@ export async function uploadInputImage(image: string) {
   }
 
   const buffer = Buffer.from(matches[2], 'base64')
+  if (buffer.length > IMAGE_UPLOAD_MAX_BYTES) {
+    throw new ImageUploadTooLargeError()
+  }
   const outputBuffer = await compressUploadImage(buffer)
 
   const hash = crypto.createHash('md5').update(outputBuffer).digest('hex')

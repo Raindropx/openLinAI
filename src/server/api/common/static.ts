@@ -1,7 +1,10 @@
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 import {
+  IMAGE_UPLOAD_REQUEST_MAX_BYTES,
+  ImageUploadTooLargeError,
   deleteUnreferencedImages,
   listImages,
   openImageDirectory,
@@ -12,6 +15,17 @@ import {
 const staticApi = new Hono()
   .post(
     '/images/upload',
+    bodyLimit({
+      maxSize: IMAGE_UPLOAD_REQUEST_MAX_BYTES,
+      onError: (c) =>
+        c.json(
+          {
+            success: false as const,
+            error: '图片过大，请上传不超过 16 MiB 的图片',
+          },
+          413,
+        ),
+    }),
     zValidator('json', z.object({ image: z.string() })),
     async (c) => {
       const { image } = c.req.valid('json')
@@ -24,11 +38,16 @@ const staticApi = new Hono()
           url: result.url,
         })
       } catch (error: any) {
-        console.error('Image upload failed:', error)
-        return c.json({
-          success: false,
-          error: error?.message || 'Image processing failed',
-        })
+        if (!(error instanceof ImageUploadTooLargeError)) {
+          console.error('Image upload failed:', error)
+        }
+        return c.json(
+          {
+            success: false as const,
+            error: error?.message || 'Image processing failed',
+          },
+          error instanceof ImageUploadTooLargeError ? 413 : 500,
+        )
       }
     },
   )
