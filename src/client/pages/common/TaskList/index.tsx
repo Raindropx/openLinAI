@@ -151,7 +151,7 @@ export function TaskList() {
                           </Tooltip>
                         )}
                         {task.outputUrls && task.outputUrls.length > 0 && (
-                          <TaskItemDownloadButton outputUrls={task.outputUrls} fileName={task.rawTemplate?.title || task.rawTemplate?.prompt || `task_${task.id}`} onDownloaded={() => { if (!downloadedIds?.includes(task.id)) { setDownloadedIds([...(downloadedIds || []), task.id]) } }} />
+                          <TaskItemDownloadButton outputUrls={task.outputUrls} fileName={task.rawTemplate?.title || task.rawTemplate?.prompt || `task_${task.id}`} endpointName={task.endpointName} createdAt={task.createdAt} onDownloaded={() => { if (!downloadedIds?.includes(task.id)) { setDownloadedIds([...(downloadedIds || []), task.id]) } }} />
                         )}
                         {task.rawTemplate?.title !== TRIAL_TEMPLATE_TITLE && (
                           <Tooltip title="重试">

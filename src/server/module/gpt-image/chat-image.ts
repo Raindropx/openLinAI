@@ -317,7 +317,7 @@ export async function handleChatImageGeneration(options: {
             ],
           }),
         },
-        120000,
+        300000,
       )
 
       const data: ChatCompletionResponse = await response

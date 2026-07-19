@@ -6,6 +6,7 @@ import {
   DOWNLOAD_ZIP_MAX_FILES,
   downloadFile,
   downloadFilesZip,
+  formatTaskTimestamp,
 } from '../../../../utils/download'
 
 interface TaskListDownloadButtonProps {
@@ -48,18 +49,26 @@ export function TaskListDownloadButton({
           fileName:
             task.outputUrls!.length > 1 ? `${baseName}_${index + 1}` : baseName,
           id: `${task.id}_${index}`,
+          endpointName: task.endpointName,
+          createdAt: task.createdAt,
         }))
       })
 
       if (filesToDownload.length > DOWNLOAD_ZIP_MAX_FILES) {
         message.loading({ content: '正在打包压缩...', key: 'download' })
-        await downloadFilesZip(filesToDownload, `tasks_${new Date().getTime()}`)
+        const latestTaskCreatedAt = Math.max(
+          ...unDownloadedTasks.map((task) => task.createdAt),
+        )
+        await downloadFilesZip(
+          filesToDownload,
+          `tasks_${formatTaskTimestamp(latestTaskCreatedAt)}`,
+        )
         message.success({ content: '打包下载完成', key: 'download' })
       } else {
         message.loading({ content: '正在下载...', key: 'download' })
         await Promise.all(
           filesToDownload.map((file) =>
-            downloadFile(file.url, file.fileName).catch((error) => {
+            downloadFile(file).catch((error) => {
               console.error(`下载任务 ${file.id} 失败`, error)
             }),
           ),

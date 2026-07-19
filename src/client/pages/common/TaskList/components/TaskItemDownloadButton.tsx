@@ -4,15 +4,20 @@ import {
   DOWNLOAD_ZIP_MAX_FILES,
   downloadFile,
   downloadFilesZip,
+  getTaskDownloadName,
 } from '../../../../utils/download'
 
 export const TaskItemDownloadButton = ({
   outputUrls,
   fileName,
+  endpointName,
+  createdAt,
   onDownloaded,
 }: {
   outputUrls: string[]
   fileName: string
+  endpointName?: string
+  createdAt: number
   onDownloaded: () => void
 }) => {
   const handleDownload = async () => {
@@ -26,23 +31,31 @@ export const TaskItemDownloadButton = ({
         message.loading({ content: '正在打包压缩...', key: 'download' })
         const filesToDownload = outputUrls.map((url, index) => ({
           url,
-          fileName,
+          fileName:
+            outputUrls.length > 1 ? `${fileName}_${index + 1}` : fileName,
           id: `${index}`,
+          endpointName,
+          createdAt,
         }))
         await downloadFilesZip(
           filesToDownload,
-          `${fileName}_${new Date().getTime()}`,
+          getTaskDownloadName(fileName, endpointName, createdAt),
         )
         message.success({ content: '打包下载完成', key: 'download' })
       } else {
         message.loading({ content: '正在下载...', key: 'download' })
         await Promise.all(
-          outputUrls.map((url, index) =>
-            downloadFile(
+          outputUrls.map((url, index) => {
+            const downloadFileName =
+              outputUrls.length > 1 ? `${fileName}_${index + 1}` : fileName
+            return downloadFile({
               url,
-              outputUrls.length > 1 ? `${fileName}_${index + 1}` : fileName,
-            ),
-          ),
+              fileName: downloadFileName,
+              id: `${index}`,
+              endpointName,
+              createdAt,
+            })
+          }),
         )
         message.success({ content: '下载完成', key: 'download' })
       }
