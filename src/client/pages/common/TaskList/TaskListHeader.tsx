@@ -31,6 +31,8 @@ export function TaskListHeader({
   const { gptImageSettings } = useLocalSetting()
   const [deletingErrors, setDeletingErrors] = useState(false)
   const [deletingDownloaded, setDeletingDownloaded] = useState(false)
+  const [clearingAll, setClearingAll] = useState(false)
+  const isDeleting = deletingErrors || deletingDownloaded || clearingAll
 
   const handleDeleteErrors = async () => {
     const errorTasks = tasks.filter((t) => t.status === 'failed')
@@ -110,11 +112,95 @@ export function TaskListHeader({
     })
   }
 
+  const handleClearAll = () => {
+    if (tasks.length === 0) {
+      message.info('任务列表已经是空的')
+      return
+    }
+
+    const tasksToDelete = [...tasks]
+
+    Modal.confirm({
+      title: '☢️ 高危操作：清空整个任务列表？',
+      content: (
+        <div>
+          <p className="mb-2 font-bold text-red-600">
+            这会无视任务是否已经下载，删除列表中的全部 {tasksToDelete.length}{' '}
+            个任务！
+          </p>
+          <p>
+            {gptImageSettings.keepImageWhenDeleteTask
+              ? '任务记录将永久删除；根据当前设置，生成的图片文件会保留。'
+              : '任务记录及其生成的图片文件都将永久删除，无法恢复！'}
+          </p>
+        </div>
+      ),
+      okText: '我知道风险，继续',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: () => {
+        Modal.confirm({
+          title: '最后确认：真的要全部清空吗？',
+          content: (
+            <p className="font-bold text-red-600">
+              这是最后一次确认。执行后无法撤销，也不会检查任务是否已下载。
+            </p>
+          ),
+          okText: '确认清空全部任务',
+          okType: 'danger',
+          cancelText: '返回',
+          onOk: async () => {
+            setClearingAll(true)
+            try {
+              let successCount = 0
+              const deletedIds = new Set<string>()
+              for (const task of tasksToDelete) {
+                try {
+                  const res = await client.api.task[':id'].$delete({
+                    param: { id: task.id },
+                    query: {
+                      keepImage: gptImageSettings.keepImageWhenDeleteTask
+                        ? 'true'
+                        : 'false',
+                    },
+                  })
+                  const json = await res.json()
+                  if (json.success) {
+                    successCount++
+                    deletedIds.add(task.id)
+                  }
+                } catch (e) {
+                  // Continue clearing the remaining tasks.
+                }
+              }
+
+              setDownloadedIds(
+                downloadedIds.filter((id) => !deletedIds.has(id)),
+              )
+
+              if (successCount === tasksToDelete.length) {
+                message.success(`已清空全部 ${successCount} 个任务`)
+              } else {
+                message.warning(
+                  `已删除 ${successCount} 个任务，${tasksToDelete.length - successCount} 个删除失败`,
+                )
+              }
+            } finally {
+              setClearingAll(false)
+            }
+          },
+        })
+      },
+    })
+  }
+
   const onMenuClick: MenuProps['onClick'] = ({ key }) => {
     if (key === 'delete-errors') {
       handleDeleteErrors()
     } else if (key === 'delete-downloaded') {
       handleDeleteDownloaded()
+    } else if (key === 'clear-all') {
+      handleClearAll()
     }
   }
 
@@ -124,14 +210,21 @@ export function TaskListHeader({
       danger: true,
       icon: <DeleteOutlined />,
       label: '所有错误任务',
-      disabled: deletingErrors || deletingDownloaded,
+      disabled: isDeleting,
     },
     {
       key: 'delete-downloaded',
       danger: true,
       icon: <DeleteOutlined />,
       label: '所有已下载任务',
-      disabled: deletingErrors || deletingDownloaded,
+      disabled: isDeleting,
+    },
+    {
+      key: 'clear-all',
+      danger: true,
+      icon: <span>☢️</span>,
+      label: '清空任务列表',
+      disabled: isDeleting || tasks.length === 0,
     },
   ]
 
@@ -163,7 +256,7 @@ export function TaskListHeader({
               icon={<DeleteOutlined />}
               onClick={handleDeleteErrors}
               loading={deletingErrors}
-              disabled={deletingErrors || deletingDownloaded}
+              disabled={isDeleting}
             >
               所有错误任务
             </Button>
@@ -172,9 +265,18 @@ export function TaskListHeader({
               icon={<DeleteOutlined />}
               onClick={handleDeleteDownloaded}
               loading={deletingDownloaded}
-              disabled={deletingErrors || deletingDownloaded}
+              disabled={isDeleting}
             >
               所有已下载任务
+            </Button>
+            <Button
+              danger
+              icon={<span>☢️</span>}
+              onClick={handleClearAll}
+              loading={clearingAll}
+              disabled={isDeleting || tasks.length === 0}
+            >
+              清空任务列表
             </Button>
           </Space.Compact>
         </div>
@@ -193,7 +295,7 @@ export function TaskListHeader({
             >
               <Button
                 icon={<EllipsisOutlined />}
-                loading={deletingErrors || deletingDownloaded}
+                loading={isDeleting}
               />
             </Dropdown>
           </Space.Compact>
