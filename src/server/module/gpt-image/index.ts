@@ -43,15 +43,63 @@ interface GenerateGPTImageOptions {
 
 /** OpenAI client 缓存，按 apiKey+baseURL 复用，避免每次请求重建连接池 */
 const openaiClientCache = new Map<string, OpenAI>()
+const IMAGE_REQUEST_TIMEOUT_MS = 10 * 60 * 1000
 
 function getOpenAIClient(apiKey: string, baseURL: string): OpenAI {
   const cacheKey = `${apiKey}:${baseURL}`
   let client = openaiClientCache.get(cacheKey)
   if (!client) {
-    client = new OpenAI({ apiKey, baseURL })
+    client = new OpenAI({
+      apiKey,
+      baseURL,
+      timeout: IMAGE_REQUEST_TIMEOUT_MS,
+      // 生图请求会产生费用且不具备幂等性。SDK 默认的两次自动重试可能在
+      // 回包连接中断时重复提交已经完成的请求，造成多次生成和重复扣费。
+      maxRetries: 0,
+    })
     openaiClientCache.set(cacheKey, client)
   }
   return client
+}
+
+function describeError(error: unknown): string {
+  const chain: string[] = []
+  const seen = new Set<unknown>()
+  let current: unknown = error
+
+  while (current != null && !seen.has(current) && chain.length < 5) {
+    seen.add(current)
+
+    if (current instanceof Error) {
+      const details = current as Error & {
+        code?: unknown
+        errno?: unknown
+        syscall?: unknown
+        cause?: unknown
+      }
+      const metadata = [
+        typeof details.code === 'string' ? `code=${details.code}` : null,
+        typeof details.errno === 'string' || typeof details.errno === 'number'
+          ? `errno=${details.errno}`
+          : null,
+        typeof details.syscall === 'string'
+          ? `syscall=${details.syscall}`
+          : null,
+      ].filter(Boolean)
+      chain.push(
+        `${current.name}: ${current.message}${
+          metadata.length > 0 ? ` (${metadata.join(', ')})` : ''
+        }`,
+      )
+      current = details.cause
+      continue
+    }
+
+    chain.push(typeof current === 'string' ? current : String(current))
+    break
+  }
+
+  return chain.join(' <- ')
 }
 
 function getServiceLabel(endpointName: string | undefined, baseURL: string) {
@@ -291,7 +339,10 @@ export async function handleImageGeneration(options: {
       usage = res.usage
     } catch (error: any) {
       const serviceError = `[${serviceLabel}] ${error.message}`
-      logger.error(`Failed to generate GPT image via ${serviceLabel}`, error.message)
+      logger.error(
+        `Failed to generate GPT image via ${serviceLabel}`,
+        describeError(error),
+      )
       await taskManager.updateTaskStatus(task.id, 'failed', serviceError)
       return {
         status: 500,
@@ -314,7 +365,7 @@ export async function handleImageGeneration(options: {
       data: { success: true as const, outputUrls, taskId: task.id },
     }
   } catch (error: any) {
-    logger.error(`Failed to generate GPT image`, error.message)
+    logger.error(`Failed to generate GPT image`, describeError(error))
     return {
       status: 500,
       data: { success: false as const, error: `[服务] ${error.message}` },
