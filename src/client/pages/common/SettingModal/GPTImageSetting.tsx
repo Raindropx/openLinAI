@@ -1,6 +1,12 @@
 import { ExclamationCircleOutlined, PlusOutlined } from '@ant-design/icons'
 import { Button, Form, Input, Radio, Select, Switch, message } from 'antd'
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { GptImageEndpoint } from '../../../../server/common/config'
 import { useGPTImageQuota } from '../../../hooks/useGPTImageQuota'
@@ -25,11 +31,21 @@ const createEmptyEndpoint = (): GptImageEndpoint => ({
   engine: 'openai-images',
 })
 
+const cleanEndpoint = (endpoint: GptImageEndpoint): GptImageEndpoint => ({
+  ...endpoint,
+  name: endpoint.name.trim(),
+})
+
+const isCompleteEndpoint = (endpoint: GptImageEndpoint) =>
+  Boolean(endpoint.name && endpoint.baseURL && endpoint.model && endpoint.apiKey)
+
 export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
   const [form] = Form.useForm()
   const { endpoints, saveEndpoints } = useGlobalStore()
   const { gptImageSettings, setGptImageSettings } = useLocalSetting()
   const { isPublic } = useGPTImageQuota()
+  const [updatingEndpoint, setUpdatingEndpoint] = useState(false)
+  const skipNextEndpointSyncRef = useRef(false)
 
   // 本地编辑态：脱离表单直接管理整个端点列表，保存时整体提交
   const [draftEndpoints, setDraftEndpoints] = useState<GptImageEndpoint[]>(
@@ -39,6 +55,10 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
 
   // 配置变化时同步草稿（如首次加载）
   useEffect(() => {
+    if (skipNextEndpointSyncRef.current) {
+      skipNextEndpointSyncRef.current = false
+      return
+    }
     if (endpoints.length) {
       setDraftEndpoints(endpoints)
       if (!endpoints.find((e) => e.id === activeId)) {
@@ -111,27 +131,82 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     message.success('已设为默认端点')
   }
 
+  const handleUpdateEndpoint = async () => {
+    if (!activeEndpoint) return
+
+    const cleanedEndpoint = cleanEndpoint(activeEndpoint)
+    if (!isCompleteEndpoint(cleanedEndpoint)) {
+      message.warning('请完整配置当前端点（名称/地址/模型/Key）')
+      return
+    }
+
+    const nextEndpoints = endpoints.some((e) => e.id === cleanedEndpoint.id)
+      ? endpoints.map((e) =>
+          e.id === cleanedEndpoint.id ? cleanedEndpoint : e,
+        )
+      : [...endpoints, cleanedEndpoint]
+
+    setUpdatingEndpoint(true)
+    skipNextEndpointSyncRef.current = true
+    try {
+      const saved = await saveEndpoints(nextEndpoints)
+      if (!saved) {
+        skipNextEndpointSyncRef.current = false
+        message.error('当前端点更新失败')
+        return
+      }
+      setDraftEndpoints((list) =>
+        list.map((e) =>
+          e.id === cleanedEndpoint.id ? cleanedEndpoint : e,
+        ),
+      )
+      message.success('当前端点已更新')
+    } finally {
+      setUpdatingEndpoint(false)
+    }
+  }
+
   useImperativeHandle(ref, () => ({
     save: async () => {
       // 校验端点
       const cleaned = draftEndpoints
-        .map((e) => ({ ...e, name: e.name.trim() }))
-        .filter((e) => e.name && e.baseURL && e.model && e.apiKey)
+        .map(cleanEndpoint)
+        .filter(isCompleteEndpoint)
       if (cleaned.length === 0) {
         message.warning('请至少完整配置一个端点（名称/地址/模型/Key）')
         throw new Error('No endpoint')
       }
-      await saveEndpoints(cleaned)
+      const saved = await saveEndpoints(cleaned)
+      if (!saved) {
+        message.error('端点配置保存失败')
+        throw new Error('Failed to save endpoints')
+      }
 
       const values = await form.validateFields()
-      setGptImageSettings({
-        enable1K: values.enable1K ?? gptImageSettings.enable1K,
-        enable2K: values.enable2K ?? gptImageSettings.enable2K,
-        enable4K: values.enable4K ?? gptImageSettings.enable4K,
-        quality: values.quality ?? gptImageSettings.quality,
-        enableMultiple: isPublic
-          ? false
-          : (values.enableMultiple ?? gptImageSettings.enableMultiple),
+      setGptImageSettings((prev) => {
+        const defaultEndpointId = cleaned.some(
+          (e) => e.id === prev.defaultEndpointId,
+        )
+          ? prev.defaultEndpointId
+          : cleaned[0].id
+        const selectedEndpointId = cleaned.some(
+          (e) => e.id === prev.selectedEndpointId,
+        )
+          ? prev.selectedEndpointId
+          : defaultEndpointId
+
+        return {
+          ...prev,
+          enable1K: values.enable1K ?? prev.enable1K,
+          enable2K: values.enable2K ?? prev.enable2K,
+          enable4K: values.enable4K ?? prev.enable4K,
+          quality: values.quality ?? prev.quality,
+          enableMultiple: isPublic
+            ? false
+            : (values.enableMultiple ?? prev.enableMultiple),
+          defaultEndpointId,
+          selectedEndpointId,
+        }
       })
       message.success('配置保存成功')
       return cleaned[0]?.apiKey
@@ -143,11 +218,11 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
       <Form form={form} layout="vertical">
         {/* —— 端点列表管理 —— */}
         <div className="mb-2 text-sm text-gray-500">图片生成端点</div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Select
             value={activeEndpoint?.id}
             onChange={setActiveId}
-            className="flex-1"
+            className="min-w-40 flex-1"
             options={draftEndpoints.map((e) => ({
               value: e.id,
               label: e.name || '未命名端点',
@@ -155,6 +230,12 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
           />
           <Button icon={<PlusOutlined />} onClick={handleAddEndpoint}>
             新增
+          </Button>
+          <Button
+            loading={updatingEndpoint}
+            onClick={handleUpdateEndpoint}
+          >
+            更新
           </Button>
           {draftEndpoints.length > 1 && (
             <Button

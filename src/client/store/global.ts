@@ -21,7 +21,7 @@ interface GlobalState {
   fillTemplateData: Partial<TaskTemplate> | null
   setFillTemplateData: (data: Partial<TaskTemplate> | null) => void
   setGptImageApiKey: (key: string | null) => Promise<void>
-  saveEndpoints: (endpoints: GptImageEndpoint[]) => Promise<void>
+  saveEndpoints: (endpoints: GptImageEndpoint[]) => Promise<boolean>
   saveLlmEndpoints: (endpoints: LlmEndpoint[]) => Promise<void>
   saveLlmPrompts: (prompts: LlmPrompts) => Promise<void>
   setTTSInworldApiKey: (key: string | null) => Promise<void>
@@ -72,10 +72,12 @@ export const useGlobalStore = create<GlobalState>()((set) => ({
       const json = await res.json()
       if (json.success) {
         set(syncFromConfigData(json.data as any))
+        return true
       }
     } catch (error) {
       console.error('Failed to save endpoints', error)
     }
+    return false
   },
   saveLlmEndpoints: async (llmEndpoints) => {
     try {
