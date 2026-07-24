@@ -251,7 +251,14 @@ export function TaskListHeader({
               downloadedIds={downloadedIds}
               setDownloadedIds={setDownloadedIds}
             />
+            <TaskListDownloadButton
+              tasks={tasks}
+              downloadedIds={downloadedIds}
+              setDownloadedIds={setDownloadedIds}
+              includeDownloaded
+            />
             <Button
+              className="w-32 px-1"
               danger
               icon={<DeleteOutlined />}
               onClick={handleDeleteErrors}
@@ -261,6 +268,7 @@ export function TaskListHeader({
               所有错误任务
             </Button>
             <Button
+              className="w-32 px-1"
               danger
               icon={<DeleteOutlined />}
               onClick={handleDeleteDownloaded}
@@ -270,6 +278,7 @@ export function TaskListHeader({
               所有已下载任务
             </Button>
             <Button
+              className="w-32 px-1"
               danger
               icon={<span>☢️</span>}
               onClick={handleClearAll}
@@ -287,6 +296,12 @@ export function TaskListHeader({
               tasks={tasks}
               downloadedIds={downloadedIds}
               setDownloadedIds={setDownloadedIds}
+            />
+            <TaskListDownloadButton
+              tasks={tasks}
+              downloadedIds={downloadedIds}
+              setDownloadedIds={setDownloadedIds}
+              includeDownloaded
             />
 
             <Dropdown
