@@ -102,6 +102,38 @@ function describeError(error: unknown): string {
   return chain.join(' <- ')
 }
 
+function getErrorStatus(error: unknown): number {
+  if (typeof error !== 'object' || error === null || !('status' in error)) {
+    return 500
+  }
+
+  const status = (error as { status?: unknown }).status
+  return typeof status === 'number' && status >= 400 && status <= 599
+    ? status
+    : 500
+}
+
+/**
+ * SDK 的 APIConnectionError.message 固定为 "Connection error."，真正的网络
+ * 原因位于 cause 链；HTTP 错误则可能把状态码放在 status 而非 message 中。
+ * 将两者整理成适合任务列表展示、复制的单行错误信息。
+ */
+function getUserFacingError(error: unknown): string {
+  if (!(error instanceof Error)) return describeError(error) || 'Unknown error'
+
+  const details = error as Error & { cause?: unknown; status?: unknown }
+  const status = getErrorStatus(error)
+  const statusPrefix =
+    status !== 500 || details.status === 500
+      ? new RegExp(`^${status}\\b`).test(error.message)
+        ? ''
+        : `${status} `
+      : ''
+  const cause = details.cause ? describeError(details.cause) : ''
+
+  return `${statusPrefix}${error.message}${cause ? ` <- ${cause}` : ''}`
+}
+
 function getServiceLabel(endpointName: string | undefined, baseURL: string) {
   if (endpointName?.trim()) return endpointName.trim()
   try {
@@ -338,14 +370,14 @@ export async function handleImageGeneration(options: {
       filenames = res.filenames
       usage = res.usage
     } catch (error: any) {
-      const serviceError = `[${serviceLabel}] ${error.message}`
+      const serviceError = `[${serviceLabel}] ${getUserFacingError(error)}`
       logger.error(
         `Failed to generate GPT image via ${serviceLabel}`,
         describeError(error),
       )
       await taskManager.updateTaskStatus(task.id, 'failed', serviceError)
       return {
-        status: 500,
+        status: getErrorStatus(error),
         data: { success: false as const, error: serviceError },
       }
     }

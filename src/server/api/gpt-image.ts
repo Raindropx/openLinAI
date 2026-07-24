@@ -231,7 +231,7 @@ const gptImageApi = new Hono()
         quality,
         endpointName: endpoint.name,
       })
-      return c.json(result.data)
+      return c.json(result.data, result.status as any)
     },
   )
   .post(
