@@ -82,6 +82,9 @@ function getImageMimeType(filename: string) {
   if (ext === 'webp') {
     return 'image/webp'
   }
+  if (ext === 'svg') {
+    return 'image/svg+xml'
+  }
   return `image/${ext}`
 }
 

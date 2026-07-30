@@ -10,7 +10,7 @@ export interface TaskTemplate {
   images: string[]
   prompt: string
   createdAt: number
-  /** 模板用途：image=openai-images 引擎；chat-image=chat-completions 引擎（Nano Banana 等） */
+  /** 模板用途；图片调用引擎由生成时选中的端点决定，chat-image 为兼容旧数据保留。 */
   usageType: 'image' | 'video' | 'chat-image'
   aspectRatio?: string
   /** 勾选后会在提示词末尾追加“。画面比例X:Y”，用于不支持 size 参数的模型 */

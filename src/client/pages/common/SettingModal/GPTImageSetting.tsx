@@ -18,8 +18,10 @@ export interface GPTImageSettingRef {
 }
 
 const DEFAULT_YUNWU_BASE_URL = 'https://api.wlai.vip/v1'
+const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 const DEFAULT_MODEL = 'gpt-image-2'
-const DEFAULT_CHAT_MODEL = 'google/gemini-2.5-flash-image-preview'
+const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.1-flash-image'
+const DEFAULT_CHAT_MODEL = 'google/gemini-2.5-flash-image'
 
 const createEmptyEndpoint = (): GptImageEndpoint => ({
   id: uuidv4(),
@@ -263,7 +265,8 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   updateActiveEndpoint({ baseURL: e.target.value })
                 }
                 placeholder={
-                  activeEndpoint.engine === 'chat-completions'
+                  activeEndpoint.engine === 'chat-completions' ||
+                  activeEndpoint.engine === 'openrouter-images'
                     ? '如 https://openrouter.ai/api/v1'
                     : '如 https://api.wlai.vip/v1'
                 }
@@ -275,8 +278,10 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 onChange={(e) => updateActiveEndpoint({ model: e.target.value })}
                 placeholder={
                   activeEndpoint.engine === 'chat-completions'
-                    ? '如 google/gemini-2.5-flash-image-preview'
-                    : '如 gpt-image-2'
+                    ? '如 google/gemini-2.5-flash-image'
+                    : activeEndpoint.engine === 'openrouter-images'
+                      ? '如 google/gemini-3.1-flash-image'
+                      : '如 gpt-image-2'
                 }
               />
             </Form.Item>
@@ -301,9 +306,29 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                     activeEndpoint.model === DEFAULT_MODEL
                       ? { model: DEFAULT_CHAT_MODEL }
                       : {}),
+                    ...(engine === 'openrouter-images' &&
+                    [DEFAULT_MODEL, DEFAULT_CHAT_MODEL].includes(
+                      activeEndpoint.model,
+                    )
+                      ? { model: DEFAULT_OPENROUTER_MODEL }
+                      : {}),
                     ...(engine === 'openai-images' &&
-                    activeEndpoint.model === DEFAULT_CHAT_MODEL
+                    [DEFAULT_CHAT_MODEL, DEFAULT_OPENROUTER_MODEL].includes(
+                      activeEndpoint.model,
+                    )
                       ? { model: DEFAULT_MODEL }
+                      : {}),
+                    ...((engine === 'openrouter-images' ||
+                      engine === 'chat-completions') &&
+                    activeEndpoint.baseURL === DEFAULT_YUNWU_BASE_URL
+                      ? {
+                          baseURL: DEFAULT_OPENROUTER_BASE_URL,
+                          type: 'openrouter' as const,
+                        }
+                      : {}),
+                    ...(engine === 'openai-images' &&
+                    activeEndpoint.baseURL === DEFAULT_OPENROUTER_BASE_URL
+                      ? { baseURL: DEFAULT_YUNWU_BASE_URL }
                       : {}),
                   })
                 }}
@@ -311,13 +336,17 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 <Radio.Button value="openai-images">
                   GPT Image / DALL·E
                 </Radio.Button>
+                <Radio.Button value="openrouter-images">
+                  OpenRouter Images
+                </Radio.Button>
                 <Radio.Button value="chat-completions">
                   聊天式（Nano Banana 等）
                 </Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-gray-400">
-                GPT Image / DALL·E 走 images 接口（支持 1K/2K/4K）；聊天式走
-                chat/completions 接口（如 Nano Banana，不支持尺寸/画质）。
+                GPT Image / DALL·E 使用 OpenAI 兼容接口；OpenRouter Images
+                使用专用 /images 接口并按模型能力传参；聊天式使用
+                chat/completions，并通过 image_config 传递图片参数。
               </div>
             </Form.Item>
             <Form.Item label="端点类型" required>

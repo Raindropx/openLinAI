@@ -1,15 +1,12 @@
-import crypto from 'crypto'
 import fs from 'fs-extra'
-import { writeFile } from 'fs/promises'
 import path from 'path'
-import {
-  GENERATED_IMAGES_DIR,
-  INPUT_IMAGES_DIR,
-} from '../../common/static'
+import { INPUT_IMAGES_DIR } from '../../common/static'
 import { GENERATED_IMAGES_API_PATH } from '../../common/static/enum'
 import { taskManager } from '../../common/task-manager'
 import { TaskTemplate } from '../../common/template-manager'
 import { buildPromptWithAspectRatio } from './index'
+import { persistImages, readImageAsDataUrl } from './image-files'
+import { GptImageQuality, GptImageSize } from './enum'
 import { fetchWithTimeout } from '../utils/fetch'
 import { logger } from '../utils/logger'
 
@@ -34,21 +31,6 @@ interface ChatCompletionResponse {
   choices?: ChatChoice[]
   error?: { message?: string } | string
   [key: string]: unknown
-}
-
-/** 读取输入图片文件并转成 base64 data URL */
-async function readImageAsDataUrl(filePath: string): Promise<string> {
-  const buffer = await fs.readFile(filePath)
-  const base64 = buffer.toString('base64')
-  // 简单按扩展名判定 mime；默认 png
-  const ext = path.extname(filePath).toLowerCase()
-  const mime =
-    ext === '.jpg' || ext === '.jpeg'
-      ? 'image/jpeg'
-      : ext === '.webp'
-        ? 'image/webp'
-        : 'image/png'
-  return `data:${mime};base64,${base64}`
 }
 
 /** 从一段字符串里尽力提取图片 URL/data URL */
@@ -144,108 +126,10 @@ function extractImageUrls(
   return { imageUrls, text }
 }
 
-interface PersistedImageFormat {
-  extension: 'jpg' | 'png' | 'webp' | 'gif' | 'avif'
-}
-
-const MIME_FORMATS: Record<string, PersistedImageFormat> = {
-  'image/jpeg': { extension: 'jpg' },
-  'image/jpg': { extension: 'jpg' },
-  'image/png': { extension: 'png' },
-  'image/webp': { extension: 'webp' },
-  'image/gif': { extension: 'gif' },
-  'image/avif': { extension: 'avif' },
-}
-
-function detectImageFormat(
-  buffer: Buffer,
-  mimeHint?: string | null,
-): PersistedImageFormat | null {
-  if (
-    buffer.length >= 3 &&
-    buffer[0] === 0xff &&
-    buffer[1] === 0xd8 &&
-    buffer[2] === 0xff
-  ) {
-    return MIME_FORMATS['image/jpeg']
-  }
-
-  if (
-    buffer.length >= 8 &&
-    buffer.subarray(0, 8).equals(
-      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    )
-  ) {
-    return MIME_FORMATS['image/png']
-  }
-
-  if (
-    buffer.length >= 12 &&
-    buffer.toString('ascii', 0, 4) === 'RIFF' &&
-    buffer.toString('ascii', 8, 12) === 'WEBP'
-  ) {
-    return MIME_FORMATS['image/webp']
-  }
-
-  if (buffer.length >= 6) {
-    const signature = buffer.toString('ascii', 0, 6)
-    if (signature === 'GIF87a' || signature === 'GIF89a') {
-      return MIME_FORMATS['image/gif']
-    }
-  }
-
-  if (
-    buffer.length >= 12 &&
-    buffer.toString('ascii', 4, 8) === 'ftyp' &&
-    ['avif', 'avis'].includes(buffer.toString('ascii', 8, 12))
-  ) {
-    return MIME_FORMATS['image/avif']
-  }
-
-  const normalizedMime = mimeHint?.split(';', 1)[0].trim().toLowerCase()
-  return normalizedMime ? MIME_FORMATS[normalizedMime] || null : null
-}
-
-/** 把图片（data URL 或 http URL）按真实格式落盘，返回文件名列表 */
-async function persistImages(imageUrls: string[]): Promise<string[]> {
-  const filenames: string[] = []
-  for (const url of imageUrls) {
-    let buffer: Buffer
-    let mimeHint: string | null = null
-    if (url.startsWith('data:')) {
-      const match = /^data:([^;]+);base64,([\s\S]*)$/.exec(url)
-      if (!match) continue
-      mimeHint = match[1]
-      buffer = Buffer.from(match[2], 'base64')
-    } else {
-      const res = await fetchWithTimeout(url, {}, 30000)
-      if (!res.ok) {
-        logger.error(`Failed to fetch image: ${url} (${res.status})`)
-        continue
-      }
-      mimeHint = res.headers.get('content-type')
-      const arrayBuffer = await res.arrayBuffer()
-      buffer = Buffer.from(arrayBuffer)
-    }
-
-    const format = detectImageFormat(buffer, mimeHint)
-    if (!format) {
-      logger.error(`Unsupported generated image format: ${mimeHint || 'unknown'}`)
-      continue
-    }
-
-    const hash = crypto.createHash('md5').update(buffer).digest('hex')
-    const filename = `${hash}.${format.extension}`
-    const filepath = path.join(GENERATED_IMAGES_DIR, filename)
-    await writeFile(filepath, buffer)
-    filenames.push(filename)
-  }
-  return filenames
-}
-
 /**
  * 使用 chat-completions 引擎（如 Nano Banana / gemini-2.5-flash-image）生成图片。
- * - 不支持 size/quality/n（chat-completions 不接受这些参数）。
+ * - 图片参数通过 OpenRouter 的 image_config 传递。
+ * - chat-completions 没有统一的 n 参数，多图通过多个独立请求实现。
  * - 返回结构与 handleImageGeneration 一致。
  */
 export async function handleChatImageGeneration(options: {
@@ -253,16 +137,28 @@ export async function handleChatImageGeneration(options: {
   baseURL: string
   model: string
   template: TaskTemplate
+  size?: GptImageSize
+  quality?: GptImageQuality
   endpointName?: string
 }) {
   try {
-    const { apiKey, baseURL, model, template, endpointName } = options
+    const {
+      apiKey,
+      baseURL,
+      model,
+      template,
+      size = '1k',
+      quality = 'medium',
+      endpointName,
+    } = options
 
     logger.info(`Generating image via chat-completions: ${model}`)
 
     const task = await taskManager.createTaskFromTemplate({
       template,
       source: model,
+      size,
+      quality,
       endpointName,
     })
 
@@ -293,67 +189,93 @@ export async function handleChatImageGeneration(options: {
     }
 
     const url = `${baseURL.replace(/\/$/, '')}/chat/completions`
+    const aspectRatio = template.aspectRatio || '1:1'
+    const imageConfig = {
+      ...(aspectRatio !== 'auto' ? { aspect_ratio: aspectRatio } : {}),
+      image_size: size.toUpperCase(),
+      quality,
+    }
     let filenames: string[] = []
     try {
-      const response = await fetchWithTimeout(
-        url,
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
+      const requestOnce = async (): Promise<string[]> => {
+        const response = await fetchWithTimeout(
+          url,
+          {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              // OpenRouter 图片模型要求声明输出模态，否则响应里不会包含图片。
+              modalities: ['image', 'text'],
+              image_config: imageConfig,
+              messages: [
+                {
+                  role: 'user',
+                  content: contentParts,
+                },
+              ],
+            }),
           },
-          body: JSON.stringify({
-            model,
-            // OpenRouter 的图片生成模型（如 Nano Banana）要求声明 modalities 才会返回图片，
-            // 否则即使模型生成了图，响应里也不会包含 image 内容块。
-            modalities: ['image', 'text'],
-            messages: [
-              {
-                role: 'user',
-                content: contentParts,
-              },
-            ],
-          }),
-        },
-        300000,
-      )
+          300000,
+        )
 
-      const data: ChatCompletionResponse = await response
-        .json()
-        .catch(() => ({}))
+        const data: ChatCompletionResponse = await response
+          .json()
+          .catch(() => ({}))
 
-      if (!response.ok) {
-        const errMsg =
-          (typeof data.error === 'string'
-            ? data.error
-            : data.error?.message) ||
-          `上游返回 ${response.status}` ||
-          'Chat completion request failed'
-        throw new Error(errMsg)
-      }
+        if (!response.ok) {
+          const errMsg =
+            (typeof data.error === 'string'
+              ? data.error
+              : data.error?.message) || `上游返回 ${response.status}`
+          throw new Error(errMsg)
+        }
 
-      const message = data.choices?.[0]?.message
-      const messageContent = message?.content
-      const { imageUrls } = extractImageUrls(messageContent, message)
+        const message = data.choices?.[0]?.message
+        const { imageUrls } = extractImageUrls(message?.content, message)
+        if (imageUrls.length > 0) return imageUrls
 
-      if (imageUrls.length === 0) {
-        // 记录整个 message 结构便于排查（裁剪超长内容，避免日志爆炸）
         const debugPreview = JSON.stringify(
           message,
-          (_key, value) => {
-            if (typeof value === 'string' && value.length > 160) {
-              return value.slice(0, 160) + `...(len=${value.length})`
-            }
-            return value
-          },
+          (_key, value) =>
+            typeof value === 'string' && value.length > 160
+              ? value.slice(0, 160) + `...(len=${value.length})`
+              : value,
         )
         logger.error(
           `Chat-completions 未提取到图片，响应 message 结构: ${debugPreview}`,
         )
-        throw new Error(
-          '模型未返回图片（部分情况下中文提示词可能不返图，可尝试英文提示词）。详细响应结构已记录到日志。',
+        throw new Error('模型未返回图片，详细响应结构已记录到日志')
+      }
+
+      const requestedCount = Math.max(1, template.n || 1)
+      const results = await Promise.allSettled(
+        Array.from({ length: requestedCount }, () => requestOnce()),
+      )
+      const imageUrls = results.flatMap((result) =>
+        result.status === 'fulfilled' ? result.value : [],
+      )
+      const failedReasons = results
+        .filter(
+          (result): result is PromiseRejectedResult =>
+            result.status === 'rejected',
+        )
+        .map((result) =>
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason),
+        )
+
+      if (imageUrls.length === 0) {
+        throw new Error(failedReasons[0] || '模型未返回图片')
+      }
+      if (failedReasons.length > 0) {
+        logger.error(
+          `Chat-completions 部分图片生成失败 (${failedReasons.length}/${requestedCount}): ${failedReasons.join('; ')}`,
         )
       }
 

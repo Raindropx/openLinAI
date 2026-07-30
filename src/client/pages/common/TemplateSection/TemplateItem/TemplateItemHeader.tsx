@@ -1,8 +1,4 @@
-import {
-  DeleteOutlined,
-  HolderOutlined,
-  MessageOutlined,
-} from '@ant-design/icons'
+import { DeleteOutlined, HolderOutlined } from '@ant-design/icons'
 import { Button, message, Popconfirm, Space, Tag, Tooltip } from 'antd'
 import { hc } from 'hono/client'
 import React from 'react'
@@ -59,52 +55,6 @@ export const TemplateItemGenerateButtons: React.FC<{
     }
 
     doGenerate(templateId, size)
-  }
-
-  // 聊天式图片生成（chat-completions 引擎，无尺寸/画质）
-  const doGenerateChat = async (templateId: string) => {
-    message.success('任务提交成功')
-    try {
-      await client.api.gptImage.generate.$post({
-        json: {
-          templateId,
-          endpointId:
-            gptImageSettings.selectedEndpointId || endpoints[0]?.id,
-          size: '1k',
-          quality: 'medium',
-        },
-      })
-    } catch (error) {
-      message.error('请求失败')
-    }
-  }
-
-  const handleGenerateChat = (templateId: string) => {
-    if (endpoints.length === 0) {
-      openSettingModal({
-        initialTab: 'gpt-image',
-        onSuccess: () => {
-          doGenerateChat(templateId)
-        },
-      })
-      return
-    }
-    doGenerateChat(templateId)
-  }
-
-  if (template.usageType === 'chat-image') {
-    return (
-      <Tooltip title="聊天式生成图片">
-        <Button
-          className="flex items-center justify-center px-2!"
-          variant="outlined"
-          icon={<MessageOutlined />}
-          onClick={() => handleGenerateChat(template.id)}
-        >
-          生成
-        </Button>
-      </Tooltip>
-    )
   }
 
   return (

@@ -33,7 +33,13 @@ const configApi = new Hono()
               model: z.string(),
               apiKey: z.string(),
               type: z.enum(['yunwu', 'openrouter', 'custom']),
-              engine: z.enum(['openai-images', 'chat-completions']).optional(),
+              engine: z
+                .enum([
+                  'openai-images',
+                  'openrouter-images',
+                  'chat-completions',
+                ])
+                .optional(),
             }),
           )
           .optional(),

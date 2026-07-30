@@ -12,7 +12,10 @@ const DEFAULT_YUNWU_BASE_URL = 'https://api.wlai.vip/v1'
 export type GptImageEndpointType = 'yunwu' | 'openrouter' | 'custom'
 
 /** 端点的生成引擎：决定 /generate 走哪种调用方式 */
-export type GptImageEndpointEngine = 'openai-images' | 'chat-completions'
+export type GptImageEndpointEngine =
+  | 'openai-images'
+  | 'openrouter-images'
+  | 'chat-completions'
 
 export interface GptImageEndpoint {
   id: string
@@ -30,6 +33,7 @@ export interface GptImageEndpoint {
   /**
    * 生成引擎：
    * - openai-images：OpenAI SDK images.edit / images.generate（gpt-image-2 / dall-e）
+   * - openrouter-images：OpenRouter 专用 POST /images 接口
    * - chat-completions：OpenAI 兼容 /chat/completions（Nano Banana 等）
    */
   engine?: GptImageEndpointEngine

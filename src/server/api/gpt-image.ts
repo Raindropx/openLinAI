@@ -7,6 +7,7 @@ import { TaskTemplate, templateManager } from '../common/template-manager'
 import { TRIAL_TEMPLATE_TITLE } from '../common/template-manager/enum'
 import { handleChatImageGeneration } from '../module/gpt-image/chat-image'
 import { handleImageGeneration } from '../module/gpt-image'
+import { handleOpenRouterImageGeneration } from '../module/gpt-image/openrouter-image'
 import { GPT_IMAGE_OUTPUT_MAX_N } from '../module/gpt-image/enum'
 import { fetchWithTimeout } from '../module/utils/fetch'
 
@@ -22,21 +23,14 @@ export interface GPTImageQuotaResponse {
   }
 }
 
-/** 校验模板 usageType 与端点 engine 是否匹配，不匹配返回错误信息 */
+/** 图片模板的具体调用方式由当前端点决定；chat-image 作为旧数据继续兼容。 */
 function checkEngineMatch(
   template: TaskTemplate | undefined,
-  endpoint: { engine?: string },
+  _endpoint: { engine?: string },
 ): string | null {
   if (!template) return null
-  const expectEngine =
-    template.usageType === 'chat-image' ? 'chat-completions' : 'openai-images'
-  const actualEngine = endpoint.engine || 'openai-images'
-  if (expectEngine !== actualEngine) {
-    return `该模板需要「${
-      expectEngine === 'chat-completions' ? '聊天图片生成' : 'GPT 图片生成'
-    }」引擎的端点，当前选中端点为「${
-      actualEngine === 'chat-completions' ? '聊天图片生成' : 'GPT 图片生成'
-    }」，请在设置中切换端点`
+  if (template.usageType === 'video') {
+    return '视频模板不能通过图片生成端点执行'
   }
   return null
 }
@@ -218,6 +212,20 @@ const gptImageApi = new Hono()
           baseURL: endpoint.baseURL,
           model: endpoint.model,
           template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+        })
+        return c.json(result.data, result.status as any)
+      }
+      if (endpoint.engine === 'openrouter-images') {
+        const result = await handleOpenRouterImageGeneration({
+          apiKey: endpoint.apiKey,
+          baseURL: endpoint.baseURL,
+          model: endpoint.model,
+          template,
+          size,
+          quality,
           endpointName: endpoint.name,
         })
         return c.json(result.data, result.status as any)
@@ -285,6 +293,20 @@ const gptImageApi = new Hono()
           baseURL: endpoint.baseURL,
           model: endpoint.model,
           template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+        })
+        return c.json(result.data, result.status as any)
+      }
+      if (endpoint.engine === 'openrouter-images') {
+        const result = await handleOpenRouterImageGeneration({
+          apiKey: endpoint.apiKey,
+          baseURL: endpoint.baseURL,
+          model: endpoint.model,
+          template,
+          size,
+          quality,
           endpointName: endpoint.name,
         })
         return c.json(result.data, result.status as any)
