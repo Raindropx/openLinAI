@@ -33,6 +33,30 @@ interface ChatCompletionResponse {
   [key: string]: unknown
 }
 
+const NANO_BANANA_2_ASPECT_RATIO_FALLBACKS: Record<string, string> = {
+  '2:1': '16:9',
+  '1:2': '9:16',
+  '9:21': '9:16',
+}
+
+function normalizeChatAspectRatio(
+  model: string,
+  aspectRatio: string,
+): string | undefined {
+  if (aspectRatio === 'auto') return undefined
+  if (!model.toLowerCase().includes('gemini-3.1-flash-image')) {
+    return aspectRatio
+  }
+
+  const normalized = NANO_BANANA_2_ASPECT_RATIO_FALLBACKS[aspectRatio]
+  if (normalized) {
+    logger.info(
+      `Model ${model} does not support aspect ratio ${aspectRatio}; using ${normalized}`,
+    )
+  }
+  return normalized || aspectRatio
+}
+
 /** 从一段字符串里尽力提取图片 URL/data URL */
 function extractUrlsFromString(s: string, out: string[]) {
   let m: RegExpExecArray | null
@@ -189,9 +213,12 @@ export async function handleChatImageGeneration(options: {
     }
 
     const url = `${baseURL.replace(/\/$/, '')}/chat/completions`
-    const aspectRatio = template.aspectRatio || '1:1'
+    const aspectRatio = normalizeChatAspectRatio(
+      model,
+      template.aspectRatio || '1:1',
+    )
     const imageConfig = {
-      ...(aspectRatio !== 'auto' ? { aspect_ratio: aspectRatio } : {}),
+      ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
       image_size: size.toUpperCase(),
       quality,
     }
