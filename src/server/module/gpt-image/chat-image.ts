@@ -33,10 +33,25 @@ interface ChatCompletionResponse {
   [key: string]: unknown
 }
 
-const NANO_BANANA_2_ASPECT_RATIO_FALLBACKS: Record<string, string> = {
+const NANO_BANANA_MODEL_MARKERS = [
+  'nano-banana',
+  'gemini-2.5-flash-image',
+  'gemini-3-pro-image',
+  'gemini-3.1-flash-image',
+  'gemini-3.1-flash-lite-image',
+]
+
+const NANO_BANANA_ASPECT_RATIO_FALLBACKS: Record<string, string> = {
   '2:1': '16:9',
   '1:2': '9:16',
   '9:21': '9:16',
+}
+
+function isNanoBananaModel(model: string): boolean {
+  const normalizedModel = model.toLowerCase()
+  return NANO_BANANA_MODEL_MARKERS.some((marker) =>
+    normalizedModel.includes(marker),
+  )
 }
 
 function normalizeChatAspectRatio(
@@ -44,11 +59,11 @@ function normalizeChatAspectRatio(
   aspectRatio: string,
 ): string | undefined {
   if (aspectRatio === 'auto') return undefined
-  if (!model.toLowerCase().includes('gemini-3.1-flash-image')) {
+  if (!isNanoBananaModel(model)) {
     return aspectRatio
   }
 
-  const normalized = NANO_BANANA_2_ASPECT_RATIO_FALLBACKS[aspectRatio]
+  const normalized = NANO_BANANA_ASPECT_RATIO_FALLBACKS[aspectRatio]
   if (normalized) {
     logger.info(
       `Model ${model} does not support aspect ratio ${aspectRatio}; using ${normalized}`,
