@@ -5,19 +5,26 @@ import path from 'path'
 import { GENERATED_IMAGES_DIR } from '../../common/static'
 import { fetchWithTimeout } from '../utils/fetch'
 import { logger } from '../utils/logger'
+import {
+  embedGenerationMetadata,
+  type GenerationImageFormat,
+  type GenerationMetadataInput,
+} from './generation-metadata'
 
 interface PersistedImageFormat {
-  extension: 'jpg' | 'png' | 'webp' | 'gif' | 'avif' | 'svg'
+  extension: 'jpg' | 'png' | 'webp' | 'gif' | 'avif' | 'tiff' | 'svg'
+  metadataFormat: GenerationImageFormat
 }
 
 const MIME_FORMATS: Record<string, PersistedImageFormat> = {
-  'image/jpeg': { extension: 'jpg' },
-  'image/jpg': { extension: 'jpg' },
-  'image/png': { extension: 'png' },
-  'image/webp': { extension: 'webp' },
-  'image/gif': { extension: 'gif' },
-  'image/avif': { extension: 'avif' },
-  'image/svg+xml': { extension: 'svg' },
+  'image/jpeg': { extension: 'jpg', metadataFormat: 'jpeg' },
+  'image/jpg': { extension: 'jpg', metadataFormat: 'jpeg' },
+  'image/png': { extension: 'png', metadataFormat: 'png' },
+  'image/webp': { extension: 'webp', metadataFormat: 'webp' },
+  'image/gif': { extension: 'gif', metadataFormat: 'gif' },
+  'image/avif': { extension: 'avif', metadataFormat: 'avif' },
+  'image/tiff': { extension: 'tiff', metadataFormat: 'tiff' },
+  'image/svg+xml': { extension: 'svg', metadataFormat: 'svg' },
 }
 
 export function getImageMimeType(filePath: string): string {
@@ -33,6 +40,9 @@ export function getImageMimeType(filePath: string): string {
       return 'image/gif'
     case '.avif':
       return 'image/avif'
+    case '.tif':
+    case '.tiff':
+      return 'image/tiff'
     case '.svg':
       return 'image/svg+xml'
     default:
@@ -62,9 +72,9 @@ function detectImageFormat(
 
   if (
     buffer.length >= 8 &&
-    buffer.subarray(0, 8).equals(
-      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    )
+    buffer
+      .subarray(0, 8)
+      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
   ) {
     return MIME_FORMATS['image/png']
   }
@@ -92,6 +102,14 @@ function detectImageFormat(
     return MIME_FORMATS['image/avif']
   }
 
+  if (
+    buffer.length >= 4 &&
+    (buffer.subarray(0, 4).equals(Buffer.from([0x49, 0x49, 0x2a, 0x00])) ||
+      buffer.subarray(0, 4).equals(Buffer.from([0x4d, 0x4d, 0x00, 0x2a])))
+  ) {
+    return MIME_FORMATS['image/tiff']
+  }
+
   const textPrefix = buffer.subarray(0, 1024).toString('utf8').trimStart()
   if (/^(?:<\?xml[\s\S]*?)?<svg\b/i.test(textPrefix)) {
     return MIME_FORMATS['image/svg+xml']
@@ -113,13 +131,13 @@ function sanitizeSvg(buffer: Buffer): Buffer {
       /<(?:script|foreignObject|iframe|object|embed)\b[\s\S]*?<\/(?:script|foreignObject|iframe|object|embed)\s*>/gi,
       '',
     )
-    .replace(/<(?:script|foreignObject|iframe|object|embed)\b[^>]*\/?\s*>/gi, '')
-    .replace(/@import\s+[^;]+;?/gi, '')
-    .replace(/\son[a-z]+\s*=\s*(["'])[\s\S]*?\1/gi, '')
     .replace(
-      /\s(?:href|xlink:href)\s*=\s*(["'])(?!#)[\s\S]*?\1/gi,
+      /<(?:script|foreignObject|iframe|object|embed)\b[^>]*\/?\s*>/gi,
       '',
     )
+    .replace(/@import\s+[^;]+;?/gi, '')
+    .replace(/\son[a-z]+\s*=\s*(["'])[\s\S]*?\1/gi, '')
+    .replace(/\s(?:href|xlink:href)\s*=\s*(["'])(?!#)[\s\S]*?\1/gi, '')
     .replace(/url\(\s*(["']?)(?!#)[^)]+\1\s*\)/gi, 'none')
   return Buffer.from(svg, 'utf8')
 }
@@ -132,8 +150,56 @@ async function normalizeImageBuffer(
   return { buffer: sanitizeSvg(buffer), format }
 }
 
+async function persistImageBuffer(
+  sourceBuffer: Buffer,
+  mimeHint: string | null,
+  generationMetadata?: GenerationMetadataInput,
+): Promise<string | null> {
+  const detectedFormat = detectImageFormat(sourceBuffer, mimeHint)
+  if (!detectedFormat) {
+    logger.error(`Unsupported generated image format: ${mimeHint || 'unknown'}`)
+    return null
+  }
+
+  const normalized = await normalizeImageBuffer(sourceBuffer, detectedFormat)
+  const hash = crypto.createHash('md5').update(normalized.buffer).digest('hex')
+  const filename = `${hash}.${normalized.format.extension}`
+  let outputBuffer = normalized.buffer
+  if (generationMetadata) {
+    try {
+      outputBuffer = await embedGenerationMetadata(
+        normalized.buffer,
+        normalized.format.metadataFormat,
+        generationMetadata,
+      )
+    } catch (error) {
+      logger.error(
+        `Failed to write ${normalized.format.metadataFormat} generation metadata`,
+        error,
+      )
+    }
+  }
+  await writeFile(path.join(GENERATED_IMAGES_DIR, filename), outputBuffer)
+  return filename
+}
+
+export async function persistImageBuffers(
+  buffers: Buffer[],
+  generationMetadata?: GenerationMetadataInput,
+): Promise<string[]> {
+  const filenames: string[] = []
+  for (const buffer of buffers) {
+    const filename = await persistImageBuffer(buffer, null, generationMetadata)
+    if (filename) filenames.push(filename)
+  }
+  return filenames
+}
+
 /** 把 data URL 或远程图片按真实格式落盘，返回文件名列表。 */
-export async function persistImages(imageUrls: string[]): Promise<string[]> {
+export async function persistImages(
+  imageUrls: string[],
+  generationMetadata?: GenerationMetadataInput,
+): Promise<string[]> {
   const filenames: string[] = []
   for (const url of imageUrls) {
     let buffer: Buffer
@@ -154,18 +220,12 @@ export async function persistImages(imageUrls: string[]): Promise<string[]> {
       buffer = Buffer.from(await res.arrayBuffer())
     }
 
-    const detectedFormat = detectImageFormat(buffer, mimeHint)
-    if (!detectedFormat) {
-      logger.error(`Unsupported generated image format: ${mimeHint || 'unknown'}`)
-      continue
-    }
-
-    const normalized = await normalizeImageBuffer(buffer, detectedFormat)
-    buffer = normalized.buffer
-    const hash = crypto.createHash('md5').update(buffer).digest('hex')
-    const filename = `${hash}.${normalized.format.extension}`
-    await writeFile(path.join(GENERATED_IMAGES_DIR, filename), buffer)
-    filenames.push(filename)
+    const filename = await persistImageBuffer(
+      buffer,
+      mimeHint,
+      generationMetadata,
+    )
+    if (filename) filenames.push(filename)
   }
   return filenames
 }

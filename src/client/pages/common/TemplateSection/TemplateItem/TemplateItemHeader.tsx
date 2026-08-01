@@ -29,6 +29,7 @@ export const TemplateItemGenerateButtons: React.FC<{
             gptImageSettings.selectedEndpointId || endpoints[0]?.id,
           size,
           quality: gptImageSettings.quality,
+          writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
         },
       })
       const data = await res.json()
@@ -83,7 +84,6 @@ export const TemplateItemGenerateButtons: React.FC<{
     </>
   )
 }
-
 export const TemplateItemHeader = ({
   template,
   draggable,

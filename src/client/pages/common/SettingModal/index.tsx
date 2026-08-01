@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { usePlatform } from '../../../hooks/usePlatform'
 import { AdminSetting, AdminSettingRef } from './AdminSetting'
+import { FeatureSetting } from './FeatureSetting'
 import { GPTImageSetting, GPTImageSettingRef } from './GPTImageSetting'
 import { LlmSetting, LlmSettingRef } from './LlmSetting'
 import { UploadImageSetting } from './UploadImageSetting'
@@ -70,6 +71,11 @@ export function openSettingModal(options?: {
         key: 'upload-image',
         label: '通用图片设置',
         children: <UploadImageSetting />,
+      },
+      {
+        key: 'features',
+        label: '功能设置',
+        children: <FeatureSetting />,
       },
     ]
 

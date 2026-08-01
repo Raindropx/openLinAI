@@ -23,6 +23,36 @@ import { TaskListHeader } from './TaskListHeader'
 import { useState } from 'react'
 const client = hc<AppType>('/')
 
+function TaskImage({ src, showSize }: { src: string; showSize: boolean }) {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(
+    null,
+  )
+
+  return (
+    <>
+      <Image
+        src={src}
+        alt="result"
+        classNames={{
+          root: 'w-full h-full',
+          image: 'w-full! h-full! object-cover',
+        }}
+        onLoad={(event) => {
+          const image = event.target as HTMLImageElement
+          setSize({
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+          })
+        }}
+      />
+      {showSize && size && (
+        <div className="pointer-events-none absolute top-0 left-0 z-10 rounded-br bg-black/40 px-1 text-[10px] leading-4 text-white">
+          {size.width}×{size.height}
+        </div>
+      )}
+    </>
+  )
+}
 export function TaskList() {
   const { data: tasks = [], loading } = useTasks()
   const { gptImageSettings } = useLocalSetting()
@@ -40,6 +70,7 @@ export function TaskList() {
           gptImageSettings.selectedEndpointId || endpoints[0]?.id || '',
         size: (task.size as any) || '2k',
         quality: (task.quality as any) || 'medium',
+        writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
       },
     })
     message.success('已创建重试任务')
@@ -114,7 +145,12 @@ export function TaskList() {
                         <ImageGroup images={task.outputUrls} width={100} height={130} />
                       </div>
                     ) : (
-                      <Image src={task.outputUrls[0]} alt="result" classNames={{ root: 'w-full h-full', image: 'w-full! h-full! object-cover' }} />
+                      <TaskImage
+                        src={task.outputUrls[0]}
+                        showSize={
+                          gptImageSettings.showImageSizeInTaskList ?? true
+                        }
+                      />
                     )}
                   </div>
 

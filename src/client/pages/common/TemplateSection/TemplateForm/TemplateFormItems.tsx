@@ -40,7 +40,6 @@ function EndpointSelectFormItem({ className }: { className?: string }) {
     </Form.Item>
   )
 }
-
 function TitleFormItem({ className }: { className?: string }) {
   return (
     <Form.Item name="title" label="标题" className={className}>
@@ -226,9 +225,13 @@ export function TemplateFormFields({
             onUploadingChange={(isUploading) =>
               setUploadingCount(isUploading ? 1 : 0)
             }
-            onFirstImageRatio={(ratio) => {
-              form.setFieldsValue({ aspectRatio: ratio })
-            }}
+            onFirstImageRatio={
+              gptImageSettings.autoSelectAspectRatioFromReference ?? true
+                ? (ratio) => {
+                    form.setFieldsValue({ aspectRatio: ratio })
+                  }
+                : undefined
+            }
           />
         </Form.Item>
         {gptImageSettings.enableMultiple && (

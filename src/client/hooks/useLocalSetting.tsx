@@ -10,6 +10,9 @@ export interface GPTImageSettings {
   quality: GptImageQuality
   enableMultiple?: boolean
   keepImageWhenDeleteTask?: boolean
+  showImageSizeInTaskList?: boolean
+  autoSelectAspectRatioFromReference?: boolean
+  writeGenerationMetadata?: boolean
   /** 默认端点 id（设置里「设为默认」写入，持久化）。刷新后回退到此值。 */
   defaultEndpointId?: string
   /**
@@ -27,6 +30,9 @@ export const defaultGPTImageSettings: GPTImageSettings = {
   quality: 'medium',
   enableMultiple: false,
   keepImageWhenDeleteTask: false,
+  showImageSizeInTaskList: true,
+  autoSelectAspectRatioFromReference: true,
+  writeGenerationMetadata: true,
 }
 
 export interface LocalSettingState {

@@ -1,5 +1,5 @@
 import { ExclamationCircleOutlined, PlusOutlined } from '@ant-design/icons'
-import { Button, Form, Input, Radio, Select, Switch, message } from 'antd'
+import { Button, Form, Input, message, Radio, Select, Switch } from 'antd'
 import {
   forwardRef,
   useEffect,
@@ -12,6 +12,11 @@ import type { GptImageEndpoint } from '../../../../server/common/config'
 import { useGPTImageQuota } from '../../../hooks/useGPTImageQuota'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { useGlobalStore } from '../../../store/global'
+import {
+  findGptImageEndpointPreset,
+  GPT_IMAGE_ENDPOINT_PRESETS,
+  type GptImageEndpointPreset,
+} from './gptImageEndpointPresets'
 
 export interface GPTImageSettingRef {
   save: () => Promise<string | undefined>
@@ -33,13 +38,27 @@ const createEmptyEndpoint = (): GptImageEndpoint => ({
   engine: 'openai-images',
 })
 
+const createPresetEndpoint = (
+  preset: GptImageEndpointPreset,
+): GptImageEndpoint => ({
+  id: uuidv4(),
+  name: preset.name,
+  baseURL: preset.baseURL,
+  model: preset.model,
+  apiKey: '',
+  type: preset.type,
+  engine: preset.engine,
+})
+
 const cleanEndpoint = (endpoint: GptImageEndpoint): GptImageEndpoint => ({
   ...endpoint,
   name: endpoint.name.trim(),
 })
 
 const isCompleteEndpoint = (endpoint: GptImageEndpoint) =>
-  Boolean(endpoint.name && endpoint.baseURL && endpoint.model && endpoint.apiKey)
+  Boolean(
+    endpoint.name && endpoint.baseURL && endpoint.model && endpoint.apiKey,
+  )
 
 export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
   const [form] = Form.useForm()
@@ -90,12 +109,11 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
 
   const activeEndpoint =
     draftEndpoints.find((e) => e.id === activeId) || draftEndpoints[0]
+  const activePreset = findGptImageEndpointPreset(activeEndpoint)
 
   const updateActiveEndpoint = (patch: Partial<GptImageEndpoint>) => {
     setDraftEndpoints((list) =>
-      list.map((e) =>
-        e.id === activeEndpoint.id ? { ...e, ...patch } : e,
-      ),
+      list.map((e) => (e.id === activeEndpoint.id ? { ...e, ...patch } : e)),
     )
   }
 
@@ -105,13 +123,28 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     setActiveId(ep.id)
   }
 
+  const handleAddPresetEndpoint = (presetId: string) => {
+    const preset = GPT_IMAGE_ENDPOINT_PRESETS.find(
+      (item) => item.id === presetId,
+    )
+    if (!preset) return
+
+    const endpoint = createPresetEndpoint(preset)
+    setDraftEndpoints((list) => [...list, endpoint])
+    setActiveId(endpoint.id)
+    message.info(`已创建“${preset.label}”草稿，请填写 API Key 后保存`)
+  }
+
   const handleDeleteEndpoint = (id: string) => {
     setDraftEndpoints((list) => {
       const next = list.filter((e) => e.id !== id)
       if (next.length === 0) {
         const fresh = createEmptyEndpoint()
         setActiveId(fresh.id)
-        setGptImageSettings((prev) => ({ ...prev, defaultEndpointId: undefined }))
+        setGptImageSettings((prev) => ({
+          ...prev,
+          defaultEndpointId: undefined,
+        }))
         return [fresh]
       }
       if (id === activeId) {
@@ -158,9 +191,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         return
       }
       setDraftEndpoints((list) =>
-        list.map((e) =>
-          e.id === cleanedEndpoint.id ? cleanedEndpoint : e,
-        ),
+        list.map((e) => (e.id === cleanedEndpoint.id ? cleanedEndpoint : e)),
       )
       message.success('当前端点已更新')
     } finally {
@@ -217,6 +248,17 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
 
   return (
     <div className="px-4 py-2">
+      <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
+        <ExclamationCircleOutlined className="mt-0.5 shrink-0 text-amber-600" />
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-amber-800">
+            警惕第三方中转站风险
+          </div>
+          <div className="mt-1 text-xs leading-5 text-amber-700">
+            请勿填写真实密码等无关敏感信息；充值前请核实平台口碑与运营方，建议小额试用、随用随充。预设仅用于填写公开参数，不代表对服务商的背书。
+          </div>
+        </div>
+      </div>
       <Form form={form} layout="vertical">
         {/* —— 端点列表管理 —— */}
         <div className="mb-2 text-sm text-gray-500">图片生成端点</div>
@@ -233,10 +275,17 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
           <Button icon={<PlusOutlined />} onClick={handleAddEndpoint}>
             新增
           </Button>
-          <Button
-            loading={updatingEndpoint}
-            onClick={handleUpdateEndpoint}
-          >
+          <Select
+            value={undefined}
+            placeholder="从预设新增"
+            className="min-w-44"
+            onChange={handleAddPresetEndpoint}
+            options={GPT_IMAGE_ENDPOINT_PRESETS.map((preset) => ({
+              value: preset.id,
+              label: preset.label,
+            }))}
+          />
+          <Button loading={updatingEndpoint} onClick={handleUpdateEndpoint}>
             更新
           </Button>
           {draftEndpoints.length > 1 && (
@@ -251,6 +300,24 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
 
         {activeEndpoint && (
           <div className="mt-3 space-y-3 rounded border border-slate-100 p-3">
+            {activePreset && (
+              <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
+                <div className="font-medium">{activePreset.label}</div>
+                <div>
+                  官网：{' '}
+                  <a
+                    href={activePreset.website}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {activePreset.website}
+                  </a>
+                </div>
+                {activePreset.notes.map((note) => (
+                  <div key={note}>{note}</div>
+                ))}
+              </div>
+            )}
             <Form.Item label="名称" required>
               <Input
                 value={activeEndpoint.name}
@@ -275,7 +342,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
             <Form.Item label="模型 ID" required>
               <Input
                 value={activeEndpoint.model}
-                onChange={(e) => updateActiveEndpoint({ model: e.target.value })}
+                onChange={(e) =>
+                  updateActiveEndpoint({ model: e.target.value })
+                }
                 placeholder={
                   activeEndpoint.engine === 'chat-completions'
                     ? '如 google/gemini-2.5-flash-image'
@@ -352,16 +421,15 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
             <Form.Item label="端点类型" required>
               <Radio.Group
                 value={activeEndpoint.type}
-                onChange={(e) =>
-                  updateActiveEndpoint({ type: e.target.value })
-                }
+                onChange={(e) => updateActiveEndpoint({ type: e.target.value })}
               >
                 <Radio.Button value="yunwu">云雾</Radio.Button>
                 <Radio.Button value="openrouter">OpenRouter</Radio.Button>
                 <Radio.Button value="custom">自定义</Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-gray-400">
-                云雾 / OpenRouter 类型端点会在右上角显示余额；自定义端点不显示余额。
+                云雾 / OpenRouter
+                类型端点会在右上角显示余额；自定义端点不显示余额。
               </div>
             </Form.Item>
             <div className="flex items-center gap-2">

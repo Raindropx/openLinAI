@@ -91,6 +91,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
           size,
           quality: gptImageSettings.quality,
           n,
+          writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
         },
       })
 

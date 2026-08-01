@@ -1,17 +1,14 @@
-import crypto from 'crypto'
 import fs from 'fs-extra'
-import { writeFile } from 'fs/promises'
 import OpenAI, { toFile } from 'openai'
 import path from 'path'
-import {
-  GENERATED_IMAGES_DIR,
-  INPUT_IMAGES_DIR,
-} from '../../common/static'
+import { INPUT_IMAGES_DIR } from '../../common/static'
 import { GENERATED_IMAGES_API_PATH } from '../../common/static/enum'
 import { taskManager } from '../../common/task-manager'
 import { TaskTemplate } from '../../common/template-manager'
 import { logger } from '../utils/logger'
 import { GptImageQuality, GptImageSize } from './enum'
+import type { GenerationMetadataInput } from './generation-metadata'
+import { persistImageBuffers } from './image-files'
 
 interface GPTImageResponse {
   created: number
@@ -39,6 +36,7 @@ interface GenerateGPTImageOptions {
   quality: GptImageQuality
   imagePaths: string[]
   n?: number
+  generationMetadata?: GenerationMetadataInput
 }
 
 /** OpenAI client 缓存，按 apiKey+baseURL 复用，避免每次请求重建连接池 */
@@ -242,6 +240,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
     quality,
     imagePaths: images,
     n = 1,
+    generationMetadata,
   } = options
   const client = getOpenAIClient(apiKey, baseURL)
   const imagesToUpload = images.length
@@ -276,7 +275,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
     })
   }
 
-  const filenames: string[] = []
+  const imageBuffers: Buffer[] = []
 
   if (res.data && res.data.length > 0) {
     for (const item of res.data) {
@@ -295,14 +294,12 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
       }
 
       if (imageBuffer) {
-        const hash = crypto.createHash('md5').update(imageBuffer).digest('hex')
-        const filename = `${hash}.png`
-        const filepath = path.join(GENERATED_IMAGES_DIR, filename)
-        await writeFile(filepath, imageBuffer)
-        filenames.push(filename)
+        imageBuffers.push(imageBuffer)
       }
     }
   }
+
+  const filenames = await persistImageBuffers(imageBuffers, generationMetadata)
 
   return {
     filenames,
@@ -318,6 +315,7 @@ export async function handleImageGeneration(options: {
   size?: GptImageSize
   quality?: GptImageQuality
   endpointName?: string
+  writeMetadata?: boolean
 }) {
   try {
     const {
@@ -328,6 +326,7 @@ export async function handleImageGeneration(options: {
       size = '1k',
       quality = 'medium',
       endpointName,
+      writeMetadata = true,
     } = options
     const serviceLabel = getServiceLabel(endpointName, baseURL)
 
@@ -344,7 +343,10 @@ export async function handleImageGeneration(options: {
     if (!task) {
       return {
         status: 500,
-        data: { success: false as const, error: '[服务] Failed to create task' },
+        data: {
+          success: false as const,
+          error: '[服务] Failed to create task',
+        },
       }
     }
 
@@ -361,7 +363,9 @@ export async function handleImageGeneration(options: {
         if (await fs.pathExists(imagePath)) {
           imagePaths.push(imagePath)
         } else {
-          throw new Error(`[服务] Template image not found on Input Dir: ${imagePath}`)
+          throw new Error(
+            `[服务] Template image not found on Input Dir: ${imagePath}`,
+          )
         }
       }
     }
@@ -369,15 +373,29 @@ export async function handleImageGeneration(options: {
     let filenames: string[] = []
     let usage: GPTImageResponse['usage'] | undefined
     try {
+      const finalPrompt = buildPromptWithAspectRatio(template)
       const res = await generateGPTImageNew({
         apiKey,
         baseURL,
         model,
-        prompt: buildPromptWithAspectRatio(template),
+        prompt: finalPrompt,
         size: finalSize,
         quality,
         imagePaths,
         n: template.n || 1,
+        generationMetadata: writeMetadata
+          ? {
+              prompt: finalPrompt,
+              model,
+              engine: 'images',
+              endpointName,
+              requestedSize: size,
+              aspectRatio: template.aspectRatio || '1:1',
+              quality,
+              referenceImageCount: imagePaths.length,
+              generatedAt: new Date().toISOString(),
+            }
+          : undefined,
       })
       logger.info('GPT image generated successfully')
       filenames = res.filenames

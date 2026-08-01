@@ -127,7 +127,9 @@ function buildSupportedParameters(options: {
     )
   }
   if (supported.aspect_ratio && !ratio) {
-    logger.info(`Model ${model.id} does not support aspect ratio ${aspectRatio}`)
+    logger.info(
+      `Model ${model.id} does not support aspect ratio ${aspectRatio}`,
+    )
   }
   if (supported.quality && !supportedQuality) {
     logger.info(`Model ${model.id} does not support quality ${quality}`)
@@ -195,6 +197,7 @@ export async function handleOpenRouterImageGeneration(options: {
   size?: GptImageSize
   quality?: GptImageQuality
   endpointName?: string
+  writeMetadata?: boolean
 }) {
   const {
     apiKey,
@@ -204,6 +207,7 @@ export async function handleOpenRouterImageGeneration(options: {
     size = '1k',
     quality = 'medium',
     endpointName,
+    writeMetadata = true,
   } = options
 
   const task = await taskManager.createTaskFromTemplate({
@@ -323,7 +327,22 @@ export async function handleOpenRouterImageGeneration(options: {
       )
     }
 
-    const filenames = await persistImages(imageUrls)
+    const filenames = await persistImages(
+      imageUrls,
+      writeMetadata
+        ? {
+            prompt: buildPromptWithAspectRatio(template),
+            model,
+            engine: 'openrouter-images',
+            endpointName,
+            requestedSize: size,
+            aspectRatio: template.aspectRatio || '1:1',
+            quality,
+            referenceImageCount: template.images.length,
+            generatedAt: new Date().toISOString(),
+          }
+        : undefined,
+    )
     if (filenames.length === 0) {
       throw new Error('OpenRouter 返回的图片格式不受支持或落盘失败')
     }

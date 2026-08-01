@@ -51,7 +51,7 @@ export const UploadImageSetting = forwardRef((_props, _ref) => {
           <Button onClick={handleOpenGeneratedDir}>打开输出图片目录</Button>
         </div>
       </div>
-      <div className="mt-6 flex gap-8">
+      <div className="mt-6 flex flex-wrap gap-8">
         <div>
           <div className="mb-3 text-sm text-gray-500">删除任务</div>
           <div className="flex items-center gap-2">

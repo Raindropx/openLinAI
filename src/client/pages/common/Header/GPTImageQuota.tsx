@@ -1,8 +1,10 @@
+import { ApiOutlined } from '@ant-design/icons'
 import { Tooltip } from 'antd'
 import { useMemo } from 'react'
 import { useGPTImageQuota } from '../../../hooks/useGPTImageQuota'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { useGlobalStore } from '../../../store/global'
+import { openSettingModal } from '../SettingModal'
 
 export function GPTImageQuota() {
   const endpoints = useGlobalStore((state) => state.endpoints)
@@ -15,45 +17,52 @@ export function GPTImageQuota() {
   )
   const { quota, loading, error } = useGPTImageQuota()
 
-  // 仅当选中的是云雾 / OpenRouter 类型端点才显示余额
-  if (
-    !selectedEndpoint ||
-    (selectedEndpoint.type !== 'yunwu' &&
-      selectedEndpoint.type !== 'openrouter')
-  ) {
-    return null
-  }
+  if (!selectedEndpoint) return null
 
-  // OpenRouter 余额是美元（已归一化为 total_available），云雾余额需 *0.000001 转元
+  const supportsQuota =
+    selectedEndpoint.type === 'yunwu' || selectedEndpoint.type === 'openrouter'
   const isOpenRouter = selectedEndpoint.type === 'openrouter'
   const currency = isOpenRouter ? '$' : '￥'
+  const endpointName =
+    selectedEndpoint.name || selectedEndpoint.model || '未命名端点'
 
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
-      {loading ? (
-        <span>正在获取余额...</span>
-      ) : error ? (
-        <Tooltip title={error}>
-          <span className="line-clamp-1 max-w-50 text-red-500">
-            {isOpenRouter ? 'OpenRouter' : '云雾'} 余额: {error}
-          </span>
-        </Tooltip>
-      ) : quota ? (
-        <span>
-          {isOpenRouter ? 'OpenRouter' : '云雾'} 余额：
-          <span className="font-semibold text-slate-800">
-            {quota.unlimited_quota
-              ? '不限'
-              : isOpenRouter
-                ? `${currency}${quota.total_available.toFixed(2)}`
-                : `${(quota.total_available * 0.000001).toFixed(2)}${currency}`}
-          </span>
+    <Tooltip
+      title={supportsQuota && error ? error : '点击打开图片端点设置'}
+      placement="bottom"
+    >
+      <div
+        className="flex max-w-[min(52vw,30rem)] cursor-pointer items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-100"
+        onClick={() => openSettingModal({ initialTab: 'gpt-image' })}
+      >
+        <ApiOutlined className="shrink-0 text-xs" />
+        <span className="truncate font-medium text-slate-700">
+          {endpointName}
         </span>
-      ) : (
-        <span className="text-red-500">
-          获取{isOpenRouter ? 'OpenRouter' : '云雾'}余额失败
-        </span>
-      )}
-    </div>
+        {supportsQuota && (loading || error || quota) && (
+          <>
+            <span className="mx-1 h-3.5 w-px shrink-0 bg-slate-300" />
+            {loading ? (
+              <span className="shrink-0 text-slate-400">余额查询中...</span>
+            ) : error ? (
+              <span className="line-clamp-1 max-w-40 shrink-0 text-red-500">
+                余额: {error}
+              </span>
+            ) : quota ? (
+              <span className="shrink-0">
+                余额：
+                <span className="font-semibold text-slate-800">
+                  {quota.unlimited_quota
+                    ? '不限'
+                    : isOpenRouter
+                      ? `${currency}${quota.total_available.toFixed(2)}`
+                      : `${(quota.total_available * 0.000001).toFixed(2)}${currency}`}
+                </span>
+              </span>
+            ) : null}
+          </>
+        )}
+      </div>
+    </Tooltip>
   )
 }

@@ -4,11 +4,11 @@ import { INPUT_IMAGES_DIR } from '../../common/static'
 import { GENERATED_IMAGES_API_PATH } from '../../common/static/enum'
 import { taskManager } from '../../common/task-manager'
 import { TaskTemplate } from '../../common/template-manager'
-import { buildPromptWithAspectRatio } from './index'
-import { persistImages, readImageAsDataUrl } from './image-files'
-import { GptImageQuality, GptImageSize } from './enum'
 import { fetchWithTimeout } from '../utils/fetch'
 import { logger } from '../utils/logger'
+import { GptImageQuality, GptImageSize } from './enum'
+import { persistImages, readImageAsDataUrl } from './image-files'
+import { buildPromptWithAspectRatio } from './index'
 
 /** chat-completions 消息中的内容块 */
 interface ChatContentPart {
@@ -179,6 +179,7 @@ export async function handleChatImageGeneration(options: {
   size?: GptImageSize
   quality?: GptImageQuality
   endpointName?: string
+  writeMetadata?: boolean
 }) {
   try {
     const {
@@ -189,6 +190,7 @@ export async function handleChatImageGeneration(options: {
       size = '1k',
       quality = 'medium',
       endpointName,
+      writeMetadata = true,
     } = options
 
     logger.info(`Generating image via chat-completions: ${model}`)
@@ -212,8 +214,9 @@ export async function handleChatImageGeneration(options: {
     const startTime = Date.now()
 
     // 读取输入图片 → base64 data URL
+    const finalPrompt = buildPromptWithAspectRatio(template)
     const contentParts: ChatContentPart[] = [
-      { type: 'text', text: buildPromptWithAspectRatio(template) },
+      { type: 'text', text: finalPrompt },
     ]
     for (const imgUrl of template.images) {
       const filename = imgUrl.split('/').pop()
@@ -281,12 +284,10 @@ export async function handleChatImageGeneration(options: {
         const { imageUrls } = extractImageUrls(message?.content, message)
         if (imageUrls.length > 0) return imageUrls
 
-        const debugPreview = JSON.stringify(
-          message,
-          (_key, value) =>
-            typeof value === 'string' && value.length > 160
-              ? value.slice(0, 160) + `...(len=${value.length})`
-              : value,
+        const debugPreview = JSON.stringify(message, (_key, value) =>
+          typeof value === 'string' && value.length > 160
+            ? value.slice(0, 160) + `...(len=${value.length})`
+            : value,
         )
         logger.error(
           `Chat-completions 未提取到图片，响应 message 结构: ${debugPreview}`,
@@ -321,13 +322,31 @@ export async function handleChatImageGeneration(options: {
         )
       }
 
-      filenames = await persistImages(imageUrls)
+      filenames = await persistImages(
+        imageUrls,
+        writeMetadata
+          ? {
+              prompt: finalPrompt,
+              model,
+              engine: 'chat-completions',
+              endpointName,
+              requestedSize: size,
+              aspectRatio: template.aspectRatio || '1:1',
+              quality,
+              referenceImageCount: template.images.length,
+              generatedAt: new Date().toISOString(),
+            }
+          : undefined,
+      )
       if (filenames.length === 0) {
         throw new Error('模型返回的图片格式不受支持或下载失败')
       }
       logger.info('Chat-completions image generated successfully')
     } catch (error: any) {
-      logger.error(`Failed to generate image via chat-completions`, error.message)
+      logger.error(
+        `Failed to generate image via chat-completions`,
+        error.message,
+      )
       await taskManager.updateTaskStatus(task.id, 'failed', error.message)
       return {
         status: 500,

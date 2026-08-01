@@ -5,10 +5,10 @@ import { z } from 'zod'
 import { getEndpointById, getYunwuApiKey } from '../common/config'
 import { TaskTemplate, templateManager } from '../common/template-manager'
 import { TRIAL_TEMPLATE_TITLE } from '../common/template-manager/enum'
-import { handleChatImageGeneration } from '../module/gpt-image/chat-image'
 import { handleImageGeneration } from '../module/gpt-image'
-import { handleOpenRouterImageGeneration } from '../module/gpt-image/openrouter-image'
+import { handleChatImageGeneration } from '../module/gpt-image/chat-image'
 import { GPT_IMAGE_OUTPUT_MAX_N } from '../module/gpt-image/enum'
+import { handleOpenRouterImageGeneration } from '../module/gpt-image/openrouter-image'
 import { fetchWithTimeout } from '../module/utils/fetch'
 
 export interface GPTImageQuotaResponse {
@@ -169,7 +169,10 @@ const gptImageApi = new Hono()
       })
     } catch (error: any) {
       return c.json(
-        { success: false as const, error: `[网络] ${error.message || '获取余额失败'}` },
+        {
+          success: false as const,
+          error: `[网络] ${error.message || '获取余额失败'}`,
+        },
         500,
       )
     }
@@ -183,10 +186,12 @@ const gptImageApi = new Hono()
         endpointId: z.string().min(1, 'Endpoint ID is required'),
         size: z.enum(['1k', '2k', '4k']),
         quality: z.enum(['medium', 'high']),
+        writeMetadata: z.boolean().optional().default(true),
       }),
     ),
     async (c) => {
-      const { templateId, endpointId, size, quality } = c.req.valid('json')
+      const { templateId, endpointId, size, quality, writeMetadata } =
+        c.req.valid('json')
       const endpoint = getEndpointById(endpointId)
       if (!endpoint) {
         return c.json(
@@ -215,6 +220,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          writeMetadata,
         })
         return c.json(result.data, result.status as any)
       }
@@ -227,6 +233,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          writeMetadata,
         })
         return c.json(result.data, result.status as any)
       }
@@ -238,6 +245,7 @@ const gptImageApi = new Hono()
         size,
         quality,
         endpointName: endpoint.name,
+        writeMetadata,
       })
       return c.json(result.data, result.status as any)
     },
@@ -255,6 +263,7 @@ const gptImageApi = new Hono()
         size: z.enum(['1k', '2k', '4k']).optional().default('1k'),
         quality: z.enum(['medium', 'high']).optional().default('medium'),
         n: z.number().min(1).max(GPT_IMAGE_OUTPUT_MAX_N).optional().default(1),
+        writeMetadata: z.boolean().optional().default(true),
       }),
     ),
     async (c) => {
@@ -267,6 +276,7 @@ const gptImageApi = new Hono()
         size,
         quality,
         n,
+        writeMetadata,
       } = c.req.valid('json')
       const endpoint = getEndpointById(endpointId)
       if (!endpoint) {
@@ -296,6 +306,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          writeMetadata,
         })
         return c.json(result.data, result.status as any)
       }
@@ -308,6 +319,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          writeMetadata,
         })
         return c.json(result.data, result.status as any)
       }
@@ -319,6 +331,7 @@ const gptImageApi = new Hono()
         size,
         quality,
         endpointName: endpoint.name,
+        writeMetadata,
       })
       return c.json(result.data, result.status as any)
     },
