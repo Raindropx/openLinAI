@@ -1,4 +1,8 @@
-import { DeleteOutlined, HolderOutlined } from '@ant-design/icons'
+import {
+  DeleteOutlined,
+  HolderOutlined,
+  ImportOutlined,
+} from '@ant-design/icons'
 import { Button, message, Popconfirm, Space, Tag, Tooltip } from 'antd'
 import { hc } from 'hono/client'
 import React from 'react'
@@ -25,8 +29,7 @@ export const TemplateItemGenerateButtons: React.FC<{
       const res = await client.api.gptImage.generate.$post({
         json: {
           templateId,
-          endpointId:
-            gptImageSettings.selectedEndpointId || endpoints[0]?.id,
+          endpointId: gptImageSettings.selectedEndpointId || endpoints[0]?.id,
           size,
           quality: gptImageSettings.quality,
           writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
@@ -87,9 +90,11 @@ export const TemplateItemGenerateButtons: React.FC<{
 export const TemplateItemHeader = ({
   template,
   draggable,
+  onLoad,
 }: {
   template: TaskTemplate
   draggable: boolean
+  onLoad: (template: TaskTemplate) => void
 }) => {
   const { refresh: refreshTemplates } = useTemplates()
 
@@ -127,6 +132,17 @@ export const TemplateItemHeader = ({
           </div>
         </Space>
         <div className="flex items-center gap-1">
+          <Tooltip title="载入到工作区">
+            <Button
+              type="text"
+              icon={<ImportOutlined />}
+              onClick={() => {
+                onLoad(template)
+                message.success('已载入到工作区')
+              }}
+              className="hover:text-emerald-600!"
+            />
+          </Tooltip>
           <TemplateEditButton template={template} />
           <Popconfirm
             title="确定要删除该模板吗？"

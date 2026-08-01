@@ -4,7 +4,9 @@ import { hc } from 'hono/client'
 import { useState } from 'react'
 import type { AppType } from '../../../../../server'
 import { TaskTemplate } from '../../../../../server/common/template-manager'
+import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { useTemplates } from '../../../../hooks/useTemplates'
+import { useGlobalStore } from '../../../../store/global'
 import { TemplateFormFields } from '../TemplateForm/TemplateFormItems'
 
 const client = hc<AppType>('/')
@@ -20,10 +22,16 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
   const [uploadingCount, setUploadingCount] = useState(0)
   const [form] = Form.useForm()
   const { refresh } = useTemplates()
+  const endpoints = useGlobalStore((state) => state.endpoints)
+  const { gptImageSettings } = useLocalSetting()
 
   const handleOpen = () => {
     form.setFieldsValue({
       title: template.title,
+      endpointId:
+        template.endpointId ||
+        gptImageSettings.selectedEndpointId ||
+        endpoints[0]?.id,
       prompt: template.prompt,
       aspectRatio: template.aspectRatio || '1:1',
       injectAspectRatio: template.injectAspectRatio,
@@ -70,11 +78,7 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
       setSubmitting(true)
       const res = await client.api.template.$post({
         json: {
-          title: values.title,
-          prompt: values.prompt,
-          aspectRatio: values.aspectRatio,
-          injectAspectRatio: values.injectAspectRatio,
-          folder: values.folder,
+          ...values,
           usageType: template.usageType,
           images: imageUrls,
         },

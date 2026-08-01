@@ -20,6 +20,7 @@ const templateApi = new Hono()
       'json',
       z.object({
         title: z.string().optional(),
+        endpointId: z.string().optional(),
         images: z.array(z.string()),
         prompt: z.string(),
         usageType: z.enum(['image', 'video', 'chat-image']),
@@ -34,6 +35,35 @@ const templateApi = new Hono()
         const body = c.req.valid('json')
         const newTemplate = await templateManager.addTemplate(body)
         return c.json({ success: true as const, data: newTemplate })
+      } catch (error: any) {
+        return c.json({ success: false as const, error: error.message }, 500)
+      }
+    },
+  )
+  .put(
+    '/order',
+    zValidator(
+      'json',
+      z.object({
+        orderedIds: z
+          .array(z.string())
+          .min(1)
+          .refine((ids) => new Set(ids).size === ids.length, {
+            message: '模板 ID 不能重复',
+          }),
+      }),
+    ),
+    async (c) => {
+      try {
+        const { orderedIds } = c.req.valid('json')
+        const success = await templateManager.reorderTemplates(orderedIds)
+        if (!success) {
+          return c.json(
+            { success: false as const, error: '部分模板不存在' },
+            404,
+          )
+        }
+        return c.json({ success: true as const })
       } catch (error: any) {
         return c.json({ success: false as const, error: error.message }, 500)
       }
@@ -120,6 +150,7 @@ const templateApi = new Hono()
       'json',
       z.object({
         title: z.string().optional(),
+        endpointId: z.string().optional(),
         prompt: z.string().optional(),
         aspectRatio: z.string().optional(),
         injectAspectRatio: z.boolean().optional(),

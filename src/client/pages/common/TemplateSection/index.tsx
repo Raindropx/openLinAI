@@ -1,6 +1,8 @@
 import { Radio } from 'antd'
 import { useRef, useState } from 'react'
+import type { TaskTemplate } from '../../../../server/common/template-manager'
 import { usePlatform } from '../../../hooks/usePlatform'
+import { useGlobalStore } from '../../../store/global'
 import { TemplateForm } from './TemplateForm'
 import { TemplateList, TemplateListRef } from './TemplateList'
 
@@ -15,10 +17,18 @@ const ModuleWrapper = ({ children }: { children: React.ReactElement }) => {
 export function TemplateSection() {
   const listRef = useRef<TemplateListRef>(null)
   const { isMobile } = usePlatform()
+  const setFillTemplateData = useGlobalStore(
+    (state) => state.setFillTemplateData,
+  )
   const [activeTab, setActiveTab] = useState<'form' | 'list'>('form')
 
   const handleSuccess = () => {
     listRef.current?.refresh()
+  }
+
+  const handleLoadTemplate = (template: TaskTemplate) => {
+    setFillTemplateData(template)
+    if (isMobile) setActiveTab('form')
   }
 
   if (isMobile) {
@@ -43,7 +53,7 @@ export function TemplateSection() {
           </ModuleWrapper>
         ) : (
           <ModuleWrapper>
-            <TemplateList ref={listRef} />
+            <TemplateList ref={listRef} onLoadTemplate={handleLoadTemplate} />
           </ModuleWrapper>
         )}
       </div>
@@ -59,7 +69,7 @@ export function TemplateSection() {
 
       {/* 右侧：模板列表 */}
       <ModuleWrapper>
-        <TemplateList ref={listRef} />
+        <TemplateList ref={listRef} onLoadTemplate={handleLoadTemplate} />
       </ModuleWrapper>
     </div>
   )

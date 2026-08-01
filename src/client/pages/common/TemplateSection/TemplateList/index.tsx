@@ -1,5 +1,11 @@
 import { Button, Spin } from 'antd'
-import { forwardRef, useImperativeHandle, useState } from 'react'
+import {
+  forwardRef,
+  type ForwardedRef,
+  useImperativeHandle,
+  useState,
+} from 'react'
+import type { TaskTemplate } from '../../../../../server/common/template-manager'
 import { useTemplates } from '../../../../hooks/useTemplates'
 import { RenameFolderModal } from '../TemplateItem/RenameFolderModal'
 import { TemplateItemList } from './TemplateItemList'
@@ -8,7 +14,27 @@ export interface TemplateListRef {
   refresh: () => void
 }
 
-export const TemplateList = forwardRef<TemplateListRef, unknown>((_, ref) => {
+interface TemplateListProps {
+  onLoadTemplate: (template: TaskTemplate) => void
+}
+
+function compareTemplateOrder(a: TaskTemplate, b: TaskTemplate) {
+  if (a.sortOrder === undefined && b.sortOrder === undefined) {
+    return (b.createdAt || 0) - (a.createdAt || 0)
+  }
+  if (a.sortOrder === undefined) return -1
+  if (b.sortOrder === undefined) return 1
+  return a.sortOrder - b.sortOrder
+}
+
+export const TemplateList = forwardRef<TemplateListRef, TemplateListProps>(
+  TemplateListComponent,
+)
+
+function TemplateListComponent(
+  { onLoadTemplate }: TemplateListProps,
+  ref: ForwardedRef<TemplateListRef>,
+) {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false)
 
@@ -23,7 +49,7 @@ export const TemplateList = forwardRef<TemplateListRef, unknown>((_, ref) => {
     .filter(
       (t) => t.usageType === 'image' || t.usageType === 'chat-image',
     )
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .sort(compareTemplateOrder)
 
   return (
     <>
@@ -62,6 +88,7 @@ export const TemplateList = forwardRef<TemplateListRef, unknown>((_, ref) => {
               filteredTemplates={filteredTemplates}
               selectedFolder={selectedFolder}
               onSelectFolder={setSelectedFolder}
+              onLoadTemplate={onLoadTemplate}
             />
           )}
         </div>
@@ -80,4 +107,4 @@ export const TemplateList = forwardRef<TemplateListRef, unknown>((_, ref) => {
       )}
     </>
   )
-})
+}

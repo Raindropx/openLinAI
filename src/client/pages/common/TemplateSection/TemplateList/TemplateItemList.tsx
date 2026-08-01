@@ -5,7 +5,10 @@ import type { AppType } from '../../../../../server'
 import { TaskTemplate } from '../../../../../server/common/template-manager'
 import { useTemplates } from '../../../../hooks/useTemplates'
 import { TemplateFolder } from '../TemplateItem/TemplateFolder'
-import { TemplateItem } from '../TemplateItem/TemplateItem'
+import {
+  TemplateItem,
+  type TemplateDropPosition,
+} from '../TemplateItem/TemplateItem'
 
 const client = hc<AppType>('/')
 
@@ -13,12 +16,14 @@ interface TemplateItemListProps {
   filteredTemplates: TaskTemplate[]
   selectedFolder: string | null
   onSelectFolder: (folder: string | null) => void
+  onLoadTemplate: (template: TaskTemplate) => void
 }
 
 export function TemplateItemList({
   filteredTemplates,
   selectedFolder,
   onSelectFolder,
+  onLoadTemplate,
 }: TemplateItemListProps) {
   const { refresh: refreshTemplates } = useTemplates()
 
@@ -36,7 +41,51 @@ export function TemplateItemList({
         message.error(json.error || '移动失败')
       }
     } catch (error) {
-      const msg = error instanceof Error ? `[网络] ${error.message}` : '请求失败'
+      const msg =
+        error instanceof Error ? `[网络] ${error.message}` : '请求失败'
+      message.error(msg)
+    }
+  }
+
+  const handleReorderTemplate = async (
+    draggedId: string,
+    targetId: string,
+    position: TemplateDropPosition,
+  ) => {
+    if (draggedId === targetId) return
+
+    const reorderedTemplates = [...displayTemplates]
+    const draggedIndex = reorderedTemplates.findIndex(
+      (template) => template.id === draggedId,
+    )
+    if (draggedIndex === -1) return
+
+    const [draggedTemplate] = reorderedTemplates.splice(draggedIndex, 1)
+    const targetIndex = reorderedTemplates.findIndex(
+      (template) => template.id === targetId,
+    )
+    if (targetIndex === -1) return
+
+    reorderedTemplates.splice(
+      targetIndex + (position === 'after' ? 1 : 0),
+      0,
+      draggedTemplate,
+    )
+
+    try {
+      const res = await client.api.template.order.$put({
+        json: { orderedIds: reorderedTemplates.map((template) => template.id) },
+      })
+      const json = await res.json()
+      if (json.success) {
+        message.success('模板顺序已保存')
+        refreshTemplates()
+      } else {
+        message.error(json.error || '调整顺序失败')
+      }
+    } catch (error) {
+      const msg =
+        error instanceof Error ? `[网络] ${error.message}` : '请求失败'
       message.error(msg)
     }
   }
@@ -89,7 +138,9 @@ export function TemplateItemList({
               <TemplateItem
                 key={template.id}
                 template={template}
-                draggable={!selectedFolder}
+                draggable
+                onLoad={onLoadTemplate}
+                onReorder={handleReorderTemplate}
               />
             ))}
           </div>

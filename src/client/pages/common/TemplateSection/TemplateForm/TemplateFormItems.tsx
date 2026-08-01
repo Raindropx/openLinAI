@@ -6,30 +6,39 @@ import {
 import { Button, Checkbox, Form, Input, InputNumber, Select } from 'antd'
 import classnames from 'classnames'
 import React, { useState } from 'react'
-import { useGlobalStore } from '../../../../store/global'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
+import { useGlobalStore } from '../../../../store/global'
 import { FolderFormItem } from './FolderSelectInput'
 import { ImageUpload } from './ImageUpload'
 import { StyleExtractModal } from './StyleExtractModal'
 import { StylePresetModal } from './StylePresetModal'
 
-function EndpointSelectFormItem({ className }: { className?: string }) {
+function EndpointSelectFormItem({
+  className,
+  syncSelectedEndpoint,
+}: {
+  className?: string
+  syncSelectedEndpoint: boolean
+}) {
   const endpoints = useGlobalStore((state) => state.endpoints)
-  const { gptImageSettings, setGptImageSettings } = useLocalSetting()
-  const selectedId =
-    gptImageSettings.selectedEndpointId || endpoints[0]?.id
+  const { setGptImageSettings } = useLocalSetting()
 
   return (
     <Form.Item
+      name="endpointId"
       label="生成端点"
       className={className}
       rules={[{ required: true, message: '请先在设置中添加端点' }]}
     >
       <Select
-        value={endpoints.length ? selectedId : undefined}
-        onChange={(id) =>
-          setGptImageSettings((prev) => ({ ...prev, selectedEndpointId: id }))
-        }
+        onChange={(id) => {
+          if (syncSelectedEndpoint) {
+            setGptImageSettings((prev) => ({
+              ...prev,
+              selectedEndpointId: id,
+            }))
+          }
+        }}
         placeholder="请先在设置中添加端点"
         options={endpoints.map((e) => ({
           value: e.id,
@@ -79,11 +88,7 @@ function AspectRatioFormItem({ className }: { className?: string }) {
             ]}
           />
         </Form.Item>
-        <Form.Item
-          name="injectAspectRatio"
-          valuePropName="checked"
-          noStyle
-        >
+        <Form.Item name="injectAspectRatio" valuePropName="checked" noStyle>
           <Checkbox className="mt-1 whitespace-nowrap">注入提示</Checkbox>
         </Form.Item>
       </div>
@@ -198,18 +203,23 @@ export function TemplateFormFields({
   setImageUrls,
   setUploadingCount,
   optimizeButton,
+  syncSelectedEndpoint = false,
 }: {
   form: any
   imageUrls: string[]
   setImageUrls: (urls: string[]) => void
   setUploadingCount: (count: number) => void
   optimizeButton?: React.ReactNode
+  syncSelectedEndpoint?: boolean
 }) {
   const { gptImageSettings } = useLocalSetting()
 
   return (
     <>
-      <EndpointSelectFormItem className="w-full" />
+      <EndpointSelectFormItem
+        className="w-full"
+        syncSelectedEndpoint={syncSelectedEndpoint}
+      />
 
       <div className="grid min-w-0 grid-cols-2 gap-x-3 sm:flex sm:gap-4">
         <TitleFormItem className="col-span-2 min-w-0 sm:flex-1" />
@@ -226,7 +236,7 @@ export function TemplateFormFields({
               setUploadingCount(isUploading ? 1 : 0)
             }
             onFirstImageRatio={
-              gptImageSettings.autoSelectAspectRatioFromReference ?? true
+              (gptImageSettings.autoSelectAspectRatioFromReference ?? true)
                 ? (ratio) => {
                     form.setFieldsValue({ aspectRatio: ratio })
                   }

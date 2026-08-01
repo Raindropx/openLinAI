@@ -12,8 +12,8 @@ import {
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { useGlobalStore } from '../../../../store/global'
 import { openSettingModal } from '../../SettingModal'
-import { TemplateFormFields } from './TemplateFormItems'
 import { PromptOptimizeModal } from './PromptOptimizeModal'
+import { TemplateFormFields } from './TemplateFormItems'
 
 const client = hc<AppType>('/')
 
@@ -27,18 +27,27 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
   const [submitting, setSubmitting] = useState(false)
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [uploadingCount, setUploadingCount] = useState(0)
-  const { endpoints, llmEndpoints, llmPrompts, fillTemplateData, setFillTemplateData } =
-    useGlobalStore(
-      useShallow((state) => ({
-        endpoints: state.endpoints,
-        llmEndpoints: state.llmEndpoints,
-        llmPrompts: state.llmPrompts,
-        fillTemplateData: state.fillTemplateData,
-        setFillTemplateData: state.setFillTemplateData,
-      })),
-    )
-  const { gptImageSettings, optimizeEndpointId, setOptimizeEndpointId } =
-    useLocalSetting()
+  const {
+    endpoints,
+    llmEndpoints,
+    llmPrompts,
+    fillTemplateData,
+    setFillTemplateData,
+  } = useGlobalStore(
+    useShallow((state) => ({
+      endpoints: state.endpoints,
+      llmEndpoints: state.llmEndpoints,
+      llmPrompts: state.llmPrompts,
+      fillTemplateData: state.fillTemplateData,
+      setFillTemplateData: state.setFillTemplateData,
+    })),
+  )
+  const {
+    gptImageSettings,
+    optimizeEndpointId,
+    setGptImageSettings,
+    setOptimizeEndpointId,
+  } = useLocalSetting()
   // 提示词优化弹框状态
   const [optimizeOpen, setOptimizeOpen] = useState(false)
   const [optimizeLoading, setOptimizeLoading] = useState(false)
@@ -50,14 +59,22 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
       form.setFieldsValue({
         title: fillTemplateData.title,
         folder: fillTemplateData.folder,
-        aspectRatio: fillTemplateData.aspectRatio,
-        injectAspectRatio: fillTemplateData.injectAspectRatio,
-        n: fillTemplateData.n,
+        endpointId:
+          fillTemplateData.endpointId ||
+          gptImageSettings.selectedEndpointId ||
+          endpoints[0]?.id,
+        aspectRatio: fillTemplateData.aspectRatio || '1:1',
+        injectAspectRatio: fillTemplateData.injectAspectRatio ?? false,
+        n: fillTemplateData.n || 1,
         prompt: fillTemplateData.prompt,
         usageType: fillTemplateData.usageType || 'image',
       })
-      if (fillTemplateData.images) {
-        setImageUrls(fillTemplateData.images)
+      setImageUrls(fillTemplateData.images || [])
+      if (fillTemplateData.endpointId) {
+        setGptImageSettings((prev) => ({
+          ...prev,
+          selectedEndpointId: fillTemplateData.endpointId,
+        }))
       }
       setFillTemplateData(null)
 
@@ -65,7 +82,23 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
         formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 100)
     }
-  }, [fillTemplateData, form])
+  }, [
+    endpoints,
+    fillTemplateData,
+    form,
+    gptImageSettings.selectedEndpointId,
+    setFillTemplateData,
+    setGptImageSettings,
+  ])
+
+  useEffect(() => {
+    if (!form.getFieldValue('endpointId')) {
+      form.setFieldValue(
+        'endpointId',
+        gptImageSettings.selectedEndpointId || endpoints[0]?.id,
+      )
+    }
+  }, [endpoints, form, gptImageSettings.selectedEndpointId])
 
   const doTrial = async (size: GptImageSize) => {
     const prompt = form.getFieldValue('prompt')
@@ -77,7 +110,9 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
     const aspectRatio = form.getFieldValue('aspectRatio') || '1:1'
     const injectAspectRatio = form.getFieldValue('injectAspectRatio') || false
     const endpointId =
-      gptImageSettings.selectedEndpointId || endpoints[0]?.id
+      form.getFieldValue('endpointId') ||
+      gptImageSettings.selectedEndpointId ||
+      endpoints[0]?.id
 
     message.success('任务提交成功')
     try {
@@ -189,6 +224,10 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
       if (json.success) {
         message.success('保存成功')
         form.resetFields()
+        form.setFieldValue(
+          'endpointId',
+          gptImageSettings.selectedEndpointId || endpoints[0]?.id,
+        )
         setImageUrls([])
         onSuccess()
       } else {
@@ -212,6 +251,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
         onFinish={handleFinish}
         initialValues={{
           usageType: 'image',
+          endpointId: gptImageSettings.selectedEndpointId || endpoints[0]?.id,
           aspectRatio: '1:1',
           n: 1,
         }}
@@ -227,6 +267,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
           imageUrls={imageUrls}
           setImageUrls={setImageUrls}
           setUploadingCount={setUploadingCount}
+          syncSelectedEndpoint
           optimizeButton={
             <Button
               size="small"

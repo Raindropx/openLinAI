@@ -7,6 +7,8 @@ import { SafeJsonStore } from '../safe-json-store'
 export interface TaskTemplate {
   id: string
   title?: string
+  /** 保存模板时选中的生图端点；旧模板可能没有此字段。 */
+  endpointId?: string
   images: string[]
   prompt: string
   createdAt: number
@@ -17,6 +19,8 @@ export interface TaskTemplate {
   injectAspectRatio?: boolean
   folder?: string
   n?: number
+  /** 用户拖动调整后的显示顺序；未设置的旧模板仍按创建时间倒序显示。 */
+  sortOrder?: number
 }
 
 export interface GeminiTaskTemplate extends TaskTemplate {
@@ -109,6 +113,7 @@ class TemplateManager {
       Pick<
         TaskTemplate,
         | 'title'
+        | 'endpointId'
         | 'prompt'
         | 'aspectRatio'
         | 'injectAspectRatio'
@@ -124,12 +129,32 @@ class TemplateManager {
       if (index === -1) return list
       list[index] = {
         ...list[index],
+        ...(updates.folder !== undefined &&
+        updates.folder !== list[index].folder
+          ? { sortOrder: undefined }
+          : {}),
         ...updates,
       }
       result = list[index]
       return list
     })
     return result
+  }
+
+  public async reorderTemplates(orderedIds: string[]): Promise<boolean> {
+    let updated = false
+    await this.store.mutate((list) => {
+      const templatesById = new Map(list.map((template) => [template.id, template]))
+      if (orderedIds.some((id) => !templatesById.has(id))) return list
+
+      orderedIds.forEach((id, index) => {
+        const template = templatesById.get(id)
+        if (template) template.sortOrder = index
+      })
+      updated = true
+      return list
+    })
+    return updated
   }
 
   public async renameFolder(
