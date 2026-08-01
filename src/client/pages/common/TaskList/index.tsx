@@ -92,7 +92,7 @@ export function TaskList() {
           : [],
     }))
   const [page, setPage] = useState(0)
-  const PAGE_SIZE = 10
+  const [pageSize, setPageSize] = useState(10)
   return (
     <Card
       className="w-full border-slate-200 shadow-sm"
@@ -113,7 +113,7 @@ export function TaskList() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {gptImageTasks.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE).map((task) => (
+            {gptImageTasks.slice(page * pageSize, page * pageSize + pageSize).map((task) => (
               <Card
                 key={task.id}
                 size="small"
@@ -206,9 +206,18 @@ export function TaskList() {
             <div className="mt-4 flex justify-center">
               <Pagination
                 current={page + 1}
-                pageSize={PAGE_SIZE}
+                pageSize={pageSize}
+                pageSizeOptions={[10, 20, 50, 100]}
+                showSizeChanger
                 total={gptImageTasks.length}
-                onChange={(p) => setPage(p - 1)}
+                onChange={(nextPage, nextPageSize) => {
+                  if (nextPageSize !== pageSize) {
+                    setPageSize(nextPageSize)
+                    setPage(0)
+                    return
+                  }
+                  setPage(nextPage - 1)
+                }}
               />
             </div>
           )}
