@@ -33,6 +33,9 @@ const configApi = new Hono()
               model: z.string(),
               apiKey: z.string(),
               type: z.enum(['yunwu', 'openrouter', 'custom']),
+              balanceEnabled: z.boolean().optional(),
+              balanceApiPath: z.string().optional(),
+              balanceResultJsonKey: z.string().optional(),
               engine: z
                 .enum([
                   'openai-images',

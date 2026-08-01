@@ -35,6 +35,40 @@ function checkEngineMatch(
   return null
 }
 
+const DEFAULT_BALANCE_API_PATH = '/credits'
+const DEFAULT_BALANCE_RESULT_JSON_KEY = 'data.total_usage'
+
+function resolveBalanceUrl(baseURL: string, apiPath: string) {
+  if (/^https?:\/\//i.test(apiPath)) return apiPath
+  return `${baseURL.replace(/\/+$/, '')}/${apiPath.replace(/^\/+/, '')}`
+}
+
+function getJsonValueByPath(value: unknown, path: string): unknown {
+  const keys = path
+    .replace(/\[(\d+)\]/g, '.$1')
+    .split('.')
+    .map((key) => key.trim())
+    .filter(Boolean)
+
+  return keys.reduce<unknown>((current, key) => {
+    if (Array.isArray(current)) {
+      const index = Number(key)
+      return Number.isInteger(index) ? current[index] : undefined
+    }
+    if (current && typeof current === 'object') {
+      return (current as Record<string, unknown>)[key]
+    }
+    return undefined
+  }, value)
+}
+
+function getResponseError(json: any) {
+  if (typeof json?.error === 'string') return json.error
+  if (typeof json?.error?.message === 'string') return json.error.message
+  if (typeof json?.message === 'string') return json.message
+  return '获取余额失败'
+}
+
 const gptImageApi = new Hono()
   .get('/quota', async (c) => {
     // 按 endpointId 查端点；兼容老前端：未传 id 时回退到旧 yunwu key
@@ -82,15 +116,83 @@ const gptImageApi = new Hono()
       }
     }
 
-    // 自定义端点不支持查余额
+    // 自定义端点：按端点配置请求余额并提取指定 JSON 键
     if (endpoint.type === 'custom') {
-      return c.json(
-        {
-          success: false as const,
-          error: '[服务] 该端点不支持余额查询',
-        },
-        400,
-      )
+      if (!endpoint.balanceEnabled) {
+        return c.json(
+          {
+            success: false as const,
+            error: '[服务] 该端点未开启余额查询',
+          },
+          400,
+        )
+      }
+
+      const apiPath =
+        endpoint.balanceApiPath?.trim() || DEFAULT_BALANCE_API_PATH
+      const resultJsonKey =
+        endpoint.balanceResultJsonKey?.trim() ||
+        DEFAULT_BALANCE_RESULT_JSON_KEY
+
+      try {
+        const response = await fetchWithTimeout(
+          resolveBalanceUrl(endpoint.baseURL, apiPath),
+          {
+            headers: {
+              Authorization: `Bearer ${endpoint.apiKey}`,
+            },
+          },
+          15000,
+        )
+        const json: any = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          return c.json(
+            {
+              success: false as const,
+              error: getResponseError(json),
+            },
+            500,
+          )
+        }
+
+        const rawBalance = getJsonValueByPath(json, resultJsonKey)
+        const balance =
+          typeof rawBalance === 'number'
+            ? rawBalance
+            : typeof rawBalance === 'string'
+              ? Number(rawBalance.trim())
+              : Number.NaN
+        if (!Number.isFinite(balance)) {
+          return c.json(
+            {
+              success: false as const,
+              error: `结果 JSON 键“${resultJsonKey}”未返回有效数字`,
+            },
+            500,
+          )
+        }
+
+        const normalized: GPTImageQuotaResponse = {
+          message: '',
+          data: {
+            expires_at: -1,
+            name: endpoint.name,
+            total_granted: balance,
+            total_used: 0,
+            total_available: balance,
+            unlimited_quota: false,
+          },
+        }
+        return c.json({
+          success: true as const,
+          data: normalized,
+        })
+      } catch (error: any) {
+        return c.json(
+          { success: false as const, error: error.message || '获取余额失败' },
+          500,
+        )
+      }
     }
 
     // OpenRouter：GET /api/v1/credits

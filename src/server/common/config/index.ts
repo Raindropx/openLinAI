@@ -27,9 +27,15 @@ export interface GptImageEndpoint {
    * 余额来源类型：
    * - yunwu：云雾专属 token 接口查余额
    * - openrouter：OpenRouter /api/v1/credits 查余额
-   * - custom：不查余额
+   * - custom：可按下方自定义配置查询余额
    */
   type: GptImageEndpointType
+  /** 自定义端点是否查询账户余额 */
+  balanceEnabled?: boolean
+  /** 自定义端点余额 API 路径，可填写相对 baseURL 的路径或绝对 URL */
+  balanceApiPath?: string
+  /** 从余额响应中读取数值的 JSON 键路径 */
+  balanceResultJsonKey?: string
   /**
    * 生成引擎：
    * - openai-images：OpenAI SDK images.edit / images.generate（gpt-image-2 / dall-e）

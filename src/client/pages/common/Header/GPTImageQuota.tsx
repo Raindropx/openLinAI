@@ -20,9 +20,10 @@ export function GPTImageQuota() {
   if (!selectedEndpoint) return null
 
   const supportsQuota =
-    selectedEndpoint.type === 'yunwu' || selectedEndpoint.type === 'openrouter'
+    selectedEndpoint.type === 'yunwu' ||
+    selectedEndpoint.type === 'openrouter' ||
+    (selectedEndpoint.type === 'custom' && selectedEndpoint.balanceEnabled)
   const isOpenRouter = selectedEndpoint.type === 'openrouter'
-  const currency = isOpenRouter ? '$' : '￥'
   const endpointName =
     selectedEndpoint.name || selectedEndpoint.model || '未命名端点'
 
@@ -55,8 +56,10 @@ export function GPTImageQuota() {
                   {quota.unlimited_quota
                     ? '不限'
                     : isOpenRouter
-                      ? `${currency}${quota.total_available.toFixed(2)}`
-                      : `${(quota.total_available * 0.000001).toFixed(2)}${currency}`}
+                      ? `$${quota.total_available.toFixed(2)}`
+                      : selectedEndpoint.type === 'yunwu'
+                        ? `${(quota.total_available * 0.000001).toFixed(2)}￥`
+                        : quota.total_available.toFixed(2)}
                 </span>
               </span>
             ) : null}

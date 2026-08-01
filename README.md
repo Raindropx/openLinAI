@@ -1,17 +1,18 @@
 # openLinAI
 
-支持 Windows 本地运行和 ARM 架构 OpenWrt 部署的 AI 生图 API 与任务管理平台。
+支持 Windows 本地运行和 ARM64 OpenWrt 部署的 AI 生图与任务管理平台。
 
 本项目 fork 自 [libudu/LinAI](https://github.com/libudu/LinAI)，在原项目基础上针对轻量化部署、GPT Image 生图流程和本地数据管理进行了调整。
 
 ## 功能
 
-- GPT Image 生图与任务队列管理
+- 支持 GPT Image / DALL·E、OpenRouter Images 与聊天式图片生成引擎
+- 支持多个图片端点、默认端点、OpenRouter 余额与可选的自定义余额查询
 - 参考图片上传、压缩和缩略图处理
-- 生图模板、风格预设与提示词辅助
+- 生图模板、文件夹与拖动排序，支持风格预设、图片风格提取和提示词辅助
 - 角色卡生成与管理
-- API、模型和本地数据目录配置
-- 生成记录、任务状态与图片文件管理
+- 独立管理图片端点和 LLM 端点，并可自定义相关系统提示词
+- 生成记录、任务状态、批量下载与图片文件管理
 - 支持在 Windows PC 上本地运行
 - 支持使用 FFmpeg 作为图片处理后端
 - 支持 ARM64 OpenWrt、外接存储和 procd 自启动部署
@@ -27,22 +28,24 @@ OpenWrt 是本项目额外适配的部署方式，并非唯一运行平台。普
 
 ### 环境要求
 
-- Node.js
+- Node.js `^20.19.0` 或 `>=22.12.0`（当前 Vite 8 的构建要求）
 - pnpm
 
 ### 启动
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
 在 Windows PowerShell 或终端中执行以上命令即可。应用数据默认保存在项目运行目录下的 `data` 文件夹中。
 
-开发环境默认使用以下端口：
+当前 `pnpm dev` 默认使用以下端口：
 
-- 前端：以 Vite 输出为准
-- 后端 API：`http://localhost:3001`
+- 前端：`http://localhost:5174`
+- 后端 API：`http://localhost:3000`（Vite 会把 `/api` 请求代理到此端口）
+
+后端端口可通过 `PORT` 环境变量覆盖。
 
 API Key 等配置请通过应用内设置填写。请勿将包含密钥的 `.env`、数据目录或配置文件提交到 Git。
 

@@ -93,11 +93,16 @@ export function useGPTImageQuota() {
     () => endpoints.find((e) => e.id === selectedEndpointId) || endpoints[0],
     [endpoints, selectedEndpointId],
   )
-  // 仅 yunwu / openrouter 端点才查余额
+  // New API（云雾）/ OpenRouter 默认查余额；自定义端点按配置决定
   const activeEndpointId =
     selectedEndpoint?.type === 'yunwu' ||
-    selectedEndpoint?.type === 'openrouter'
+    selectedEndpoint?.type === 'openrouter' ||
+    (selectedEndpoint?.type === 'custom' && selectedEndpoint.balanceEnabled)
       ? selectedEndpoint.id
+      : null
+  const customBalanceConfig =
+    selectedEndpoint?.type === 'custom'
+      ? `${selectedEndpoint.balanceEnabled}:${selectedEndpoint.balanceApiPath}:${selectedEndpoint.balanceResultJsonKey}`
       : null
 
   const { data: tasks } = useTasks()
@@ -114,8 +119,8 @@ export function useGPTImageQuota() {
   )
 
   useEffect(() => {
-    fetchQuota(activeEndpointId)
-  }, [activeEndpointId, fetchQuota])
+    fetchQuota(activeEndpointId, customBalanceConfig !== null)
+  }, [activeEndpointId, customBalanceConfig, fetchQuota])
 
   useEffect(() => {
     if (!tasks || !activeEndpointId) return

@@ -27,6 +27,8 @@ const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 const DEFAULT_MODEL = 'gpt-image-2'
 const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.1-flash-image'
 const DEFAULT_CHAT_MODEL = 'google/gemini-2.5-flash-image'
+const DEFAULT_BALANCE_API_PATH = '/credits'
+const DEFAULT_BALANCE_RESULT_JSON_KEY = 'data.total_usage'
 
 const createEmptyEndpoint = (): GptImageEndpoint => ({
   id: uuidv4(),
@@ -48,12 +50,26 @@ const createPresetEndpoint = (
   apiKey: '',
   type: preset.type,
   engine: preset.engine,
+  balanceEnabled: preset.balanceEnabled,
+  balanceApiPath: preset.balanceApiPath,
+  balanceResultJsonKey: preset.balanceResultJsonKey,
 })
 
-const cleanEndpoint = (endpoint: GptImageEndpoint): GptImageEndpoint => ({
-  ...endpoint,
-  name: endpoint.name.trim(),
-})
+const cleanEndpoint = (endpoint: GptImageEndpoint): GptImageEndpoint => {
+  const cleaned = {
+    ...endpoint,
+    name: endpoint.name.trim(),
+  }
+
+  if (cleaned.type === 'custom' && cleaned.balanceEnabled) {
+    cleaned.balanceApiPath =
+      cleaned.balanceApiPath?.trim() || DEFAULT_BALANCE_API_PATH
+    cleaned.balanceResultJsonKey =
+      cleaned.balanceResultJsonKey?.trim() || DEFAULT_BALANCE_RESULT_JSON_KEY
+  }
+
+  return cleaned
+}
 
 const isCompleteEndpoint = (endpoint: GptImageEndpoint) =>
   Boolean(
@@ -73,6 +89,8 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     endpoints.length ? endpoints : [createEmptyEndpoint()],
   )
   const [activeId, setActiveId] = useState<string>(draftEndpoints[0]?.id || '')
+  const [pendingPresetEndpoint, setPendingPresetEndpoint] =
+    useState<GptImageEndpoint | null>(null)
 
   // 配置变化时同步草稿（如首次加载）
   useEffect(() => {
@@ -108,17 +126,31 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
   ])
 
   const activeEndpoint =
-    draftEndpoints.find((e) => e.id === activeId) || draftEndpoints[0]
+    pendingPresetEndpoint ||
+    draftEndpoints.find((e) => e.id === activeId) ||
+    draftEndpoints[0]
   const activePreset = findGptImageEndpointPreset(activeEndpoint)
 
   const updateActiveEndpoint = (patch: Partial<GptImageEndpoint>) => {
+    if (pendingPresetEndpoint) {
+      setPendingPresetEndpoint((endpoint) =>
+        endpoint ? { ...endpoint, ...patch } : endpoint,
+      )
+      return
+    }
     setDraftEndpoints((list) =>
       list.map((e) => (e.id === activeEndpoint.id ? { ...e, ...patch } : e)),
     )
   }
 
+  const handleSelectEndpoint = (id: string) => {
+    setPendingPresetEndpoint(null)
+    setActiveId(id)
+  }
+
   const handleAddEndpoint = () => {
     const ep = createEmptyEndpoint()
+    setPendingPresetEndpoint(null)
     setDraftEndpoints((list) => [...list, ep])
     setActiveId(ep.id)
   }
@@ -130,9 +162,8 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     if (!preset) return
 
     const endpoint = createPresetEndpoint(preset)
-    setDraftEndpoints((list) => [...list, endpoint])
-    setActiveId(endpoint.id)
-    message.info(`已创建“${preset.label}”草稿，请填写 API Key 后保存`)
+    setPendingPresetEndpoint(endpoint)
+    message.info(`已载入“${preset.label}”预设，请填写 API Key 后更新或保存`)
   }
 
   const handleDeleteEndpoint = (id: string) => {
@@ -191,8 +222,14 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         return
       }
       setDraftEndpoints((list) =>
-        list.map((e) => (e.id === cleanedEndpoint.id ? cleanedEndpoint : e)),
+        list.some((e) => e.id === cleanedEndpoint.id)
+          ? list.map((e) =>
+              e.id === cleanedEndpoint.id ? cleanedEndpoint : e,
+            )
+          : [...list, cleanedEndpoint],
       )
+      setPendingPresetEndpoint(null)
+      setActiveId(cleanedEndpoint.id)
       message.success('当前端点已更新')
     } finally {
       setUpdatingEndpoint(false)
@@ -202,7 +239,10 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
   useImperativeHandle(ref, () => ({
     save: async () => {
       // 校验端点
-      const cleaned = draftEndpoints
+      const endpointsToSave = pendingPresetEndpoint
+        ? [...draftEndpoints, pendingPresetEndpoint]
+        : draftEndpoints
+      const cleaned = endpointsToSave
         .map(cleanEndpoint)
         .filter(isCompleteEndpoint)
       if (cleaned.length === 0) {
@@ -214,6 +254,11 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         message.error('端点配置保存失败')
         throw new Error('Failed to save endpoints')
       }
+      setDraftEndpoints(cleaned)
+      if (pendingPresetEndpoint && isCompleteEndpoint(pendingPresetEndpoint)) {
+        setActiveId(pendingPresetEndpoint.id)
+      }
+      setPendingPresetEndpoint(null)
 
       const values = await form.validateFields()
       setGptImageSettings((prev) => {
@@ -264,8 +309,13 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         <div className="mb-2 text-sm text-gray-500">图片生成端点</div>
         <div className="flex flex-wrap gap-2">
           <Select
-            value={activeEndpoint?.id}
-            onChange={setActiveId}
+            value={pendingPresetEndpoint ? undefined : activeEndpoint?.id}
+            placeholder={
+              pendingPresetEndpoint
+                ? `预设草稿：${pendingPresetEndpoint.name}`
+                : '选择端点'
+            }
+            onChange={handleSelectEndpoint}
             className="min-w-40 flex-1"
             options={draftEndpoints.map((e) => ({
               value: e.id,
@@ -288,7 +338,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
           <Button loading={updatingEndpoint} onClick={handleUpdateEndpoint}>
             更新
           </Button>
-          {draftEndpoints.length > 1 && (
+          {!pendingPresetEndpoint && draftEndpoints.length > 1 && (
             <Button
               danger
               onClick={() => handleDeleteEndpoint(activeEndpoint.id)}
@@ -421,20 +471,100 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
             <Form.Item label="端点类型" required>
               <Radio.Group
                 value={activeEndpoint.type}
-                onChange={(e) => updateActiveEndpoint({ type: e.target.value })}
+                onChange={(e) => {
+                  const type = e.target.value as GptImageEndpoint['type']
+                  updateActiveEndpoint({
+                    type,
+                    ...(type === 'custom'
+                      ? {
+                          balanceApiPath:
+                            activeEndpoint.balanceApiPath ||
+                            DEFAULT_BALANCE_API_PATH,
+                          balanceResultJsonKey:
+                            activeEndpoint.balanceResultJsonKey ||
+                            DEFAULT_BALANCE_RESULT_JSON_KEY,
+                        }
+                      : {}),
+                  })
+                }}
               >
-                <Radio.Button value="yunwu">云雾</Radio.Button>
+                <Radio.Button value="yunwu">New API（云雾）</Radio.Button>
                 <Radio.Button value="openrouter">OpenRouter</Radio.Button>
                 <Radio.Button value="custom">自定义</Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-gray-400">
-                云雾 / OpenRouter
-                类型端点会在右上角显示余额；自定义端点不显示余额。
+                New API（云雾）/ OpenRouter
+                类型端点会在右上角显示余额；自定义端点可按需开启余额查询。
               </div>
             </Form.Item>
+            {activeEndpoint.type === 'custom' && (
+              <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium text-gray-700">
+                      获取账户余额
+                    </div>
+                    <div className="mt-1 text-xs text-gray-400">
+                      使用当前 API Key 发起 GET 请求，并从响应 JSON 中读取余额。
+                    </div>
+                  </div>
+                  <Switch
+                    checked={activeEndpoint.balanceEnabled ?? false}
+                    onChange={(balanceEnabled) =>
+                      updateActiveEndpoint({
+                        balanceEnabled,
+                        balanceApiPath:
+                          activeEndpoint.balanceApiPath ||
+                          DEFAULT_BALANCE_API_PATH,
+                        balanceResultJsonKey:
+                          activeEndpoint.balanceResultJsonKey ||
+                          DEFAULT_BALANCE_RESULT_JSON_KEY,
+                      })
+                    }
+                  />
+                </div>
+                {activeEndpoint.balanceEnabled && (
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <Form.Item
+                      label="余额API路径"
+                      className="mb-0"
+                      required
+                    >
+                      <Input
+                        value={
+                          activeEndpoint.balanceApiPath ??
+                          DEFAULT_BALANCE_API_PATH
+                        }
+                        onChange={(e) =>
+                          updateActiveEndpoint({
+                            balanceApiPath: e.target.value,
+                          })
+                        }
+                        placeholder={DEFAULT_BALANCE_API_PATH}
+                      />
+                    </Form.Item>
+                    <Form.Item label="结果JSON键" className="mb-0" required>
+                      <Input
+                        value={
+                          activeEndpoint.balanceResultJsonKey ??
+                          DEFAULT_BALANCE_RESULT_JSON_KEY
+                        }
+                        onChange={(e) =>
+                          updateActiveEndpoint({
+                            balanceResultJsonKey: e.target.value,
+                          })
+                        }
+                        placeholder={DEFAULT_BALANCE_RESULT_JSON_KEY}
+                      />
+                    </Form.Item>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Button
                 size="small"
+                disabled={Boolean(pendingPresetEndpoint)}
                 type={
                   gptImageSettings.defaultEndpointId === activeEndpoint.id
                     ? 'primary'
@@ -447,7 +577,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   : '设为默认端点'}
               </Button>
               <span className="text-xs text-gray-400">
-                刷新网页后图片生成会默认使用此端点
+                {pendingPresetEndpoint
+                  ? '请先更新或保存预设端点，再设为默认端点'
+                  : '刷新网页后图片生成会默认使用此端点'}
               </span>
             </div>
           </div>

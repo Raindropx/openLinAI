@@ -8,6 +8,9 @@ export interface GptImageEndpointPreset {
   model: string
   type: GptImageEndpoint['type']
   engine: NonNullable<GptImageEndpoint['engine']>
+  balanceEnabled?: boolean
+  balanceApiPath?: string
+  balanceResultJsonKey?: string
   website: string
   notes: string[]
 }
@@ -34,6 +37,17 @@ export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
     engine: 'openai-images',
     website: 'https://api.oljjio.xyz',
     notes: ['截至 2026-08-01，除 8 倍优质官转分组外其他分组可能不可用'],
+  },
+  {
+    id: 'openrouter-gemini-3.1-flash-image',
+    label: 'OpenRouter Gemini 3.1 Flash Image',
+    name: 'OpenRouter Gemini 3.1 Flash Image',
+    baseURL: 'https://openrouter.ai/api/v1',
+    model: 'google/gemini-3.1-flash-image',
+    type: 'openrouter',
+    engine: 'openrouter-images',
+    website: 'https://openrouter.ai',
+    notes: ['使用 OpenRouter Images 专用接口', '支持查询美元余额'],
   },
   {
     id: 'dragon-gpt-image-2',

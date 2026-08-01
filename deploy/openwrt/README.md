@@ -19,11 +19,11 @@
 其他 ARM64 OpenWrt 设备原则上也可参考部署，但 CPU 架构、固件版本、软件源、挂载路径和可用内存不同，需自行调整并验证。
 
 > [!WARNING]
-> openLinAI 当前没有内置用户登录和 API 访问鉴权，仅建议在可信局域网内使用。不要将 3000 或 8080 端口直接映射到公网。如需远程访问，请在服务前增加身份认证、HTTPS、VPN 或防火墙访问控制。
+> openLinAI 当前没有内置用户登录和 API 访问鉴权，仅建议在可信局域网内使用。不要将 LinAI 的 3000 端口或自定义反向代理端口直接映射到公网。如需远程访问，请在服务前增加身份认证、HTTPS、VPN 或防火墙访问控制。
 
 ## 0. 工作原理
 
-- 后端经 tsup 打包成**单个自包含 JS**（`dist/server/index.js`），除 `sharp`/`playwright` 外全部内联；本项目已用 ffmpeg 取代 sharp、并移除 wan(playwright) 路由，因此**路由器上无需 `node_modules`**，只要一个 `node` 二进制即可运行。
+- 后端经 tsup 打包成**单个 JS**（`dist/server/index.js`），当前只有 `sharp` 保持为动态外部依赖，其余第三方依赖均已内联。OpenWrt 使用 ffmpeg 处理上传图片和缩略图，不会走 sharp 分支，因此**路由器上无需 `node_modules`**，只要可用的 `node` 与 `ffmpeg` 即可运行。
 - 所有数据路径由 `DATA_DIR` 环境变量决定（默认 `cwd/data`），本部署固定指向 `/mnt/sda1/linai/data`。
 - 图像处理（参考图压缩、缩略图）由 `IMAGE_BACKEND=ffmpeg` 调用系统 `ffmpeg`，避免 musl 上编译原生模块。Entware 的精简版 ffmpeg 不含 libwebp，因此 ffmpeg 后端**输出 JPEG**（用内置 `mjpeg` 编码器，无需额外库）；sharp 后端（PC 开发）输出 webp。后缀与 MIME 由后端自动决定。
 - 参考图单文件限制为 16 MiB、输入像素限制为 4000 万；ffmpeg 默认串行处理，内存充裕时可在 `run.sh` 中把 `IMAGE_FFMPEG_CONCURRENCY` 调为 `2`（最多 4）。
@@ -56,7 +56,7 @@ wget -O - https://bin.entware.net/aarch64-k3.10/installer/generic.sh | sh
 
 ```sh
 /opt/bin/opkg install node ffmpeg
-/opt/bin/node -v                        # 期望输出版本号
+/opt/bin/node -v                        # 建议使用 Node.js 20 或更高版本
 /opt/bin/ffmpeg -encoders | grep mjpeg  # 期望有 VFS... mjpeg 一行
 /opt/bin/ffmpeg -filters | grep -E ' (scale|split|drawbox|overlay) '  # 四项都应有输出
 ```
@@ -65,10 +65,10 @@ wget -O - https://bin.entware.net/aarch64-k3.10/installer/generic.sh | sh
 
 ## 3. 在 PC 上构建项目
 
-在项目根目录（本仓库）：
+在项目根目录（本仓库）构建。当前 Vite 8 要求 PC 上使用 Node.js `^20.19.0` 或 `>=22.12.0`：
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
 pnpm build:privateSkipTag
 ```
 
@@ -76,7 +76,7 @@ pnpm build:privateSkipTag
 
 - `dist/server/index.js` — 自包含后端
 - `dist/client/` — 前端静态资源
-- `dist/data/` — 模板/示例图片种子数据
+- `dist/data/` — 首次部署使用的模板/示例图片种子数据
 - `dist/runtime/` — Windows 用的 node.exe，**OpenWrt 不需要，跳过**
 
 ## 4. 传到路由器
@@ -87,18 +87,25 @@ pnpm build:privateSkipTag
 # 先通过 SSH 在路由器上创建目标目录
 ssh root@<路由器IP> "mkdir -p /mnt/sda1/linai/dist"
 
-# 再上传构建产物
-scp -r dist/server dist/client dist/data root@<路由器IP>:/mnt/sda1/linai/dist/
+# 上传程序和前端文件
+scp -r dist/server dist/client root@<路由器IP>:/mnt/sda1/linai/dist/
+
+# 仅首次部署且目标 data 目录尚不存在时，上传种子数据到 APP_DIR/data
+scp -r dist/data root@<路由器IP>:/mnt/sda1/linai/
 ```
+
+注意：运行脚本把 `DATA_DIR` 设为 `/mnt/sda1/linai/data`，因此种子数据必须位于 `dist` 的同级目录，不能放在 `/mnt/sda1/linai/dist/data`。如果目标 `data` 已经存在，不要执行最后一条 `scp`，避免覆盖现有配置、任务、模板和图片。
 
 `<路由器IP>` 换成你的 MT6000 地址（如 192.168.8.1）。最终结构：
 
 ```
 /mnt/sda1/linai/
+├── data/
+│   ├── images/
+│   └── templates.json
 └── dist/
     ├── server/index.js
-    ├── client/
-    └── data/
+    └── client/
 ```
 
 ## 5. 配置 API Key
@@ -117,9 +124,9 @@ NODE_ENV=production \
 
 看到 `Server is running on http://localhost:3000` 后，浏览器打开 `http://<路由器IP>:3000`：
 
-1. 右上角设置 → 填入 GPT Image 端点和 API Key。配置保存在 SSD 的 `data/config.json`；部分 Key 仅进行可逆混淆，不应视为安全加密，请保护该文件和数据目录。
+1. 右上角设置 → 配置图片生成端点和 API Key。配置保存在 SSD 的 `data/config.json`；部分 Key 仅进行可逆混淆，不应视为安全加密，请保护该文件和数据目录。
 2. 在首页模板区填 prompt、选比例、可选上传参考图 → 生成。
-3. 对支持余额查询的端点，可在右上角查看余额；自定义端点可能不支持该功能。
+3. New API（云雾）与 OpenRouter 端点会查询余额；自定义端点可勾选“获取账户余额”，并配置余额 API 路径与结果 JSON 键。
 
 确认正常后 `Ctrl+C` 停止，进入下一步开机自启。
 
@@ -160,17 +167,26 @@ cat /proc/$PID/environ | tr '\0' '\n' | grep -E 'DATA_DIR|IMAGE_BACKEND|NODE_ENV
 # 应看到 DATA_DIR=/mnt/sda1/linai/data 和 IMAGE_BACKEND=ffmpeg
 ```
 
-## 7. （可选）nginx 反代到 8080
+## 7. （可选）nginx 反代到 8081
 
-若不想带 `:3000` 访问，用 `deploy/openwrt/nginx.conf`：
+若不想带 `:3000` 访问，可用 `deploy/openwrt/nginx.conf`。部分新版 GL.iNet 固件会让 LuCI 占用 `8080`，因此仓库示例改用 `8081`；部署前仍应先查看实际监听端口：
 
 ```sh
+ss -lntp 2>/dev/null || netstat -lntp
+```
+
+确认 `8081` 未被占用后再安装和配置 nginx：
+
+```sh
+opkg update
 opkg install nginx
 scp deploy/openwrt/nginx.conf root@<路由器IP>:/etc/nginx/conf.d/linai.conf
 /etc/init.d/nginx restart
 ```
 
-之后访问 `http://<路由器IP>:8080`。注意别和 LuCI 的 80 端口冲突。
+不同 OpenWrt 或 Entware nginx 包的配置根目录及 `conf.d` include 规则可能不同；上传前先确认当前 nginx 主配置确实包含 `/etc/nginx/conf.d/*.conf`，否则应改用设备实际的 include 目录。
+
+之后访问 `http://<路由器IP>:8081`。如果 `8081` 也被占用，请同时修改 `deploy/openwrt/nginx.conf` 中的 `listen` 和本文访问地址，不要覆盖 LuCI 或其他固件服务正在使用的端口。
 
 ## 8. 故障排查
 
@@ -236,7 +252,7 @@ scp deploy/openwrt/nginx.conf root@<路由器IP>:/etc/nginx/conf.d/linai.conf
 
 ## 9. 数据备份/迁移
 
-全部数据集中在 `/mnt/sda1/linai/data/`：`images/{generated,input,thumb}`、`tasks.json`、`templates.json`、`config.json`。整目录拷走即完成备份。
+全部运行数据都集中在 `/mnt/sda1/linai/data/`。其中包括 `images/`、`tasks.json`、`templates.json`、`style-presets.json`、`config.json` 和 `logs/` 等；部分文件或目录会在首次使用对应功能时创建。完整拷贝整个 `data` 目录即可备份，恢复时也应以整个目录为单位。
 
 ## 10. 更新部署
 
@@ -244,7 +260,9 @@ scp deploy/openwrt/nginx.conf root@<路由器IP>:/etc/nginx/conf.d/linai.conf
 
 ```sh
 /etc/init.d/linai stop
-cp -a /mnt/sda1/linai/data /mnt/sda1/linai/data.backup
+BACKUP_DIR="/mnt/sda1/linai/data.backup-$(date +%Y%m%d-%H%M%S)"
+cp -a /mnt/sda1/linai/data "$BACKUP_DIR"
+echo "数据已备份到 $BACKUP_DIR"
 ```
 
 在 PC 上重新生成产物后，只更新程序和前端文件：
@@ -260,4 +278,5 @@ scp -r dist/server dist/client root@<路由器IP>:/mnt/sda1/linai/dist/
 ```sh
 /etc/init.d/linai start
 logread -e linai
+wget -qO /dev/null http://127.0.0.1:3000/ && echo "LinAI HTTP 检查通过"
 ```

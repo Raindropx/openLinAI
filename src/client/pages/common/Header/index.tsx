@@ -41,7 +41,7 @@ export function Header() {
             >
               LinAI：AI 任务编排集成
             </h1>
-            <span className="text-sm text-gray-400">v{pkg.version}</span>
+            <span className="text-sm text-gray-400">v{pkg.version}-ow</span>
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-4">
