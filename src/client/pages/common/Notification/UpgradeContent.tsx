@@ -1,6 +1,11 @@
 import { MessageList } from './MessageList'
 
 const upgradeHistory = [
+  `LinAI v1.2.0 更新内容 🐱：
+🧹 清理已下线的 TTS、Ren’Py、Wan 视频生成和图片整理功能残留
+📦 移除无引用依赖与开发工具，精简源码、依赖树和锁文件
+🗃️ 启动时自动移除旧 TTS 配置，并将历史视频模板与任务隔离到可恢复备份
+🛡️ 收紧模板类型和接口校验，避免已废弃的视频模板重新进入活动数据`,
   `LinAI v1.1.9 更新内容 🐱：
 🖼️ 新增 OpenRouter Images 专用图片生成接口，兼容图片 URL、Base64 与更多模型能力参数
 🔗 图片端点新增 OpenRouter 预设；预设改为先载入草稿，点击更新或保存后才加入端点列表

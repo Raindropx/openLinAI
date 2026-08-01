@@ -16,7 +16,6 @@ interface GlobalState {
   endpoints: GptImageEndpoint[]
   llmEndpoints: LlmEndpoint[]
   llmPrompts: LlmPrompts
-  ttsInworldApiKey: string | null
   localNetworkUrl: string | null
   fillTemplateData: Partial<TaskTemplate> | null
   setFillTemplateData: (data: Partial<TaskTemplate> | null) => void
@@ -24,7 +23,6 @@ interface GlobalState {
   saveEndpoints: (endpoints: GptImageEndpoint[]) => Promise<boolean>
   saveLlmEndpoints: (endpoints: LlmEndpoint[]) => Promise<void>
   saveLlmPrompts: (prompts: LlmPrompts) => Promise<void>
-  setTTSInworldApiKey: (key: string | null) => Promise<void>
   fetchConfig: () => Promise<void>
 }
 
@@ -39,7 +37,6 @@ function syncFromConfigData(data: Record<string, unknown>) {
       styleOptimizePrompt: '',
       charCardPrompt: '',
     },
-    ttsInworldApiKey: (data.ttsInworldApiKey as string | null) ?? null,
     localNetworkUrl: (data.localNetworkUrl as string | null) ?? null,
   }
 }
@@ -49,7 +46,6 @@ export const useGlobalStore = create<GlobalState>()((set) => ({
   endpoints: [],
   llmEndpoints: [],
   llmPrompts: { optimizePrompt: '', styleOptimizePrompt: '', charCardPrompt: '' },
-  ttsInworldApiKey: null,
   localNetworkUrl: null,
   fillTemplateData: null,
   setFillTemplateData: (data) => set({ fillTemplateData: data }),
@@ -99,19 +95,6 @@ export const useGlobalStore = create<GlobalState>()((set) => ({
       }
     } catch (error) {
       console.error('Failed to save llm prompts', error)
-    }
-  },
-  setTTSInworldApiKey: async (key) => {
-    try {
-      const res = await client.api.config.$post({
-        json: { ttsInworldApiKey: key },
-      })
-      const json = await res.json()
-      if (json.success) {
-        set(syncFromConfigData(json.data as any))
-      }
-    } catch (error) {
-      console.error('Failed to update config', error)
     }
   },
   fetchConfig: async () => {

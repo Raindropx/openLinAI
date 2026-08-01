@@ -121,14 +121,6 @@ export function parsePngCharacterCardRaw(
   return null
 }
 
-/** 从 PNG 的 tEXt chunk 中提取角色卡数据 */
-export function parsePngCharacterCard(
-  buffer: ArrayBuffer,
-): CharacterCard | null {
-  const raw = parsePngCharacterCardRaw(buffer)
-  return raw ? normalizeCharacterCard(raw) : null
-}
-
 /** 将角色卡数据写入 PNG（在 IEND 前插入 tEXt chunk，移除旧 chara chunk） */
 export function writePngCharacterCard(
   pngBuffer: ArrayBuffer,

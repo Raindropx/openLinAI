@@ -23,7 +23,7 @@ const templateApi = new Hono()
         endpointId: z.string().optional(),
         images: z.array(z.string()),
         prompt: z.string(),
-        usageType: z.enum(['image', 'video', 'chat-image']),
+        usageType: z.enum(['image', 'chat-image']),
         aspectRatio: z.string().optional(),
         injectAspectRatio: z.boolean().optional(),
         folder: z.string().optional(),

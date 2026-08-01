@@ -1,4 +1,5 @@
 import './polyfills'
+import './startup-migrations'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import dotenv from 'dotenv'

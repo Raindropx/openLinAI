@@ -23,18 +23,6 @@ export interface GPTImageQuotaResponse {
   }
 }
 
-/** 图片模板的具体调用方式由当前端点决定；chat-image 作为旧数据继续兼容。 */
-function checkEngineMatch(
-  template: TaskTemplate | undefined,
-  _endpoint: { engine?: string },
-): string | null {
-  if (!template) return null
-  if (template.usageType === 'video') {
-    return '视频模板不能通过图片生成端点执行'
-  }
-  return null
-}
-
 const DEFAULT_BALANCE_API_PATH = '/credits'
 const DEFAULT_BALANCE_RESULT_JSON_KEY = 'data.total_usage'
 
@@ -308,10 +296,6 @@ const gptImageApi = new Hono()
           { success: false as const, error: '[服务] Template not found' },
           404,
         )
-      }
-      const engineError = checkEngineMatch(template, endpoint)
-      if (engineError) {
-        return c.json({ success: false as const, error: engineError }, 400)
       }
       if (endpoint.engine === 'chat-completions') {
         const result = await handleChatImageGeneration({

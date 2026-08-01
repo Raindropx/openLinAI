@@ -64,7 +64,6 @@ const configApi = new Hono()
             charCardPrompt: z.string(),
           })
           .optional(),
-        ttsInworldApiKey: z.string().nullable().optional(),
       }),
     ),
     (c) => {

@@ -87,13 +87,6 @@ export class TaskManager extends EventEmitter {
     return tasks ?? []
   }
 
-  public async getTasksByUsageType(
-    usageType: TaskTemplate['usageType'],
-  ): Promise<Task[]> {
-    const tasks = await this.getTasks()
-    return tasks.filter((t) => t.rawTemplate?.usageType === usageType)
-  }
-
   public async createTaskFromTemplate(options: {
     template: TaskTemplate
     source: string

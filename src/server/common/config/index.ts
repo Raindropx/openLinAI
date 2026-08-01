@@ -72,7 +72,6 @@ export interface Config {
   llmEndpoints: LlmEndpoint[]
   /** LLM 功能的系统提示词 */
   llmPrompts: LlmPrompts
-  ttsInworldApiKey?: string | null
   localNetworkUrl?: string
 }
 
@@ -152,7 +151,6 @@ const DEFAULT_CONFIG: Config = {
     styleOptimizePrompt: DEFAULT_STYLE_OPTIMIZE_PROMPT,
     charCardPrompt: DEFAULT_CHAR_CARD_PROMPT,
   },
-  ttsInworldApiKey: null,
 }
 
 let currentConfig: Config = { ...DEFAULT_CONFIG }
@@ -257,11 +255,6 @@ export const updateConfig = (newConfig: Partial<Config>): Config => {
   return currentConfig
 }
 
-/** 返回全部端点（apiKey 保持存储态，不解密）。 */
-export const getEndpoints = (): GptImageEndpoint[] => {
-  return currentConfig.endpoints || []
-}
-
 /** 按 id 查端点，返回副本且 apiKey 已解密。 */
 export const getEndpointById = (
   id: string,
@@ -283,8 +276,4 @@ export const getLlmEndpointById = (
   const ep = (currentConfig.llmEndpoints || []).find((e) => e.id === id)
   if (!ep) return null
   return { ...ep, apiKey: decryptApiKey(ep.apiKey || '') }
-}
-
-export const getTTSInworldApiKey = (): string | null => {
-  return currentConfig.ttsInworldApiKey || null
 }

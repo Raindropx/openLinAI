@@ -13,7 +13,7 @@ export interface TaskTemplate {
   prompt: string
   createdAt: number
   /** 模板用途；图片调用引擎由生成时选中的端点决定，chat-image 为兼容旧数据保留。 */
-  usageType: 'image' | 'video' | 'chat-image'
+  usageType: 'image' | 'chat-image'
   aspectRatio?: string
   /** 勾选后会在提示词末尾追加“。画面比例X:Y”，用于不支持 size 参数的模型 */
   injectAspectRatio?: boolean
@@ -21,10 +21,6 @@ export interface TaskTemplate {
   n?: number
   /** 用户拖动调整后的显示顺序；未设置的旧模板仍按创建时间倒序显示。 */
   sortOrder?: number
-}
-
-export interface GeminiTaskTemplate extends TaskTemplate {
-  // Add any gemini specific fields here if needed
 }
 
 type RenameFolderResult =
