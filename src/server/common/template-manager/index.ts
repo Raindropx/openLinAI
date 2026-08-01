@@ -23,6 +23,12 @@ export interface GeminiTaskTemplate extends TaskTemplate {
   // Add any gemini specific fields here if needed
 }
 
+type RenameFolderResult =
+  | { status: 'renamed'; updatedCount: number; newFolder: string }
+  | { status: 'not-found' }
+  | { status: 'conflict' }
+  | { status: 'same-name' }
+
 class TemplateManager {
   private dataDir: string
   private dbPath: string
@@ -129,18 +135,41 @@ class TemplateManager {
   public async renameFolder(
     oldFolder: string,
     newFolder: string,
-  ): Promise<number> {
-    let updatedCount = 0
+  ): Promise<RenameFolderResult> {
+    const normalizedNewFolder = newFolder.trim()
+    let result: RenameFolderResult = { status: 'not-found' }
     await this.store.mutate((list) => {
+      if (oldFolder === normalizedNewFolder) {
+        result = { status: 'same-name' }
+        return list
+      }
+
+      const sourceExists = list.some((template) => template.folder === oldFolder)
+      if (!sourceExists) return list
+
+      const targetExists = list.some(
+        (template) => template.folder === normalizedNewFolder,
+      )
+      if (targetExists) {
+        result = { status: 'conflict' }
+        return list
+      }
+
+      let updatedCount = 0
       for (const t of list) {
         if (t.folder === oldFolder) {
-          t.folder = newFolder
+          t.folder = normalizedNewFolder
           updatedCount++
         }
       }
+      result = {
+        status: 'renamed',
+        updatedCount,
+        newFolder: normalizedNewFolder,
+      }
       return list
     })
-    return updatedCount
+    return result
   }
 }
 

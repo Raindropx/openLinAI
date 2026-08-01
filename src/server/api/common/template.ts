@@ -43,19 +43,52 @@ const templateApi = new Hono()
     '/folder/rename',
     zValidator(
       'json',
-      z.object({
-        oldFolder: z.string(),
-        newFolder: z.string(),
-      }),
+      z
+        .object({
+          oldFolder: z.string().min(1),
+          newFolder: z
+            .string()
+            .trim()
+            .min(1, '文件夹名称不能为空')
+            .max(100, '文件夹名称不能超过 100 个字符'),
+        })
+        .refine(({ oldFolder, newFolder }) => oldFolder !== newFolder, {
+          message: '新名称不能与原名称相同',
+          path: ['newFolder'],
+        }),
     ),
     async (c) => {
       try {
         const { oldFolder, newFolder } = c.req.valid('json')
-        const updatedCount = await templateManager.renameFolder(
+        const result = await templateManager.renameFolder(
           oldFolder,
           newFolder,
         )
-        return c.json({ success: true as const, data: { updatedCount } })
+        if (result.status === 'not-found') {
+          return c.json(
+            { success: false as const, error: '原文件夹不存在' },
+            404,
+          )
+        }
+        if (result.status === 'conflict') {
+          return c.json(
+            { success: false as const, error: '已存在同名文件夹' },
+            409,
+          )
+        }
+        if (result.status === 'same-name') {
+          return c.json(
+            { success: false as const, error: '新名称不能与原名称相同' },
+            409,
+          )
+        }
+        return c.json({
+          success: true as const,
+          data: {
+            updatedCount: result.updatedCount,
+            newFolder: result.newFolder,
+          },
+        })
       } catch (error: any) {
         return c.json({ success: false as const, error: error.message }, 500)
       }
