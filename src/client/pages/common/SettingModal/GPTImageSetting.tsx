@@ -223,9 +223,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
       }
       setDraftEndpoints((list) =>
         list.some((e) => e.id === cleanedEndpoint.id)
-          ? list.map((e) =>
-              e.id === cleanedEndpoint.id ? cleanedEndpoint : e,
-            )
+          ? list.map((e) => (e.id === cleanedEndpoint.id ? cleanedEndpoint : e))
           : [...list, cleanedEndpoint],
       )
       setPendingPresetEndpoint(null)
@@ -293,20 +291,20 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
 
   return (
     <div className="px-4 py-2">
-      <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
-        <ExclamationCircleOutlined className="mt-0.5 shrink-0 text-amber-600" />
+      <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2.5 shadow-[inset_3px_0_0_rgba(228,173,58,0.75)]">
+        <ExclamationCircleOutlined className="mt-0.5 shrink-0 text-amber-400" />
         <div className="min-w-0">
-          <div className="text-sm font-medium text-amber-800">
+          <div className="text-sm font-medium text-amber-200">
             警惕第三方中转站风险
           </div>
-          <div className="mt-1 text-xs leading-5 text-amber-700">
+          <div className="mt-1 text-xs leading-5 text-amber-100/75">
             请勿填写真实密码等无关敏感信息；充值前请核实平台口碑与运营方，建议小额试用、随用随充。预设仅用于填写公开参数，不代表对服务商的背书。
           </div>
         </div>
       </div>
       <Form form={form} layout="vertical">
         {/* —— 端点列表管理 —— */}
-        <div className="mb-2 text-sm text-gray-500">图片生成端点</div>
+        <div className="mb-2 text-sm text-slate-400">图片生成端点</div>
         <div className="flex flex-wrap gap-2">
           <Select
             value={pendingPresetEndpoint ? undefined : activeEndpoint?.id}
@@ -349,22 +347,27 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         </div>
 
         {activeEndpoint && (
-          <div className="mt-3 space-y-3 rounded border border-slate-100 p-3">
+          <div className="mt-3 space-y-3 rounded-lg border border-[#343a44] bg-[#181c22] p-3">
             {activePreset && (
-              <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
-                <div className="font-medium">{activePreset.label}</div>
+              <div className="rounded-md border border-sky-400/25 bg-sky-500/10 px-3 py-2 text-xs leading-5 text-sky-100 shadow-[inset_3px_0_0_rgba(56,189,248,0.55)]">
+                <div className="font-medium text-sky-200">
+                  {activePreset.label}
+                </div>
                 <div>
                   官网：{' '}
                   <a
                     href={activePreset.website}
                     target="_blank"
                     rel="noreferrer"
+                    className="text-sky-300 hover:text-sky-200!"
                   >
                     {activePreset.website}
                   </a>
                 </div>
                 {activePreset.notes.map((note) => (
-                  <div key={note}>{note}</div>
+                  <div key={note} className="text-sky-100/70">
+                    {note}
+                  </div>
                 ))}
               </div>
             )}
@@ -462,7 +465,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   聊天式（Nano Banana 等）
                 </Radio.Button>
               </Radio.Group>
-              <div className="mt-1 text-xs text-gray-400">
+              <div className="mt-1 text-xs text-slate-500">
                 GPT Image / DALL·E 使用 OpenAI 兼容接口；OpenRouter Images
                 使用专用 /images 接口并按模型能力传参；聊天式使用
                 chat/completions，并通过 image_config 传递图片参数。
@@ -492,19 +495,19 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 <Radio.Button value="openrouter">OpenRouter</Radio.Button>
                 <Radio.Button value="custom">自定义</Radio.Button>
               </Radio.Group>
-              <div className="mt-1 text-xs text-gray-400">
+              <div className="mt-1 text-xs text-slate-500">
                 New API（云雾）/ OpenRouter
                 类型端点会在右上角显示余额；自定义端点可按需开启余额查询。
               </div>
             </Form.Item>
             {activeEndpoint.type === 'custom' && (
-              <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
+              <div className="rounded-md border border-white/10 bg-white/[0.03] p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-medium text-gray-700">
+                    <div className="text-sm font-medium text-slate-200">
                       获取账户余额
                     </div>
-                    <div className="mt-1 text-xs text-gray-400">
+                    <div className="mt-1 text-xs text-slate-500">
                       使用当前 API Key 发起 GET 请求，并从响应 JSON 中读取余额。
                     </div>
                   </div>
@@ -525,11 +528,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 </div>
                 {activeEndpoint.balanceEnabled && (
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <Form.Item
-                      label="余额API路径"
-                      className="mb-0"
-                      required
-                    >
+                    <Form.Item label="余额API路径" className="mb-0" required>
                       <Input
                         value={
                           activeEndpoint.balanceApiPath ??
@@ -576,7 +575,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   ? '当前默认端点'
                   : '设为默认端点'}
               </Button>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-slate-500">
                 {pendingPresetEndpoint
                   ? '请先更新或保存预设端点，再设为默认端点'
                   : '刷新网页后图片生成会默认使用此端点'}
@@ -585,11 +584,11 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
           </div>
         )}
 
-        <div className="my-3 border-t border-slate-100" />
+        <div className="my-3 border-t border-white/10" />
 
         {/* —— 生成参数（与端点无关，本地设置） —— */}
         <Form.Item>
-          <div className="mb-2 text-sm text-gray-500">生成尺寸</div>
+          <div className="mb-2 text-sm text-slate-400">生成尺寸</div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-lg">
               <span>1K</span>
@@ -627,7 +626,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
           </div>
         </Form.Item>
         <Form.Item>
-          <div className="mb-2 text-sm text-gray-500">画质设置</div>
+          <div className="mb-2 text-sm text-slate-400">画质设置</div>
           <Form.Item name="quality" noStyle>
             <Radio.Group>
               <Radio.Button value="medium">Medium</Radio.Button>
@@ -656,7 +655,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         <Form.Item>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-lg">
-              <span className="text-sm text-gray-500">生成多张</span>
+              <span className="text-sm text-slate-400">生成多张</span>
               <Form.Item name="enableMultiple" valuePropName="checked" noStyle>
                 <Switch disabled={isPublic} />
               </Form.Item>

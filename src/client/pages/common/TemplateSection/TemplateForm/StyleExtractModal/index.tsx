@@ -7,10 +7,11 @@ import {
   RobotOutlined,
   SaveOutlined,
 } from '@ant-design/icons'
+import type { UploadProps } from 'antd'
 import {
+  Image as AntImage,
   Button,
   Checkbox,
-  Image as AntImage,
   Input,
   Modal,
   Select,
@@ -18,7 +19,6 @@ import {
   Upload,
   message,
 } from 'antd'
-import type { UploadProps } from 'antd'
 import { hc } from 'hono/client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AppType } from '../../../../../../server'
@@ -30,10 +30,7 @@ import {
   openGallery,
   type GalleryImageSelection,
 } from '../../../components/Gallery'
-import {
-  optimizeStyleTemplate,
-  resolveStylePrompt,
-} from '../styleOptimize'
+import { optimizeStyleTemplate, resolveStylePrompt } from '../styleOptimize'
 
 const client = hc<AppType>('/')
 
@@ -63,7 +60,11 @@ const DIMENSIONS: Array<{
   { key: 'color_palette', label: '色彩与色调', hint: '主色、饱和度、冷暖倾向' },
   { key: 'lighting', label: '光影', hint: '光源方向、光质、阴影' },
   { key: 'texture_effects', label: '质感与特效', hint: '颗粒、材质、后期效果' },
-  { key: 'subject_main', label: '主体描述', hint: '核心主体、形态、动作、表情' },
+  {
+    key: 'subject_main',
+    label: '主体描述',
+    hint: '核心主体、形态、动作、表情',
+  },
   { key: 'subject_detail', label: '主体细节', hint: '穿戴、材质、妆容等细节' },
   { key: 'environment', label: '环境与背景', hint: '场景、地点、物件、天气' },
   { key: 'ui_text', label: '文字与 UI', hint: '文字、字幕、界面元素' },
@@ -145,10 +146,11 @@ export function StyleExtractModal({
     optimizeEndpointId,
     setOptimizeEndpointId,
   } = useLocalSetting()
-  const endpointId =
-    llmEndpoints.some((endpoint) => endpoint.id === styleExtractEndpointId)
-      ? styleExtractEndpointId
-      : llmEndpoints[0]?.id
+  const endpointId = llmEndpoints.some(
+    (endpoint) => endpoint.id === styleExtractEndpointId,
+  )
+    ? styleExtractEndpointId
+    : llmEndpoints[0]?.id
   const [imageUrl, setImageUrl] = useState('')
   const [previewUrl, setPreviewUrl] = useState('')
   const [busy, setBusy] = useState(false)
@@ -323,202 +325,226 @@ export function StyleExtractModal({
 
   return (
     <>
-    <Modal
-      title="图片风格提取"
-      open={open}
-      onCancel={close}
-      width={780}
-      destroyOnHidden
-      footer={[
-        <Button key="cancel" onClick={close} disabled={busy}>取消</Button>,
-        <Button
-          key="copy"
-          icon={<CopyOutlined />}
-          disabled={!result}
-          onClick={() => navigator.clipboard.writeText(result).then(() => message.success('已复制'))}
-        >
-          复制
-        </Button>,
-        <Button
-          key="apply"
-          type="primary"
-          disabled={!result}
-          onClick={() => onApply(resolveStylePrompt(result, currentPrompt))}
-        >
-          应用到提示词
-        </Button>,
-      ]}
-    >
-      <Spin spinning={busy}>
-        <div className="space-y-5">
-          <div className="grid gap-3 md:grid-cols-[240px_1fr]">
-            <Upload.Dragger
-              accept="image/jpeg,image/png,image/webp"
-              showUploadList={false}
-              beforeUpload={handleUpload}
-              disabled={busy}
-              openFileDialogOnClick={!previewUrl}
-              className="[&_.ant-upload]:!p-2"
-            >
-              <div className="relative flex h-40 w-full items-center justify-center overflow-hidden">
-                {previewUrl ? (
-                  <>
-                    <AntImage
-                      src={previewUrl}
-                      alt="待分析图片"
-                      styles={{
-                        root: {
-                          display: 'block',
-                          width: '100%',
-                          height: '100%',
-                        },
-                        image: {
-                          display: 'block',
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'contain',
-                        },
-                      }}
-                      preview={{ mask: '预览图片' }}
-                    />
-                    <Button
-                      type="text"
-                      shape="circle"
-                      icon={<CloseOutlined />}
-                      aria-label="清除图片"
-                      disabled={busy}
-                      className="bg-white/90! text-gray-600! shadow-sm"
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        right: 0,
-                        zIndex: 10,
-                      }}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        reset()
-                      }}
-                    />
-                  </>
-                ) : (
-                  <div className="text-center text-gray-400">
-                    <InboxOutlined className="mb-2 text-3xl" />
-                    <div>拖入或选择本地图片</div>
-                  </div>
-                )}
-              </div>
-            </Upload.Dragger>
-            <div className="space-y-3">
-              <Button
-                block
-                icon={<PictureOutlined />}
+      <Modal
+        title="图片风格提取"
+        open={open}
+        onCancel={close}
+        width={780}
+        destroyOnHidden
+        footer={[
+          <Button key="cancel" onClick={close} disabled={busy}>
+            取消
+          </Button>,
+          <Button
+            key="copy"
+            icon={<CopyOutlined />}
+            disabled={!result}
+            onClick={() =>
+              navigator.clipboard
+                .writeText(result)
+                .then(() => message.success('已复制'))
+            }
+          >
+            复制
+          </Button>,
+          <Button
+            key="apply"
+            type="primary"
+            disabled={!result}
+            onClick={() => onApply(resolveStylePrompt(result, currentPrompt))}
+          >
+            应用到提示词
+          </Button>,
+        ]}
+      >
+        <Spin spinning={busy}>
+          <div className="space-y-5">
+            <div className="grid gap-3 md:grid-cols-[240px_1fr]">
+              <Upload.Dragger
+                accept="image/jpeg,image/png,image/webp"
+                showUploadList={false}
+                beforeUpload={handleUpload}
                 disabled={busy}
-                onClick={() => openGallery({
-                  onSelect: (images) => {
-                    if (images[0]) void selectImage(images[0])
-                  },
-                })}
+                openFileDialogOnClick={!previewUrl}
+                className="[&_.ant-upload]:!p-2"
               >
-                从图库选择
-              </Button>
-              <div>
-                <div className="mb-1 text-sm text-gray-600">LLM 端点</div>
-                <Select
-                  className="w-full"
-                  value={endpointId}
-                  placeholder="请选择支持视觉识别的端点"
-                  notFoundContent="请先在设置中配置 LLM 端点"
-                  options={llmEndpoints.map((endpoint) => ({
-                    value: endpoint.id,
-                    label: endpoint.name || '未命名端点',
-                  }))}
-                  onChange={setStyleExtractEndpointId}
-                />
-                <div className="mt-1 text-xs text-gray-400">所选模型需支持图片输入</div>
-              </div>
-              <Button type="primary" block onClick={analyze} disabled={!imageUrl || !endpointId}>
-                分析图片风格
-              </Button>
-            </div>
-          </div>
-
-          {composed && (
-            <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border border-gray-200 p-3">
-              {DIMENSIONS.map(({ key, label, hint }) => (
-                <div key={key} className="grid items-start gap-2 md:grid-cols-[110px_1fr]">
-                  <Checkbox
-                    checked={selected.has(key)}
-                    onChange={(event) => setSelected((previous) => {
-                      const next = new Set(previous)
-                      event.target.checked ? next.add(key) : next.delete(key)
-                      return next
-                    })}
-                  >
-                    {label}
-                  </Checkbox>
-                  <Input
-                    value={analysis[key]}
-                    placeholder={hint}
-                    onChange={(event) => setAnalysis((previous) => ({
-                      ...previous,
-                      [key]: event.target.value,
-                    }))}
-                  />
+                <div className="relative flex h-40 w-full items-center justify-center overflow-hidden">
+                  {previewUrl ? (
+                    <>
+                      <AntImage
+                        src={previewUrl}
+                        alt="待分析图片"
+                        styles={{
+                          root: {
+                            display: 'block',
+                            width: '100%',
+                            height: '100%',
+                          },
+                          image: {
+                            display: 'block',
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                          },
+                        }}
+                        preview={{ mask: '预览图片' }}
+                      />
+                      <Button
+                        type="text"
+                        shape="circle"
+                        icon={<CloseOutlined />}
+                        aria-label="清除图片"
+                        disabled={busy}
+                        className="border! border-white/10! bg-black/65! text-slate-200! shadow-sm backdrop-blur"
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          right: 0,
+                          zIndex: 10,
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          reset()
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <div className="text-center text-slate-400">
+                      <InboxOutlined className="mb-2 text-3xl" />
+                      <div>拖入或选择本地图片</div>
+                    </div>
+                  )}
                 </div>
-              ))}
+              </Upload.Dragger>
+              <div className="space-y-3">
+                <Button
+                  block
+                  icon={<PictureOutlined />}
+                  disabled={busy}
+                  onClick={() =>
+                    openGallery({
+                      onSelect: (images) => {
+                        if (images[0]) void selectImage(images[0])
+                      },
+                    })
+                  }
+                >
+                  从图库选择
+                </Button>
+                <div>
+                  <div className="mb-1 text-sm text-slate-400">LLM 端点</div>
+                  <Select
+                    className="w-full"
+                    value={endpointId}
+                    placeholder="请选择支持视觉识别的端点"
+                    notFoundContent="请先在设置中配置 LLM 端点"
+                    options={llmEndpoints.map((endpoint) => ({
+                      value: endpoint.id,
+                      label: endpoint.name || '未命名端点',
+                    }))}
+                    onChange={setStyleExtractEndpointId}
+                  />
+                  <div className="mt-1 text-xs text-slate-500">
+                    所选模型需支持图片输入
+                  </div>
+                </div>
+                <Button
+                  type="primary"
+                  block
+                  onClick={analyze}
+                  disabled={!imageUrl || !endpointId}
+                >
+                  分析图片风格
+                </Button>
+              </div>
             </div>
-          )}
 
-          <div>
-            <div className="mb-1 flex items-center justify-between text-sm text-gray-600">
-              <span>组合提示词</span>
-              <span className="flex flex-wrap justify-end gap-1">
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<RobotOutlined />}
-                  loading={styleOptimizing}
-                  disabled={!result.trim()}
-                  onClick={() => void optimizeResult()}
-                >
-                  AI 优化
-                </Button>
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<SaveOutlined />}
-                  disabled={!result.trim()}
-                  onClick={() => setPresetNameOpen(true)}
-                >
-                  加入风格预设
-                </Button>
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<ReloadOutlined />}
-                  disabled={!composed}
-                  onClick={() => {
-                    setManualResult(false)
-                    setResult(composed)
-                  }}
-                >
-                  重新组合
-                </Button>
-              </span>
+            {composed && (
+              <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border border-[#343a44] bg-[#15181d] p-3">
+                {DIMENSIONS.map(({ key, label, hint }) => (
+                  <div
+                    key={key}
+                    className="grid items-start gap-2 md:grid-cols-[110px_1fr]"
+                  >
+                    <Checkbox
+                      checked={selected.has(key)}
+                      onChange={(event) =>
+                        setSelected((previous) => {
+                          const next = new Set(previous)
+                          event.target.checked
+                            ? next.add(key)
+                            : next.delete(key)
+                          return next
+                        })
+                      }
+                    >
+                      {label}
+                    </Checkbox>
+                    <Input
+                      value={analysis[key]}
+                      placeholder={hint}
+                      onChange={(event) =>
+                        setAnalysis((previous) => ({
+                          ...previous,
+                          [key]: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div>
+              <div className="mb-1 flex items-center justify-between text-sm text-slate-400">
+                <span>组合提示词</span>
+                <span className="flex flex-wrap justify-end gap-1">
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<RobotOutlined />}
+                    loading={styleOptimizing}
+                    disabled={!result.trim()}
+                    onClick={() => void optimizeResult()}
+                  >
+                    AI 优化
+                  </Button>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<SaveOutlined />}
+                    disabled={!result.trim()}
+                    onClick={() => setPresetNameOpen(true)}
+                  >
+                    加入风格预设
+                  </Button>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<ReloadOutlined />}
+                    disabled={!composed}
+                    onClick={() => {
+                      setManualResult(false)
+                      setResult(composed)
+                    }}
+                  >
+                    重新组合
+                  </Button>
+                </span>
+              </div>
+              <Input.TextArea
+                value={result}
+                rows={4}
+                placeholder="分析完成后，可在此编辑最终提示词"
+                onChange={(event) => {
+                  setManualResult(true)
+                  setResult(event.target.value)
+                }}
+              />
             </div>
-            <Input.TextArea
-              value={result}
-              rows={4}
-              placeholder="分析完成后，可在此编辑最终提示词"
-              onChange={(event) => {
-                setManualResult(true)
-                setResult(event.target.value)
-              }}
-            />
           </div>
-        </div>
-      </Spin>
-    </Modal>
+        </Spin>
+      </Modal>
       <Modal
         title="加入风格预设"
         open={presetNameOpen}
@@ -536,7 +562,7 @@ export function StyleExtractModal({
         destroyOnHidden
       >
         <div className="space-y-2">
-          <div className="text-sm text-gray-600">预设名称</div>
+          <div className="text-sm text-slate-400">预设名称</div>
           <Input
             autoFocus
             value={presetName}
@@ -546,7 +572,7 @@ export function StyleExtractModal({
             onChange={(event) => setPresetName(event.target.value)}
             onPressEnter={() => void saveAsPreset()}
           />
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-slate-500">
             保存时会自动加入 {'{prompt}'} 占位符，之后可在风格预设中继续编辑。
           </div>
         </div>

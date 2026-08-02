@@ -5,88 +5,13 @@ import {
 } from '@ant-design/icons'
 import { Button, message, Popconfirm, Space, Tag, Tooltip } from 'antd'
 import { hc } from 'hono/client'
-import React from 'react'
 import type { AppType } from '../../../../../server'
 import { TaskTemplate } from '../../../../../server/common/template-manager'
-import type { GptImageSize } from '../../../../../server/module/gpt-image/enum'
-import openaiIcon from '../../../../assets/icon/openai.svg'
-import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { useTemplates } from '../../../../hooks/useTemplates'
-import { useGlobalStore } from '../../../../store/global'
-import { openSettingModal } from '../../SettingModal'
 import { TemplateEditButton } from './TemplateItemEditButton'
 
 const client = hc<AppType>('/')
 
-export const TemplateItemGenerateButtons: React.FC<{
-  template: TaskTemplate
-}> = ({ template }) => {
-  const { gptImageSettings } = useLocalSetting()
-  const endpoints = useGlobalStore((state) => state.endpoints)
-
-  const doGenerate = async (templateId: string, size: GptImageSize) => {
-    try {
-      const res = await client.api.gptImage.generate.$post({
-        json: {
-          templateId,
-          endpointId: gptImageSettings.selectedEndpointId || endpoints[0]?.id,
-          size,
-          quality: gptImageSettings.quality,
-          writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
-        },
-      })
-      const data = await res.json()
-      if (!data.success) {
-        message.error(data.error || '生图失败')
-        return
-      }
-      message.success('任务提交成功')
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : '请求失败'
-      message.error(`[网络] ${msg}`)
-    }
-  }
-
-  const handleGenerate = (templateId: string, size: GptImageSize) => {
-    if (endpoints.length === 0) {
-      openSettingModal({
-        initialTab: 'gpt-image',
-        onSuccess: () => {
-          doGenerate(templateId, size)
-        },
-      })
-      return
-    }
-
-    doGenerate(templateId, size)
-  }
-
-  return (
-    <>
-      {(
-        [
-          { size: '1K', key: 'enable1K', value: '1k' },
-          { size: '2K', key: 'enable2K', value: '2k' },
-          { size: '4K', key: 'enable4K', value: '4k' },
-        ] as const
-      ).map(
-        (item) =>
-          gptImageSettings[item.key] && (
-            <Tooltip key={item.key} title={`GPTImage2 生成 ${item.size} 图`}>
-              <Button
-                className="flex items-center justify-center px-2!"
-                variant="outlined"
-                icon={<img src={openaiIcon} className="h-4 w-4 opacity-70" />}
-                onClick={() => handleGenerate(template.id, item.value)}
-              >
-                {item.size}
-              </Button>
-            </Tooltip>
-          ),
-      )}
-    </>
-  )
-}
 export const TemplateItemHeader = ({
   template,
   draggable,
@@ -127,9 +52,6 @@ export const TemplateItemHeader = ({
               {template.n}张
             </Tag>
           )}
-          <div className="ml-2 hidden gap-2 sm:flex">
-            <TemplateItemGenerateButtons template={template} />
-          </div>
         </Space>
         <div className="flex items-center gap-1">
           <Tooltip title="载入到工作区">
@@ -140,7 +62,7 @@ export const TemplateItemHeader = ({
                 onLoad(template)
                 message.success('已载入到工作区')
               }}
-              className="hover:text-emerald-600!"
+              className="hover:text-amber-300!"
             />
           </Tooltip>
           <TemplateEditButton template={template} />
@@ -164,7 +86,7 @@ export const TemplateItemHeader = ({
                 )
                 e.dataTransfer.effectAllowed = 'move'
               }}
-              className="flex cursor-move items-center justify-center px-1 text-slate-400 transition-colors hover:text-slate-600"
+              className="flex cursor-move items-center justify-center px-1 text-slate-500 transition-colors hover:text-slate-200"
             >
               <HolderOutlined />
             </div>

@@ -1,13 +1,11 @@
-import { Card, Tooltip, message } from 'antd'
+import { PictureOutlined } from '@ant-design/icons'
+import { Card, Checkbox, Image, Tooltip, message } from 'antd'
 import copy from 'copy-to-clipboard'
 import dayjs from 'dayjs'
 import { useState, type DragEvent } from 'react'
 import { TaskTemplate } from '../../../../../server/common/template-manager'
 import { ImageGroup } from '../../../../pages/common/components/ImageGroup'
-import {
-  TemplateItemGenerateButtons,
-  TemplateItemHeader,
-} from './TemplateItemHeader'
+import { TemplateItemHeader } from './TemplateItemHeader'
 
 interface TemplateItemProps {
   template: TaskTemplate
@@ -18,6 +16,11 @@ interface TemplateItemProps {
     targetId: string,
     position: TemplateDropPosition,
   ) => void
+  variant?: 'list' | 'tile'
+  selectionMode?: boolean
+  selected?: boolean
+  onToggleSelect?: (templateId: string) => void
+  active?: boolean
 }
 
 export type TemplateDropPosition = 'before' | 'after'
@@ -27,19 +30,36 @@ export function TemplateItem({
   draggable = false,
   onLoad,
   onReorder,
+  variant = 'list',
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+  active = false,
 }: TemplateItemProps) {
-  const [dropPosition, setDropPosition] =
-    useState<TemplateDropPosition | null>(null)
+  const [dropPosition, setDropPosition] = useState<TemplateDropPosition | null>(
+    null,
+  )
 
   const getDropPosition = (event: DragEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect()
     return event.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
   }
 
+  const tileMode = variant === 'tile'
+
   return (
     <Card
       size="small"
-      className={`shadow-sm transition-shadow hover:shadow-md ${
+      onClick={() => {
+        if (selectionMode) onToggleSelect?.(template.id)
+      }}
+      className={`border-[#303640]! bg-[#1d2128]! shadow-sm transition-all hover:border-[#49515f]! ${
+        selectionMode ? 'cursor-pointer' : ''
+      } ${
+        selected || active
+          ? 'border-amber-400/70! shadow-[0_0_0_1px_rgba(241,184,75,0.2)]'
+          : ''
+      } ${
         dropPosition === 'before'
           ? 'border-t-2! border-t-blue-500!'
           : dropPosition === 'after'
@@ -47,7 +67,9 @@ export function TemplateItem({
             : ''
       }`}
       classNames={{
-        body: 'p-[10px]! hover:bg-gray-100 transition-colors duration-100',
+        body: tileMode
+          ? 'p-0! overflow-hidden hover:bg-[#242932] transition-colors duration-100'
+          : 'p-[10px]! hover:bg-[#242932] transition-colors duration-100',
       }}
       onDragOver={(event) => {
         if (!draggable) return
@@ -81,45 +103,124 @@ export function TemplateItem({
         }
       }}
     >
-      <div className="flex gap-2">
-        <ImageGroup images={template.images || []} width={80} height={100} />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <TemplateItemHeader
-            template={template}
-            draggable={draggable}
-            onLoad={onLoad}
-          />
-          <div className="flex items-center gap-2">
-            {template.title && (
-              <div
-                className="truncate font-bold text-slate-800"
-                title={template.title}
-              >
-                {template.title}
+      {tileMode ? (
+        <div className="flex h-full flex-col">
+          <div className="relative aspect-[4/3] overflow-hidden border-b border-[#303640] bg-[#111318]">
+            {template.images?.[0] ? (
+              <Image
+                src={template.images[0]}
+                alt={template.title || '模板预览'}
+                preview={!selectionMode}
+                classNames={{
+                  root: 'w-full h-full',
+                  image: 'w-full! h-full! object-cover',
+                }}
+              />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-600">
+                <PictureOutlined className="text-3xl" />
+                <span className="text-xs">暂无参考图</span>
               </div>
             )}
-            <div className="shrink-0 text-xs text-slate-400">
-              {dayjs(template.createdAt).format('YY/MM/DD HH:mm')}
-            </div>
+            {template.images && template.images.length > 1 && (
+              <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                {template.images.length} 张
+              </span>
+            )}
+            {selectionMode && (
+              <div
+                className="absolute top-2 left-2 rounded-md bg-black/55 p-1"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <Checkbox
+                  checked={selected}
+                  onChange={() => onToggleSelect?.(template.id)}
+                />
+              </div>
+            )}
           </div>
-          <Tooltip title={template.prompt} placement="bottom">
-            <p
-              className="m-0 line-clamp-2 cursor-pointer text-sm text-slate-600 transition-colors hover:text-blue-500"
-              onClick={() => {
-                if (template.prompt) {
-                  copy(template.prompt)
-                  message.success('提示词已复制')
-                }
-              }}
-            >
-              {template.prompt}
-            </p>
-          </Tooltip>
-          <div className="ml-2 flex justify-end gap-2 sm:hidden">
-            <TemplateItemGenerateButtons template={template} />
+          <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
+            {!selectionMode && (
+              <TemplateItemHeader
+                template={template}
+                draggable={draggable}
+                onLoad={onLoad}
+              />
+            )}
+            <div className="flex min-w-0 items-center gap-2">
+              <div
+                className="min-w-0 flex-1 truncate font-bold text-slate-100"
+                title={template.title}
+              >
+                {template.title || '未命名模板'}
+              </div>
+              <div className="shrink-0 text-[11px] text-slate-500">
+                {dayjs(template.createdAt).format('YY/MM/DD')}
+              </div>
+            </div>
+            <Tooltip title={template.prompt} placement="bottom">
+              <p
+                className="m-0 line-clamp-3 cursor-pointer text-xs leading-5 text-slate-400 transition-colors hover:text-amber-300"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  if (!selectionMode && template.prompt) {
+                    copy(template.prompt)
+                    message.success('提示词已复制')
+                  }
+                }}
+              >
+                {template.prompt || '暂无提示词'}
+              </p>
+            </Tooltip>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex gap-2">
+          {selectionMode && (
+            <Checkbox
+              checked={selected}
+              onChange={() => onToggleSelect?.(template.id)}
+              onClick={(event) => event.stopPropagation()}
+            />
+          )}
+          <ImageGroup images={template.images || []} width={80} height={100} />
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            {!selectionMode && (
+              <TemplateItemHeader
+                template={template}
+                draggable={draggable}
+                onLoad={onLoad}
+              />
+            )}
+            <div className="flex items-center gap-2">
+              {template.title && (
+                <div
+                  className="truncate font-bold text-slate-100"
+                  title={template.title}
+                >
+                  {template.title}
+                </div>
+              )}
+              <div className="shrink-0 text-xs text-slate-500">
+                {dayjs(template.createdAt).format('YY/MM/DD HH:mm')}
+              </div>
+            </div>
+            <Tooltip title={template.prompt} placement="bottom">
+              <p
+                className="m-0 line-clamp-2 cursor-pointer text-sm text-slate-400 transition-colors hover:text-amber-300"
+                onClick={() => {
+                  if (template.prompt) {
+                    copy(template.prompt)
+                    message.success('提示词已复制')
+                  }
+                }}
+              >
+                {template.prompt}
+              </p>
+            </Tooltip>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }

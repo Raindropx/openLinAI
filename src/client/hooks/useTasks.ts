@@ -40,6 +40,7 @@ const useTasksStore = create<TasksState>((set, get) => ({
 
           es.onerror = (error) => {
             console.error('SSE Error:', error)
+            set({ loading: false })
           }
 
           return {

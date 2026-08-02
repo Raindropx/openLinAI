@@ -1,9 +1,15 @@
-import { BulbOutlined, PlusOutlined } from '@ant-design/icons'
+import {
+  BulbOutlined,
+  FileAddOutlined,
+  PlusOutlined,
+  SaveOutlined,
+} from '@ant-design/icons'
 import { Button, Form, message } from 'antd'
 import { hc } from 'hono/client'
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/shallow'
 import type { AppType } from '../../../../../server'
+import type { TaskTemplate } from '../../../../../server/common/template-manager'
 import type { GptImageSize } from '../../../../../server/module/gpt-image/enum'
 import {
   requestChatCompletion,
@@ -19,20 +25,36 @@ const client = hc<AppType>('/')
 
 interface TemplateFormProps {
   onSuccess: () => void
+  showHeading?: boolean
+  editorMode?: boolean
+  activeTemplateId?: string | null
+  onTemplateLoaded?: (template: Partial<TaskTemplate>) => void
+  onEditingTemplateChange?: (template: TaskTemplate | null) => void
 }
 
-export function TemplateForm({ onSuccess }: TemplateFormProps) {
+export function TemplateForm({
+  onSuccess,
+  showHeading = true,
+  editorMode = false,
+  activeTemplateId = null,
+  onTemplateLoaded,
+  onEditingTemplateChange,
+}: TemplateFormProps) {
   const formRef = useRef<HTMLDivElement>(null)
   const [form] = Form.useForm()
   const [submitting, setSubmitting] = useState(false)
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [uploadingCount, setUploadingCount] = useState(0)
+  const [dirty, setDirty] = useState(false)
+  const saveIntentRef = useRef<'save' | 'save-as'>('save-as')
   const {
     endpoints,
     llmEndpoints,
     llmPrompts,
     fillTemplateData,
     setFillTemplateData,
+    pendingReferenceImage,
+    clearPendingReferenceImage,
   } = useGlobalStore(
     useShallow((state) => ({
       endpoints: state.endpoints,
@@ -40,6 +62,8 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
       llmPrompts: state.llmPrompts,
       fillTemplateData: state.fillTemplateData,
       setFillTemplateData: state.setFillTemplateData,
+      pendingReferenceImage: state.pendingReferenceImage,
+      clearPendingReferenceImage: state.clearPendingReferenceImage,
     })),
   )
   const {
@@ -70,6 +94,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
         usageType: fillTemplateData.usageType || 'image',
       })
       setImageUrls(fillTemplateData.images || [])
+      onTemplateLoaded?.(fillTemplateData)
       if (fillTemplateData.endpointId) {
         setGptImageSettings((prev) => ({
           ...prev,
@@ -77,6 +102,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
         }))
       }
       setFillTemplateData(null)
+      setDirty(false)
 
       setTimeout(() => {
         formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -89,7 +115,21 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
     gptImageSettings.selectedEndpointId,
     setFillTemplateData,
     setGptImageSettings,
+    onTemplateLoaded,
   ])
+
+  useEffect(() => {
+    if (!pendingReferenceImage) return
+
+    setImageUrls((currentUrls) =>
+      currentUrls.includes(pendingReferenceImage.url)
+        ? currentUrls
+        : [...currentUrls, pendingReferenceImage.url],
+    )
+    setDirty(true)
+    clearPendingReferenceImage()
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [clearPendingReferenceImage, pendingReferenceImage])
 
   useEffect(() => {
     if (!form.getFieldValue('endpointId')) {
@@ -206,6 +246,7 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
 
   const handleAdoptOptimize = (text: string) => {
     form.setFieldsValue({ prompt: text })
+    setDirty(true)
     setOptimizeOpen(false)
     message.success('已采纳优化后的提示词')
   }
@@ -217,18 +258,40 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
         ...values,
         images: imageUrls,
       }
-
-      const res = await client.api.template.$post({ json: payload })
+      const shouldUpdate =
+        editorMode &&
+        saveIntentRef.current === 'save' &&
+        Boolean(activeTemplateId)
+      const res = shouldUpdate
+        ? await client.api.template[':id'].$put({
+            param: { id: activeTemplateId! },
+            json: {
+              title: payload.title,
+              endpointId: payload.endpointId,
+              prompt: payload.prompt,
+              aspectRatio: payload.aspectRatio,
+              injectAspectRatio: payload.injectAspectRatio,
+              folder: payload.folder,
+              images: payload.images,
+              n: payload.n,
+            },
+          })
+        : await client.api.template.$post({ json: payload })
       const json = await res.json()
 
       if (json.success) {
-        message.success('保存成功')
-        form.resetFields()
-        form.setFieldValue(
-          'endpointId',
-          gptImageSettings.selectedEndpointId || endpoints[0]?.id,
-        )
-        setImageUrls([])
+        message.success(shouldUpdate ? '模板已更新' : '已另存为新模板')
+        setDirty(false)
+        if (editorMode) {
+          onEditingTemplateChange?.(json.data as TaskTemplate)
+        } else {
+          form.resetFields()
+          form.setFieldValue(
+            'endpointId',
+            gptImageSettings.selectedEndpointId || endpoints[0]?.id,
+          )
+          setImageUrls([])
+        }
         onSuccess()
       } else {
         message.error(json.error || '保存失败')
@@ -240,11 +303,30 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
     }
   }
 
+  const handleNewTemplate = () => {
+    form.resetFields()
+    form.setFieldsValue({
+      usageType: 'image',
+      endpointId: gptImageSettings.selectedEndpointId || endpoints[0]?.id,
+      aspectRatio: '1:1',
+      injectAspectRatio: false,
+      n: 1,
+    })
+    setImageUrls([])
+    setDirty(false)
+    onEditingTemplateChange?.(null)
+    message.success('已新建空白模板草稿')
+  }
+
+  const promptValue = Form.useWatch('prompt', form) || ''
+
   return (
     <>
-      <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-800">
-        <PlusOutlined className="text-emerald-500" /> 新增模板
-      </h3>
+      {showHeading && (
+        <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
+          <PlusOutlined className="text-amber-400" /> 新增模板
+        </h3>
+      )}
       <Form
         form={form}
         layout="vertical"
@@ -255,17 +337,21 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
           aspectRatio: '1:1',
           n: 1,
         }}
+        onValuesChange={() => setDirty(true)}
       >
         <div ref={formRef} />
         {/* usageType 固定为 image（引擎由端点决定，无需在表单区分） */}
-        <Form.Item name="usageType" hidden initialValue="image">
+        <Form.Item name="usageType" hidden>
           <input />
         </Form.Item>
 
         <TemplateFormFields
           form={form}
           imageUrls={imageUrls}
-          setImageUrls={setImageUrls}
+          setImageUrls={(urls) => {
+            setImageUrls(urls)
+            setDirty(true)
+          }}
           setUploadingCount={setUploadingCount}
           syncSelectedEndpoint
           optimizeButton={
@@ -281,49 +367,98 @@ export function TemplateForm({ onSuccess }: TemplateFormProps) {
           }
         />
 
-        <Form.Item className="mb-0! border-t border-slate-100 pt-4">
-          <div className="grid grid-cols-2 gap-2 [&>:last-child:nth-child(odd)]:col-span-2 sm:flex sm:gap-4">
-            {gptImageSettings.enable1K && (
+        <Form.Item className="mb-0! border-t border-[#303640] pt-4">
+          {editorMode ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                <span>
+                  {activeTemplateId ? '正在编辑已保存模板' : '新模板草稿'}
+                  <span className="mx-2 text-slate-700">·</span>
+                  提示词 {String(promptValue).length} 字
+                  <span className="mx-2 text-slate-700">·</span>
+                  参考图 {imageUrls.length} 张
+                </span>
+                <span className={dirty ? 'text-amber-300' : 'text-emerald-400'}>
+                  {dirty ? '有未保存修改' : '已保存'}
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[auto_1fr_1fr]">
+                <Button
+                  icon={<PlusOutlined />}
+                  onClick={handleNewTemplate}
+                  disabled={submitting}
+                >
+                  新建空白
+                </Button>
+                <Button
+                  icon={<SaveOutlined />}
+                  htmlType="submit"
+                  loading={submitting && saveIntentRef.current === 'save'}
+                  disabled={uploadingCount > 0 || !activeTemplateId}
+                  onClick={() => {
+                    saveIntentRef.current = 'save'
+                  }}
+                >
+                  保存当前模板
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<FileAddOutlined />}
+                  htmlType="submit"
+                  loading={submitting && saveIntentRef.current === 'save-as'}
+                  disabled={uploadingCount > 0}
+                  onClick={() => {
+                    saveIntentRef.current = 'save-as'
+                  }}
+                >
+                  另存为新模板
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 [&>:last-child:nth-child(odd)]:col-span-2">
+              {gptImageSettings.enable1K && (
+                <Button
+                  onClick={() => handleTrial('1k')}
+                  disabled={uploadingCount > 0}
+                  size="large"
+                  className="grow border-amber-500/55 text-amber-300 hover:border-amber-400! hover:text-amber-200!"
+                >
+                  生成1K图
+                </Button>
+              )}
+              {gptImageSettings.enable2K && (
+                <Button
+                  onClick={() => handleTrial('2k')}
+                  disabled={uploadingCount > 0}
+                  size="large"
+                  className="grow"
+                >
+                  生成2K图
+                </Button>
+              )}
+              {gptImageSettings.enable4K && (
+                <Button
+                  onClick={() => handleTrial('4k')}
+                  disabled={uploadingCount > 0}
+                  size="large"
+                  className="grow"
+                >
+                  生成4K图
+                </Button>
+              )}
               <Button
-                onClick={() => handleTrial('1k')}
+                type="primary"
+                htmlType="submit"
+                loading={submitting}
                 disabled={uploadingCount > 0}
+                className="col-span-2 grow"
                 size="large"
-                className="grow border-purple-300 text-purple-600 hover:border-purple-400 hover:text-purple-500"
               >
-                生成1K图
+                保存模板
               </Button>
-            )}
-            {gptImageSettings.enable2K && (
-              <Button
-                onClick={() => handleTrial('2k')}
-                disabled={uploadingCount > 0}
-                size="large"
-                className="grow"
-              >
-                生成2K图
-              </Button>
-            )}
-            {gptImageSettings.enable4K && (
-              <Button
-                onClick={() => handleTrial('4k')}
-                disabled={uploadingCount > 0}
-                size="large"
-                className="grow"
-              >
-                生成4K图
-              </Button>
-            )}
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={submitting}
-              disabled={uploadingCount > 0}
-              className="grow"
-              size="large"
-            >
-              保存模板
-            </Button>
-          </div>
+            </div>
+          )}
         </Form.Item>
       </Form>
       <PromptOptimizeModal

@@ -35,11 +35,8 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
   const [draftEndpoints, setDraftEndpoints] = useState<LlmEndpoint[]>(
     llmEndpoints.length ? llmEndpoints : [createEmptyEndpoint()],
   )
-  const [activeId, setActiveId] = useState<string>(
-    draftEndpoints[0]?.id || '',
-  )
-  const [draftPrompts, setDraftPrompts] =
-    useState<LlmPrompts>(llmPrompts)
+  const [activeId, setActiveId] = useState<string>(draftEndpoints[0]?.id || '')
+  const [draftPrompts, setDraftPrompts] = useState<LlmPrompts>(llmPrompts)
 
   // 配置变化时同步草稿
   useEffect(() => {
@@ -125,7 +122,9 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
     <div className="px-4 py-2">
       <Form layout="vertical">
         {/* —— LLM 端点列表管理 —— */}
-        <div className="mb-2 text-sm text-gray-500">LLM 端点（提示词优化 / 角色卡生成）</div>
+        <div className="mb-2 text-sm text-slate-400">
+          LLM 端点（提示词优化 / 角色卡生成）
+        </div>
         <div className="flex flex-wrap gap-2">
           <Select
             value={activeEndpoint?.id}
@@ -150,7 +149,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         </div>
 
         {activeEndpoint && (
-          <div className="mt-3 space-y-3 rounded border border-slate-100 p-3">
+          <div className="mt-3 space-y-3 rounded-lg border border-[#343a44] bg-[#181c22] p-3">
             <Form.Item label="名称" required>
               <Input
                 value={activeEndpoint.name}
@@ -170,7 +169,9 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
             <Form.Item label="模型 ID" required>
               <Input
                 value={activeEndpoint.model}
-                onChange={(e) => updateActiveEndpoint({ model: e.target.value })}
+                onChange={(e) =>
+                  updateActiveEndpoint({ model: e.target.value })
+                }
                 placeholder="如 google/gemini-3-pro"
               />
             </Form.Item>
@@ -214,10 +215,10 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
           </div>
         )}
 
-        <div className="my-3 border-t border-slate-100" />
+        <div className="my-3 border-t border-[#343a44]" />
 
         {/* —— 系统提示词 —— */}
-        <div className="mb-2 text-sm text-gray-500">系统提示词</div>
+        <div className="mb-2 text-sm text-slate-400">系统提示词</div>
         <Form.Item label="提示词优化提示词">
           <Input.TextArea
             value={draftPrompts.optimizePrompt}
@@ -238,7 +239,10 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
             style={{ resize: 'none' }}
           />
         </Form.Item>
-        <Form.Item label="风格优化系统提示词" extra="与提示词优化共用同一个 LLM 端点。">
+        <Form.Item
+          label="风格优化系统提示词"
+          extra="与提示词优化共用同一个 LLM 端点。"
+        >
           <Input.TextArea
             value={draftPrompts.styleOptimizePrompt}
             onChange={(e) =>

@@ -2,6 +2,7 @@ import { Modal, Tabs } from 'antd'
 import { useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { usePlatform } from '../../../hooks/usePlatform'
+import { AppThemeProvider } from '../../../theme'
 import { AdminSetting, AdminSettingRef } from './AdminSetting'
 import { FeatureSetting } from './FeatureSetting'
 import { GPTImageSetting, GPTImageSettingRef } from './GPTImageSetting'
@@ -119,5 +120,9 @@ export function openSettingModal(options?: {
     )
   }
 
-  root.render(<ModalComponent />)
+  root.render(
+    <AppThemeProvider>
+      <ModalComponent />
+    </AppThemeProvider>,
+  )
 }

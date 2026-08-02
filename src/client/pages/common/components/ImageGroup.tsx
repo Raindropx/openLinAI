@@ -4,12 +4,18 @@ interface ImageGroupProps {
   images: string[]
   width: number
   height: number
+  preview?: boolean
 }
 
 const MAX_VISIBLE_IMAGES = 8
 const WARP_MAX_IMAGE_COUNT = 3
 
-export function ImageGroup({ images, width, height }: ImageGroupProps) {
+export function ImageGroup({
+  images,
+  width,
+  height,
+  preview = true,
+}: ImageGroupProps) {
   if (!images || images.length === 0) return null
 
   const visibleImages = images.slice(0, MAX_VISIBLE_IMAGES)
@@ -28,10 +34,10 @@ export function ImageGroup({ images, width, height }: ImageGroupProps) {
 
   return (
     <div
-      className="relative shrink-0 rounded-lg bg-gray-200"
+      className="relative shrink-0 rounded-lg bg-[#111318]"
       style={{ width: `${width}px`, height: `${height}px` }}
     >
-      <Image.PreviewGroup>
+      <Image.PreviewGroup preview={preview}>
         {visibleImages.map((url, index) => {
           const rowIndex = rows === 1 ? 0 : index < rowCounts[0] ? 0 : 1
           const colIndex =
@@ -63,7 +69,7 @@ export function ImageGroup({ images, width, height }: ImageGroupProps) {
           return (
             <div
               key={index}
-              className="absolute cursor-pointer overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm transition-all duration-300 ease-in-out hover:!z-50 hover:scale-105"
+              className="absolute cursor-pointer overflow-hidden rounded-md border border-[#343a44] bg-[#20252d] shadow-sm transition-all duration-300 ease-in-out hover:!z-50 hover:scale-105"
               style={{
                 width: `${cardWidth}px`,
                 height: `${cardHeight}px`,
@@ -77,6 +83,7 @@ export function ImageGroup({ images, width, height }: ImageGroupProps) {
               <Image
                 src={url}
                 alt={`image-${index}`}
+                preview={preview}
                 width={cardWidth}
                 height={cardHeight}
                 className="object-cover"
@@ -92,6 +99,7 @@ export function ImageGroup({ images, width, height }: ImageGroupProps) {
                 key={`hidden-${index}`}
                 src={url}
                 alt={`image-hidden-${index}`}
+                preview={preview}
               />
             ))}
           </div>

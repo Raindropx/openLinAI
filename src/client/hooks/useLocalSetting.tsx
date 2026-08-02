@@ -13,6 +13,18 @@ export interface GPTImageSettings {
   showImageSizeInTaskList?: boolean
   autoSelectAspectRatioFromReference?: boolean
   writeGenerationMetadata?: boolean
+  /** 工作台右侧的任务/模板列表使用无限滚动，否则使用分页。 */
+  workspaceListInfiniteScroll?: boolean
+  /** 工作台右侧列表每次加载或每页显示的条数。 */
+  workspaceListPageSize?: number
+  /** 任务管理器使用无限滚动，否则使用分页。 */
+  taskManagerInfiniteScroll?: boolean
+  /** 任务管理器每次加载或每页显示的条数。 */
+  taskManagerPageSize?: number
+  /** 模板管理器使用无限滚动，否则使用分页。 */
+  templateManagerInfiniteScroll?: boolean
+  /** 模板管理器每次加载或每页显示的条数。 */
+  templateManagerPageSize?: number
   /** 默认端点 id（设置里「设为默认」写入，持久化）。刷新后回退到此值。 */
   defaultEndpointId?: string
   /**
@@ -33,6 +45,12 @@ export const defaultGPTImageSettings: GPTImageSettings = {
   showImageSizeInTaskList: true,
   autoSelectAspectRatioFromReference: true,
   writeGenerationMetadata: true,
+  workspaceListInfiniteScroll: true,
+  workspaceListPageSize: 8,
+  taskManagerInfiniteScroll: true,
+  taskManagerPageSize: 12,
+  templateManagerInfiniteScroll: true,
+  templateManagerPageSize: 12,
 }
 
 export interface LocalSettingState {
@@ -84,12 +102,19 @@ const useLocalSettingStore = create<LocalSettingState>()(
       partialize: (state) => {
         const { gptImageSettings, ...rest } = state
         const { selectedEndpointId, ...persistedSettings } = gptImageSettings
-        return { gptImageSettings: persistedSettings as GPTImageSettings, ...rest }
+        return {
+          gptImageSettings: persistedSettings as GPTImageSettings,
+          ...rest,
+        }
       },
       // 迁移：旧版字段名为 roleplayEndpointId，新版改为 charCardEndpointId
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Record<string, unknown> | undefined
-        if (persisted && persisted.roleplayEndpointId && !persisted.charCardEndpointId) {
+        if (
+          persisted &&
+          persisted.roleplayEndpointId &&
+          !persisted.charCardEndpointId
+        ) {
           persisted.charCardEndpointId = persisted.roleplayEndpointId
           delete persisted.roleplayEndpointId
         }

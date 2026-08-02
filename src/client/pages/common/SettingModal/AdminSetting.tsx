@@ -1,13 +1,13 @@
-import { Button, Form, Input, message } from 'antd'
 import { CopyOutlined, ToolOutlined } from '@ant-design/icons'
+import { Button, Form, Input, message } from 'antd'
 import { hc } from 'hono/client'
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import type { AppType } from '../../../../server'
+import { encryptApiKey } from '../../../../server/module/gpt-image/encrypt'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { AdminSettingsCollapse } from './AdminSettingsCollapse'
 import { AdminSettingsUser } from './AdminSettingsUser'
 import type { GenerateApiKeyResponse } from './types'
-import { encryptApiKey } from '../../../../server/module/gpt-image/encrypt'
 
 export interface AdminSettingRef {
   save: () => Promise<void>
@@ -132,14 +132,14 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
 
       {/* Generated API Key success notification */}
       {generatedApiKey && (
-        <div className="rounded-lg border border-green-200 bg-gradient-to-br from-green-50 to-white p-4">
+        <div className="rounded-lg border border-green-400/25 bg-green-400/5 p-4">
           <div className="mb-2 flex items-center gap-2">
             <span className="text-lg">✅</span>
-            <span className="text-sm font-medium text-green-800">
+            <span className="text-sm font-medium text-green-300">
               API Key 生成成功
             </span>
           </div>
-          <div className="mb-2 text-xs text-green-600">
+          <div className="mb-2 text-xs text-green-400">
             请妥善保存，此 Key 关闭后将无法再次查看
           </div>
           <div className="flex items-center gap-2">
@@ -162,13 +162,13 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
       )}
 
       {/* Tools: 加密转换 (client-side, no token needed) */}
-      <div className="rounded-lg border border-gray-200 bg-white">
-        <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3">
-          <ToolOutlined className="text-base text-gray-400" />
-          <span className="text-sm font-medium text-gray-700">工具</span>
+      <div className="rounded-lg border border-white/10 bg-white/[0.025]">
+        <div className="flex items-center gap-2 border-b border-white/10 px-5 py-3">
+          <ToolOutlined className="text-base text-slate-500" />
+          <span className="text-sm font-medium text-slate-200">工具</span>
         </div>
         <div className="space-y-3 px-5 py-4">
-          <div className="text-xs text-gray-500">API Key 加密转换</div>
+          <div className="text-xs text-slate-400">API Key 加密转换</div>
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Input.Password
@@ -178,18 +178,14 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
                 autoComplete="off"
               />
             </div>
-            <Button
-              type="primary"
-              onClick={handleEncrypt}
-              loading={encrypting}
-            >
+            <Button type="primary" onClick={handleEncrypt} loading={encrypting}>
               转换
             </Button>
           </div>
           {encryptedApiKey && (
-            <div className="rounded-md border border-blue-100 bg-blue-50 p-3">
-              <div className="mb-1 text-xs text-blue-600">加密结果</div>
-              <div className="break-all font-mono text-xs text-gray-700">
+            <div className="rounded-md border border-blue-400/20 bg-blue-400/10 p-3">
+              <div className="mb-1 text-xs text-blue-300">加密结果</div>
+              <div className="font-mono text-xs break-all text-slate-300">
                 {encryptedApiKey}
               </div>
               <Button

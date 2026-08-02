@@ -1,4 +1,8 @@
-import { EditOutlined, FolderOutlined } from '@ant-design/icons'
+import {
+  EditOutlined,
+  FolderOpenOutlined,
+  FolderOutlined,
+} from '@ant-design/icons'
 import { Button, Card } from 'antd'
 import { useState } from 'react'
 import { RenameFolderModal } from './RenameFolderModal'
@@ -9,6 +13,8 @@ interface TemplateFolderProps {
   onClick: () => void
   onDropTemplate?: (templateId: string, folder: string) => void
   onRenameSuccess?: () => void
+  isParent?: boolean
+  dropFolder?: string
 }
 
 export function TemplateFolder({
@@ -17,6 +23,8 @@ export function TemplateFolder({
   onClick,
   onDropTemplate,
   onRenameSuccess,
+  isParent = false,
+  dropFolder,
 }: TemplateFolderProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -30,8 +38,8 @@ export function TemplateFolder({
     <>
       <Card
         size="small"
-        className={`group cursor-pointer shadow-sm transition-all hover:border-blue-400 hover:shadow-md ${
-          isDragOver ? 'border-blue-500 bg-blue-50' : ''
+        className={`group cursor-pointer border-[#303640]! bg-[#1d2128]! shadow-sm transition-all hover:border-amber-400/70! ${
+          isDragOver ? 'border-amber-400! bg-amber-400/10!' : ''
         }`}
         onClick={onClick}
         onDragOver={(e) => {
@@ -49,7 +57,7 @@ export function TemplateFolder({
             try {
               const parsed = JSON.parse(data)
               if (parsed.type === 'template' && parsed.id) {
-                onDropTemplate?.(parsed.id, folder)
+                onDropTemplate?.(parsed.id, dropFolder ?? folder)
               }
             } catch (err) {
               // Ignore parse errors
@@ -58,31 +66,41 @@ export function TemplateFolder({
         }}
       >
         <div className="flex items-center gap-2">
-          <FolderOutlined className="text-xl text-blue-500" />
+          {isParent ? (
+            <FolderOpenOutlined className="text-xl text-amber-400" />
+          ) : (
+            <FolderOutlined className="text-xl text-amber-400" />
+          )}
           <div className="min-w-0 flex-1">
-            <div className="truncate font-medium text-slate-700" title={folder}>
+            <div className="truncate font-medium text-slate-200" title={folder}>
               {folder}
             </div>
-            <div className="text-xs text-slate-400">{count} 个模板</div>
+            <div className="text-xs text-slate-400">
+              {isParent ? '拖到这里移出分类' : `${count} 个模板`}
+            </div>
           </div>
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            className="opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={handleEditClick}
-          />
+          {!isParent && (
+            <Button
+              type="text"
+              icon={<EditOutlined />}
+              className="opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={handleEditClick}
+            />
+          )}
         </div>
       </Card>
 
-      <RenameFolderModal
-        folder={folder}
-        open={isModalOpen}
-        onCancel={() => setIsModalOpen(false)}
-        onSuccess={() => {
-          setIsModalOpen(false)
-          onRenameSuccess?.()
-        }}
-      />
+      {!isParent && (
+        <RenameFolderModal
+          folder={folder}
+          open={isModalOpen}
+          onCancel={() => setIsModalOpen(false)}
+          onSuccess={() => {
+            setIsModalOpen(false)
+            onRenameSuccess?.()
+          }}
+        />
+      )}
     </>
   )
 }

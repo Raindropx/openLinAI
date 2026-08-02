@@ -127,9 +127,9 @@ function PromptFormItem({
       <Form.Item
         name="prompt"
         label={
-          <div className="flex w-full flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div className="flex w-full flex-col items-start gap-1">
             <span>{label}</span>
-            <span className="grid grid-cols-2 items-center gap-x-4 gap-y-1 sm:flex sm:flex-wrap sm:gap-x-3">
+            <span className="grid w-full grid-cols-2 items-center gap-x-3 gap-y-1">
               <Button
                 type="link"
                 size="small"
@@ -221,13 +221,13 @@ export function TemplateFormFields({
         syncSelectedEndpoint={syncSelectedEndpoint}
       />
 
-      <div className="grid min-w-0 grid-cols-2 gap-x-3 sm:flex sm:gap-4">
-        <TitleFormItem className="col-span-2 min-w-0 sm:flex-1" />
-        <FolderFormItem className="min-w-0 sm:w-1/4" />
-        <AspectRatioFormItem className="min-w-0 sm:w-1/5" />
+      <div className="grid min-w-0 grid-cols-2 gap-x-3">
+        <TitleFormItem className="col-span-2 min-w-0" />
+        <FolderFormItem className="min-w-0" />
+        <AspectRatioFormItem className="min-w-0" />
       </div>
 
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:gap-4">
+      <div className="flex min-w-0 flex-col gap-3">
         <Form.Item label="上传图片" className="min-w-0 flex-1">
           <ImageUpload
             value={imageUrls}
@@ -245,7 +245,7 @@ export function TemplateFormFields({
           />
         </Form.Item>
         {gptImageSettings.enableMultiple && (
-          <CountFormItem className="w-full sm:w-1/5" />
+          <CountFormItem className="w-full" />
         )}
       </div>
 

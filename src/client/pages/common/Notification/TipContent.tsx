@@ -11,7 +11,7 @@ const TipContent = () => {
       icon: '🔄',
       content: (
         <>
-          <span className="font-bold text-gray-900">快速升级：</span>
+          <span className="font-bold text-slate-100">快速升级：</span>
           将新版本压缩包直接拖放至“版本迁移”批处理（.bat）脚本上，即可保留用户数据的同时自动完成版本升级。
         </>
       ),
@@ -20,7 +20,7 @@ const TipContent = () => {
       icon: '🎨',
       content: (
         <>
-          <span className="font-bold text-gray-900">提示词技巧：</span>
+          <span className="font-bold text-slate-100">提示词技巧：</span>
           部分模型的文字审查机制较为严格（如 GPT Image
           2），建议优先采用上传图片作为参考的方式进行生成，以提高成功率。
         </>
@@ -30,7 +30,7 @@ const TipContent = () => {
       icon: '🌐',
       content: (
         <>
-          <span className="font-bold text-gray-900">局域网访问：</span>
+          <span className="font-bold text-slate-100">局域网访问：</span>
           相同局域网下，其他设备（如移动端）可以通过访问内网地址来使用本服务：
           <span
             className="cursor-pointer font-medium text-blue-500 underline hover:text-blue-600"

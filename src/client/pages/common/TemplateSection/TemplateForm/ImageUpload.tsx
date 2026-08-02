@@ -4,17 +4,17 @@ import {
   UploadOutlined,
 } from '@ant-design/icons'
 import { Image as AntImage, Button, message, Upload } from 'antd'
-import { hc } from 'hono/client'
 import { useEffect, useRef } from 'react'
-import type { AppType } from '../../../../../server'
 import { useRecentImages } from '../../../../hooks/useRecentImages'
 import { imageBlobToUploadDataUrl } from '../../../../utils/image'
+import {
+  uploadInputImageBase64,
+  uploadInputImageFromUrl,
+} from '../../../../utils/uploadInputImage'
 import {
   openGallery,
   type GalleryImageSelection,
 } from '../../components/Gallery'
-
-const client = hc<AppType>('/')
 
 interface ImageUploadProps {
   value?: string[]
@@ -70,29 +70,6 @@ export function ImageUpload({
     onUploadingChange?.(newCount > 0)
   }
 
-  const uploadImageBase64 = async (base64: string) => {
-    const res = await client.api.static.images.upload.$post({
-      json: { image: base64 },
-    })
-    const data = await res.json()
-
-    if (!data.success || !('url' in data)) {
-      throw new Error((data as any).error || '图片上传失败')
-    }
-
-    return data.url as string
-  }
-
-  const uploadImageFromUrl = async (url: string) => {
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error('图片下载失败')
-    }
-
-    const uploadDataUrl = await imageBlobToUploadDataUrl(await response.blob())
-    return uploadImageBase64(uploadDataUrl)
-  }
-
   const handleUpload = async (file: File) => {
     handleUploadCountChange(1)
     try {
@@ -106,16 +83,14 @@ export function ImageUpload({
         img.src = uploadDataUrl
       }
 
-      const url = await uploadImageBase64(uploadDataUrl)
+      const url = await uploadInputImageBase64(uploadDataUrl)
       const newUrls = [...latestValueRef.current, url]
       latestValueRef.current = newUrls
       onChange?.(newUrls)
       addRecentImages(url)
       message.success('图片上传成功')
     } catch (error) {
-      message.error(
-        error instanceof Error ? error.message : '图片上传请求失败',
-      )
+      message.error(error instanceof Error ? error.message : '图片上传请求失败')
     } finally {
       handleUploadCountChange(-1)
     }
@@ -183,24 +158,24 @@ export function ImageUpload({
 
   return (
     <div>
-      <div className="grid min-w-0 grid-cols-2 gap-2">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_88px] gap-2">
         <Upload
           accept="image/jpeg,image/png,image/webp"
           showUploadList={false}
           beforeUpload={handleUpload}
           multiple
-          className="min-w-0 w-full [&_.ant-upload]:w-full"
+          className="w-full min-w-0 [&_.ant-upload]:w-full"
         >
           <Button
             icon={<UploadOutlined />}
-            className="h-auto! min-h-8 w-full whitespace-normal py-1!"
+            className="h-auto! min-h-8 w-full py-1! text-xs! whitespace-nowrap"
           >
             拖入/选择本地图片
           </Button>
         </Upload>
         <Button
           icon={<PictureOutlined />}
-          className="h-auto! min-h-8 min-w-0 w-full whitespace-normal py-1!"
+          className="h-auto! min-h-8 w-full min-w-0 py-1! whitespace-nowrap"
           onClick={() => {
             openGallery({
               onSelect: async (images: GalleryImageSelection[]) => {
@@ -221,7 +196,7 @@ export function ImageUpload({
                 try {
                   const processedUrls = await Promise.all(
                     images.map(({ url, type }) =>
-                      type === 'generated' ? uploadImageFromUrl(url) : url,
+                      type === 'generated' ? uploadInputImageFromUrl(url) : url,
                     ),
                   )
                   const newUrls = [...latestValueRef.current, ...processedUrls]
@@ -247,7 +222,7 @@ export function ImageUpload({
           {value.map((url, index) => (
             <div
               key={index}
-              className="relative shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm"
+              className="relative shrink-0 overflow-hidden rounded-lg border border-[#343a44] bg-[#20252d] shadow-sm"
               style={{ width: '80px', height: '120px' }}
             >
               <div

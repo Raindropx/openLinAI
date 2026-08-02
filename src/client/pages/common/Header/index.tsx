@@ -1,84 +1,177 @@
 import {
   AppstoreOutlined,
   BellOutlined,
+  EditOutlined,
   GithubOutlined,
+  IdcardOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  PictureOutlined,
   SettingOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons'
-import { Dropdown } from 'antd'
-import { useNavigate } from 'react-router-dom'
+import { useState, type ReactNode } from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
 import pkg from '../../../../../package.json'
 import LinpxLogo from '../../../assets/icon/linpx.png'
-import { appRoutes } from '../../../routes'
 import { openSettingModal } from '../../common/SettingModal'
 import { openNotificationModal } from '../Notification'
 import { GPTImageQuota } from './GPTImageQuota'
 
+interface NavigationItemProps {
+  to: string
+  icon: ReactNode
+  label: string
+  collapsed: boolean
+  end?: boolean
+}
+
+function NavigationItem({
+  to,
+  icon,
+  label,
+  collapsed,
+  end,
+}: NavigationItemProps) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      title={label}
+      className={({ isActive }) =>
+        `group flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${
+          collapsed ? 'justify-center' : 'justify-start'
+        } ${
+          isActive
+            ? 'bg-amber-400/12 text-amber-300 ring-1 ring-amber-400/20'
+            : 'text-slate-400 hover:bg-[#252a32] hover:text-slate-100'
+        }`
+      }
+    >
+      <span className="text-lg">{icon}</span>
+      {!collapsed && <span className="truncate">{label}</span>}
+    </NavLink>
+  )
+}
+
 export function Header() {
   const navigate = useNavigate()
-
-  const menuItems = appRoutes.map((route) => ({
-    key: route.key,
-    label: route.label,
-    onClick: () => navigate(route.path),
-  }))
+  const [collapsed, setCollapsed] = useState(true)
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3 px-3 py-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg shadow-sm">
-            <img
-              src={LinpxLogo}
-              alt="LinAI Logo"
-              className="cursor-pointer"
-              onClick={() => navigate('/')}
-            />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <h1
-              className="m-0 hidden cursor-pointer bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-2xl font-bold text-transparent md:block"
-              onClick={() => navigate('/')}
-            >
-              LinAI：AI 任务编排集成
-            </h1>
-            <span className="text-sm text-gray-400">v{pkg.version}-ow</span>
-          </div>
+    <aside
+      className={`sticky top-0 z-30 flex h-screen shrink-0 flex-col border-r border-[#2b3039] bg-[#15181d] shadow-[1px_0_0_rgba(255,255,255,0.02)] transition-[width] duration-200 ${
+        collapsed ? 'w-[72px]' : 'w-[216px] 2xl:w-[224px]'
+      }`}
+    >
+      <button
+        type="button"
+        className={`flex h-16 shrink-0 cursor-pointer items-center gap-3 border-0 border-b border-[#2b3039] bg-transparent px-3 text-left ${
+          collapsed ? 'justify-center' : 'justify-start'
+        }`}
+        onClick={() => navigate('/')}
+        title="返回工作台"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#262b33] ring-1 ring-white/8">
+          <img src={LinpxLogo} alt="LinAI Logo" className="h-full w-full" />
+        </span>
+        {!collapsed && (
+          <span className="min-w-0">
+            <span className="block truncate text-base font-semibold tracking-wide text-slate-100">
+              LinAI 工作台
+            </span>
+            <span className="block text-[11px] text-slate-500">
+              v{pkg.version}-ow
+            </span>
+          </span>
+        )}
+      </button>
+
+      {!collapsed && (
+        <div className="border-b border-[#2b3039] p-3">
+          <GPTImageQuota variant="sidebar" />
         </div>
-        <div className="flex items-center gap-1 sm:gap-4">
-          <GPTImageQuota />
-          <Dropdown menu={{ items: menuItems }} placement="bottomRight">
-            <div
-              className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-slate-100"
-              title="应用导航"
-            >
-              <AppstoreOutlined className="text-xl" />
-            </div>
-          </Dropdown>
-          <div
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-slate-100"
-            onClick={() => openNotificationModal()}
-            title="通知与说明"
-          >
-            <BellOutlined className="text-xl" />
+      )}
+
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2">
+        {!collapsed && (
+          <div className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-[0.16em] text-slate-600">
+            创作工具
           </div>
-          <div
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-slate-100"
-            onClick={() => openSettingModal()}
-            title="设置"
-          >
-            <SettingOutlined className="text-xl" />
-          </div>
-          <a
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-slate-100"
-            href="https://github.com/libudu/LinAI"
-            target="_blank"
-            rel="noreferrer"
-            title="GitHub 源码"
-          >
-            <GithubOutlined className="text-xl" />
-          </a>
-        </div>
+        )}
+        <NavigationItem
+          to="/"
+          end
+          icon={<PictureOutlined />}
+          label="图片生成"
+          collapsed={collapsed}
+        />
+        <NavigationItem
+          to="/character-card"
+          icon={<IdcardOutlined />}
+          label="角色卡生成"
+          collapsed={collapsed}
+        />
+        <NavigationItem
+          to="/templates"
+          icon={<AppstoreOutlined />}
+          label="模板管理"
+          collapsed={collapsed}
+        />
+        <NavigationItem
+          to="/template-editor"
+          icon={<EditOutlined />}
+          label="模板编辑器"
+          collapsed={collapsed}
+        />
+        <NavigationItem
+          to="/tasks"
+          icon={<UnorderedListOutlined />}
+          label="任务列表管理"
+          collapsed={collapsed}
+        />
+      </nav>
+
+      <div className="flex shrink-0 flex-col gap-1 border-t border-[#2b3039] p-2">
+        <button
+          type="button"
+          className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
+          onClick={() => setCollapsed((value) => !value)}
+          title={collapsed ? '展开侧栏' : '收起侧栏'}
+          aria-label={collapsed ? '展开侧栏' : '收起侧栏'}
+        >
+          {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          {!collapsed && <span>收起侧栏</span>}
+        </button>
+        <button
+          type="button"
+          className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
+          onClick={() => openNotificationModal()}
+          title="通知与说明"
+        >
+          <BellOutlined />
+          {!collapsed && <span>通知与说明</span>}
+        </button>
+        <button
+          type="button"
+          className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
+          onClick={() => openSettingModal()}
+          title="设置"
+        >
+          <SettingOutlined />
+          {!collapsed && <span>设置</span>}
+        </button>
+        <a
+          className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
+          href="https://github.com/libudu/LinAI"
+          target="_blank"
+          rel="noreferrer"
+          title="GitHub 源码"
+        >
+          <GithubOutlined />
+          {!collapsed && <span>GitHub 源码</span>}
+        </a>
       </div>
-    </header>
+    </aside>
   )
 }

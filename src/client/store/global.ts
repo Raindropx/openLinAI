@@ -18,7 +18,10 @@ interface GlobalState {
   llmPrompts: LlmPrompts
   localNetworkUrl: string | null
   fillTemplateData: Partial<TaskTemplate> | null
+  pendingReferenceImage: { url: string; token: number } | null
   setFillTemplateData: (data: Partial<TaskTemplate> | null) => void
+  addReferenceImage: (url: string) => void
+  clearPendingReferenceImage: () => void
   setGptImageApiKey: (key: string | null) => Promise<void>
   saveEndpoints: (endpoints: GptImageEndpoint[]) => Promise<boolean>
   saveLlmEndpoints: (endpoints: LlmEndpoint[]) => Promise<void>
@@ -45,10 +48,18 @@ export const useGlobalStore = create<GlobalState>()((set) => ({
   gptImageApiKey: null,
   endpoints: [],
   llmEndpoints: [],
-  llmPrompts: { optimizePrompt: '', styleOptimizePrompt: '', charCardPrompt: '' },
+  llmPrompts: {
+    optimizePrompt: '',
+    styleOptimizePrompt: '',
+    charCardPrompt: '',
+  },
   localNetworkUrl: null,
   fillTemplateData: null,
+  pendingReferenceImage: null,
   setFillTemplateData: (data) => set({ fillTemplateData: data }),
+  addReferenceImage: (url) =>
+    set({ pendingReferenceImage: { url, token: Date.now() } }),
+  clearPendingReferenceImage: () => set({ pendingReferenceImage: null }),
   setGptImageApiKey: async (key) => {
     try {
       const res = await client.api.config.$post({

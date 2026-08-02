@@ -21,14 +21,11 @@ import {
 } from 'antd'
 import { hc } from 'hono/client'
 import { useEffect, useMemo, useState } from 'react'
-import type { AppType } from '../../../../../../server'
 import builtinData from '../../../../../../../styles_zh.json'
+import type { AppType } from '../../../../../../server'
 import { useLocalSetting } from '../../../../../hooks/useLocalSetting'
 import { useGlobalStore } from '../../../../../store/global'
-import {
-  optimizeStyleTemplate,
-  resolveStylePrompt,
-} from '../styleOptimize'
+import { optimizeStyleTemplate, resolveStylePrompt } from '../styleOptimize'
 
 interface StylePreset {
   id: string
@@ -124,7 +121,9 @@ export function StylePresetModal({
         })),
       )
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '自定义预设加载失败')
+      message.error(
+        error instanceof Error ? error.message : '自定义预设加载失败',
+      )
     } finally {
       setLoading(false)
     }
@@ -151,14 +150,16 @@ export function StylePresetModal({
       let saved: StylePreset
       if (editingPreset) {
         const response = await client.api['style-preset'][':id'].$put({
-            param: { id: editingPreset.id },
-            json: values,
-          })
+          param: { id: editingPreset.id },
+          json: values,
+        })
         const result = await response.json()
         if (!result.success) throw new Error(result.error)
         saved = { ...result.data, source: 'custom' }
       } else {
-        const response = await client.api['style-preset'].$post({ json: values })
+        const response = await client.api['style-preset'].$post({
+          json: values,
+        })
         const result = await response.json()
         if (!result.success) throw new Error('预设保存失败')
         saved = { ...result.data, source: 'custom' }
@@ -232,7 +233,9 @@ export function StylePresetModal({
         className="[&_.ant-modal-body]:overflow-hidden max-md:[&_.ant-modal-content]:p-3! max-md:[&_.ant-modal-footer]:grid max-md:[&_.ant-modal-footer]:grid-cols-2 max-md:[&_.ant-modal-footer]:gap-2 max-md:[&_.ant-modal-footer_.ant-btn]:m-0! max-md:[&_.ant-modal-footer_.ant-btn]:w-full max-md:[&_.ant-modal-header]:mb-2!"
         destroyOnHidden
         footer={[
-          <Button key="cancel" onClick={onClose}>取消</Button>,
+          <Button key="cancel" onClick={onClose}>
+            取消
+          </Button>,
           <Button
             key="apply"
             type="primary"
@@ -244,8 +247,8 @@ export function StylePresetModal({
         ]}
       >
         <Spin spinning={loading}>
-          <div className="grid h-[calc(100dvh-150px)] min-h-0 max-h-170 grid-rows-[250px_minmax(0,1fr)] gap-3 md:h-[min(62vh,560px)] md:grid-cols-[minmax(280px,34%)_minmax(0,1fr)] md:grid-rows-1 md:gap-4">
-            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 p-2 md:p-3">
+          <div className="grid h-[calc(100dvh-150px)] max-h-170 min-h-0 grid-rows-[250px_minmax(0,1fr)] gap-3 md:h-[min(62vh,560px)] md:grid-cols-[minmax(280px,34%)_minmax(0,1fr)] md:grid-rows-1 md:gap-4">
+            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#343a44] bg-[#15181d] p-2 md:p-3">
               <Input
                 allowClear
                 prefix={<SearchOutlined />}
@@ -286,27 +289,29 @@ export function StylePresetModal({
                     dataSource={visiblePresets}
                     renderItem={(preset) => (
                       <List.Item
-                        className={`cursor-pointer rounded-md px-2! transition-colors ${
+                        className={`mb-1 cursor-pointer rounded-md border px-2! transition-colors last:mb-0 ${
                           selected?.id === preset.id
-                            ? 'bg-blue-100'
+                            ? 'border-amber-400/55 bg-amber-400/12 shadow-[inset_3px_0_0_rgba(241,184,75,0.85)]'
                             : preset.origin === 'style-extract'
-                              ? 'bg-purple-50 hover:bg-purple-100'
+                              ? 'border-violet-400/10 bg-violet-500/8 hover:border-violet-400/25 hover:bg-violet-500/14'
                               : preset.source === 'custom'
-                                ? 'bg-sky-50 hover:bg-sky-100'
-                              : 'hover:bg-gray-50'
+                                ? 'border-sky-400/10 bg-sky-500/8 hover:border-sky-400/25 hover:bg-sky-500/14'
+                                : 'border-transparent hover:border-white/10 hover:bg-white/5'
                         }`}
                         onClick={() => setSelectedId(preset.id)}
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="truncate font-medium">{preset.name}</span>
+                            <span className="truncate font-medium text-slate-100">
+                              {preset.name}
+                            </span>
                             {preset.origin === 'style-extract' ? (
                               <Tag color="purple">风格提取</Tag>
                             ) : preset.source === 'custom' ? (
                               <Tag color="blue">自定义</Tag>
                             ) : null}
                           </div>
-                          <div className="mt-1 line-clamp-2 text-xs text-gray-400">
+                          <div className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
                             {preset.prompt}
                           </div>
                         </div>
@@ -314,17 +319,20 @@ export function StylePresetModal({
                     )}
                   />
                 ) : (
-                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有匹配的预设" />
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="没有匹配的预设"
+                  />
                 )}
               </div>
             </div>
 
             {selected ? (
-              <div className="flex min-h-0 min-w-0 flex-col gap-3 overflow-y-auto pr-1 md:gap-4">
+              <div className="flex min-h-0 min-w-0 flex-col gap-3 overflow-y-auto rounded-lg border border-[#343a44] bg-[#181c22] p-3 md:gap-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <div className="text-lg font-semibold">{selected.name}</div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-slate-400">
                       {selected.source === 'builtin'
                         ? '内置预设（只读）'
                         : selected.origin === 'style-extract'
@@ -341,7 +349,12 @@ export function StylePresetModal({
                     </Button>
                     {selected.source === 'custom' && (
                       <>
-                        <Button icon={<EditOutlined />} onClick={() => openEditor(selected)}>编辑</Button>
+                        <Button
+                          icon={<EditOutlined />}
+                          onClick={() => openEditor(selected)}
+                        >
+                          编辑
+                        </Button>
                         <Popconfirm
                           title="删除这个自定义预设？"
                           description="删除后无法恢复。"
@@ -357,7 +370,7 @@ export function StylePresetModal({
                   </div>
                 </div>
                 <div className="shrink-0">
-                  <div className="mb-1 text-sm text-gray-500">预设模板</div>
+                  <div className="mb-1 text-sm text-slate-400">预设模板</div>
                   <Input.TextArea
                     value={selected.prompt}
                     readOnly
@@ -365,14 +378,17 @@ export function StylePresetModal({
                   />
                 </div>
                 <div className="min-h-0 flex-1">
-                  <div className="mb-1 text-sm text-gray-500">注入结果预览</div>
+                  <div className="mb-1 text-sm text-slate-400">
+                    注入结果预览
+                  </div>
                   <Input.TextArea
                     value={preview}
                     readOnly
                     className="h-32! md:h-64!"
                   />
-                  <div className="mt-1 text-xs text-gray-400">
-                    模板中的 {'{prompt}'} 会替换为当前提示词，当前提示词为空时使用“此画面”；没有占位符时会追加到当前提示词之后。
+                  <div className="mt-1 text-xs leading-5 text-slate-500">
+                    模板中的 {'{prompt}'}{' '}
+                    会替换为当前提示词，当前提示词为空时使用“此画面”；没有占位符时会追加到当前提示词之后。
                   </div>
                 </div>
               </div>
@@ -400,7 +416,9 @@ export function StylePresetModal({
           <Form.Item
             name="name"
             label="预设名称"
-            rules={[{ required: true, whitespace: true, message: '请输入预设名称' }]}
+            rules={[
+              { required: true, whitespace: true, message: '请输入预设名称' },
+            ]}
           >
             <Input maxLength={80} showCount placeholder="例如：柔和日系摄影" />
           </Form.Item>
@@ -422,7 +440,9 @@ export function StylePresetModal({
             }
             className="[&_.ant-form-item-label>label]:h-auto! [&_.ant-form-item-label>label]:w-full"
             extra="使用 {prompt} 表示原提示词；不使用占位符时，模板会追加到原提示词后。"
-            rules={[{ required: true, whitespace: true, message: '请输入提示词模板' }]}
+            rules={[
+              { required: true, whitespace: true, message: '请输入提示词模板' },
+            ]}
           >
             <Input.TextArea
               autoSize={{ minRows: 6, maxRows: 12 }}

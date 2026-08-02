@@ -10,6 +10,7 @@ import {
 import { useRecentImages } from '../../../../hooks/useRecentImages'
 import { useTasks } from '../../../../hooks/useTasks'
 import { useTemplates } from '../../../../hooks/useTemplates'
+import { AppThemeProvider } from '../../../../theme'
 import type { GalleryDeleteSuccessPayload } from './Footer'
 import { GalleryFooter } from './Footer'
 
@@ -333,11 +334,13 @@ export function openGallery(options: {
 
   const handleClose = () => {
     root.render(
-      <GalleryModal
-        visible={false}
-        onClose={destroy}
-        onSelect={options.onSelect}
-      />,
+      <AppThemeProvider>
+        <GalleryModal
+          visible={false}
+          onClose={destroy}
+          onSelect={options.onSelect}
+        />
+      </AppThemeProvider>,
     )
     setTimeout(destroy, 300)
   }
@@ -350,10 +353,12 @@ export function openGallery(options: {
   }
 
   root.render(
-    <GalleryModal
-      visible={true}
-      onClose={handleClose}
-      onSelect={options.onSelect}
-    />,
+    <AppThemeProvider>
+      <GalleryModal
+        visible={true}
+        onClose={handleClose}
+        onSelect={options.onSelect}
+      />
+    </AppThemeProvider>,
   )
 }

@@ -1,8 +1,8 @@
-import { Button, Collapse, Input, message, Radio, Tag } from 'antd'
 import { KeyOutlined, LockOutlined } from '@ant-design/icons'
+import { Button, Collapse, Input, message, Radio, Tag } from 'antd'
 import { useState } from 'react'
-import type { ApiKeySearchResult } from './types'
 import { AdminSettingsGroup } from './AdminSettingsGroup'
+import type { ApiKeySearchResult } from './types'
 
 interface Props {
   yunwuSystemToken?: string
@@ -102,7 +102,9 @@ export function AdminSettingsCollapse({
           <Radio.Button value="token">Token</Radio.Button>
         </Radio.Group>
         <Input.Search
-          placeholder={searchMode === 'keyword' ? '输入关键词搜索' : '输入 Token 搜索'}
+          placeholder={
+            searchMode === 'keyword' ? '输入关键词搜索' : '输入 Token 搜索'
+          }
           allowClear
           enterButton="搜索"
           onSearch={handleSearch}
@@ -116,7 +118,7 @@ export function AdminSettingsCollapse({
           {searchResults.map((item) => (
             <div
               key={item.id}
-              className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs"
+              className="rounded-md border border-white/10 bg-white/[0.025] px-3 py-2 text-xs"
             >
               <div className="mb-1 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -126,7 +128,9 @@ export function AdminSettingsCollapse({
                   >
                     {item.status === 1 ? '启用' : '禁用'}
                   </Tag>
-                  <span className="font-medium text-gray-800">{item.name}</span>
+                  <span className="font-medium text-slate-200">
+                    {item.name}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button
@@ -148,30 +152,31 @@ export function AdminSettingsCollapse({
                 </div>
               </div>
               {expandedId === item.id && (
-                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-gray-500">
+                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-slate-400">
                   <div>
-                    ID: <span className="text-gray-700">{item.id}</span>
+                    ID: <span className="text-slate-300">{item.id}</span>
                   </div>
                   <div>
-                    分组: <span className="text-gray-700">{item.group || '-'}</span>
+                    分组:{' '}
+                    <span className="text-slate-300">{item.group || '-'}</span>
                   </div>
                   <div>
                     已用配额:{' '}
-                    <span className="text-gray-700">{item.used_quota}</span>
+                    <span className="text-slate-300">{item.used_quota}</span>
                   </div>
                   <div>
                     剩余配额:{' '}
-                    <span className="text-gray-700">{item.remain_quota}</span>
+                    <span className="text-slate-300">{item.remain_quota}</span>
                   </div>
                   <div>
                     创建时间:{' '}
-                    <span className="text-gray-700">
+                    <span className="text-slate-300">
                       {new Date(item.created_time * 1000).toLocaleString()}
                     </span>
                   </div>
                   <div>
                     过期时间:{' '}
-                    <span className="text-gray-700">
+                    <span className="text-slate-300">
                       {item.expired_time
                         ? new Date(item.expired_time * 1000).toLocaleString()
                         : '永久'}
@@ -189,11 +194,11 @@ export function AdminSettingsCollapse({
   // Generate panel content
   const generateContent = (
     <div className="space-y-4">
-      <p className="text-xs leading-relaxed text-gray-500">
+      <p className="text-xs leading-relaxed text-slate-400">
         使用当前配置的云雾用户凭据，在系统中生成一个新的 API Key。
       </p>
       <div>
-        <div className="mb-1 text-xs text-gray-500">名称</div>
+        <div className="mb-1 text-xs text-slate-400">名称</div>
         <Input
           placeholder="例：my-api-key"
           value={genName}
@@ -201,7 +206,7 @@ export function AdminSettingsCollapse({
         />
       </div>
       <div>
-        <div className="mb-1 text-xs text-gray-500">
+        <div className="mb-1 text-xs text-slate-400">
           限额（百万 Token，0 = 无限制）
         </div>
         <Input
@@ -210,7 +215,7 @@ export function AdminSettingsCollapse({
           placeholder="输入额度数值"
           value={genQuota}
           onChange={(e) => setGenQuota(Number(e.target.value) || 0)}
-          suffix={<span className="text-xs text-gray-400">百万</span>}
+          suffix={<span className="text-xs text-slate-500">百万</span>}
         />
       </div>
       <Button
@@ -249,20 +254,22 @@ export function AdminSettingsCollapse({
   ]
 
   return (
-    <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
+    <div className="relative overflow-hidden rounded-lg border border-white/10 bg-white/[0.025]">
       {/* Gating overlay */}
       {!configured && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-lg bg-white/70 backdrop-blur-[1px] transition-all">
-          <LockOutlined className="mb-2 text-2xl text-gray-300" />
-          <div className="text-sm text-gray-400">请先完成上方云雾用户设置</div>
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-lg bg-[#15181d]/85 backdrop-blur-[1px] transition-all">
+          <LockOutlined className="mb-2 text-2xl text-slate-600" />
+          <div className="text-sm text-slate-500">请先完成上方云雾用户设置</div>
         </div>
       )}
 
       <div className={!configured ? 'pointer-events-none select-none' : ''}>
         {/* Card header */}
-        <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3">
-          <KeyOutlined className="text-base text-gray-400" />
-          <span className="text-sm font-medium text-gray-700">API Key 管理</span>
+        <div className="flex items-center gap-2 border-b border-white/10 px-5 py-3">
+          <KeyOutlined className="text-base text-slate-500" />
+          <span className="text-sm font-medium text-slate-200">
+            API Key 管理
+          </span>
         </div>
 
         {/* Collapse panels */}
@@ -273,7 +280,7 @@ export function AdminSettingsCollapse({
             activeKey={collapseKeys}
             onChange={(keys) => setCollapseKeys(keys as string[])}
             items={items}
-            className="[&_.ant-collapse-header]:!px-3 [&_.ant-collapse-content-box]:!px-3"
+            className="[&_.ant-collapse-content-box]:!px-3 [&_.ant-collapse-header]:!px-3"
           />
         </div>
       </div>

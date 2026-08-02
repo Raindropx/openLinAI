@@ -43,17 +43,17 @@ export const UploadImageSetting = forwardRef((_props, _ref) => {
     <div className="px-4 py-2">
       <div className="flex gap-8">
         <div>
-          <div className="mb-2 text-sm text-gray-500">输入图片目录</div>
+          <div className="mb-2 text-sm text-slate-400">输入图片目录</div>
           <Button onClick={handleOpenDir}>打开输入图片目录</Button>
         </div>
         <div>
-          <div className="mb-2 text-sm text-gray-500">输出图片目录</div>
+          <div className="mb-2 text-sm text-slate-400">输出图片目录</div>
           <Button onClick={handleOpenGeneratedDir}>打开输出图片目录</Button>
         </div>
       </div>
       <div className="mt-6 flex flex-wrap gap-8">
         <div>
-          <div className="mb-3 text-sm text-gray-500">删除任务</div>
+          <div className="mb-3 text-sm text-slate-400">删除任务</div>
           <div className="flex items-center gap-2">
             <Switch
               checked={gptImageSettings.keepImageWhenDeleteTask}
@@ -77,7 +77,7 @@ export const UploadImageSetting = forwardRef((_props, _ref) => {
             >
               恢复删除提醒
             </Button>
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-slate-500">
               {skipDeleteConfirm
                 ? '当前：删除任务时不提醒'
                 : '当前：删除任务时会提醒'}

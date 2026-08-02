@@ -10,9 +10,14 @@ import { usePlatform } from '../../../../hooks/usePlatform'
 interface TaskItemTagsProps {
   task: Task
   downloadedIds: string[]
+  compact?: boolean
 }
 
-export function TaskItemTags({ task, downloadedIds }: TaskItemTagsProps) {
+export function TaskItemTags({
+  task,
+  downloadedIds,
+  compact = false,
+}: TaskItemTagsProps) {
   const { isDesktop } = usePlatform()
 
   const renderCost = (record: Task) => {
@@ -51,7 +56,9 @@ export function TaskItemTags({ task, downloadedIds }: TaskItemTagsProps) {
   }
 
   return (
-    <div className="mb-2 flex flex-wrap gap-1">
+    <div
+      className={`${compact ? 'mb-1' : 'mb-2'} flex flex-wrap gap-1 [&_.ant-tag]:m-0!`}
+    >
       {task.rawTemplate?.aspectRatio && (
         <Tag color="blue">{task.rawTemplate.aspectRatio}</Tag>
       )}
@@ -80,7 +87,9 @@ export function TaskItemTags({ task, downloadedIds }: TaskItemTagsProps) {
           {(task.duration / 1000).toFixed(1)}s
         </Tag>
       )}
-      {task.endpointName && <Tag color="purple">{task.endpointName}</Tag>}
+      {!compact && task.endpointName && (
+        <Tag color="purple">{task.endpointName}</Tag>
+      )}
     </div>
   )
 }

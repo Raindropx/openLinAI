@@ -353,26 +353,26 @@ export async function handleImageGeneration(options: {
     await taskManager.updateTaskStatus(task.id, 'running')
     const startTime = Date.now()
 
-    const finalSize = calculateSize(template.aspectRatio || '1:1', size)
-
     const imagePaths: string[] = []
-    for (const imgUrl of template.images) {
-      const filename = imgUrl.split('/').pop()
-      if (filename) {
-        const imagePath = path.join(INPUT_IMAGES_DIR, filename)
-        if (await fs.pathExists(imagePath)) {
-          imagePaths.push(imagePath)
-        } else {
-          throw new Error(
-            `[服务] Template image not found on Input Dir: ${imagePath}`,
-          )
-        }
-      }
-    }
-
     let filenames: string[] = []
     let usage: GPTImageResponse['usage'] | undefined
     try {
+      const finalSize = calculateSize(template.aspectRatio || '1:1', size)
+
+      for (const imgUrl of template.images) {
+        const filename = imgUrl.split('/').pop()
+        if (filename) {
+          const imagePath = path.join(INPUT_IMAGES_DIR, filename)
+          if (await fs.pathExists(imagePath)) {
+            imagePaths.push(imagePath)
+          } else {
+            throw new Error(
+              `Template image not found on Input Dir: ${imagePath}`,
+            )
+          }
+        }
+      }
+
       const finalPrompt = buildPromptWithAspectRatio(template)
       const res = await generateGPTImageNew({
         apiKey,

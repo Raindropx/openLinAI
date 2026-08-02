@@ -8,7 +8,7 @@ import { TemplateList, TemplateListRef } from './TemplateList'
 
 const ModuleWrapper = ({ children }: { children: React.ReactElement }) => {
   return (
-    <div className="min-w-0 w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:relative md:w-1/2 md:p-6">
+    <div className="w-full min-w-0 rounded-2xl border border-[#303640] bg-[#1a1e24] p-3 shadow-sm md:relative md:w-1/2 md:p-6">
       {children}
     </div>
   )
@@ -33,7 +33,7 @@ export function TemplateSection() {
 
   if (isMobile) {
     return (
-      <div className="min-w-0 flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <div className="flex justify-center">
           <Radio.Group
             value={activeTab}

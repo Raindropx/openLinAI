@@ -21,12 +21,16 @@ interface TaskListHeaderProps {
   downloadedIds: string[]
   setDownloadedIds: (ids: string[]) => void
   loading: boolean
+  compact?: boolean
+  hideFinishedAlert?: boolean
 }
 
 export function TaskListHeader({
   tasks,
   downloadedIds,
   setDownloadedIds,
+  compact = false,
+  hideFinishedAlert = false,
 }: TaskListHeaderProps) {
   const { gptImageSettings } = useLocalSetting()
   const [deletingErrors, setDeletingErrors] = useState(false)
@@ -48,7 +52,11 @@ export function TaskListHeader({
         try {
           const res = await client.api.task[':id'].$delete({
             param: { id: task.id },
-            query: { keepImage: gptImageSettings.keepImageWhenDeleteTask ? 'true' : 'false' },
+            query: {
+              keepImage: gptImageSettings.keepImageWhenDeleteTask
+                ? 'true'
+                : 'false',
+            },
           })
           const json = await res.json()
           if (json.success) successCount++
@@ -94,7 +102,11 @@ export function TaskListHeader({
             try {
               const res = await client.api.task[':id'].$delete({
                 param: { id: task.id },
-                query: { keepImage: gptImageSettings.keepImageWhenDeleteTask ? 'true' : 'false' },
+                query: {
+                  keepImage: gptImageSettings.keepImageWhenDeleteTask
+                    ? 'true'
+                    : 'false',
+                },
               })
               const json = await res.json()
               if (json.success) successCount++
@@ -228,23 +240,55 @@ export function TaskListHeader({
     },
   ]
 
+  if (compact) {
+    return (
+      <div className="flex shrink-0 flex-col gap-2 border-b border-[#2d333d] py-3">
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>{tasks.length} 个任务</span>
+          {!hideFinishedAlert && <TaskListFinishedAlertButton tasks={tasks} />}
+        </div>
+        <Space.Compact className="w-full justify-end">
+          <TaskListDownloadButton
+            tasks={tasks}
+            downloadedIds={downloadedIds}
+            setDownloadedIds={setDownloadedIds}
+          />
+          <TaskListDownloadButton
+            tasks={tasks}
+            downloadedIds={downloadedIds}
+            setDownloadedIds={setDownloadedIds}
+            includeDownloaded
+          />
+          <Dropdown
+            menu={{ items: deleteMenuItems, onClick: onMenuClick }}
+            placement="bottomRight"
+          >
+            <Button icon={<EllipsisOutlined />} loading={isDeleting} />
+          </Dropdown>
+        </Space.Compact>
+      </div>
+    )
+  }
+
   return (
     <div className="mt-4 mb-4 flex items-center justify-between">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <div className="hidden items-center justify-center rounded-lg bg-blue-100 p-2 text-blue-600 sm:flex">
+          <div className="hidden items-center justify-center rounded-lg bg-amber-400/10 p-2 text-amber-400 sm:flex">
             <ScheduleOutlined className="text-xl" />
           </div>
           <h2 className="text-lg font-bold">任务列表</h2>
         </div>
 
-        <Space className="ml-4">
-          <TaskListFinishedAlertButton tasks={tasks} />
-        </Space>
+        {!hideFinishedAlert && (
+          <Space className="ml-4">
+            <TaskListFinishedAlertButton tasks={tasks} />
+          </Space>
+        )}
       </div>
 
       <div className="flex gap-4">
-        <div className="hidden md:block">
+        <div className="hidden xl:block">
           <Space.Compact>
             <TaskListDownloadButton
               tasks={tasks}
@@ -290,7 +334,7 @@ export function TaskListHeader({
           </Space.Compact>
         </div>
 
-        <div className="block md:hidden">
+        <div className="block xl:hidden">
           <Space.Compact>
             <TaskListDownloadButton
               tasks={tasks}
@@ -308,10 +352,7 @@ export function TaskListHeader({
               menu={{ items: deleteMenuItems, onClick: onMenuClick }}
               placement="bottomRight"
             >
-              <Button
-                icon={<EllipsisOutlined />}
-                loading={isDeleting}
-              />
+              <Button icon={<EllipsisOutlined />} loading={isDeleting} />
             </Dropdown>
           </Space.Compact>
         </div>

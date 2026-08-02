@@ -1,11 +1,10 @@
-import './polyfills'
-import './startup-migrations'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import dotenv from 'dotenv'
 import { Hono } from 'hono'
 import * as path from 'path'
 import chatApi from './api/chat'
+import characterCardApi from './api/common/character-card'
 import configApi from './api/common/config'
 import logApi from './api/common/log'
 import staticApi from './api/common/static'
@@ -15,6 +14,8 @@ import templateApi from './api/common/template'
 import gptImageApi from './api/gpt-image'
 import styleAnalyzeApi from './api/style-analyze'
 import yunwuTokenApi from './api/yunwu-token'
+import './polyfills'
+import './startup-migrations'
 
 dotenv.config()
 
@@ -28,6 +29,7 @@ const routes = app
   .route('/api/gptImage', yunwuTokenApi)
   // common
   .route('/api/task', taskApi)
+  .route('/api/character-card', characterCardApi)
   .route('/api/template', templateApi)
   .route('/api/style-preset', stylePresetApi)
   .route('/api/log', logApi)

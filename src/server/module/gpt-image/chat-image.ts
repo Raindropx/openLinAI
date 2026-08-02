@@ -213,35 +213,36 @@ export async function handleChatImageGeneration(options: {
     await taskManager.updateTaskStatus(task.id, 'running')
     const startTime = Date.now()
 
-    // 读取输入图片 → base64 data URL
-    const finalPrompt = buildPromptWithAspectRatio(template)
-    const contentParts: ChatContentPart[] = [
-      { type: 'text', text: finalPrompt },
-    ]
-    for (const imgUrl of template.images) {
-      const filename = imgUrl.split('/').pop()
-      if (!filename) continue
-      const imagePath = path.join(INPUT_IMAGES_DIR, filename)
-      if (await fs.pathExists(imagePath)) {
-        const dataUrl = await readImageAsDataUrl(imagePath)
-        contentParts.push({ type: 'image_url', image_url: { url: dataUrl } })
-      } else {
-        throw new Error(`Template image not found on Input Dir: ${imagePath}`)
-      }
-    }
-
-    const url = `${baseURL.replace(/\/$/, '')}/chat/completions`
-    const aspectRatio = normalizeChatAspectRatio(
-      model,
-      template.aspectRatio || '1:1',
-    )
-    const imageConfig = {
-      ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
-      image_size: size.toUpperCase(),
-      quality,
-    }
     let filenames: string[] = []
     try {
+      const aspectRatio = normalizeChatAspectRatio(
+        model,
+        template.aspectRatio || '1:1',
+      )
+      const imageConfig = {
+        ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+        image_size: size.toUpperCase(),
+        quality,
+      }
+
+      // 读取输入图片 → base64 data URL。该步骤也必须位于任务失败处理内。
+      const finalPrompt = buildPromptWithAspectRatio(template)
+      const contentParts: ChatContentPart[] = [
+        { type: 'text', text: finalPrompt },
+      ]
+      for (const imgUrl of template.images) {
+        const filename = imgUrl.split('/').pop()
+        if (!filename) continue
+        const imagePath = path.join(INPUT_IMAGES_DIR, filename)
+        if (await fs.pathExists(imagePath)) {
+          const dataUrl = await readImageAsDataUrl(imagePath)
+          contentParts.push({ type: 'image_url', image_url: { url: dataUrl } })
+        } else {
+          throw new Error(`Template image not found on Input Dir: ${imagePath}`)
+        }
+      }
+
+      const url = `${baseURL.replace(/\/$/, '')}/chat/completions`
       const requestOnce = async (): Promise<string[]> => {
         const response = await fetchWithTimeout(
           url,

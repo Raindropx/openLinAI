@@ -1,5 +1,6 @@
 import { Modal, Tabs } from 'antd'
 import { createRoot } from 'react-dom/client'
+import { AppThemeProvider } from '../../../theme'
 import ErrorContent from './ErrorContent'
 import ImportantContent from './ImportantContent'
 import TipContent from './TipContent'
@@ -62,12 +63,16 @@ export function openNotificationModal() {
             items={items}
             defaultActiveKey="important"
             size="large"
-            className="px-2 py-4 text-sm text-gray-700 sm:text-base!"
+            className="px-2 py-4 text-sm sm:text-base!"
           />
         </div>
       </Modal>
     )
   }
 
-  root.render(<ModalComponent />)
+  root.render(
+    <AppThemeProvider>
+      <ModalComponent />
+    </AppThemeProvider>,
+  )
 }

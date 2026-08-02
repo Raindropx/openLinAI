@@ -1,5 +1,3 @@
-import { ConfigProvider } from 'antd'
-import zhCN from 'antd/locale/zh_CN'
 import { useEffect } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import pkg from '../../package.json'
@@ -7,6 +5,7 @@ import { Header } from './pages/common/Header'
 import { openNotificationModal } from './pages/common/Notification'
 import { appRoutes } from './routes'
 import { useGlobalStore } from './store/global'
+import { AppThemeProvider } from './theme'
 
 function App() {
   useEffect(() => {
@@ -22,21 +21,11 @@ function App() {
   }, [])
 
   return (
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        components: {
-          Tooltip: {
-            maxWidth: 500,
-          },
-        },
-      }}
-    >
-      <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+    <AppThemeProvider>
+      <div className="flex min-h-screen bg-[#101216] font-sans text-slate-100 lg:h-screen lg:overflow-hidden">
         <Header />
 
-        {/* Main Content */}
-        <main className="mx-auto max-w-[1400px] space-y-4 p-3 sm:p-6">
+        <main className="min-h-0 min-w-0 flex-1 overflow-auto">
           <Routes>
             {appRoutes.map((route) => (
               <Route
@@ -48,7 +37,7 @@ function App() {
           </Routes>
         </main>
       </div>
-    </ConfigProvider>
+    </AppThemeProvider>
   )
 }
 
