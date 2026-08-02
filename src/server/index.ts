@@ -1,6 +1,8 @@
+import 'dotenv/config'
+import './polyfills'
+import './startup-migrations'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
-import dotenv from 'dotenv'
 import { Hono } from 'hono'
 import * as path from 'path'
 import chatApi from './api/chat'
@@ -14,10 +16,6 @@ import templateApi from './api/common/template'
 import gptImageApi from './api/gpt-image'
 import styleAnalyzeApi from './api/style-analyze'
 import yunwuTokenApi from './api/yunwu-token'
-import './polyfills'
-import './startup-migrations'
-
-dotenv.config()
 
 const app = new Hono()
 

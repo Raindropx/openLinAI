@@ -3,7 +3,14 @@ import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 import { characterCardManager } from '../../common/character-card-manager'
-import { IMAGE_UPLOAD_REQUEST_MAX_BYTES } from '../../common/static'
+import {
+  IMAGE_UPLOAD_MAX_BYTES,
+  IMAGE_UPLOAD_REQUEST_MAX_BYTES,
+} from '../../common/static'
+
+const CHARACTER_CARD_DATA_MAX_BYTES = IMAGE_UPLOAD_MAX_BYTES
+const CHARACTER_CARD_REQUEST_MAX_BYTES =
+  IMAGE_UPLOAD_REQUEST_MAX_BYTES + CHARACTER_CARD_DATA_MAX_BYTES
 
 const cardBodySchema = z
   .object({
@@ -13,6 +20,16 @@ const cardBodySchema = z
     pngData: z.string().optional(),
   })
   .superRefine((value, context) => {
+    if (
+      Buffer.byteLength(JSON.stringify(value.card), 'utf-8') >
+      CHARACTER_CARD_DATA_MAX_BYTES
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['card'],
+        message: '角色卡数据不能超过 16 MiB',
+      })
+    }
     if (value.format === 'png' && !value.pngData) {
       context.addIssue({
         code: 'custom',
@@ -43,10 +60,13 @@ const characterCardApi = new Hono()
   .post(
     '/',
     bodyLimit({
-      maxSize: IMAGE_UPLOAD_REQUEST_MAX_BYTES,
+      maxSize: CHARACTER_CARD_REQUEST_MAX_BYTES,
       onError: (c) =>
         c.json(
-          { success: false as const, error: '角色卡 PNG 不能超过 16 MiB' },
+          {
+            success: false as const,
+            error: '角色卡请求过大（PNG 与角色卡数据分别不能超过 16 MiB）',
+          },
           413,
         ),
     }),
@@ -83,10 +103,13 @@ const characterCardApi = new Hono()
   .put(
     '/:id',
     bodyLimit({
-      maxSize: IMAGE_UPLOAD_REQUEST_MAX_BYTES,
+      maxSize: CHARACTER_CARD_REQUEST_MAX_BYTES,
       onError: (c) =>
         c.json(
-          { success: false as const, error: '角色卡 PNG 不能超过 16 MiB' },
+          {
+            success: false as const,
+            error: '角色卡请求过大（PNG 与角色卡数据分别不能超过 16 MiB）',
+          },
           413,
         ),
     }),

@@ -14,9 +14,12 @@ interface CharacterCardRecord {
   card: Record<string, unknown>
   createdAt: number
   updatedAt: number
+  /** 新记录使用不可变文件名；旧记录缺失时回退到 <id>.png。 */
+  imageFile?: string
 }
 
-export interface StoredCharacterCard extends CharacterCardRecord {
+export interface StoredCharacterCard
+  extends Omit<CharacterCardRecord, 'imageFile'> {
   imageUrl?: string
 }
 
@@ -30,6 +33,7 @@ export interface CharacterCardInput {
 class CharacterCardManager {
   private cardsDir: string
   private store: SafeJsonStore<CharacterCardRecord[]>
+  private mutationQueue: Promise<void> = Promise.resolve()
 
   constructor() {
     const dataDir = getDataDir()
@@ -39,8 +43,9 @@ class CharacterCardManager {
   }
 
   private toPublic(item: CharacterCardRecord): StoredCharacterCard {
+    const { imageFile: _imageFile, ...publicItem } = item
     return {
-      ...item,
+      ...publicItem,
       ...(item.format === 'png'
         ? {
             imageUrl: `/api/character-card/${item.id}/image?v=${item.updatedAt}`,
@@ -49,11 +54,24 @@ class CharacterCardManager {
     }
   }
 
-  private getImagePath(id: string) {
-    return path.join(this.cardsDir, `${id}.png`)
+  private enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.mutationQueue.then(operation)
+    this.mutationQueue = result.then(
+      () => undefined,
+      () => undefined,
+    )
+    return result
   }
 
-  private async writePng(id: string, pngData: string) {
+  private getImageFile(item: CharacterCardRecord) {
+    return item.imageFile || `${item.id}.png`
+  }
+
+  private getImagePath(fileName: string) {
+    return path.join(this.cardsDir, path.basename(fileName))
+  }
+
+  private async writePng(id: string, pngData: string): Promise<string> {
     const match = pngData.match(/^data:image\/png;base64,(.+)$/)
     if (!match) throw new Error('角色卡图片必须为 PNG')
 
@@ -70,10 +88,16 @@ class CharacterCardManager {
       throw new Error('角色卡图片不是有效的 PNG')
     }
 
-    const target = this.getImagePath(id)
-    const temporary = `${target}.tmp`
-    await fs.writeFile(temporary, buffer)
-    await fs.rename(temporary, target)
+    const imageFile = `${id}.${uuidv4()}.png`
+    const target = this.getImagePath(imageFile)
+    const temporary = `${target}.${uuidv4()}.tmp`
+    try {
+      await fs.writeFile(temporary, buffer)
+      await fs.rename(temporary, target)
+      return imageFile
+    } finally {
+      await fs.remove(temporary).catch(() => undefined)
+    }
   }
 
   async getAll() {
@@ -85,81 +109,116 @@ class CharacterCardManager {
   }
 
   async create(input: CharacterCardInput) {
-    const now = Date.now()
-    const record: CharacterCardRecord = {
-      id: uuidv4(),
-      name: input.name.trim() || '未命名角色',
-      format: input.format,
-      card: input.card,
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    if (record.format === 'png') {
-      if (!input.pngData) throw new Error('保存 PNG 角色卡需要角色图片')
-      await this.writePng(record.id, input.pngData)
-    }
-
-    try {
-      await this.store.mutate((items) => [...items, record])
-    } catch (error) {
-      if (record.format === 'png') {
-        await fs.remove(this.getImagePath(record.id)).catch(() => undefined)
+    return this.enqueueMutation(async () => {
+      const now = Date.now()
+      const record: CharacterCardRecord = {
+        id: uuidv4(),
+        name: input.name.trim() || '未命名角色',
+        format: input.format,
+        card: input.card,
+        createdAt: now,
+        updatedAt: now,
       }
-      throw error
-    }
-    return this.toPublic(record)
+
+      if (record.format === 'png') {
+        if (!input.pngData) throw new Error('保存 PNG 角色卡需要角色图片')
+        record.imageFile = await this.writePng(record.id, input.pngData)
+      }
+
+      try {
+        await this.store.mutate((items) => [...items, record])
+      } catch (error) {
+        if (record.imageFile) {
+          await fs
+            .remove(this.getImagePath(record.imageFile))
+            .catch(() => undefined)
+        }
+        throw error
+      }
+      return this.toPublic(record)
+    })
   }
 
   async update(id: string, input: CharacterCardInput) {
-    const items = (await this.store.read()) ?? []
-    const existing = items.find((item) => item.id === id)
-    if (!existing) return null
+    return this.enqueueMutation(async () => {
+      const items = (await this.store.read()) ?? []
+      const existing = items.find((item) => item.id === id)
+      if (!existing) return null
 
-    if (input.format === 'png') {
-      if (!input.pngData) throw new Error('保存 PNG 角色卡需要角色图片')
-      await this.writePng(id, input.pngData)
-    }
+      let newImageFile: string | undefined
+      if (input.format === 'png') {
+        if (!input.pngData) throw new Error('保存 PNG 角色卡需要角色图片')
+        newImageFile = await this.writePng(id, input.pngData)
+      }
 
-    let updated: CharacterCardRecord | null = null
-    await this.store.mutate((cards) =>
-      cards.map((item) => {
-        if (item.id !== id) return item
-        updated = {
-          ...item,
-          name: input.name.trim() || '未命名角色',
-          format: input.format,
-          card: input.card,
-          updatedAt: Date.now(),
+      let updated: CharacterCardRecord | null = null
+      try {
+        await this.store.mutate((cards) =>
+          cards.map((item) => {
+            if (item.id !== id) return item
+            updated = {
+              ...item,
+              name: input.name.trim() || '未命名角色',
+              format: input.format,
+              card: input.card,
+              updatedAt: Date.now(),
+              imageFile: newImageFile,
+            }
+            return updated
+          }),
+        )
+      } catch (error) {
+        if (newImageFile) {
+          await fs
+            .remove(this.getImagePath(newImageFile))
+            .catch(() => undefined)
         }
-        return updated
-      }),
-    )
+        throw error
+      }
 
-    if (existing.format === 'png' && input.format === 'json') {
-      await fs.remove(this.getImagePath(id)).catch(() => undefined)
-    }
-    return updated ? this.toPublic(updated) : null
+      if (!updated) {
+        if (newImageFile) {
+          await fs
+            .remove(this.getImagePath(newImageFile))
+            .catch(() => undefined)
+        }
+        return null
+      }
+
+      if (existing.format === 'png') {
+        const oldImageFile = this.getImageFile(existing)
+        if (oldImageFile !== newImageFile) {
+          await fs
+            .remove(this.getImagePath(oldImageFile))
+            .catch(() => undefined)
+        }
+      }
+      return this.toPublic(updated)
+    })
   }
 
   async delete(id: string) {
-    let deleted: CharacterCardRecord | undefined
-    await this.store.mutate((items) => {
-      deleted = items.find((item) => item.id === id)
-      return items.filter((item) => item.id !== id)
+    return this.enqueueMutation(async () => {
+      let deleted: CharacterCardRecord | undefined
+      await this.store.mutate((items) => {
+        deleted = items.find((item) => item.id === id)
+        return items.filter((item) => item.id !== id)
+      })
+      if (!deleted) return false
+      if (deleted.format === 'png') {
+        await fs
+          .remove(this.getImagePath(this.getImageFile(deleted)))
+          .catch(() => undefined)
+      }
+      return true
     })
-    if (!deleted) return false
-    if (deleted.format === 'png') {
-      await fs.remove(this.getImagePath(id)).catch(() => undefined)
-    }
-    return true
   }
 
   async getImage(id: string) {
     const cards = (await this.store.read()) ?? []
     const card = cards.find((item) => item.id === id && item.format === 'png')
     if (!card) return null
-    const imagePath = this.getImagePath(id)
+    const imagePath = this.getImagePath(this.getImageFile(card))
     if (!(await fs.pathExists(imagePath))) return null
     return fs.readFile(imagePath)
   }
