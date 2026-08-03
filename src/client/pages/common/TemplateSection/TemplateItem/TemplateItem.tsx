@@ -21,6 +21,7 @@ interface TemplateItemProps {
   selected?: boolean
   onToggleSelect?: (templateId: string) => void
   active?: boolean
+  clickToLoad?: boolean
 }
 
 export type TemplateDropPosition = 'before' | 'after'
@@ -35,6 +36,7 @@ export function TemplateItem({
   selected = false,
   onToggleSelect,
   active = false,
+  clickToLoad = false,
 }: TemplateItemProps) {
   const [dropPosition, setDropPosition] = useState<TemplateDropPosition | null>(
     null,
@@ -51,10 +53,14 @@ export function TemplateItem({
     <Card
       size="small"
       onClick={() => {
-        if (selectionMode) onToggleSelect?.(template.id)
+        if (selectionMode) {
+          onToggleSelect?.(template.id)
+        } else if (clickToLoad) {
+          onLoad(template)
+        }
       }}
       className={`border-[#303640]! bg-[#1d2128]! shadow-sm transition-all hover:border-[#49515f]! ${
-        selectionMode ? 'cursor-pointer' : ''
+        selectionMode || clickToLoad ? 'cursor-pointer' : ''
       } ${
         selected || active
           ? 'border-amber-400/70! shadow-[0_0_0_1px_rgba(241,184,75,0.2)]'
@@ -145,6 +151,7 @@ export function TemplateItem({
                 template={template}
                 draggable={draggable}
                 onLoad={onLoad}
+                clickToLoad={clickToLoad}
               />
             )}
             <div className="flex min-w-0 items-center gap-2">
@@ -190,6 +197,7 @@ export function TemplateItem({
                 template={template}
                 draggable={draggable}
                 onLoad={onLoad}
+                clickToLoad={clickToLoad}
               />
             )}
             <div className="flex items-center gap-2">

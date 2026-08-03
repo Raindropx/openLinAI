@@ -16,10 +16,12 @@ export const TemplateItemHeader = ({
   template,
   draggable,
   onLoad,
+  clickToLoad = false,
 }: {
   template: TaskTemplate
   draggable: boolean
   onLoad: (template: TaskTemplate) => void
+  clickToLoad?: boolean
 }) => {
   const { refresh: refreshTemplates } = useTemplates()
 
@@ -53,19 +55,24 @@ export const TemplateItemHeader = ({
             </Tag>
           )}
         </Space>
-        <div className="flex items-center gap-1">
-          <Tooltip title="载入到工作区">
-            <Button
-              type="text"
-              icon={<ImportOutlined />}
-              onClick={() => {
-                onLoad(template)
-                message.success('已载入到工作区')
-              }}
-              className="hover:text-amber-300!"
-            />
-          </Tooltip>
-          <TemplateEditButton template={template} />
+        <div
+          className="flex items-center gap-1"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {!clickToLoad && (
+            <Tooltip title="载入到工作区">
+              <Button
+                type="text"
+                icon={<ImportOutlined />}
+                onClick={() => {
+                  onLoad(template)
+                  message.success('已载入到工作区')
+                }}
+                className="hover:text-amber-300!"
+              />
+            </Tooltip>
+          )}
+          {!clickToLoad && <TemplateEditButton template={template} />}
           <Popconfirm
             title="确定要删除该模板吗？"
             onConfirm={() => handleDelete(template.id)}

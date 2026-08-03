@@ -34,6 +34,7 @@ interface TemplateListProps {
   onLoadTemplate: (template: TaskTemplate) => void
   variant?: 'panel' | 'management'
   activeTemplateId?: string | null
+  clickToLoad?: boolean
 }
 
 function compareTemplateOrder(a: TaskTemplate, b: TaskTemplate) {
@@ -54,6 +55,7 @@ function TemplateListComponent(
     onLoadTemplate,
     variant = 'panel',
     activeTemplateId = null,
+    clickToLoad = false,
   }: TemplateListProps,
   ref: ForwardedRef<TemplateListRef>,
 ) {
@@ -329,6 +331,7 @@ function TemplateListComponent(
               infiniteScroll={infiniteScroll}
               pageSize={pageSize}
               activeTemplateId={activeTemplateId}
+              clickToLoad={clickToLoad}
             />
           )}
         </div>

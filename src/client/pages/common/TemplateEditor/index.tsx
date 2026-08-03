@@ -1,4 +1,5 @@
 import { AppstoreOutlined, EditOutlined } from '@ant-design/icons'
+import { message } from 'antd'
 import { useCallback, useRef, useState } from 'react'
 import type { TaskTemplate } from '../../../../server/common/template-manager'
 import { useGlobalStore } from '../../../store/global'
@@ -21,6 +22,7 @@ export function TemplateEditorPage() {
     (template: TaskTemplate) => {
       setEditingTemplate(template)
       setFillTemplateData(template)
+      message.success('已载入到工作区')
     },
     [setFillTemplateData],
   )
@@ -73,7 +75,7 @@ export function TemplateEditorPage() {
               模板库
             </span>
             <span className="text-xs font-normal text-slate-500">
-              点击载入后直接编辑
+              点击卡片即可载入编辑
             </span>
           </div>
           <div className="absolute inset-x-0 top-[49px] bottom-0">
@@ -81,6 +83,7 @@ export function TemplateEditorPage() {
               ref={listRef}
               onLoadTemplate={loadTemplate}
               activeTemplateId={editingTemplate?.id}
+              clickToLoad
             />
           </div>
         </section>

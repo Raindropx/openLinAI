@@ -27,6 +27,7 @@ interface TemplateItemListProps {
   infiniteScroll?: boolean
   pageSize?: number
   activeTemplateId?: string | null
+  clickToLoad?: boolean
 }
 
 export function TemplateItemList({
@@ -42,6 +43,7 @@ export function TemplateItemList({
   infiniteScroll = true,
   pageSize = 8,
   activeTemplateId = null,
+  clickToLoad = false,
 }: TemplateItemListProps) {
   const { refresh: refreshTemplates } = useTemplates()
   const [page, setPage] = useState(0)
@@ -209,6 +211,7 @@ export function TemplateItemList({
                   onLoad={onLoadTemplate}
                   onReorder={handleReorderTemplate}
                   active={template.id === activeTemplateId}
+                  clickToLoad={clickToLoad}
                 />
               ))}
             </div>
