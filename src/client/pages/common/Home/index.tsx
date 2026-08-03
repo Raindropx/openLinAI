@@ -16,6 +16,7 @@ import {
 import { WorkspaceCanvas } from './WorkspaceCanvas'
 
 type ResourcePanel = 'tasks' | 'templates'
+type MobileWorkspacePanel = 'parameters' | 'canvas' | 'resources'
 
 export const Home = () => {
   const templateListRef = useRef<TemplateListRef>(null)
@@ -23,6 +24,8 @@ export const Home = () => {
     (state) => state.setFillTemplateData,
   )
   const [resourcePanel, setResourcePanel] = useState<ResourcePanel>('tasks')
+  const [mobilePanel, setMobilePanel] =
+    useState<MobileWorkspacePanel>('canvas')
   const [selectedTaskId, setSelectedTaskId] = useState<string>()
 
   const handleLoadTemplate = (template: TaskTemplate) => {
@@ -30,8 +33,22 @@ export const Home = () => {
   }
 
   return (
-    <div className="grid min-h-full gap-3 p-3 lg:h-full lg:min-h-0 lg:grid-cols-[320px_minmax(0,1fr)_360px] lg:overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)_390px] 2xl:grid-cols-[360px_minmax(0,1fr)_420px]">
-      <aside className="workbench-panel flex min-h-[520px] flex-col lg:h-full lg:min-h-0">
+    <div className="flex min-h-full flex-col gap-3 p-3 lg:grid lg:h-full lg:min-h-0 lg:grid-cols-[320px_minmax(0,1fr)_360px] lg:overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)_390px] 2xl:grid-cols-[360px_minmax(0,1fr)_420px]">
+      <Segmented<MobileWorkspacePanel>
+        block
+        value={mobilePanel}
+        onChange={setMobilePanel}
+        className="shrink-0 lg:hidden"
+        options={[
+          { label: '参数', value: 'parameters', icon: <ControlOutlined /> },
+          { label: '画布', value: 'canvas', icon: <AppstoreOutlined /> },
+          { label: '资源', value: 'resources', icon: <UnorderedListOutlined /> },
+        ]}
+      />
+
+      <aside
+        className={`workbench-panel min-h-[calc(100dvh-9.5rem)] flex-col lg:flex lg:h-full lg:min-h-0 ${mobilePanel === 'parameters' ? 'flex' : 'hidden'}`}
+      >
         <div className="workbench-panel-header">
           <span className="flex items-center gap-2">
             <ControlOutlined className="text-amber-400" />
@@ -49,12 +66,18 @@ export const Home = () => {
         </div>
       </aside>
 
-      <WorkspaceCanvas
-        selectedTaskId={selectedTaskId}
-        onSelectTask={setSelectedTaskId}
-      />
+      <div
+        className={`min-h-[calc(100dvh-9.5rem)] lg:block lg:h-full lg:min-h-0 ${mobilePanel === 'canvas' ? 'block' : 'hidden'}`}
+      >
+        <WorkspaceCanvas
+          selectedTaskId={selectedTaskId}
+          onSelectTask={setSelectedTaskId}
+        />
+      </div>
 
-      <aside className="workbench-panel flex min-h-[520px] flex-col lg:h-full lg:min-h-0">
+      <aside
+        className={`workbench-panel min-h-[calc(100dvh-9.5rem)] flex-col lg:flex lg:h-full lg:min-h-0 ${mobilePanel === 'resources' ? 'flex' : 'hidden'}`}
+      >
         <div className="border-b border-[#2d333d] p-2">
           <Segmented<ResourcePanel>
             block

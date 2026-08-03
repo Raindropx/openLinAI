@@ -2,12 +2,13 @@ import {
   DownloadOutlined,
   FileImageOutlined,
   FileTextOutlined,
+  IdcardOutlined,
   PlusOutlined,
   SaveOutlined,
   SettingOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
-import { Button, Input, message, Select, Tooltip, Upload } from 'antd'
+import { Button, Input, message, Segmented, Select, Tooltip, Upload } from 'antd'
 import { hc } from 'hono/client'
 import { useState } from 'react'
 import type { AppType } from '../../../../server'
@@ -71,6 +72,9 @@ export function CharacterCardPage() {
   const [activeAssetId, setActiveAssetId] = useState<string | null>(null)
   const [activeFormat, setActiveFormat] = useState<CharacterCardFormat>('json')
   const [dirty, setDirty] = useState(false)
+  const [mobilePanel, setMobilePanel] = useState<
+    'generate' | 'editor' | 'library'
+  >('editor')
 
   const endpointId = charCardEndpointId || llmEndpoints[0]?.id
 
@@ -338,12 +342,12 @@ export function CharacterCardPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           {llmEndpoints.length > 0 && (
             <Select
               value={endpointId}
               onChange={setCharCardEndpointId}
-              className="min-w-[180px]"
+              className="min-w-0 flex-1 sm:min-w-[180px]"
               placeholder="选择 LLM 端点"
               options={llmEndpoints.map((endpoint) => ({
                 value: endpoint.id,
@@ -361,8 +365,22 @@ export function CharacterCardPage() {
         </div>
       </div>
 
+      <Segmented
+        block
+        value={mobilePanel}
+        onChange={setMobilePanel}
+        className="shrink-0 xl:hidden"
+        options={[
+          { label: '生成', value: 'generate', icon: <ThunderboltOutlined /> },
+          { label: '编辑', value: 'editor', icon: <FileTextOutlined /> },
+          { label: '角色库', value: 'library', icon: <IdcardOutlined /> },
+        ]}
+      />
+
       <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[300px_minmax(420px,1fr)_320px]">
-        <aside className="min-h-0 space-y-3 overflow-y-auto pr-1">
+        <aside
+          className={`min-h-[calc(100dvh-16rem)] space-y-3 overflow-y-auto pr-1 xl:block xl:min-h-0 ${mobilePanel === 'generate' ? 'block' : 'hidden'}`}
+        >
           <section className="workbench-panel p-3">
             <div className="mb-2 text-sm font-medium text-slate-300">
               参考图片与生成
@@ -442,7 +460,9 @@ export function CharacterCardPage() {
           </section>
         </aside>
 
-        <main className="workbench-panel flex min-h-[560px] flex-col xl:min-h-0">
+        <main
+          className={`workbench-panel min-h-[calc(100dvh-16rem)] flex-col xl:flex xl:min-h-0 ${mobilePanel === 'editor' ? 'flex' : 'hidden'}`}
+        >
           <div className="workbench-panel-header h-auto! flex-wrap gap-3 py-3">
             <div className="min-w-0">
               <div className="truncate font-medium text-slate-100">
@@ -507,7 +527,7 @@ export function CharacterCardPage() {
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[#303640] p-3">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 icon={<DownloadOutlined />}
                 onClick={handleExportJson}
@@ -536,7 +556,9 @@ export function CharacterCardPage() {
           </div>
         </main>
 
-        <aside className="workbench-panel flex min-h-[520px] flex-col xl:min-h-0">
+        <aside
+          className={`workbench-panel min-h-[calc(100dvh-16rem)] flex-col xl:flex xl:min-h-0 ${mobilePanel === 'library' ? 'flex' : 'hidden'}`}
+        >
           <div className="workbench-panel-header h-auto! gap-3 py-3">
             <span>角色卡库</span>
             <span className="text-xs font-normal text-slate-500">

@@ -1,5 +1,5 @@
 import { AppstoreOutlined, EditOutlined } from '@ant-design/icons'
-import { message } from 'antd'
+import { message, Segmented } from 'antd'
 import { useCallback, useRef, useState } from 'react'
 import type { TaskTemplate } from '../../../../server/common/template-manager'
 import { useGlobalStore } from '../../../store/global'
@@ -14,6 +14,7 @@ export function TemplateEditorPage() {
   const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(
     null,
   )
+  const [mobilePanel, setMobilePanel] = useState<'editor' | 'library'>('editor')
   const setFillTemplateData = useGlobalStore(
     (state) => state.setFillTemplateData,
   )
@@ -43,8 +44,21 @@ export function TemplateEditorPage() {
         </div>
       </div>
 
+      <Segmented
+        block
+        value={mobilePanel}
+        onChange={setMobilePanel}
+        className="shrink-0 xl:hidden"
+        options={[
+          { label: '编辑模板', value: 'editor', icon: <EditOutlined /> },
+          { label: '模板库', value: 'library', icon: <AppstoreOutlined /> },
+        ]}
+      />
+
       <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(520px,1.35fr)_minmax(360px,0.65fr)]">
-        <section className="workbench-panel min-h-0 overflow-hidden">
+        <section
+          className={`workbench-panel min-h-[calc(100dvh-13rem)] overflow-hidden xl:block xl:min-h-0 ${mobilePanel === 'editor' ? 'block' : 'hidden'}`}
+        >
           <div className="workbench-panel-header h-auto! gap-3 py-3">
             <span className="flex items-center gap-2">
               <EditOutlined className="text-amber-300" />
@@ -68,7 +82,9 @@ export function TemplateEditorPage() {
           </div>
         </section>
 
-        <section className="workbench-panel relative min-h-[520px] xl:min-h-0">
+        <section
+          className={`workbench-panel relative min-h-[calc(100dvh-13rem)] xl:block xl:min-h-0 ${mobilePanel === 'library' ? 'block' : 'hidden'}`}
+        >
           <div className="workbench-panel-header h-auto! gap-3 py-3">
             <span className="flex items-center gap-2">
               <AppstoreOutlined className="text-amber-300" />

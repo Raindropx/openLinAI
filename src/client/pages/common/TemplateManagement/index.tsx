@@ -29,7 +29,7 @@ export function TemplateManagementPage() {
         </div>
       </div>
 
-      <section className="workbench-panel relative min-h-[560px] flex-1">
+      <section className="workbench-panel relative min-h-[calc(100dvh-10rem)] flex-1 lg:min-h-0">
         <TemplateList
           variant="management"
           onLoadTemplate={handleLoadTemplate}
