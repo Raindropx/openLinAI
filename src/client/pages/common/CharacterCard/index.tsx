@@ -498,7 +498,11 @@ export function CharacterCardPage() {
                 </div>
               </div>
             ) : (
-              <CharacterCardEditorFields card={card} onChange={updateField} />
+              <CharacterCardEditorFields
+                card={card}
+                endpointId={endpointId}
+                onChange={updateField}
+              />
             )}
           </div>
 

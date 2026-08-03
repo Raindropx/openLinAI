@@ -1,14 +1,18 @@
 import {
   DeleteOutlined,
+  LoadingOutlined,
   RobotOutlined,
+  StopOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { Button, Input, Select } from 'antd'
-import { useMemo, useState } from 'react'
+import { Button, Checkbox, Input, message, Select } from 'antd'
+import { useMemo, useRef, useState } from 'react'
+import type { ChatMessage } from '../../../hooks/useChatCompletion'
 import type { CharacterCard } from '../../../utils/characterCard'
 
 interface CharacterCardEditorFieldsProps {
   card: CharacterCard
+  endpointId?: string
   onChange: <K extends keyof CharacterCard>(
     key: K,
     value: CharacterCard[K],
@@ -76,17 +80,93 @@ function serializeMesExample(blocks: ExampleBlock[]): string {
     .join('\n')
 }
 
+/** 构建续写示例对话的系统提示词 */
+function buildContinuationPrompt(
+  card: CharacterCard,
+  dialogue: string,
+  role: MessageRole,
+): string {
+  const roleLabel =
+    role === 'char'
+      ? `角色（${card.name || '{{char}}'}）`
+      : '用户（{{user}}）'
+
+  return `你是一个角色扮演对话示例续写助手。请根据以下角色卡信息和已有对话上下文，续写一条对话发言。
+
+【角色卡信息】
+姓名：${card.name || '未命名'}
+描述：${card.description || '无'}
+性格：${card.personality || '无'}
+场景：${card.scenario || '无'}
+角色第一句话：${card.first_mes || '无'}
+
+【已有对话示例】
+${dialogue || '（暂无对话）'}
+
+【任务】
+请以 ${roleLabel} 的身份，结合角色性格和对话上下文，续写一条自然、符合角色设定的对话发言。
+
+要求：
+1. 只输出发言内容本身，不要包含角色名或任何前缀
+2. 不要输出任何解释、说明或元信息
+3. 内容应当自然衔接已有对话
+4. 发言长度适中（1-3句话），符合角色说话风格`
+}
+
+/** 带中断支持的 LLM 请求 */
+async function requestChatCompletionWithAbort(
+  endpointId: string,
+  messages: ChatMessage[],
+  signal?: AbortSignal,
+): Promise<string> {
+  const res = await fetch('/api/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpointId, messages }),
+    signal,
+  })
+
+  const data: any = await res.json().catch(() => ({}))
+
+  if (!res.ok) {
+    throw new Error(
+      data?.error?.message ||
+        data?.error ||
+        data?.message ||
+        `请求失败 (${res.status})`,
+    )
+  }
+
+  const content = data?.choices?.[0]?.message?.content
+  if (Array.isArray(content)) {
+    return content
+      .map((p: any) => (typeof p?.text === 'string' ? p.text : ''))
+      .join('')
+  }
+  if (typeof content === 'string') {
+    return content
+  }
+  throw new Error('模型未返回有效文本')
+}
+
 function MesExampleEditor({
   value,
-  cardName,
+  card,
+  endpointId,
   onChange,
 }: {
   value: string
-  cardName: string
+  card: CharacterCard
+  endpointId?: string
   onChange: (value: string) => void
 }) {
   const blocks = useMemo(() => parseMesExample(value), [value])
   const [focusKey, setFocusKey] = useState<string | null>(null)
+  const [aiMode, setAiMode] = useState(false)
+  const [generatingRole, setGeneratingRole] = useState<MessageRole | null>(
+    null,
+  )
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const totalMessages = blocks.reduce((sum, b) => sum + b.messages.length, 0)
 
@@ -131,7 +211,79 @@ function MesExampleEditor({
     onChange(serializeMesExample(next))
   }
 
-  const charLabel = cardName || '{{char}}'
+  const handleStop = () => {
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+    setGeneratingRole(null)
+  }
+
+  const handleAiInsert = async (role: MessageRole) => {
+    if (!endpointId) {
+      message.warning('请先在设置中配置 LLM 端点')
+      return
+    }
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    setGeneratingRole(role)
+
+    try {
+      const dialogue = value.trim()
+      const systemContent = buildContinuationPrompt(card, dialogue, role)
+      const roleLabel =
+        role === 'char' ? (card.name || '{{char}}') : '{{user}}'
+
+      const messages: ChatMessage[] = [
+        { role: 'system', content: systemContent },
+        {
+          role: 'user',
+          content: `请以 ${roleLabel} 的身份续写一条对话发言。`,
+        },
+      ]
+
+      const reply = await requestChatCompletionWithAbort(
+        endpointId,
+        messages,
+        controller.signal,
+      )
+      const content = reply.trim()
+
+      if (!content) {
+        message.warning('AI 返回内容为空')
+        return
+      }
+
+      // 将 AI 生成的内容作为新发言追加
+      const next = blocks.map((block) => ({
+        messages: block.messages.slice(),
+      }))
+      if (next.length === 0) {
+        next.push({ messages: [{ role, content }] })
+      } else {
+        next[next.length - 1].messages.push({ role, content })
+      }
+      onChange(serializeMesExample(next))
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      message.error(
+        error instanceof Error ? error.message : 'AI 续写失败',
+      )
+    } finally {
+      abortControllerRef.current = null
+      setGeneratingRole(null)
+    }
+  }
+
+  const handleInsert = (role: MessageRole) => {
+    if (generatingRole) return
+    if (aiMode) {
+      handleAiInsert(role)
+    } else {
+      insertMessage(role)
+    }
+  }
+
+  const charLabel = card.name || '{{char}}'
 
   return (
     <div className="rounded-lg border border-[#2d333d] bg-[#15181d] p-3">
@@ -163,7 +315,7 @@ function MesExampleEditor({
                     </div>
                   )}
                   <div
-                    className={`relative flex max-w-[80%] flex-col rounded-2xl px-3 py-2 ${
+                    className={`relative flex max-w-[85%] flex-col rounded-2xl px-3 py-2 ${
                       isChar
                         ? 'rounded-tl-md bg-[#2a313b] text-slate-100'
                         : 'rounded-tr-md bg-amber-500/15 text-amber-50 ring-1 ring-amber-400/20'
@@ -191,9 +343,9 @@ function MesExampleEditor({
                       }
                       autoFocus={focusKey === key}
                       variant="borderless"
-                      autoSize={{ minRows: 1, maxRows: 10 }}
+                      autoSize={{ minRows: 1 }}
                       placeholder="输入对话内容…"
-                      className={`p-0! text-sm! ${
+                      className={`w-full! p-0! text-sm! ${
                         isChar ? 'text-slate-100!' : 'text-amber-50!'
                       }`}
                     />
@@ -209,22 +361,85 @@ function MesExampleEditor({
           </div>
         ))}
 
-        {totalMessages === 0 && (
+        {/* AI 续写中的占位气泡 */}
+        {generatingRole && (
+          <div
+            className={`group flex items-start gap-2 ${
+              generatingRole === 'char' ? 'justify-start' : 'justify-end'
+            }`}
+          >
+            {generatingRole === 'char' && (
+              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-500/15 text-sky-300 ring-1 ring-sky-400/20">
+                <RobotOutlined className="text-sm" />
+              </div>
+            )}
+            <div
+              className={`relative flex max-w-[85%] flex-col rounded-2xl px-3 py-2 ${
+                generatingRole === 'char'
+                  ? 'rounded-tl-md bg-[#2a313b] text-slate-100'
+                  : 'rounded-tr-md bg-amber-500/15 text-amber-50 ring-1 ring-amber-400/20'
+              }`}
+            >
+              <div
+                className={`mb-1 flex items-center gap-1.5 text-[11px] ${
+                  generatingRole === 'char'
+                    ? 'text-slate-400'
+                    : 'text-amber-200/70'
+                }`}
+              >
+                <span className="truncate">
+                  {generatingRole === 'char' ? charLabel : '{{user}}'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 py-1 text-xs text-slate-400">
+                <LoadingOutlined />
+                <span>AI 续写中…</span>
+                <button
+                  type="button"
+                  onClick={handleStop}
+                  className="cursor-pointer rounded px-1.5 py-0.5 text-rose-300 transition-colors hover:bg-rose-500/10"
+                >
+                  <StopOutlined /> 停止
+                </button>
+              </div>
+            </div>
+            {generatingRole === 'user' && (
+              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20">
+                <UserOutlined className="text-sm" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {totalMessages === 0 && !generatingRole && (
           <div className="rounded-lg border border-dashed border-[#2d333d] py-6 text-center text-xs text-slate-500">
             暂无对话示例，点击下方按钮添加角色或用户发言
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 pt-1">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <Button
             icon={<RobotOutlined />}
-            onClick={() => insertMessage('char')}
+            onClick={() => handleInsert('char')}
+            disabled={generatingRole !== null}
           >
             插入角色发言
           </Button>
-          <Button icon={<UserOutlined />} onClick={() => insertMessage('user')}>
+          <Button
+            icon={<UserOutlined />}
+            onClick={() => handleInsert('user')}
+            disabled={generatingRole !== null}
+          >
             插入用户发言
           </Button>
+          <Checkbox
+            checked={aiMode}
+            onChange={(e) => setAiMode(e.target.checked)}
+            disabled={generatingRole !== null}
+            className="ml-1"
+          >
+            AI续写
+          </Checkbox>
         </div>
       </div>
     </div>
@@ -233,6 +448,7 @@ function MesExampleEditor({
 
 export function CharacterCardEditorFields({
   card,
+  endpointId,
   onChange,
 }: CharacterCardEditorFieldsProps) {
   // 仅当 mes_example 符合 SillyTavern 气泡格式（或为空）时启用气泡编辑器，
@@ -311,7 +527,8 @@ export function CharacterCardEditorFields({
         {isBubbleFormat ? (
           <MesExampleEditor
             value={card.mes_example}
-            cardName={card.name}
+            card={card}
+            endpointId={endpointId}
             onChange={(value) => onChange('mes_example', value)}
           />
         ) : (
