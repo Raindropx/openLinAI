@@ -315,7 +315,7 @@ function MesExampleEditor({
                     </div>
                   )}
                   <div
-                    className={`relative flex max-w-[85%] flex-col rounded-2xl px-3 py-2 ${
+                    className={`relative flex w-fit max-w-[85%] flex-col rounded-2xl px-3 py-2 ${
                       isChar
                         ? 'rounded-tl-md bg-[#2a313b] text-slate-100'
                         : 'rounded-tr-md bg-amber-500/15 text-amber-50 ring-1 ring-amber-400/20'
@@ -345,7 +345,7 @@ function MesExampleEditor({
                       variant="borderless"
                       autoSize={{ minRows: 1 }}
                       placeholder="输入对话内容…"
-                      className={`w-full! p-0! text-sm! ${
+                      className={`w-auto! min-w-[200px] p-0! text-sm! ${
                         isChar ? 'text-slate-100!' : 'text-amber-50!'
                       }`}
                     />
@@ -374,7 +374,7 @@ function MesExampleEditor({
               </div>
             )}
             <div
-              className={`relative flex max-w-[85%] flex-col rounded-2xl px-3 py-2 ${
+              className={`relative flex w-fit max-w-[85%] flex-col rounded-2xl px-3 py-2 ${
                 generatingRole === 'char'
                   ? 'rounded-tl-md bg-[#2a313b] text-slate-100'
                   : 'rounded-tr-md bg-amber-500/15 text-amber-50 ring-1 ring-amber-400/20'
