@@ -2,6 +2,10 @@ import { useEffect } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import pkg from '../../package.json'
 import { Header } from './pages/common/Header'
+import {
+  MobileBottomNavigation,
+  MobileTopBar,
+} from './pages/common/MobileNavigation'
 import { openNotificationModal } from './pages/common/Notification'
 import { appRoutes } from './routes'
 import { useGlobalStore } from './store/global'
@@ -22,20 +26,23 @@ function App() {
 
   return (
     <AppThemeProvider>
-      <div className="flex min-h-screen bg-[#101216] font-sans text-slate-100 lg:h-screen lg:overflow-hidden">
+      <div className="flex h-dvh overflow-hidden bg-[#101216] font-sans text-slate-100">
         <Header />
-
-        <main className="min-h-0 min-w-0 flex-1 overflow-auto">
-          <Routes>
-            {appRoutes.map((route) => (
-              <Route
-                key={route.key}
-                path={route.path}
-                element={route.element}
-              />
-            ))}
-          </Routes>
-        </main>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <MobileTopBar />
+          <main className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain">
+            <Routes>
+              {appRoutes.map((route) => (
+                <Route
+                  key={route.key}
+                  path={route.path}
+                  element={route.element}
+                />
+              ))}
+            </Routes>
+          </main>
+          <MobileBottomNavigation />
+        </div>
       </div>
     </AppThemeProvider>
   )

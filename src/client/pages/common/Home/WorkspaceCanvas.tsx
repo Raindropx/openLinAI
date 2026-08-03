@@ -80,7 +80,7 @@ export function WorkspaceCanvas({
           }
 
   return (
-    <section className="workbench-panel flex min-h-[560px] flex-col lg:h-full lg:min-h-0">
+    <section className="workbench-panel flex h-full min-h-[460px] flex-col lg:min-h-0">
       <div className="workbench-panel-header gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <PictureOutlined className="text-amber-400" />
@@ -152,7 +152,7 @@ export function WorkspaceCanvas({
                   <Image
                     src={url}
                     alt={`生成结果 ${index + 1}`}
-                    className="max-h-[calc(100vh-240px)]! max-w-full! object-contain"
+                    className="max-h-[calc(100dvh-240px)]! max-w-full! object-contain"
                     styles={{
                       root: {
                         display: 'flex',

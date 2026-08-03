@@ -60,7 +60,7 @@ export function Header() {
 
   return (
     <aside
-      className={`sticky top-0 z-30 flex h-screen shrink-0 flex-col border-r border-[#2b3039] bg-[#15181d] shadow-[1px_0_0_rgba(255,255,255,0.02)] transition-[width] duration-200 ${
+      className={`sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-r border-[#2b3039] bg-[#15181d] shadow-[1px_0_0_rgba(255,255,255,0.02)] transition-[width] duration-200 lg:flex ${
         collapsed ? 'w-[72px]' : 'w-[216px] 2xl:w-[224px]'
       }`}
     >
