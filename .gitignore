@@ -9,6 +9,7 @@ dist
 data
 tsconfig.tsbuildinfo
 .codegraph
+PROJECT_MEMORY.md
 
 # Build and release archives
 *.zip
