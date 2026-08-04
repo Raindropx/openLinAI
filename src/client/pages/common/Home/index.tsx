@@ -4,9 +4,10 @@ import {
   UnorderedListOutlined,
 } from '@ant-design/icons'
 import { Segmented } from 'antd'
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { TaskTemplate } from '../../../../server/common/template-manager'
 import { useGlobalStore } from '../../../store/global'
+import { useTasks } from '../../../hooks/useTasks'
 import { TaskList } from '../TaskList'
 import { TemplateForm } from '../TemplateSection/TemplateForm'
 import {
@@ -23,10 +24,43 @@ export const Home = () => {
   const setFillTemplateData = useGlobalStore(
     (state) => state.setFillTemplateData,
   )
+  const focusNewestTaskSignal = useGlobalStore(
+    (state) => state.focusNewestTaskSignal,
+  )
+  const { data: tasks = [] } = useTasks()
   const [resourcePanel, setResourcePanel] = useState<ResourcePanel>('tasks')
   const [mobilePanel, setMobilePanel] =
     useState<MobileWorkspacePanel>('canvas')
   const [selectedTaskId, setSelectedTaskId] = useState<string>()
+
+  const imageTasks = useMemo(
+    () =>
+      tasks.filter(
+        (task) =>
+          task.rawTemplate?.usageType === 'image' ||
+          task.rawTemplate?.usageType === 'chat-image',
+      ),
+    [tasks],
+  )
+
+  // 生成新任务后让画布自动聚焦到最新任务
+  const pendingFocusRef = useRef(false)
+  const lastFocusedNewestIdRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (focusNewestTaskSignal > 0) {
+      pendingFocusRef.current = true
+    }
+  }, [focusNewestTaskSignal])
+
+  useEffect(() => {
+    if (!pendingFocusRef.current || imageTasks.length === 0) return
+    const newest = imageTasks[0]
+    if (newest.id !== lastFocusedNewestIdRef.current) {
+      setSelectedTaskId(newest.id)
+      lastFocusedNewestIdRef.current = newest.id
+      pendingFocusRef.current = false
+    }
+  }, [imageTasks])
 
   const handleLoadTemplate = (template: TaskTemplate) => {
     setFillTemplateData(template)

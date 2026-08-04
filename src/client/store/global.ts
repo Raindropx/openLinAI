@@ -19,9 +19,12 @@ interface GlobalState {
   localNetworkUrl: string | null
   fillTemplateData: Partial<TaskTemplate> | null
   pendingReferenceImage: { url: string; token: number } | null
+  /** 生成新任务时递增的信号，用于让任务列表与画布自动聚焦到最新任务 */
+  focusNewestTaskSignal: number
   setFillTemplateData: (data: Partial<TaskTemplate> | null) => void
   addReferenceImage: (url: string) => void
   clearPendingReferenceImage: () => void
+  setFocusNewestTask: () => void
   setGptImageApiKey: (key: string | null) => Promise<void>
   saveEndpoints: (endpoints: GptImageEndpoint[]) => Promise<boolean>
   saveLlmEndpoints: (endpoints: LlmEndpoint[]) => Promise<void>
@@ -56,10 +59,15 @@ export const useGlobalStore = create<GlobalState>()((set) => ({
   localNetworkUrl: null,
   fillTemplateData: null,
   pendingReferenceImage: null,
+  focusNewestTaskSignal: 0,
   setFillTemplateData: (data) => set({ fillTemplateData: data }),
   addReferenceImage: (url) =>
     set({ pendingReferenceImage: { url, token: Date.now() } }),
   clearPendingReferenceImage: () => set({ pendingReferenceImage: null }),
+  setFocusNewestTask: () =>
+    set((state) => ({
+      focusNewestTaskSignal: state.focusNewestTaskSignal + 1,
+    })),
   setGptImageApiKey: async (key) => {
     try {
       const res = await client.api.config.$post({

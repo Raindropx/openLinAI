@@ -55,6 +55,7 @@ export function TemplateForm({
     setFillTemplateData,
     pendingReferenceImage,
     clearPendingReferenceImage,
+    setFocusNewestTask,
   } = useGlobalStore(
     useShallow((state) => ({
       endpoints: state.endpoints,
@@ -64,6 +65,7 @@ export function TemplateForm({
       setFillTemplateData: state.setFillTemplateData,
       pendingReferenceImage: state.pendingReferenceImage,
       clearPendingReferenceImage: state.clearPendingReferenceImage,
+      setFocusNewestTask: state.setFocusNewestTask,
     })),
   )
   const {
@@ -174,6 +176,9 @@ export function TemplateForm({
 
       if (!data.success) {
         message.error(data.error || '生成失败')
+      } else {
+        // 提交成功后让任务列表与画布自动聚焦到最新任务
+        setFocusNewestTask()
       }
     } catch (error) {
       message.error('请求失败')

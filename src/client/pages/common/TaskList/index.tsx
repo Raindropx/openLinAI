@@ -24,7 +24,7 @@ import {
 import copy from 'copy-to-clipboard'
 import dayjs from 'dayjs'
 import { hc } from 'hono/client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { AppType } from '../../../../server'
 import type { Task } from '../../../../server/common/task-manager'
@@ -120,6 +120,11 @@ export function TaskList({
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [batchDeleting, setBatchDeleting] = useState(false)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const focusNewestTaskSignal = useGlobalStore(
+    (state) => state.focusNewestTaskSignal,
+  )
+  const lastFocusSignalRef = useRef(0)
 
   const handleAddToTemplate = (task: Task) => {
     if (!task.rawTemplate) return
@@ -194,6 +199,21 @@ export function TaskList({
   useEffect(() => {
     if (page > 0 && page * pageSize >= filteredTasks.length) setPage(0)
   }, [filteredTasks.length, page, pageSize])
+
+  // 生成新任务后自动聚焦到最新任务（列表顶部，重置分页并滚动定位）
+  useEffect(() => {
+    if (focusNewestTaskSignal === lastFocusSignalRef.current) return
+    lastFocusSignalRef.current = focusNewestTaskSignal
+    setPage(0)
+    setVisibleCount(pageSize)
+    requestAnimationFrame(() => {
+      if (panelMode && scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    })
+  }, [focusNewestTaskSignal, pageSize, panelMode])
 
   const visibleTasks = infiniteScroll
     ? filteredTasks.slice(0, visibleCount)
@@ -335,6 +355,7 @@ export function TaskList({
       </div>
 
       <div
+        ref={scrollContainerRef}
         className={
           panelMode ? 'min-h-0 flex-1 overflow-y-auto py-3 pr-1' : undefined
         }
