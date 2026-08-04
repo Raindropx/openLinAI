@@ -157,6 +157,8 @@ export function TemplateForm({
       endpoints[0]?.id
 
     message.success('任务提交成功')
+    // 提交即让任务列表与画布自动聚焦到最新任务，无需等待生成成功
+    setFocusNewestTask()
     try {
       const res = await client.api.gptImage.trial.$post({
         json: {
