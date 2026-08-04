@@ -48,16 +48,16 @@ export function TemplateEditorPage() {
         block
         value={mobilePanel}
         onChange={setMobilePanel}
-        className="shrink-0 xl:hidden"
+        className="shrink-0 lg:hidden"
         options={[
           { label: '编辑模板', value: 'editor', icon: <EditOutlined /> },
           { label: '模板库', value: 'library', icon: <AppstoreOutlined /> },
         ]}
       />
 
-      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(520px,1.35fr)_minmax(360px,0.65fr)]">
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(520px,1.35fr)_minmax(360px,0.65fr)]">
         <section
-          className={`workbench-panel min-h-[calc(100dvh-13rem)] overflow-hidden xl:block xl:min-h-0 ${mobilePanel === 'editor' ? 'block' : 'hidden'}`}
+          className={`workbench-panel min-h-[calc(100dvh-13rem)] overflow-hidden lg:block lg:min-h-0 ${mobilePanel === 'editor' ? 'block' : 'hidden'}`}
         >
           <div className="workbench-panel-header h-auto! gap-3 py-3">
             <span className="flex items-center gap-2">
@@ -83,7 +83,7 @@ export function TemplateEditorPage() {
         </section>
 
         <section
-          className={`workbench-panel relative min-h-[calc(100dvh-13rem)] xl:block xl:min-h-0 ${mobilePanel === 'library' ? 'block' : 'hidden'}`}
+          className={`workbench-panel relative min-h-[calc(100dvh-13rem)] lg:block lg:min-h-0 ${mobilePanel === 'library' ? 'block' : 'hidden'}`}
         >
           <div className="workbench-panel-header h-auto! gap-3 py-3">
             <span className="flex items-center gap-2">

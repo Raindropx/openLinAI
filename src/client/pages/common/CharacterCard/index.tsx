@@ -369,7 +369,7 @@ export function CharacterCardPage() {
         block
         value={mobilePanel}
         onChange={setMobilePanel}
-        className="shrink-0 xl:hidden"
+        className="shrink-0 lg:hidden"
         options={[
           { label: '生成', value: 'generate', icon: <ThunderboltOutlined /> },
           { label: '编辑', value: 'editor', icon: <FileTextOutlined /> },
@@ -377,9 +377,9 @@ export function CharacterCardPage() {
         ]}
       />
 
-      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[300px_minmax(420px,1fr)_320px]">
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[300px_minmax(420px,1fr)_320px]">
         <aside
-          className={`min-h-[calc(100dvh-16rem)] space-y-3 overflow-y-auto pr-1 xl:block xl:min-h-0 ${mobilePanel === 'generate' ? 'block' : 'hidden'}`}
+          className={`min-h-[calc(100dvh-16rem)] space-y-3 overflow-y-auto pr-1 lg:block lg:min-h-0 ${mobilePanel === 'generate' ? 'block' : 'hidden'}`}
         >
           <section className="workbench-panel p-3">
             <div className="mb-2 text-sm font-medium text-slate-300">
@@ -461,7 +461,7 @@ export function CharacterCardPage() {
         </aside>
 
         <main
-          className={`workbench-panel min-h-[calc(100dvh-16rem)] flex-col xl:flex xl:min-h-0 ${mobilePanel === 'editor' ? 'flex' : 'hidden'}`}
+          className={`workbench-panel min-h-[calc(100dvh-16rem)] flex-col lg:flex lg:min-h-0 ${mobilePanel === 'editor' ? 'flex' : 'hidden'}`}
         >
           <div className="workbench-panel-header h-auto! flex-wrap gap-3 py-3">
             <div className="min-w-0">
@@ -557,7 +557,7 @@ export function CharacterCardPage() {
         </main>
 
         <aside
-          className={`workbench-panel min-h-[calc(100dvh-16rem)] flex-col xl:flex xl:min-h-0 ${mobilePanel === 'library' ? 'flex' : 'hidden'}`}
+          className={`workbench-panel min-h-[calc(100dvh-16rem)] flex-col lg:flex lg:min-h-0 ${mobilePanel === 'library' ? 'flex' : 'hidden'}`}
         >
           <div className="workbench-panel-header h-auto! gap-3 py-3">
             <span>角色卡库</span>
