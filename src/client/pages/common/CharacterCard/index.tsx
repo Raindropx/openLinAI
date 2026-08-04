@@ -365,17 +365,18 @@ export function CharacterCardPage() {
         </div>
       </div>
 
-      <Segmented
-        block
-        value={mobilePanel}
-        onChange={setMobilePanel}
-        className="shrink-0 lg:hidden"
-        options={[
-          { label: '生成', value: 'generate', icon: <ThunderboltOutlined /> },
-          { label: '编辑', value: 'editor', icon: <FileTextOutlined /> },
-          { label: '角色库', value: 'library', icon: <IdcardOutlined /> },
-        ]}
-      />
+      <div className="shrink-0 lg:hidden">
+        <Segmented
+          block
+          value={mobilePanel}
+          onChange={setMobilePanel}
+          options={[
+            { label: '生成', value: 'generate', icon: <ThunderboltOutlined /> },
+            { label: '编辑', value: 'editor', icon: <FileTextOutlined /> },
+            { label: '角色库', value: 'library', icon: <IdcardOutlined /> },
+          ]}
+        />
+      </div>
 
       <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[300px_minmax(420px,1fr)_320px]">
         <aside

@@ -44,16 +44,17 @@ export function TemplateEditorPage() {
         </div>
       </div>
 
-      <Segmented
-        block
-        value={mobilePanel}
-        onChange={setMobilePanel}
-        className="shrink-0 lg:hidden"
-        options={[
-          { label: '编辑模板', value: 'editor', icon: <EditOutlined /> },
-          { label: '模板库', value: 'library', icon: <AppstoreOutlined /> },
-        ]}
-      />
+      <div className="shrink-0 lg:hidden">
+        <Segmented
+          block
+          value={mobilePanel}
+          onChange={setMobilePanel}
+          options={[
+            { label: '编辑模板', value: 'editor', icon: <EditOutlined /> },
+            { label: '模板库', value: 'library', icon: <AppstoreOutlined /> },
+          ]}
+        />
+      </div>
 
       <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(520px,1.35fr)_minmax(360px,0.65fr)]">
         <section
