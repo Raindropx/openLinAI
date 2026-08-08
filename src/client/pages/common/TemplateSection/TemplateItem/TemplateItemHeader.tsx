@@ -65,8 +65,8 @@ export const TemplateItemHeader = ({
                 type="text"
                 icon={<ImportOutlined />}
                 onClick={() => {
-                  onLoad(template)
                   message.success('已载入到工作区')
+                  onLoad(template)
                 }}
                 className="hover:text-amber-300!"
               />

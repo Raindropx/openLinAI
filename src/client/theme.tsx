@@ -36,6 +36,15 @@ export const appTheme: ThemeConfig = {
   },
 }
 
+ConfigProvider.config({
+  theme: appTheme,
+  holderRender: (children) => (
+    <ConfigProvider locale={zhCN} theme={appTheme}>
+      {children}
+    </ConfigProvider>
+  ),
+})
+
 export function AppThemeProvider({ children }: PropsWithChildren) {
   return (
     <ConfigProvider locale={zhCN} theme={appTheme}>

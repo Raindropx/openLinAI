@@ -26,6 +26,11 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
   const { gptImageSettings } = useLocalSetting()
 
   const handleOpen = () => {
+    setOpen(true)
+  }
+
+  const handleOpenChange = (visible: boolean) => {
+    if (!visible) return
     form.setFieldsValue({
       title: template.title,
       endpointId:
@@ -39,7 +44,6 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
       n: template.n || 1,
     })
     setImageUrls(template.images || [])
-    setOpen(true)
   }
 
   const handleClose = () => {
@@ -116,6 +120,7 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
         title="编辑模板"
         open={open}
         onCancel={handleClose}
+        afterOpenChange={handleOpenChange}
         footer={() => {
           return (
             <div className="flex justify-between">

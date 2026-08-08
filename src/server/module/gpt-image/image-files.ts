@@ -162,8 +162,6 @@ async function persistImageBuffer(
   }
 
   const normalized = await normalizeImageBuffer(sourceBuffer, detectedFormat)
-  const hash = crypto.createHash('md5').update(normalized.buffer).digest('hex')
-  const filename = `${hash}.${normalized.format.extension}`
   let outputBuffer = normalized.buffer
   if (generationMetadata) {
     try {
@@ -179,6 +177,8 @@ async function persistImageBuffer(
       )
     }
   }
+  const hash = crypto.createHash('md5').update(outputBuffer).digest('hex')
+  const filename = `${hash}.${normalized.format.extension}`
   await writeFile(path.join(GENERATED_IMAGES_DIR, filename), outputBuffer)
   return filename
 }
