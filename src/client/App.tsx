@@ -5,6 +5,7 @@ import { usePopupTouchScrollGuard } from './hooks/usePopupTouchScrollGuard'
 import { Header } from './pages/common/Header'
 import {
   MobileBottomNavigation,
+  MobilePullBalance,
   MobileTopBar,
 } from './pages/common/MobileNavigation'
 import { openNotificationModal } from './pages/common/Notification'
@@ -31,9 +32,12 @@ function App() {
     <AppThemeProvider>
       <div className="flex h-dvh overflow-hidden bg-[#101216] font-sans text-slate-100">
         <Header />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <MobilePullBalance>
           <MobileTopBar />
-          <main className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain">
+          <main
+            className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain"
+            data-mobile-scroll-root
+          >
             <Routes>
               {appRoutes.map((route) => (
                 <Route
@@ -45,7 +49,7 @@ function App() {
             </Routes>
           </main>
           <MobileBottomNavigation />
-        </div>
+        </MobilePullBalance>
       </div>
     </AppThemeProvider>
   )

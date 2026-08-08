@@ -9,7 +9,7 @@ import { openSettingModal } from '../SettingModal'
 export function GPTImageQuota({
   variant = 'header',
 }: {
-  variant?: 'header' | 'sidebar'
+  variant?: 'header' | 'sidebar' | 'pull'
 }) {
   const endpoints = useGlobalStore((state) => state.endpoints)
   const { gptImageSettings } = useLocalSetting()
@@ -31,6 +31,7 @@ export function GPTImageQuota({
   const endpointName =
     selectedEndpoint.name || selectedEndpoint.model || '未命名端点'
   const sidebar = variant === 'sidebar'
+  const pull = variant === 'pull'
 
   return (
     <Tooltip
@@ -41,7 +42,9 @@ export function GPTImageQuota({
         className={`cursor-pointer rounded-md border border-[#343a44] bg-[#20242b] text-sm text-slate-400 transition-colors hover:border-[#4a5361] hover:bg-[#292e37] ${
           sidebar
             ? 'flex w-full flex-col items-stretch gap-1 px-3 py-2'
-            : 'flex max-w-[min(52vw,30rem)] items-center gap-1.5 px-3 py-1.5'
+            : pull
+              ? 'flex w-full items-center justify-center gap-1.5 px-3 py-1.5'
+              : 'flex max-w-[min(52vw,30rem)] items-center gap-1.5 px-3 py-1.5'
         }`}
         onClick={() => openSettingModal({ initialTab: 'gpt-image' })}
       >
