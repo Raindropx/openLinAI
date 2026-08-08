@@ -83,6 +83,17 @@
     visibility: hidden !important;
     pointer-events: none !important;
   }
+
+  /* 下拉浮层自行处理纵向滑动，避免触底后带动背后的页面。 */
+  :where(.ant-select-dropdown, .ant-dropdown) {
+    overscroll-behavior: contain;
+  }
+
+  :where(.ant-select-dropdown .rc-virtual-list-holder, .ant-dropdown-menu) {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+  }
 }
 
 /* 让 Upload 组件内部元素填满容器宽度 */

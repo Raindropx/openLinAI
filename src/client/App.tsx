@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import pkg from '../../package.json'
+import { usePopupTouchScrollGuard } from './hooks/usePopupTouchScrollGuard'
 import { Header } from './pages/common/Header'
 import {
   MobileBottomNavigation,
@@ -12,6 +13,8 @@ import { useGlobalStore } from './store/global'
 import { AppThemeProvider } from './theme'
 
 function App() {
+  usePopupTouchScrollGuard()
+
   useEffect(() => {
     useGlobalStore.getState().fetchConfig()
 
