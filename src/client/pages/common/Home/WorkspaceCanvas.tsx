@@ -168,7 +168,7 @@ export function WorkspaceCanvas({
         )}
 
         {selectedTask && (
-          <div className="absolute top-3 left-3 flex items-center overflow-hidden rounded-md border border-white/8 bg-black/45 text-[11px] text-slate-400 backdrop-blur">
+          <div className="canvas-task-meta absolute top-3 left-3 flex items-center overflow-hidden rounded-md border text-[11px] backdrop-blur">
             {selectedUrls[0] && (
               <Tooltip title="将当前图片加入左侧参考图">
                 <Button
@@ -177,7 +177,7 @@ export function WorkspaceCanvas({
                   icon={<ArrowLeftOutlined />}
                   loading={addingReference}
                   disabled={addingReference}
-                  className="h-7! w-8! rounded-none! border-0! border-r! border-r-white/10! text-slate-300! hover:bg-amber-400/15! hover:text-amber-300!"
+                  className="canvas-task-meta-button h-7! w-8! rounded-none! border-0! border-r!"
                   onClick={async () => {
                     setAddingReference(true)
                     try {
@@ -205,7 +205,7 @@ export function WorkspaceCanvas({
               {dayjs(selectedTask.createdAt).format('MM/DD HH:mm')}
               {selectedTask.endpointName && (
                 <>
-                  <span className="text-slate-600">·</span>
+                  <span className="canvas-task-meta-separator">·</span>
                   <span className="max-w-28 truncate">
                     {selectedTask.endpointName}
                   </span>

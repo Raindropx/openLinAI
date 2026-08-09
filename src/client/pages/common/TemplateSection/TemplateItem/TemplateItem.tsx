@@ -59,11 +59,11 @@ export function TemplateItem({
           onLoad(template)
         }
       }}
-      className={`border-[#303640]! bg-[#1d2128]! shadow-sm transition-all hover:border-[#49515f]! ${
+      className={`template-card shadow-sm ${
         selectionMode || clickToLoad ? 'cursor-pointer' : ''
       } ${
         selected || active
-          ? 'border-amber-400/70! shadow-[0_0_0_1px_rgba(241,184,75,0.2)]'
+          ? 'template-card-active'
           : ''
       } ${
         dropPosition === 'before'
@@ -74,8 +74,8 @@ export function TemplateItem({
       }`}
       classNames={{
         body: tileMode
-          ? 'p-0! overflow-hidden hover:bg-[#242932] transition-colors duration-100'
-          : 'p-[10px]! hover:bg-[#242932] transition-colors duration-100',
+          ? 'template-card-body p-0! overflow-hidden transition-colors duration-100'
+          : 'template-card-body p-[10px]! transition-colors duration-100',
       }}
       onDragOver={(event) => {
         if (!draggable) return
@@ -111,7 +111,7 @@ export function TemplateItem({
     >
       {tileMode ? (
         <div className="flex h-full flex-row sm:flex-col">
-          <div className="relative h-[112px] w-[92px] shrink-0 overflow-hidden border-r border-[#303640] bg-[#111318] sm:h-auto sm:w-auto sm:aspect-[4/3] sm:border-r-0 sm:border-b">
+          <div className="template-card-media relative h-[112px] w-[92px] shrink-0 overflow-hidden border-r sm:h-auto sm:w-auto sm:aspect-[4/3] sm:border-r-0 sm:border-b">
             {template.images?.[0] ? (
               <Image
                 src={template.images[0]}

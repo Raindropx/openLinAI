@@ -396,15 +396,15 @@ export function TaskList({
                         ? toggleTaskSelection(task.id)
                         : onSelectTask?.(task.id)
                     }
-                    className={`w-full border-[#303640]! bg-[#1d2128]! transition-all hover:border-[#49515f]! ${
+                    className={`task-list-card w-full transition-all ${
                       onSelectTask || selectionMode ? 'cursor-pointer' : ''
                     } ${
                       active || selected
-                        ? 'border-amber-400/70! shadow-[0_0_0_1px_rgba(241,184,75,0.2)]'
+                        ? 'task-list-card-active'
                         : 'shadow-sm'
                     }`}
                     classNames={{
-                      body: 'p-[10px]! hover:bg-[#242932] transition-colors duration-100',
+                      body: 'task-list-card-body p-[10px]! transition-colors duration-100',
                     }}
                   >
                     {selectionMode && (
@@ -429,7 +429,7 @@ export function TaskList({
                       }
                     >
                       <div
-                        className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-md border border-[#343a44] bg-[#111318] ${
+                        className={`task-list-card-media relative flex shrink-0 items-center justify-center overflow-hidden rounded-md border ${
                           panelMode
                             ? 'h-[120px] w-[90px]'
                             : managementMode
@@ -666,7 +666,7 @@ export function TaskList({
     <Card
       className={
         managementMode
-          ? 'w-full border-0! bg-transparent! shadow-none! sm:border-[#303640]! sm:bg-[#171a20]! sm:shadow-sm'
+          ? 'task-list-management-shell w-full shadow-none! sm:shadow-sm'
           : 'w-full border-[#303640] shadow-sm'
       }
       classNames={{

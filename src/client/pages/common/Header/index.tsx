@@ -16,6 +16,7 @@ import pkg from '../../../../../package.json'
 import LinpxLogo from '../../../assets/icon/linpx.png'
 import { openSettingModal } from '../../common/SettingModal'
 import { openNotificationModal } from '../Notification'
+import { ThemeToggle } from '../ThemeToggle'
 import { GPTImageQuota } from './GPTImageQuota'
 
 interface NavigationItemProps {
@@ -133,6 +134,10 @@ export function Header() {
       </nav>
 
       <div className="flex shrink-0 flex-col gap-1 border-t border-[#2b3039] p-2">
+        <ThemeToggle
+          className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
+          showLabel={!collapsed}
+        />
         <button
           type="button"
           className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}

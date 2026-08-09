@@ -12,6 +12,7 @@ import LinpxLogo from '../../../assets/icon/linpx.png'
 import { GPTImageQuota } from '../Header/GPTImageQuota'
 import { openNotificationModal } from '../Notification'
 import { openSettingModal } from '../SettingModal'
+import { ThemeToggle } from '../ThemeToggle'
 
 const MOBILE_BREAKPOINT = '(min-width: 1024px)'
 const PULL_ACTIVATION_DISTANCE = 8
@@ -209,6 +210,7 @@ export function MobileTopBar() {
         <span className="truncate text-sm font-semibold">LinAI 工作台</span>
       </button>
       <div className="flex items-center gap-1">
+        <ThemeToggle className="mobile-header-button" />
         <button
           type="button"
           className="mobile-header-button"

@@ -30,7 +30,7 @@ function App() {
 
   return (
     <AppThemeProvider>
-      <div className="flex h-dvh overflow-hidden bg-[#101216] font-sans text-slate-100">
+      <div className="app-shell flex h-dvh overflow-hidden bg-[#101216] font-sans text-slate-100">
         <Header />
         <MobilePullBalance>
           <MobileTopBar />

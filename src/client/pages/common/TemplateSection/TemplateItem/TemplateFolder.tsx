@@ -38,8 +38,8 @@ export function TemplateFolder({
     <>
       <Card
         size="small"
-        className={`group cursor-pointer border-[#303640]! bg-[#1d2128]! shadow-sm transition-all hover:border-amber-400/70! ${
-          isDragOver ? 'border-amber-400! bg-amber-400/10!' : ''
+        className={`template-folder-card group cursor-pointer shadow-sm ${
+          isDragOver ? 'template-folder-card-drag-over' : ''
         }`}
         onClick={onClick}
         onDragOver={(e) => {

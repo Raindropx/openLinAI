@@ -3,6 +3,32 @@
 /* 全局滚动条优化 */
 @layer base {
   html {
+    --task-list-shell-bg: #171a20;
+    --task-list-card-bg: #1d2128;
+    --task-list-card-hover-bg: #242932;
+    --task-list-card-border: #303640;
+    --task-list-card-border-hover: #49515f;
+    --task-list-card-media-bg: #111318;
+    --task-list-card-media-border: #343a44;
+    --task-list-card-active-border: rgb(241 184 75 / 70%);
+    --task-list-card-active-shadow: 0 0 0 1px rgb(241 184 75 / 20%);
+    --template-list-shell-bg: #171a20;
+    --template-card-bg: #1d2128;
+    --template-card-hover-bg: #242932;
+    --template-card-border: #303640;
+    --template-card-border-hover: #49515f;
+    --template-card-media-bg: #111318;
+    --template-card-active-border: rgb(241 184 75 / 70%);
+    --template-card-active-shadow: 0 0 0 1px rgb(241 184 75 / 20%);
+    --canvas-task-meta-bg: rgb(0 0 0 / 45%);
+    --canvas-task-meta-border: rgb(255 255 255 / 8%);
+    --canvas-task-meta-divider: rgb(255 255 255 / 10%);
+    --canvas-task-meta-text: #94a3b8;
+    --canvas-task-meta-button-text: #cbd5e1;
+    --canvas-task-meta-separator: #475569;
+    --canvas-task-meta-hover-bg: rgb(251 191 36 / 15%);
+    --canvas-task-meta-hover-text: #fcd34d;
+    --canvas-task-meta-shadow: none;
     color-scheme: dark;
     background: #101216;
   }
@@ -29,6 +55,53 @@
 
   ::-webkit-scrollbar-thumb:hover {
     background: #566171;
+  }
+
+  html[data-theme='light'] {
+    --task-list-shell-bg: #ffffff;
+    --task-list-card-bg: #ffffff;
+    --task-list-card-hover-bg: #f3f6fa;
+    --task-list-card-border: #d8dee7;
+    --task-list-card-border-hover: #aeb9c7;
+    --task-list-card-media-bg: #f7f9fc;
+    --task-list-card-media-border: #d8dee7;
+    --task-list-card-active-border: #d29a2e;
+    --task-list-card-active-shadow: 0 0 0 1px rgb(210 154 46 / 22%);
+    --template-list-shell-bg: #ffffff;
+    --template-card-bg: #ffffff;
+    --template-card-hover-bg: #f3f6fa;
+    --template-card-border: #d8dee7;
+    --template-card-border-hover: #aeb9c7;
+    --template-card-media-bg: #f7f9fc;
+    --template-card-active-border: #d29a2e;
+    --template-card-active-shadow: 0 0 0 1px rgb(210 154 46 / 22%);
+    --canvas-task-meta-bg: rgb(255 255 255 / 90%);
+    --canvas-task-meta-border: #d8dee7;
+    --canvas-task-meta-divider: #d8dee7;
+    --canvas-task-meta-text: #536176;
+    --canvas-task-meta-button-text: #536176;
+    --canvas-task-meta-separator: #9aa6b5;
+    --canvas-task-meta-hover-bg: rgb(245 158 11 / 12%);
+    --canvas-task-meta-hover-text: #9a5b0a;
+    --canvas-task-meta-shadow: 0 4px 14px rgb(15 23 42 / 10%);
+    color-scheme: light;
+    background: #f4f6f9;
+  }
+
+  html[data-theme='light'] body {
+    background: #f4f6f9;
+  }
+
+  html[data-theme='light'] ::-webkit-scrollbar-track {
+    background: #eef1f5;
+  }
+
+  html[data-theme='light'] ::-webkit-scrollbar-thumb {
+    background: #bdc6d2;
+  }
+
+  html[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+    background: #98a5b5;
   }
 }
 
@@ -109,6 +182,288 @@
 .ant-modal-content,
 .ant-drawer-content {
   border: 1px solid #343a44;
+}
+
+/* Tailwind 页面色板的亮色映射。图片画布的半透明黑底刻意保留。 */
+html[data-theme='light'] [class~='bg-[#101216]'],
+html[data-theme='light'] [class~='bg-[#111419]'] {
+  background-color: #f4f6f9;
+}
+
+html[data-theme='light'] [class~='bg-[#111318]'],
+html[data-theme='light'] [class~='bg-[#15181d]'],
+html[data-theme='light'] [class~='bg-[#15181d]/85'],
+html[data-theme='light'] [class~='bg-[#15181d]/95'],
+html[data-theme='light'] [class~='bg-[#15181d]/98'],
+html[data-theme='light'] [class~='bg-[#171a20]'],
+html[data-theme='light'] [class~='bg-[#181b21]'],
+html[data-theme='light'] [class~='bg-[#181c22]'],
+html[data-theme='light'] [class~='bg-[#1a1e24]'],
+html[data-theme='light'] [class~='bg-[#1b1f26]'],
+html[data-theme='light'] [class~='bg-[#1d2128]'],
+html[data-theme='light'] [class~='bg-[#20242b]'],
+html[data-theme='light'] [class~='bg-[#20252d]'],
+html[data-theme='light'] [class~='bg-[#222730]'] {
+  background-color: #ffffff;
+}
+
+html[data-theme='light'] [class~='bg-[#1d2128]!'] {
+  background-color: #ffffff !important;
+}
+
+html[data-theme='light'] [class~='bg-[#262b33]'],
+html[data-theme='light'] [class~='bg-[#2a313b]'],
+html[data-theme='light'] [class~='bg-[#2d333d]'] {
+  background-color: #edf1f5;
+}
+
+html[data-theme='light'] [class~='border-[#2b3039]'],
+html[data-theme='light'] [class~='border-[#2d333d]'],
+html[data-theme='light'] [class~='border-[#303640]'],
+html[data-theme='light'] [class~='border-[#343a44]'] {
+  border-color: #d8dee7;
+}
+
+html[data-theme='light'] [class~='border-[#49515f]'],
+html[data-theme='light'] [class~='border-[#4a5361]'] {
+  border-color: #b8c2cf;
+}
+
+html[data-theme='light'] [class~='border-[#303640]!'] {
+  border-color: #d8dee7 !important;
+}
+
+html[data-theme='light'] [class~='hover:border-[#4a5361]']:hover {
+  border-color: #b8c2cf;
+}
+
+html[data-theme='light'] [class~='hover:border-[#49515f]!']:hover {
+  border-color: #b8c2cf !important;
+}
+
+html[data-theme='light'] [class~='text-slate-100'] {
+  color: #172033;
+}
+
+html[data-theme='light'] [class~='text-slate-200'] {
+  color: #263246;
+}
+
+html[data-theme='light'] [class~='text-slate-300'] {
+  color: #3b475a;
+}
+
+html[data-theme='light'] [class~='text-slate-400'] {
+  color: #536176;
+}
+
+html[data-theme='light'] [class~='text-slate-500'] {
+  color: #6f7d90;
+}
+
+html[data-theme='light'] [class~='text-slate-600'],
+html[data-theme='light'] [class~='text-slate-700'] {
+  color: #8491a3;
+}
+
+html[data-theme='light'] [class~='text-amber-50'],
+html[data-theme='light'] [class~='text-amber-100/75'],
+html[data-theme='light'] [class~='text-amber-200'],
+html[data-theme='light'] [class~='text-amber-200/70'],
+html[data-theme='light'] [class~='text-amber-300'],
+html[data-theme='light'] [class~='text-amber-400'] {
+  color: #9a5b0a;
+}
+
+html[data-theme='light'] [class~='text-violet-300/80'] {
+  color: #6d4ac7;
+}
+
+html[data-theme='light'] [class~='hover:bg-[#242932]']:hover,
+html[data-theme='light'] [class~='hover:bg-[#252a32]']:hover,
+html[data-theme='light'] [class~='hover:bg-[#292e37]']:hover,
+html[data-theme='light'] [class~='hover:bg-[#2a3039]']:hover,
+html[data-theme='light'] [class~='active:bg-[#252a32]']:active {
+  background-color: #e8edf3;
+}
+
+html[data-theme='light'] [class~='hover:text-slate-100']:hover,
+html[data-theme='light'] [class~='hover:text-slate-200']:hover {
+  color: #172033;
+}
+
+html[data-theme='light'] [class~='hover:text-amber-200']:hover,
+html[data-theme='light'] [class~='hover:text-amber-300']:hover {
+  color: #7c4705;
+}
+
+html[data-theme='light'] .workbench-panel {
+  border-color: #d8dee7;
+  background-color: #ffffff;
+  box-shadow: 0 12px 36px rgb(15 23 42 / 8%);
+}
+
+html[data-theme='light'] .workbench-panel-header {
+  border-color: #d8dee7;
+  color: #263246;
+}
+
+html[data-theme='light'] .workbench-icon-button {
+  color: #536176;
+}
+
+html[data-theme='light'] .workbench-icon-button:hover,
+html[data-theme='light'] .sidebar-action-button:hover {
+  background-color: #e8edf3;
+  color: #172033;
+}
+
+html[data-theme='light'] .sidebar-action-button,
+html[data-theme='light'] .mobile-header-button,
+html[data-theme='light'] .mobile-navigation-item {
+  color: #536176;
+}
+
+html[data-theme='light'] .mobile-header-button:active,
+html[data-theme='light'] .mobile-navigation-item:active {
+  background-color: #e8edf3;
+  color: #172033;
+}
+
+html[data-theme='light'] .mobile-pull-balance-drawer,
+html[data-theme='light'] .mobile-bottom-navigation {
+  border-color: #d8dee7;
+  background-color: rgb(255 255 255 / 98%);
+}
+
+html[data-theme='light'] .mobile-pull-balance-content {
+  background-color: #f4f6f9;
+}
+
+html[data-theme='light'] .mobile-bottom-navigation {
+  box-shadow: 0 -8px 24px rgb(15 23 42 / 8%);
+}
+
+html[data-theme='light'] .mobile-navigation-item-active {
+  background-color: rgb(245 158 11 / 10%);
+  color: #9a5b0a;
+}
+
+html[data-theme='light'] .ant-modal-content,
+html[data-theme='light'] .ant-drawer-content {
+  border-color: #d8dee7;
+}
+
+.task-list-card {
+  border-color: var(--task-list-card-border) !important;
+  background-color: var(--task-list-card-bg) !important;
+}
+
+.task-list-card:hover {
+  border-color: var(--task-list-card-border-hover) !important;
+}
+
+.task-list-card-active,
+.task-list-card-active:hover {
+  border-color: var(--task-list-card-active-border) !important;
+  box-shadow: var(--task-list-card-active-shadow);
+}
+
+.task-list-card-body:hover {
+  background-color: var(--task-list-card-hover-bg);
+}
+
+.task-list-card-media {
+  border-color: var(--task-list-card-media-border);
+  background-color: var(--task-list-card-media-bg);
+}
+
+.task-list-management-shell {
+  border: 0 !important;
+  background-color: transparent !important;
+}
+
+.template-card,
+.template-folder-card {
+  border-color: var(--template-card-border) !important;
+  background-color: var(--template-card-bg) !important;
+  transition:
+    border-color 100ms,
+    box-shadow 100ms;
+}
+
+.template-card:hover {
+  border-color: var(--template-card-border-hover) !important;
+}
+
+.template-card-active,
+.template-card-active:hover {
+  border-color: var(--template-card-active-border) !important;
+  box-shadow: var(--template-card-active-shadow);
+}
+
+.template-card-body:hover {
+  background-color: var(--template-card-hover-bg);
+}
+
+.template-card-media {
+  border-color: var(--template-card-border);
+  background-color: var(--template-card-media-bg);
+}
+
+.template-folder-card:hover,
+.template-folder-card-drag-over {
+  border-color: var(--template-card-active-border) !important;
+}
+
+.template-folder-card-drag-over {
+  background-color: rgb(245 158 11 / 10%) !important;
+}
+
+.template-management-shell {
+  border: 0 !important;
+  background-color: transparent !important;
+}
+
+.canvas-task-meta {
+  border-color: var(--canvas-task-meta-border);
+  background-color: var(--canvas-task-meta-bg);
+  color: var(--canvas-task-meta-text);
+  box-shadow: var(--canvas-task-meta-shadow);
+}
+
+.canvas-task-meta-button {
+  border-right-color: var(--canvas-task-meta-divider) !important;
+  color: var(--canvas-task-meta-button-text) !important;
+}
+
+.canvas-task-meta-button:hover {
+  background-color: var(--canvas-task-meta-hover-bg) !important;
+  color: var(--canvas-task-meta-hover-text) !important;
+}
+
+.canvas-task-meta-separator {
+  color: var(--canvas-task-meta-separator);
+}
+
+@media (min-width: 640px) {
+  html[data-theme='light'] [class~='sm:bg-[#171a20]!'] {
+    background-color: #ffffff !important;
+  }
+
+  html[data-theme='light'] [class~='sm:border-[#303640]!'] {
+    border-color: #d8dee7 !important;
+  }
+
+  .task-list-management-shell {
+    border: 1px solid var(--task-list-card-border) !important;
+    background-color: var(--task-list-shell-bg) !important;
+  }
+
+  .template-management-shell {
+    border: 1px solid var(--template-card-border) !important;
+    background-color: var(--template-list-shell-bg) !important;
+  }
 }
 
 /* 移动端禁用 tooltip */
