@@ -6,8 +6,8 @@ import { AppThemeProvider } from '../../../theme'
 import { AdminSetting, AdminSettingRef } from './AdminSetting'
 import { FeatureSetting } from './FeatureSetting'
 import { GPTImageSetting, GPTImageSettingRef } from './GPTImageSetting'
+import { InterfaceSetting } from './InterfaceSetting'
 import { LlmSetting, LlmSettingRef } from './LlmSetting'
-import { UploadImageSetting } from './UploadImageSetting'
 
 export const isAdmin = () => {
   return (
@@ -69,14 +69,14 @@ export function openSettingModal(options?: {
         children: <LlmSetting ref={llmRef} />,
       },
       {
-        key: 'upload-image',
-        label: '通用图片设置',
-        children: <UploadImageSetting />,
-      },
-      {
         key: 'features',
         label: '功能设置',
         children: <FeatureSetting />,
+      },
+      {
+        key: 'interface',
+        label: '界面设置',
+        children: <InterfaceSetting />,
       },
     ]
 

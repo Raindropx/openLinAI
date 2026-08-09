@@ -1,13 +1,12 @@
 import { useLocalStorageState } from 'ahooks'
 import { Button, message, Switch } from 'antd'
 import { hc } from 'hono/client'
-import { forwardRef } from 'react'
 import type { AppType } from '../../../../server'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 
 const client = hc<AppType>('/')
 
-export const UploadImageSetting = forwardRef((_props, _ref) => {
+export function UploadImageSetting() {
   const { gptImageSettings, setGptImageSettings } = useLocalSetting()
   const [skipDeleteConfirm, setSkipDeleteConfirm] = useLocalStorageState(
     'skipDeleteTaskConfirm',
@@ -40,7 +39,7 @@ export const UploadImageSetting = forwardRef((_props, _ref) => {
   }
 
   return (
-    <div className="px-4 py-2">
+    <div>
       <div className="flex gap-8">
         <div>
           <div className="mb-2 text-sm text-slate-400">输入图片目录</div>
@@ -87,4 +86,4 @@ export const UploadImageSetting = forwardRef((_props, _ref) => {
       </div>
     </div>
   )
-})
+}
