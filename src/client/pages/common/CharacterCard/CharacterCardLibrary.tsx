@@ -164,7 +164,7 @@ export function CharacterCardLibrary({
                     key={item.id}
                     className={`overflow-hidden rounded-lg border bg-[#1a1e24] transition-colors ${
                       active
-                        ? 'border-amber-400/70 shadow-[0_0_0_1px_rgba(241,184,75,0.18)]'
+                        ? 'app-accent-selection'
                         : 'border-[#343a44] hover:border-[#4a5361]'
                     }`}
                   >

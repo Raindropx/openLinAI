@@ -310,7 +310,7 @@ export function TaskListHeader({
     >
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <div className="hidden items-center justify-center rounded-lg bg-amber-400/10 p-2 text-amber-400 sm:flex">
+          <div className="app-accent-surface hidden items-center justify-center rounded-lg p-2 sm:flex">
             <ScheduleOutlined className="text-xl" />
           </div>
           <h2 className="text-lg font-bold">任务列表</h2>

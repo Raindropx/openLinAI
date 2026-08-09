@@ -61,11 +61,7 @@ export function TemplateItem({
       }}
       className={`template-card shadow-sm ${
         selectionMode || clickToLoad ? 'cursor-pointer' : ''
-      } ${
-        selected || active
-          ? 'template-card-active'
-          : ''
-      } ${
+      } ${selected || active ? 'template-card-active' : ''} ${
         dropPosition === 'before'
           ? 'border-t-2! border-t-blue-500!'
           : dropPosition === 'after'
@@ -111,7 +107,7 @@ export function TemplateItem({
     >
       {tileMode ? (
         <div className="flex h-full flex-row sm:flex-col">
-          <div className="template-card-media relative h-[112px] w-[92px] shrink-0 overflow-hidden border-r sm:h-auto sm:w-auto sm:aspect-[4/3] sm:border-r-0 sm:border-b">
+          <div className="template-card-media relative h-[112px] w-[92px] shrink-0 overflow-hidden border-r sm:aspect-[4/3] sm:h-auto sm:w-auto sm:border-r-0 sm:border-b">
             {template.images?.[0] ? (
               <Image
                 src={template.images[0]}
@@ -167,7 +163,7 @@ export function TemplateItem({
             </div>
             <Tooltip title={template.prompt} placement="bottom">
               <p
-                className="m-0 line-clamp-2 cursor-pointer text-xs leading-5 text-slate-400 transition-colors hover:text-amber-300 sm:line-clamp-3"
+                className="app-accent-hover m-0 line-clamp-2 cursor-pointer text-xs leading-5 text-slate-400 transition-colors sm:line-clamp-3"
                 onClick={(event) => {
                   event.stopPropagation()
                   if (!selectionMode && template.prompt) {
@@ -215,7 +211,7 @@ export function TemplateItem({
             </div>
             <Tooltip title={template.prompt} placement="bottom">
               <p
-                className="m-0 line-clamp-2 cursor-pointer text-sm text-slate-400 transition-colors hover:text-amber-300"
+                className="app-accent-hover m-0 line-clamp-2 cursor-pointer text-sm text-slate-400 transition-colors"
                 onClick={() => {
                   if (template.prompt) {
                     copy(template.prompt)

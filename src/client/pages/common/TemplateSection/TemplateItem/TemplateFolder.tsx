@@ -67,9 +67,9 @@ export function TemplateFolder({
       >
         <div className="flex items-center gap-2">
           {isParent ? (
-            <FolderOpenOutlined className="text-xl text-amber-400" />
+            <FolderOpenOutlined className="app-accent-text text-xl" />
           ) : (
-            <FolderOutlined className="text-xl text-amber-400" />
+            <FolderOutlined className="app-accent-text text-xl" />
           )}
           <div className="min-w-0 flex-1">
             <div className="truncate font-medium text-slate-200" title={folder}>

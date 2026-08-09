@@ -18,7 +18,7 @@ export function TemplateManagementPage() {
   return (
     <div className="flex min-h-full flex-col gap-2 p-2 sm:gap-3 sm:p-3 lg:h-full lg:min-h-0 lg:p-4">
       <div className="hidden shrink-0 items-center gap-3 sm:flex">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-400/10 text-lg text-amber-300 ring-1 ring-amber-400/20">
+        <div className="app-accent-surface flex h-10 w-10 items-center justify-center rounded-lg text-lg">
           <AppstoreOutlined />
         </div>
         <div>

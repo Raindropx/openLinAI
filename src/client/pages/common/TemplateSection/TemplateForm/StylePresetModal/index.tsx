@@ -291,7 +291,7 @@ export function StylePresetModal({
                       <List.Item
                         className={`mb-1 cursor-pointer rounded-md border px-2! transition-colors last:mb-0 ${
                           selected?.id === preset.id
-                            ? 'border-amber-400/55 bg-amber-400/12 shadow-[inset_3px_0_0_rgba(241,184,75,0.85)]'
+                            ? 'app-accent-selection-surface'
                             : preset.origin === 'style-extract'
                               ? 'border-violet-400/10 bg-violet-500/8 hover:border-violet-400/25 hover:bg-violet-500/14'
                               : preset.source === 'custom'

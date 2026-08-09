@@ -3,6 +3,10 @@
 /* 全局滚动条优化 */
 @layer base {
   html {
+    --app-accent: #f1b84b;
+    --app-accent-soft: color-mix(in srgb, var(--app-accent) 12%, transparent);
+    --app-accent-hover: color-mix(in srgb, var(--app-accent) 18%, transparent);
+    --app-accent-ring: color-mix(in srgb, var(--app-accent) 24%, transparent);
     --task-list-shell-bg: #171a20;
     --task-list-card-bg: #1d2128;
     --task-list-card-hover-bg: #242932;
@@ -10,24 +14,32 @@
     --task-list-card-border-hover: #49515f;
     --task-list-card-media-bg: #111318;
     --task-list-card-media-border: #343a44;
-    --task-list-card-active-border: rgb(241 184 75 / 70%);
-    --task-list-card-active-shadow: 0 0 0 1px rgb(241 184 75 / 20%);
+    --task-list-card-active-border: color-mix(
+      in srgb,
+      var(--app-accent) 70%,
+      transparent
+    );
+    --task-list-card-active-shadow: 0 0 0 1px var(--app-accent-ring);
     --template-list-shell-bg: #171a20;
     --template-card-bg: #1d2128;
     --template-card-hover-bg: #242932;
     --template-card-border: #303640;
     --template-card-border-hover: #49515f;
     --template-card-media-bg: #111318;
-    --template-card-active-border: rgb(241 184 75 / 70%);
-    --template-card-active-shadow: 0 0 0 1px rgb(241 184 75 / 20%);
+    --template-card-active-border: color-mix(
+      in srgb,
+      var(--app-accent) 70%,
+      transparent
+    );
+    --template-card-active-shadow: 0 0 0 1px var(--app-accent-ring);
     --canvas-task-meta-bg: rgb(0 0 0 / 45%);
     --canvas-task-meta-border: rgb(255 255 255 / 8%);
     --canvas-task-meta-divider: rgb(255 255 255 / 10%);
     --canvas-task-meta-text: #94a3b8;
     --canvas-task-meta-button-text: #cbd5e1;
     --canvas-task-meta-separator: #475569;
-    --canvas-task-meta-hover-bg: rgb(251 191 36 / 15%);
-    --canvas-task-meta-hover-text: #fcd34d;
+    --canvas-task-meta-hover-bg: var(--app-accent-soft);
+    --canvas-task-meta-hover-text: var(--app-accent);
     --canvas-task-meta-shadow: none;
     color-scheme: dark;
     background: #101216;
@@ -65,24 +77,24 @@
     --task-list-card-border-hover: #aeb9c7;
     --task-list-card-media-bg: #f7f9fc;
     --task-list-card-media-border: #d8dee7;
-    --task-list-card-active-border: #d29a2e;
-    --task-list-card-active-shadow: 0 0 0 1px rgb(210 154 46 / 22%);
+    --task-list-card-active-border: var(--app-accent);
+    --task-list-card-active-shadow: 0 0 0 1px var(--app-accent-ring);
     --template-list-shell-bg: #ffffff;
     --template-card-bg: #ffffff;
     --template-card-hover-bg: #f3f6fa;
     --template-card-border: #d8dee7;
     --template-card-border-hover: #aeb9c7;
     --template-card-media-bg: #f7f9fc;
-    --template-card-active-border: #d29a2e;
-    --template-card-active-shadow: 0 0 0 1px rgb(210 154 46 / 22%);
+    --template-card-active-border: var(--app-accent);
+    --template-card-active-shadow: 0 0 0 1px var(--app-accent-ring);
     --canvas-task-meta-bg: rgb(255 255 255 / 90%);
     --canvas-task-meta-border: #d8dee7;
     --canvas-task-meta-divider: #d8dee7;
     --canvas-task-meta-text: #536176;
     --canvas-task-meta-button-text: #536176;
     --canvas-task-meta-separator: #9aa6b5;
-    --canvas-task-meta-hover-bg: rgb(245 158 11 / 12%);
-    --canvas-task-meta-hover-text: #9a5b0a;
+    --canvas-task-meta-hover-bg: var(--app-accent-soft);
+    --canvas-task-meta-hover-text: var(--app-accent);
     --canvas-task-meta-shadow: 0 4px 14px rgb(15 23 42 / 10%);
     color-scheme: light;
     background: #f4f6f9;
@@ -160,7 +172,62 @@
   }
 
   .mobile-navigation-item-active {
-    @apply bg-amber-400/10 text-amber-300;
+    background-color: var(--app-accent-soft);
+    color: var(--app-accent);
+  }
+
+  .app-accent-text {
+    color: var(--app-accent) !important;
+  }
+
+  .app-theme-logo {
+    filter: hue-rotate(var(--app-logo-hue-rotate, 0deg));
+    transition: filter 180ms ease;
+  }
+
+  .app-accent-hover:hover {
+    color: var(--app-accent) !important;
+  }
+
+  .app-accent-surface,
+  .app-accent-nav-active,
+  .app-accent-message {
+    background-color: var(--app-accent-soft);
+    color: var(--app-accent);
+    box-shadow: inset 0 0 0 1px var(--app-accent-ring);
+  }
+
+  .app-accent-field {
+    color: var(--app-accent) !important;
+  }
+
+  .app-accent-outline {
+    border-color: color-mix(
+      in srgb,
+      var(--app-accent) 55%,
+      transparent
+    ) !important;
+    color: var(--app-accent) !important;
+  }
+
+  .app-accent-outline:hover {
+    border-color: var(--app-accent) !important;
+    color: var(--app-accent) !important;
+  }
+
+  .app-accent-selection {
+    border-color: var(--app-accent) !important;
+    box-shadow: 0 0 0 2px var(--app-accent-ring);
+  }
+
+  .app-accent-selection-surface {
+    border-color: color-mix(
+      in srgb,
+      var(--app-accent) 55%,
+      transparent
+    ) !important;
+    background-color: var(--app-accent-soft);
+    box-shadow: inset 3px 0 0 var(--app-accent);
   }
 }
 
@@ -345,8 +412,8 @@ html[data-theme='light'] .mobile-bottom-navigation {
 }
 
 html[data-theme='light'] .mobile-navigation-item-active {
-  background-color: rgb(245 158 11 / 10%);
-  color: #9a5b0a;
+  background-color: var(--app-accent-soft);
+  color: var(--app-accent);
 }
 
 html[data-theme='light'] .ant-modal-content,
@@ -417,7 +484,7 @@ html[data-theme='light'] .ant-drawer-content {
 }
 
 .template-folder-card-drag-over {
-  background-color: rgb(245 158 11 / 10%) !important;
+  background-color: var(--app-accent-soft) !important;
 }
 
 .template-management-shell {

@@ -6,8 +6,8 @@ import {
 import { Segmented } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { TaskTemplate } from '../../../../server/common/template-manager'
-import { useGlobalStore } from '../../../store/global'
 import { useTasks } from '../../../hooks/useTasks'
+import { useGlobalStore } from '../../../store/global'
 import { TaskList } from '../TaskList'
 import { TemplateForm } from '../TemplateSection/TemplateForm'
 import {
@@ -29,8 +29,7 @@ export const Home = () => {
   )
   const { data: tasks = [] } = useTasks()
   const [resourcePanel, setResourcePanel] = useState<ResourcePanel>('tasks')
-  const [mobilePanel, setMobilePanel] =
-    useState<MobileWorkspacePanel>('canvas')
+  const [mobilePanel, setMobilePanel] = useState<MobileWorkspacePanel>('canvas')
   const [selectedTaskId, setSelectedTaskId] = useState<string>()
 
   const imageTasks = useMemo(
@@ -76,7 +75,11 @@ export const Home = () => {
           options={[
             { label: '参数', value: 'parameters', icon: <ControlOutlined /> },
             { label: '画布', value: 'canvas', icon: <AppstoreOutlined /> },
-            { label: '资源', value: 'resources', icon: <UnorderedListOutlined /> },
+            {
+              label: '资源',
+              value: 'resources',
+              icon: <UnorderedListOutlined />,
+            },
           ]}
         />
       </div>
@@ -86,7 +89,7 @@ export const Home = () => {
       >
         <div className="workbench-panel-header">
           <span className="flex items-center gap-2">
-            <ControlOutlined className="text-amber-400" />
+            <ControlOutlined className="app-accent-text" />
             生成参数
           </span>
           <span className="text-[11px] font-normal tracking-wide text-slate-500">

@@ -399,9 +399,7 @@ export function TaskList({
                     className={`task-list-card w-full transition-all ${
                       onSelectTask || selectionMode ? 'cursor-pointer' : ''
                     } ${
-                      active || selected
-                        ? 'task-list-card-active'
-                        : 'shadow-sm'
+                      active || selected ? 'task-list-card-active' : 'shadow-sm'
                     }`}
                     classNames={{
                       body: 'task-list-card-body p-[10px]! transition-colors duration-100',
@@ -514,7 +512,7 @@ export function TaskList({
                           {task.rawTemplate?.prompt && (
                             <Typography.Paragraph
                               type="secondary"
-                              className="mb-0! cursor-pointer text-xs transition-colors hover:text-amber-300!"
+                              className="app-accent-hover mb-0! cursor-pointer text-xs transition-colors"
                               ellipsis={{
                                 rows: 2,
                                 tooltip: {

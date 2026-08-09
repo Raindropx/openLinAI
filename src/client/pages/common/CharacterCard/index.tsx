@@ -8,7 +8,15 @@ import {
   SettingOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
-import { Button, Input, message, Segmented, Select, Tooltip, Upload } from 'antd'
+import {
+  Button,
+  Input,
+  message,
+  Segmented,
+  Select,
+  Tooltip,
+  Upload,
+} from 'antd'
 import { hc } from 'hono/client'
 import { useState } from 'react'
 import type { AppType } from '../../../../server'
@@ -330,7 +338,7 @@ export function CharacterCardPage() {
     <div className="flex min-h-full flex-col gap-3 p-3 lg:h-full lg:min-h-0 lg:p-4">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-400/10 text-lg text-amber-300 ring-1 ring-amber-400/20">
+          <div className="app-accent-surface flex h-10 w-10 items-center justify-center rounded-lg text-lg">
             <ThunderboltOutlined />
           </div>
           <div>

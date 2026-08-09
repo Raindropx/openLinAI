@@ -1,8 +1,19 @@
-import { Select, Switch } from 'antd'
+import { Button, ColorPicker, Select, Switch } from 'antd'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import { DEFAULT_ACCENT_COLOR, useAppTheme } from '../../../theme'
+
+const ACCENT_PRESETS = [
+  { label: '琥珀金', color: DEFAULT_ACCENT_COLOR },
+  { label: '霁云蓝', color: '#3b82f6' },
+  { label: '流霞紫', color: '#a78bfa' },
+  { label: '朱砂红', color: '#ef5b67' },
+  { label: '松石绿', color: '#34d399' },
+  { label: '天青色', color: '#22d3ee' },
+]
 
 export function InterfaceSetting() {
   const { gptImageSettings, setGptImageSettings } = useLocalSetting()
+  const { accentColor, setAccentColor, resetAccentColor } = useAppTheme()
 
   const listSettings = [
     {
@@ -40,6 +51,57 @@ export function InterfaceSetting() {
   return (
     <div className="space-y-6 px-4 py-2">
       <div>
+        <div className="font-medium text-slate-200">主题颜色</div>
+        <div className="mt-1 text-sm text-slate-500">
+          调整导航、按钮和选中状态的强调色；明暗底色保持不变，以保证内容清晰可读。
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-[#303640] bg-[#181c22] p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap gap-3">
+            {ACCENT_PRESETS.map((preset) => {
+              const selected = accentColor === preset.color.toLowerCase()
+
+              return (
+                <button
+                  key={preset.color}
+                  type="button"
+                  className="h-9 w-9 cursor-pointer rounded-full border border-white/15 transition-transform hover:scale-105"
+                  style={{
+                    backgroundColor: preset.color,
+                    outline: selected ? `2px solid ${preset.color}` : undefined,
+                    outlineOffset: selected ? 2 : undefined,
+                  }}
+                  onClick={() => setAccentColor(preset.color)}
+                  title={preset.label}
+                  aria-label={`使用${preset.label}主题色`}
+                  aria-pressed={selected}
+                />
+              )
+            })}
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <ColorPicker
+              value={accentColor}
+              disabledAlpha
+              disabledFormat
+              format="hex"
+              showText={(color) => color.toHexString().toUpperCase()}
+              onChangeComplete={(color) => setAccentColor(color.toHexString())}
+            />
+            <Button
+              onClick={resetAccentColor}
+              disabled={accentColor === DEFAULT_ACCENT_COLOR}
+            >
+              恢复金色
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-[#303640] pt-6">
         <div className="font-medium text-slate-200">列表加载</div>
         <div className="mt-1 text-sm text-slate-500">
           无限滚动关闭后会改用分页；条数统一在这里设置，列表底部不再显示条数选择器。

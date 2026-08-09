@@ -44,7 +44,7 @@ function NavigationItem({
           collapsed ? 'justify-center' : 'justify-start'
         } ${
           isActive
-            ? 'bg-amber-400/12 text-amber-300 ring-1 ring-amber-400/20'
+            ? 'app-accent-nav-active'
             : 'text-slate-400 hover:bg-[#252a32] hover:text-slate-100'
         }`
       }
@@ -74,7 +74,11 @@ export function Header() {
         title="返回工作台"
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#262b33] ring-1 ring-white/8">
-          <img src={LinpxLogo} alt="LinAI Logo" className="h-full w-full" />
+          <img
+            src={LinpxLogo}
+            alt="LinAI Logo"
+            className="app-theme-logo h-full w-full"
+          />
         </span>
         {!collapsed && (
           <span className="min-w-0">

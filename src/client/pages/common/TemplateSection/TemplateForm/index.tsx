@@ -331,7 +331,7 @@ export function TemplateForm({
     <>
       {showHeading && (
         <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <PlusOutlined className="text-amber-400" /> 新增模板
+          <PlusOutlined className="app-accent-text" /> 新增模板
         </h3>
       )}
       <Form
@@ -374,7 +374,7 @@ export function TemplateForm({
           }
         />
 
-        <Form.Item className="mb-0! border-t border-[#303640] pt-4">
+        <Form.Item className="mb-0! pt-4">
           {editorMode ? (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
@@ -429,7 +429,7 @@ export function TemplateForm({
                   onClick={() => handleTrial('1k')}
                   disabled={uploadingCount > 0}
                   size="large"
-                  className="grow border-amber-500/55 text-amber-300 hover:border-amber-400! hover:text-amber-200!"
+                  className="app-accent-outline grow"
                 >
                   生成1K图
                 </Button>

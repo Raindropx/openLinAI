@@ -282,7 +282,7 @@ function TemplateListComponent(
               <>
                 <button
                   type="button"
-                  className="cursor-pointer truncate border-0 bg-transparent p-0 text-slate-400 transition-colors hover:text-amber-300"
+                  className="app-accent-hover cursor-pointer truncate border-0 bg-transparent p-0 text-slate-400 transition-colors"
                   onClick={() => setSelectedFolder(null)}
                 >
                   模板列表 ({filteredTemplates.length})

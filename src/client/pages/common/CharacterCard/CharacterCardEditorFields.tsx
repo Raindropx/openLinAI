@@ -87,9 +87,7 @@ function buildContinuationPrompt(
   role: MessageRole,
 ): string {
   const roleLabel =
-    role === 'char'
-      ? `角色（${card.name || '{{char}}'}）`
-      : '用户（{{user}}）'
+    role === 'char' ? `角色（${card.name || '{{char}}'}）` : '用户（{{user}}）'
 
   return `你是一个角色扮演对话示例续写助手。请根据以下角色卡信息和已有对话上下文，续写一条对话发言。
 
@@ -163,9 +161,7 @@ function MesExampleEditor({
   const blocks = useMemo(() => parseMesExample(value), [value])
   const [focusKey, setFocusKey] = useState<string | null>(null)
   const [aiMode, setAiMode] = useState(false)
-  const [generatingRole, setGeneratingRole] = useState<MessageRole | null>(
-    null,
-  )
+  const [generatingRole, setGeneratingRole] = useState<MessageRole | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const totalMessages = blocks.reduce((sum, b) => sum + b.messages.length, 0)
@@ -230,8 +226,7 @@ function MesExampleEditor({
     try {
       const dialogue = value.trim()
       const systemContent = buildContinuationPrompt(card, dialogue, role)
-      const roleLabel =
-        role === 'char' ? (card.name || '{{char}}') : '{{user}}'
+      const roleLabel = role === 'char' ? card.name || '{{char}}' : '{{user}}'
 
       const messages: ChatMessage[] = [
         { role: 'system', content: systemContent },
@@ -265,9 +260,7 @@ function MesExampleEditor({
       onChange(serializeMesExample(next))
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
-      message.error(
-        error instanceof Error ? error.message : 'AI 续写失败',
-      )
+      message.error(error instanceof Error ? error.message : 'AI 续写失败')
     } finally {
       abortControllerRef.current = null
       setGeneratingRole(null)
@@ -318,20 +311,22 @@ function MesExampleEditor({
                     className={`relative flex w-[min(75%,48rem)] min-w-0 flex-col rounded-2xl px-3 py-2 ${
                       isChar
                         ? 'rounded-tl-md bg-[#2a313b] text-slate-100'
-                        : 'rounded-tr-md bg-amber-500/15 text-amber-50 ring-1 ring-amber-400/20'
+                        : 'app-accent-message rounded-tr-md'
                     }`}
                   >
                     <div
                       className={`mb-1 flex items-center gap-1.5 text-[11px] ${
-                        isChar ? 'text-slate-400' : 'text-amber-200/70'
+                        isChar ? 'text-slate-400' : 'app-accent-text'
                       }`}
                     >
-                      <span className="truncate">{isChar ? charLabel : '{{user}}'}</span>
+                      <span className="truncate">
+                        {isChar ? charLabel : '{{user}}'}
+                      </span>
                       <button
                         type="button"
                         aria-label="删除该条发言"
                         onClick={() => deleteMessage(bi, mi)}
-                        className="cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition-opacity hover:text-rose-300 group-hover:opacity-100"
+                        className="cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition-opacity group-hover:opacity-100 hover:text-rose-300"
                       >
                         <DeleteOutlined className="text-[11px]" />
                       </button>
@@ -346,12 +341,12 @@ function MesExampleEditor({
                       autoSize={{ minRows: 1 }}
                       placeholder="输入对话内容…"
                       className={`w-full! min-w-0! p-0! text-sm! ${
-                        isChar ? 'text-slate-100!' : 'text-amber-50!'
+                        isChar ? 'text-slate-100!' : 'app-accent-field'
                       }`}
                     />
                   </div>
                   {!isChar && (
-                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20">
+                    <div className="app-accent-surface mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full">
                       <UserOutlined className="text-sm" />
                     </div>
                   )}
@@ -377,14 +372,14 @@ function MesExampleEditor({
               className={`relative flex w-fit max-w-[85%] flex-col rounded-2xl px-3 py-2 ${
                 generatingRole === 'char'
                   ? 'rounded-tl-md bg-[#2a313b] text-slate-100'
-                  : 'rounded-tr-md bg-amber-500/15 text-amber-50 ring-1 ring-amber-400/20'
+                  : 'app-accent-message rounded-tr-md'
               }`}
             >
               <div
                 className={`mb-1 flex items-center gap-1.5 text-[11px] ${
                   generatingRole === 'char'
                     ? 'text-slate-400'
-                    : 'text-amber-200/70'
+                    : 'app-accent-text'
                 }`}
               >
                 <span className="truncate">
@@ -404,7 +399,7 @@ function MesExampleEditor({
               </div>
             </div>
             {generatingRole === 'user' && (
-              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20">
+              <div className="app-accent-surface mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full">
                 <UserOutlined className="text-sm" />
               </div>
             )}

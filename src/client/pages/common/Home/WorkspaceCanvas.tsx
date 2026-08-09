@@ -76,14 +76,14 @@ export function WorkspaceCanvas({
         : {
             icon: <SyncOutlined spin={status === 'running'} />,
             label: status === 'running' ? '生成中' : '等待中',
-            className: 'text-amber-400',
+            className: 'app-accent-text',
           }
 
   return (
     <section className="workbench-panel flex h-full min-h-[460px] flex-col lg:min-h-0">
       <div className="workbench-panel-header gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <PictureOutlined className="text-amber-400" />
+          <PictureOutlined className="app-accent-text" />
           <span className="truncate">
             {selectedTask?.rawTemplate?.title || '创作画布'}
           </span>
@@ -234,7 +234,7 @@ export function WorkspaceCanvas({
                   onClick={() => onSelectTask(task.id)}
                   className={`relative h-full w-16 shrink-0 cursor-pointer overflow-hidden rounded-md border bg-[#222730] p-0 transition-all ${
                     active
-                      ? 'border-amber-400 ring-2 ring-amber-400/20'
+                      ? 'app-accent-selection'
                       : 'border-[#343a44] opacity-70 hover:opacity-100'
                   }`}
                 >

@@ -205,7 +205,7 @@ export function MobileTopBar() {
         <img
           src={LinpxLogo}
           alt="LinAI Logo"
-          className="h-9 w-9 rounded-lg ring-1 ring-white/8"
+          className="app-theme-logo h-9 w-9 rounded-lg ring-1 ring-white/8"
         />
         <span className="truncate text-sm font-semibold">LinAI 工作台</span>
       </button>

@@ -68,7 +68,7 @@ export const TemplateItemHeader = ({
                   message.success('已载入到工作区')
                   onLoad(template)
                 }}
-                className="hover:text-amber-300!"
+                className="app-accent-hover"
               />
             </Tooltip>
           )}

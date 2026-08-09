@@ -31,7 +31,7 @@ export function TemplateEditorPage() {
   return (
     <div className="flex min-h-full flex-col gap-3 p-3 lg:h-full lg:min-h-0 lg:p-4">
       <div className="flex shrink-0 items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-400/10 text-lg text-amber-300 ring-1 ring-amber-400/20">
+        <div className="app-accent-surface flex h-10 w-10 items-center justify-center rounded-lg text-lg">
           <EditOutlined />
         </div>
         <div>
@@ -62,7 +62,7 @@ export function TemplateEditorPage() {
         >
           <div className="workbench-panel-header h-auto! gap-3 py-3">
             <span className="flex items-center gap-2">
-              <EditOutlined className="text-amber-300" />
+              <EditOutlined className="app-accent-text" />
               {editingTemplate?.title || '新模板草稿'}
             </span>
             <span className="text-xs font-normal text-slate-500">
@@ -88,7 +88,7 @@ export function TemplateEditorPage() {
         >
           <div className="workbench-panel-header h-auto! gap-3 py-3">
             <span className="flex items-center gap-2">
-              <AppstoreOutlined className="text-amber-300" />
+              <AppstoreOutlined className="app-accent-text" />
               模板库
             </span>
             <span className="text-xs font-normal text-slate-500">
