@@ -172,7 +172,7 @@ export function Header() {
         </button>
         <a
           className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
-          href="https://github.com/libudu/LinAI"
+          href="https://github.com/Raindropx/openLinAI"
           target="_blank"
           rel="noreferrer"
           title="GitHub 源码"
