@@ -44,7 +44,23 @@ export const BACKEND_PORT = process.env.PORT
 if (process.env.NODE_ENV !== 'development') {
   // Production serving of static files
   const clientPath = path.resolve(__dirname, '../client')
+  const serveClientIndex = serveStatic({
+    root: clientPath,
+    path: 'index.html',
+  })
+
   app.use('/*', serveStatic({ root: clientPath }))
+  app.get('*', async (c, next) => {
+    const isApiRequest =
+      c.req.path === '/api' || c.req.path.startsWith('/api/')
+    const acceptsHtml = c.req.header('Accept')?.includes('text/html')
+
+    if (isApiRequest || !acceptsHtml) return next()
+
+    // BrowserRouter routes only exist in the client. On a direct visit or
+    // refresh, serve the SPA entry and let React Router resolve the URL.
+    return serveClientIndex(c, next)
+  })
 }
 
 serve(
