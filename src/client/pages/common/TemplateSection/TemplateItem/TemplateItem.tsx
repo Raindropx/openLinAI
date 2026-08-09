@@ -110,8 +110,8 @@ export function TemplateItem({
       }}
     >
       {tileMode ? (
-        <div className="flex h-full flex-col">
-          <div className="relative aspect-[4/3] overflow-hidden border-b border-[#303640] bg-[#111318]">
+        <div className="flex h-full flex-row sm:flex-col">
+          <div className="relative h-[112px] w-[92px] shrink-0 overflow-hidden border-r border-[#303640] bg-[#111318] sm:h-auto sm:w-auto sm:aspect-[4/3] sm:border-r-0 sm:border-b">
             {template.images?.[0] ? (
               <Image
                 src={template.images[0]}
@@ -145,7 +145,7 @@ export function TemplateItem({
               </div>
             )}
           </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 p-2 sm:gap-2 sm:p-3">
             {!selectionMode && (
               <TemplateItemHeader
                 template={template}
@@ -167,7 +167,7 @@ export function TemplateItem({
             </div>
             <Tooltip title={template.prompt} placement="bottom">
               <p
-                className="m-0 line-clamp-3 cursor-pointer text-xs leading-5 text-slate-400 transition-colors hover:text-amber-300"
+                className="m-0 line-clamp-2 cursor-pointer text-xs leading-5 text-slate-400 transition-colors hover:text-amber-300 sm:line-clamp-3"
                 onClick={(event) => {
                   event.stopPropagation()
                   if (!selectionMode && template.prompt) {

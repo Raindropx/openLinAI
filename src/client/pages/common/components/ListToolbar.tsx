@@ -56,6 +56,7 @@ interface ListToolbarProps {
   onSortChange: (value: ListSortMode) => void
   searchPlaceholder: string
   compact?: boolean
+  fluidSortOnMobile?: boolean
   actions?: ReactNode
 }
 
@@ -66,6 +67,7 @@ export function ListToolbar({
   onSortChange,
   searchPlaceholder,
   compact = false,
+  fluidSortOnMobile = false,
   actions,
 }: ListToolbarProps) {
   return (
@@ -88,7 +90,11 @@ export function ListToolbar({
           onChange={onSortChange}
           options={LIST_SORT_OPTIONS}
           suffixIcon={<SortAscendingOutlined />}
-          className={compact ? 'min-w-0 flex-1' : 'w-36 shrink-0'}
+          className={
+            compact || fluidSortOnMobile
+              ? `min-w-0 flex-1 ${fluidSortOnMobile ? 'sm:w-36 sm:flex-none' : ''}`
+              : 'w-36 shrink-0'
+          }
           popupMatchSelectWidth={false}
         />
         {actions}

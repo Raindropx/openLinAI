@@ -340,11 +340,13 @@ export function TaskList({
         loading={loading}
         compact={panelMode}
         hideFinishedAlert={managementMode}
+        management={managementMode}
       />
 
-      <div className={panelMode ? 'pt-3' : 'mb-4'}>
+      <div className={panelMode ? 'pt-3' : 'mb-2 sm:mb-4'}>
         <ListToolbar
           compact={panelMode}
+          fluidSortOnMobile={managementMode}
           searchValue={searchText}
           onSearchChange={setSearchText}
           sortMode={sortMode}
@@ -378,7 +380,7 @@ export function TaskList({
                 panelMode
                   ? 'grid grid-cols-1 gap-2'
                   : managementMode
-                    ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))] gap-4'
+                    ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))] gap-2 sm:gap-4'
                     : 'grid grid-cols-1 gap-4 md:grid-cols-2'
               }
             >
@@ -417,12 +419,22 @@ export function TaskList({
                         选择任务
                       </div>
                     )}
-                    <div className={panelMode ? 'flex gap-3' : 'flex gap-4'}>
+                    <div
+                      className={
+                        panelMode
+                          ? 'flex gap-3'
+                          : managementMode
+                            ? 'flex gap-2 sm:gap-4'
+                            : 'flex gap-4'
+                      }
+                    >
                       <div
                         className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-md border border-[#343a44] bg-[#111318] ${
                           panelMode
                             ? 'h-[120px] w-[90px]'
-                            : 'h-[130px] w-[100px]'
+                            : managementMode
+                              ? 'h-[108px] w-[84px] sm:h-[130px] sm:w-[100px]'
+                              : 'h-[130px] w-[100px]'
                         }`}
                       >
                         {task.status === 'failed' && task.error ? (
@@ -483,7 +495,7 @@ export function TaskList({
                           <TaskItemTags
                             task={task}
                             downloadedIds={downloadedIds || []}
-                            compact={panelMode}
+                            compact={panelMode || managementMode}
                           />
                           <div className="flex min-w-0 items-center gap-2">
                             {task.rawTemplate?.title && (
@@ -545,14 +557,20 @@ export function TaskList({
                             )}
                             <div className="flex items-center gap-0.5">
                               {managementMode && task.rawTemplate && (
-                                <Button
-                                  type="primary"
-                                  size="small"
-                                  icon={<FileAddOutlined />}
-                                  onClick={() => handleAddToTemplate(task)}
-                                >
-                                  添加到模板
-                                </Button>
+                                <Tooltip title="添加到模板">
+                                  <Button
+                                    type="primary"
+                                    size="small"
+                                    icon={<FileAddOutlined />}
+                                    onClick={() => handleAddToTemplate(task)}
+                                    aria-label="添加到模板"
+                                    className="px-2! sm:px-3!"
+                                  >
+                                    <span className="hidden sm:inline">
+                                      添加到模板
+                                    </span>
+                                  </Button>
+                                </Tooltip>
                               )}
                               {!managementMode && task.rawTemplate && (
                                 <Tooltip title="重新填入">
@@ -646,8 +664,14 @@ export function TaskList({
 
   return (
     <Card
-      className="w-full border-[#303640] shadow-sm"
-      classNames={{ body: 'px-3! md:px-6!' }}
+      className={
+        managementMode
+          ? 'w-full border-0! bg-transparent! shadow-none! sm:border-[#303640]! sm:bg-[#171a20]! sm:shadow-sm'
+          : 'w-full border-[#303640] shadow-sm'
+      }
+      classNames={{
+        body: managementMode ? 'p-0! sm:px-3! md:px-6!' : 'px-3! md:px-6!',
+      }}
       styles={{ body: { paddingTop: 0 } }}
     >
       {taskContent}

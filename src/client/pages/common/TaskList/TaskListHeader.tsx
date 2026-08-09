@@ -23,6 +23,7 @@ interface TaskListHeaderProps {
   loading: boolean
   compact?: boolean
   hideFinishedAlert?: boolean
+  management?: boolean
 }
 
 export function TaskListHeader({
@@ -31,6 +32,7 @@ export function TaskListHeader({
   setDownloadedIds,
   compact = false,
   hideFinishedAlert = false,
+  management = false,
 }: TaskListHeaderProps) {
   const { gptImageSettings } = useLocalSetting()
   const [deletingErrors, setDeletingErrors] = useState(false)
@@ -270,8 +272,42 @@ export function TaskListHeader({
     )
   }
 
-  return (
-    <div className="mt-4 mb-4 flex items-center justify-between">
+  const managementMobileHeader = management && (
+    <div className="mb-2 flex items-center justify-between gap-2 sm:hidden">
+      <h2 className="m-0 text-base font-semibold text-slate-100">
+        任务{' '}
+        <span className="text-xs font-normal text-slate-500">
+          {tasks.length}
+        </span>
+      </h2>
+      <Space.Compact>
+        <TaskListDownloadButton
+          tasks={tasks}
+          downloadedIds={downloadedIds}
+          setDownloadedIds={setDownloadedIds}
+          compactLabel
+        />
+        <TaskListDownloadButton
+          tasks={tasks}
+          downloadedIds={downloadedIds}
+          setDownloadedIds={setDownloadedIds}
+          includeDownloaded
+          compactLabel
+        />
+        <Dropdown
+          menu={{ items: deleteMenuItems, onClick: onMenuClick }}
+          placement="bottomRight"
+        >
+          <Button icon={<EllipsisOutlined />} loading={isDeleting} />
+        </Dropdown>
+      </Space.Compact>
+    </div>
+  )
+
+  const standardHeader = (
+    <div
+      className={`${management ? 'hidden sm:flex' : 'flex'} mt-4 mb-4 items-center justify-between`}
+    >
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <div className="hidden items-center justify-center rounded-lg bg-amber-400/10 p-2 text-amber-400 sm:flex">
@@ -358,5 +394,12 @@ export function TaskListHeader({
         </div>
       </div>
     </div>
+  )
+
+  return (
+    <>
+      {managementMobileHeader}
+      {standardHeader}
+    </>
   )
 }

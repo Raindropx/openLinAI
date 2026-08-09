@@ -28,6 +28,7 @@ interface TemplateItemListProps {
   pageSize?: number
   activeTemplateId?: string | null
   clickToLoad?: boolean
+  pageScrollOnMobile?: boolean
 }
 
 export function TemplateItemList({
@@ -44,6 +45,7 @@ export function TemplateItemList({
   pageSize = 8,
   activeTemplateId = null,
   clickToLoad = false,
+  pageScrollOnMobile = false,
 }: TemplateItemListProps) {
   const { refresh: refreshTemplates } = useTemplates()
   const [page, setPage] = useState(0)
@@ -146,7 +148,13 @@ export function TemplateItemList({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+      <div
+        className={
+          pageScrollOnMobile
+            ? 'min-h-0 flex-1 sm:overflow-y-auto sm:pr-2'
+            : 'min-h-0 flex-1 overflow-y-auto pr-2'
+        }
+      >
         {!showFolderArea && displayTemplates.length === 0 ? (
           <div className="flex flex-col items-center justify-center space-y-4 rounded-xl border border-dashed border-[#343a44] bg-[#15181d] py-12 text-slate-500">
             <InboxOutlined className="text-5xl text-slate-600" />
@@ -195,7 +203,7 @@ export function TemplateItemList({
             <div
               className={
                 layout === 'grid'
-                  ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] items-stretch gap-4'
+                  ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] items-stretch gap-2 sm:gap-4'
                   : 'flex flex-col gap-2'
               }
             >

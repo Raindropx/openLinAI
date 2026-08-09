@@ -14,6 +14,7 @@ interface TaskListDownloadButtonProps {
   downloadedIds: string[]
   setDownloadedIds: (ids: string[]) => void
   includeDownloaded?: boolean
+  compactLabel?: boolean
 }
 
 export function TaskListDownloadButton({
@@ -21,6 +22,7 @@ export function TaskListDownloadButton({
   downloadedIds,
   setDownloadedIds,
   includeDownloaded = false,
+  compactLabel = false,
 }: TaskListDownloadButtonProps) {
   const [downloading, setDownloading] = useState(false)
 
@@ -117,7 +119,13 @@ export function TaskListDownloadButton({
       onClick={handleDownloadAll}
       loading={downloading}
     >
-      {includeDownloaded ? '所有任务' : '所有未下载'}
+      {includeDownloaded
+        ? compactLabel
+          ? '全部'
+          : '所有任务'
+        : compactLabel
+          ? '未下载'
+          : '所有未下载'}
     </Button>
   )
 }

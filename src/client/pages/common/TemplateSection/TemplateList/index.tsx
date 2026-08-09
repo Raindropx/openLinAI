@@ -269,9 +269,15 @@ function TemplateListComponent(
 
   return (
     <>
-      <div className="flex max-h-120 w-full flex-col p-3 md:absolute md:inset-0 md:max-h-none">
-        <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
-          <h3 className="m-0 flex min-w-0 items-center text-sm font-semibold text-slate-100">
+      <div
+        className={
+          managementMode
+            ? 'flex w-full flex-col p-0 sm:absolute sm:inset-0 sm:max-h-none sm:p-3'
+            : 'flex max-h-120 w-full flex-col p-3 md:absolute md:inset-0 md:max-h-none'
+        }
+      >
+        <div className="mb-2 flex shrink-0 items-center justify-between gap-3 sm:mb-3">
+          <h3 className="m-0 flex min-w-0 items-center text-base font-semibold text-slate-100 sm:text-sm">
             {selectedFolder ? (
               <>
                 <button
@@ -298,6 +304,7 @@ function TemplateListComponent(
         <div className="mb-3 shrink-0">
           <ListToolbar
             compact={!managementMode}
+            fluidSortOnMobile={managementMode}
             searchValue={searchText}
             onSearchChange={setSearchText}
             sortMode={sortMode}
@@ -322,6 +329,7 @@ function TemplateListComponent(
               }}
               onLoadTemplate={onLoadTemplate}
               layout={managementMode ? 'grid' : 'list'}
+              pageScrollOnMobile={managementMode}
               selectionMode={selectionMode}
               selectedIds={selectedIds}
               onToggleSelect={toggleTemplateSelection}
