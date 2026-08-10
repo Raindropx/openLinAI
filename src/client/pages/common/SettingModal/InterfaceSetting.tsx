@@ -13,7 +13,13 @@ const ACCENT_PRESETS = [
 
 export function InterfaceSetting() {
   const { gptImageSettings, setGptImageSettings } = useLocalSetting()
-  const { accentColor, setAccentColor, resetAccentColor } = useAppTheme()
+  const {
+    accentColor,
+    logoFollowsAccent,
+    setAccentColor,
+    resetAccentColor,
+    setLogoFollowsAccent,
+  } = useAppTheme()
 
   const listSettings = [
     {
@@ -98,6 +104,16 @@ export function InterfaceSetting() {
               恢复金色
             </Button>
           </div>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#303640] pt-4">
+          <div>
+            <div className="text-sm text-slate-200">Logo 跟随主题色</div>
+            <div className="mt-1 text-xs text-slate-500">
+              关闭后 Logo 将保持原始金色。
+            </div>
+          </div>
+          <Switch checked={logoFollowsAccent} onChange={setLogoFollowsAccent} />
         </div>
       </div>
 

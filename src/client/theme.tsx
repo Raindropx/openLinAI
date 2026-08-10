@@ -13,6 +13,7 @@ export type AppThemeMode = 'light' | 'dark'
 
 const THEME_STORAGE_KEY = 'app_theme'
 const ACCENT_STORAGE_KEY = 'app_theme_accent'
+const LOGO_ACCENT_SYNC_STORAGE_KEY = 'app_theme_logo_accent_sync'
 const THEME_CHANGE_EVENT = 'app-theme-change'
 
 export const DEFAULT_ACCENT_COLOR = '#f1b84b'
@@ -90,9 +91,11 @@ const lightAppTheme: ThemeConfig = {
 type AppThemeContextValue = {
   mode: AppThemeMode
   accentColor: string
+  logoFollowsAccent: boolean
   toggleTheme: () => void
   setAccentColor: (color: string) => void
   resetAccentColor: () => void
+  setLogoFollowsAccent: (enabled: boolean) => void
 }
 
 const AppThemeContext = createContext<AppThemeContextValue | null>(null)
@@ -124,6 +127,16 @@ function readStoredAccentColor() {
     )
   } catch {
     return DEFAULT_ACCENT_COLOR
+  }
+}
+
+function readStoredLogoFollowsAccent() {
+  if (typeof window === 'undefined') return true
+
+  try {
+    return window.localStorage.getItem(LOGO_ACCENT_SYNC_STORAGE_KEY) !== 'false'
+  } catch {
+    return true
   }
 }
 
@@ -242,7 +255,11 @@ function getThemeConfig(mode: AppThemeMode, accentColor: string): ThemeConfig {
   }
 }
 
-function applyDocumentTheme(mode: AppThemeMode, accentColor: string) {
+function applyDocumentTheme(
+  mode: AppThemeMode,
+  accentColor: string,
+  logoFollowsAccent: boolean,
+) {
   if (typeof document === 'undefined') return
 
   document.documentElement.dataset.theme = mode
@@ -253,7 +270,7 @@ function applyDocumentTheme(mode: AppThemeMode, accentColor: string) {
   )
   document.documentElement.style.setProperty(
     '--app-logo-hue-rotate',
-    `${getLogoHueRotation(accentColor)}deg`,
+    `${logoFollowsAccent ? getLogoHueRotation(accentColor) : 0}deg`,
   )
 }
 
@@ -272,12 +289,16 @@ function configureStaticTheme(mode: AppThemeMode, accentColor: string) {
 
 const initialTheme = readStoredTheme()
 const initialAccentColor = readStoredAccentColor()
-applyDocumentTheme(initialTheme, initialAccentColor)
+const initialLogoFollowsAccent = readStoredLogoFollowsAccent()
+applyDocumentTheme(initialTheme, initialAccentColor, initialLogoFollowsAccent)
 configureStaticTheme(initialTheme, initialAccentColor)
 
 export function AppThemeProvider({ children }: PropsWithChildren) {
   const [mode, setMode] = useState<AppThemeMode>(readStoredTheme)
   const [accentColor, setAccentColorState] = useState(readStoredAccentColor)
+  const [logoFollowsAccent, setLogoFollowsAccentState] = useState(
+    readStoredLogoFollowsAccent,
+  )
   const themeConfig = useMemo(
     () => getThemeConfig(mode, accentColor),
     [accentColor, mode],
@@ -286,6 +307,7 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
     () => ({
       mode,
       accentColor,
+      logoFollowsAccent,
       toggleTheme: () => {
         const nextMode = mode === 'dark' ? 'light' : 'dark'
         setMode(nextMode)
@@ -312,8 +334,16 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
           }),
         )
       },
+      setLogoFollowsAccent: (enabled) => {
+        setLogoFollowsAccentState(enabled)
+        window.dispatchEvent(
+          new CustomEvent(THEME_CHANGE_EVENT, {
+            detail: { logoFollowsAccent: enabled },
+          }),
+        )
+      },
     }),
-    [accentColor, mode],
+    [accentColor, logoFollowsAccent, mode],
   )
 
   useEffect(() => {
@@ -322,6 +352,7 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
         event as CustomEvent<{
           mode?: AppThemeMode
           accentColor?: string
+          logoFollowsAccent?: boolean
         }>
       ).detail
 
@@ -329,11 +360,17 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
       if (detail?.accentColor) {
         setAccentColorState(normalizeAccentColor(detail.accentColor))
       }
+      if (typeof detail?.logoFollowsAccent === 'boolean') {
+        setLogoFollowsAccentState(detail.logoFollowsAccent)
+      }
     }
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === THEME_STORAGE_KEY) setMode(readStoredTheme())
       if (event.key === ACCENT_STORAGE_KEY) {
         setAccentColorState(readStoredAccentColor())
+      }
+      if (event.key === LOGO_ACCENT_SYNC_STORAGE_KEY) {
+        setLogoFollowsAccentState(readStoredLogoFollowsAccent())
       }
     }
 
@@ -347,16 +384,20 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
   }, [])
 
   useEffect(() => {
-    applyDocumentTheme(mode, accentColor)
+    applyDocumentTheme(mode, accentColor, logoFollowsAccent)
     configureStaticTheme(mode, accentColor)
 
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, mode)
       window.localStorage.setItem(ACCENT_STORAGE_KEY, accentColor)
+      window.localStorage.setItem(
+        LOGO_ACCENT_SYNC_STORAGE_KEY,
+        String(logoFollowsAccent),
+      )
     } catch {
       // 存储不可用时仍允许当前页面切换主题。
     }
-  }, [accentColor, mode])
+  }, [accentColor, logoFollowsAccent, mode])
 
   return (
     <AppThemeContext.Provider value={contextValue}>
