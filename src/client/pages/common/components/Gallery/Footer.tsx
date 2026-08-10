@@ -136,17 +136,20 @@ export function GalleryFooter({
   }
 
   return (
-    <div className="flex items-center justify-between">
-      <div>
-        {currentTabType && (
+    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+      {currentTabType && (
+        <div className="w-full sm:w-auto">
           <Button danger onClick={handleDeleteImages}>
             {getDeleteButtonText()}
           </Button>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        <Button onClick={onCancel}>取消</Button>
+        </div>
+      )}
+      <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
+        <Button className="min-w-0 flex-1 sm:flex-none" onClick={onCancel}>
+          取消
+        </Button>
         <Button
+          className="min-w-0 flex-1 sm:flex-none"
           type="primary"
           onClick={onConfirm}
           disabled={selectedUrls.length === 0}
