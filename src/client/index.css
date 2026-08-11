@@ -41,7 +41,7 @@
     --canvas-task-meta-hover-bg: var(--app-accent-soft);
     --canvas-task-meta-hover-text: var(--app-accent);
     --canvas-task-meta-shadow: none;
-    color-scheme: dark;
+    color-scheme: light;
     background: #101216;
   }
 
