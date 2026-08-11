@@ -263,8 +263,7 @@ function applyDocumentTheme(
   if (typeof document === 'undefined') return
 
   document.documentElement.dataset.theme = mode
-  // 应用主题由 data-theme 控制，原生菜单保持亮色以避免移动端暗色菜单失去对比度。
-  document.documentElement.style.colorScheme = 'light'
+  document.documentElement.style.colorScheme = mode
   document.documentElement.style.setProperty(
     '--app-accent',
     resolveAccentColor(mode, accentColor),
