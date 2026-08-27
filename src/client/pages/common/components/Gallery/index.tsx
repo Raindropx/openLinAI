@@ -31,22 +31,32 @@ type ImageItem = {
 
 export type GalleryImageSelection = Pick<ImageItem, 'url' | 'type'>
 
+const normalizeComparableUrl = (url: string) =>
+  url
+    .replace(/^https?:\/\/[^/]+/i, '')
+    .split('?')[0]
+    .split('#')[0]
+    .trim()
+
+const isManagedGalleryUrl = (url: string) => {
+  const normalizedUrl = normalizeComparableUrl(url)
+  return (
+    normalizedUrl.startsWith(`${INPUT_IMAGES_API_PATH}/`) ||
+    normalizedUrl.startsWith(`${GENERATED_IMAGES_API_PATH}/`)
+  )
+}
+
 function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
   const [activeKey, setActiveKey] = useState('recent')
   const [images, setImages] = useState<ImageItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [imagesLoadSucceeded, setImagesLoadSucceeded] = useState(false)
   const [selectedUrls, setSelectedUrls] = useState<string[]>([])
-  const { recentImages } = useRecentImages()
+  const { recentImages, removeRecentImages } = useRecentImages()
   const { data: templates = [], loading: templatesLoading } = useTemplates()
   const { data: tasks = [], loading: tasksLoading } = useTasks()
 
   const referencesReady = !templatesLoading && !tasksLoading
-  const normalizeComparableUrl = (url: string) =>
-    url
-      .replace(/^https?:\/\/[^/]+/i, '')
-      .split('?')[0]
-      .split('#')[0]
-      .trim()
 
   const getComparableImageUrl = (
     type: ImageItem['type'],
@@ -101,6 +111,35 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
     [images],
   )
 
+  const availableComparableUrlSet = useMemo(
+    () => new Set(images.map((image) => normalizeComparableUrl(image.url))),
+    [images],
+  )
+
+  const visibleRecentImages = useMemo(() => {
+    if (!imagesLoadSucceeded) {
+      return recentImages
+    }
+
+    return recentImages.filter(
+      (url) =>
+        !isManagedGalleryUrl(url) ||
+        availableComparableUrlSet.has(normalizeComparableUrl(url)),
+    )
+  }, [availableComparableUrlSet, imagesLoadSucceeded, recentImages])
+
+  const invalidRecentImages = useMemo(() => {
+    if (!imagesLoadSucceeded) {
+      return []
+    }
+
+    return recentImages.filter(
+      (url) =>
+        isManagedGalleryUrl(url) &&
+        !availableComparableUrlSet.has(normalizeComparableUrl(url)),
+    )
+  }, [availableComparableUrlSet, imagesLoadSucceeded, recentImages])
+
   const selectionOrderMap = useMemo(
     () => new Map(selectedUrls.map((url, index) => [url, index + 1])),
     [selectedUrls],
@@ -121,6 +160,18 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
     )
   }, [referencesReady, referencedInputUrls, referencedGeneratedUrls])
 
+  useEffect(() => {
+    if (invalidRecentImages.length === 0) {
+      return
+    }
+
+    removeRecentImages(invalidRecentImages)
+    const invalidUrlSet = new Set(invalidRecentImages)
+    setSelectedUrls((prev) =>
+      prev.filter((url) => !invalidUrlSet.has(url)),
+    )
+  }, [invalidRecentImages, removeRecentImages])
+
   const resolveIsReferenced = (
     image: Pick<ImageItem, 'url' | 'type'>,
   ): boolean => {
@@ -138,8 +189,9 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
       : referencedGeneratedUrls.has(comparableUrl)
   }
 
-  const fetchImages = async (): Promise<ImageItem[]> => {
+  const fetchImages = async (): Promise<ImageItem[] | null> => {
     setLoading(true)
+    setImagesLoadSucceeded(false)
     try {
       const res = await client.api.static.images.list.$get()
       const data = await res.json()
@@ -151,6 +203,7 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
           isReferenced: resolveIsReferenced(image),
         }))
         setImages(nextImages)
+        setImagesLoadSucceeded(true)
         return nextImages
       }
     } catch (e) {
@@ -159,7 +212,7 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
       setLoading(false)
     }
 
-    return []
+    return null
   }
 
   const handleSelect = (url: string) => {
@@ -199,6 +252,9 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
   }
   const handleDeleteImages = async ({ urls }: GalleryDeleteSuccessPayload) => {
     const nextImages = await fetchImages()
+    if (!nextImages) {
+      return
+    }
     const existingUrlSet = new Set(nextImages.map((image) => image.url))
 
     setSelectedUrls((prev) =>
@@ -285,7 +341,7 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
           {
             key: 'recent',
             label: '最近使用',
-            children: renderImageGrid(recentImages),
+            children: renderImageGrid(visibleRecentImages),
           },
           {
             key: 'input',
