@@ -22,7 +22,7 @@ export interface GPTImageSettingRef {
   save: () => Promise<string | undefined>
 }
 
-const DEFAULT_YUNWU_BASE_URL = 'https://api.wlai.vip/v1'
+const DEFAULT_OPENAI_IMAGES_BASE_URL = 'https://api.openlux.ai/v1'
 const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 const DEFAULT_MODEL = 'gpt-image-2'
 const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.1-flash-image'
@@ -33,10 +33,10 @@ const DEFAULT_BALANCE_RESULT_JSON_KEY = 'data.total_usage'
 const createEmptyEndpoint = (): GptImageEndpoint => ({
   id: uuidv4(),
   name: '',
-  baseURL: DEFAULT_YUNWU_BASE_URL,
+  baseURL: DEFAULT_OPENAI_IMAGES_BASE_URL,
   model: DEFAULT_MODEL,
   apiKey: '',
-  type: 'yunwu',
+  type: 'custom',
   engine: 'openai-images',
 })
 
@@ -375,7 +375,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
               <Input
                 value={activeEndpoint.name}
                 onChange={(e) => updateActiveEndpoint({ name: e.target.value })}
-                placeholder="如 云雾(默认)、OpenAI 官方"
+                placeholder="如 OpenLux、OpenAI 官方"
               />
             </Form.Item>
             <Form.Item label="API 地址 (baseURL)" required>
@@ -388,7 +388,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   activeEndpoint.engine === 'chat-completions' ||
                   activeEndpoint.engine === 'openrouter-images'
                     ? '如 https://openrouter.ai/api/v1'
-                    : '如 https://api.wlai.vip/v1'
+                    : '如 https://api.openlux.ai/v1'
                 }
               />
             </Form.Item>
@@ -442,7 +442,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                       : {}),
                     ...((engine === 'openrouter-images' ||
                       engine === 'chat-completions') &&
-                    activeEndpoint.baseURL === DEFAULT_YUNWU_BASE_URL
+                    activeEndpoint.baseURL === DEFAULT_OPENAI_IMAGES_BASE_URL
                       ? {
                           baseURL: DEFAULT_OPENROUTER_BASE_URL,
                           type: 'openrouter' as const,
@@ -450,7 +450,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                       : {}),
                     ...(engine === 'openai-images' &&
                     activeEndpoint.baseURL === DEFAULT_OPENROUTER_BASE_URL
-                      ? { baseURL: DEFAULT_YUNWU_BASE_URL }
+                      ? { baseURL: DEFAULT_OPENAI_IMAGES_BASE_URL }
                       : {}),
                   })
                 }}
