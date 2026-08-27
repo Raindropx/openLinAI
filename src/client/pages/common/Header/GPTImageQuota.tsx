@@ -6,6 +6,8 @@ import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { useGlobalStore } from '../../../store/global'
 import { openSettingModal } from '../SettingModal'
 
+const NEW_API_QUOTA_PER_USD = 500_000
+
 export function GPTImageQuota({
   variant = 'header',
 }: {
@@ -81,7 +83,9 @@ export function GPTImageQuota({
                     : isOpenRouter
                       ? `$${quota.total_available.toFixed(2)}`
                       : isNewApi
-                        ? `${quota.total_available.toLocaleString('zh-CN')} 点`
+                        ? `$${(
+                            quota.total_available / NEW_API_QUOTA_PER_USD
+                          ).toFixed(2)}`
                         : quota.total_available.toFixed(2)}
                 </span>
               </span>
