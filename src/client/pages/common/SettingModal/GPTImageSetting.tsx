@@ -349,8 +349,8 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         {activeEndpoint && (
           <div className="mt-3 space-y-3 rounded-lg border border-[#343a44] bg-[#181c22] p-3">
             {activePreset && (
-              <div className="rounded-md border border-sky-400/25 bg-sky-500/10 px-3 py-2 text-xs leading-5 text-sky-100 shadow-[inset_3px_0_0_rgba(56,189,248,0.55)]">
-                <div className="font-medium text-sky-200">
+              <div className="endpoint-preset-note rounded-md border px-3 py-2 text-xs leading-5">
+                <div className="endpoint-preset-note-title font-medium">
                   {activePreset.label}
                 </div>
                 <div>
@@ -359,13 +359,13 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                     href={activePreset.website}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-sky-300 hover:text-sky-200!"
+                    className="endpoint-preset-note-link"
                   >
                     {activePreset.website}
                   </a>
                 </div>
                 {activePreset.notes.map((note) => (
-                  <div key={note} className="text-sky-100/70">
+                  <div key={note} className="endpoint-preset-note-muted">
                     {note}
                   </div>
                 ))}
