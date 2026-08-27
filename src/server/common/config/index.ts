@@ -8,7 +8,7 @@ import { GPT_IMAGE_SOURCE_MODEL } from '../../module/gpt-image/enum'
 /** 默认云雾生成端点（迁移旧配置用） */
 const DEFAULT_YUNWU_BASE_URL = 'https://api.wlai.vip/v1'
 
-/** 端点的余额来源类型：决定 /quota 走哪个余额接口 */
+/** 端点的余额来源类型：决定 /quota 走哪个余额接口。yunwu 为兼容旧配置保留，界面含义为 New API。 */
 export type GptImageEndpointType = 'yunwu' | 'openrouter' | 'custom'
 
 /** 端点的生成引擎：决定 /generate 走哪种调用方式 */
@@ -25,7 +25,7 @@ export interface GptImageEndpoint {
   apiKey: string
   /**
    * 余额来源类型：
-   * - yunwu：云雾专属 token 接口查余额
+   * - yunwu：New API /api/usage/token/ 查余额（字段名为兼容旧配置保留）
    * - openrouter：OpenRouter /api/v1/credits 查余额
    * - custom：可按下方自定义配置查询余额
    */

@@ -2,7 +2,7 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
-import { getEndpointById, getYunwuApiKey } from '../common/config'
+import { getEndpointById } from '../common/config'
 import { TaskTemplate, templateManager } from '../common/template-manager'
 import { TRIAL_TEMPLATE_TITLE } from '../common/template-manager/enum'
 import { handleImageGeneration } from '../module/gpt-image'
@@ -29,6 +29,15 @@ const DEFAULT_BALANCE_RESULT_JSON_KEY = 'data.total_usage'
 function resolveBalanceUrl(baseURL: string, apiPath: string) {
   if (/^https?:\/\//i.test(apiPath)) return apiPath
   return `${baseURL.replace(/\/+$/, '')}/${apiPath.replace(/^\/+/, '')}`
+}
+
+function resolveNewApiBalanceUrl(baseURL: string) {
+  const url = new URL(baseURL)
+  url.search = ''
+  url.hash = ''
+  const basePath = url.pathname.replace(/\/+$/, '').replace(/\/v1$/i, '')
+  url.pathname = `${basePath}/api/usage/token/`.replace(/\/{2,}/g, '/')
+  return url.toString()
 }
 
 function getJsonValueByPath(value: unknown, path: string): unknown {
@@ -59,49 +68,15 @@ function getResponseError(json: any) {
 
 const gptImageApi = new Hono()
   .get('/quota', async (c) => {
-    // 按 endpointId 查端点；兼容老前端：未传 id 时回退到旧 yunwu key
+    // 按 endpointId 查端点
     const endpointId = c.req.query('endpointId')
     const endpoint = endpointId ? getEndpointById(endpointId) : null
 
-    // 无 endpointId 的旧入口：仅支持 yunwu
     if (!endpoint) {
-      const apiKey = getYunwuApiKey()
-      if (!apiKey) {
-        return c.json(
-          { success: false as const, error: 'API Key is not configured' },
-          400,
-        )
-      }
-      try {
-        const response = await fetchWithTimeout(
-          'https://yunwu.ai/api/usage/token/',
-          {
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-            },
-          },
-          15000,
-        )
-        const data: GPTImageQuotaResponse = await response.json()
-        if (!response.ok || data.message) {
-          return c.json(
-            {
-              success: false as const,
-              error: data?.message || '获取余额失败',
-            },
-            500,
-          )
-        }
-        return c.json({
-          success: true as const,
-          data: data,
-        })
-      } catch (error: any) {
-        return c.json(
-          { success: false as const, error: error.message || '获取余额失败' },
-          500,
-        )
-      }
+      return c.json(
+        { success: false as const, error: '请先选择有效的图片生成端点' },
+        400,
+      )
     }
 
     // 自定义端点：按端点配置请求余额并提取指定 JSON 键
@@ -232,10 +207,10 @@ const gptImageApi = new Hono()
       }
     }
 
-    // yunwu：走云雾专属 token 接口
+    // New API：从生成 Base URL 推导站点根路径，查询当前令牌用量
     try {
       const response = await fetchWithTimeout(
-        'https://yunwu.ai/api/usage/token/',
+        resolveNewApiBalanceUrl(endpoint.baseURL),
         {
           headers: {
             Authorization: `Bearer ${endpoint.apiKey}`,
@@ -243,25 +218,57 @@ const gptImageApi = new Hono()
         },
         15000,
       )
-      const data: GPTImageQuotaResponse = await response.json()
-      if (!response.ok || data.message) {
+      const json: any = await response.json().catch(() => ({}))
+      if (!response.ok || json?.code === false || json?.success === false) {
         return c.json(
           {
             success: false as const,
-            error: `[yunwu.ai] ${data?.message || '获取余额失败'}`,
+            error: `[New API] ${getResponseError(json)}`,
           },
           500,
         )
       }
+
+      const raw = json?.data
+      const totalAvailable = Number(raw?.total_available)
+      const totalUsed = Number(raw?.total_used ?? 0)
+      const totalGranted = Number(
+        raw?.total_granted ?? totalAvailable + totalUsed,
+      )
+      if (
+        !Number.isFinite(totalAvailable) ||
+        !Number.isFinite(totalUsed) ||
+        !Number.isFinite(totalGranted)
+      ) {
+        return c.json(
+          {
+            success: false as const,
+            error: '[New API] 响应中没有有效的令牌余额',
+          },
+          500,
+        )
+      }
+
+      const normalized: GPTImageQuotaResponse = {
+        message: '',
+        data: {
+          expires_at: Number(raw?.expires_at ?? 0),
+          name: String(raw?.name || endpoint.name),
+          total_granted: totalGranted,
+          total_used: totalUsed,
+          total_available: totalAvailable,
+          unlimited_quota: Boolean(raw?.unlimited_quota),
+        },
+      }
       return c.json({
         success: true as const,
-        data: data,
+        data: normalized,
       })
     } catch (error: any) {
       return c.json(
         {
           success: false as const,
-          error: `[网络] ${error.message || '获取余额失败'}`,
+          error: `[New API] ${error.message || '获取余额失败'}`,
         },
         500,
       )

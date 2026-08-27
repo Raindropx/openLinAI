@@ -28,6 +28,7 @@ export function GPTImageQuota({
     selectedEndpoint.type === 'openrouter' ||
     (selectedEndpoint.type === 'custom' && selectedEndpoint.balanceEnabled)
   const isOpenRouter = selectedEndpoint.type === 'openrouter'
+  const isNewApi = selectedEndpoint.type === 'yunwu'
   const endpointName =
     selectedEndpoint.name || selectedEndpoint.model || '未命名端点'
   const sidebar = variant === 'sidebar'
@@ -79,8 +80,8 @@ export function GPTImageQuota({
                     ? '不限'
                     : isOpenRouter
                       ? `$${quota.total_available.toFixed(2)}`
-                      : selectedEndpoint.type === 'yunwu'
-                        ? `${(quota.total_available * 0.000001).toFixed(2)}￥`
+                      : isNewApi
+                        ? `${quota.total_available.toLocaleString('zh-CN')} 点`
                         : quota.total_available.toFixed(2)}
                 </span>
               </span>

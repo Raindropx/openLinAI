@@ -496,8 +496,8 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 <Radio.Button value="custom">自定义</Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-slate-500">
-                New API / OpenRouter
-                类型端点会在右上角显示余额；自定义端点可按需开启余额查询。
+                New API 使用当前站点的 /api/usage/token/；OpenRouter
+                使用官方余额接口；其他端点可在“自定义”中配置余额路径。
               </div>
             </Form.Item>
             {activeEndpoint.type === 'custom' && (
