@@ -52,6 +52,16 @@ interface TaskListProps {
   onSelectTask?: (taskId: string) => void
 }
 
+function formatFileSize(bytes: number) {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / 1024 / 1024).toFixed(1)}MB`
+  }
+  if (bytes >= 1024) {
+    return `${Math.round(bytes / 1024)}KB`
+  }
+  return `${bytes}B`
+}
+
 function TaskImage({
   src,
   showSize,
@@ -64,28 +74,65 @@ function TaskImage({
   const [size, setSize] = useState<{ width: number; height: number } | null>(
     null,
   )
+  const [fileSize, setFileSize] = useState<number | null>(null)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const width = size?.width ?? 0
+  const height = size?.height ?? 0
+
+  const handleLoaded = useCallback((image: HTMLImageElement) => {
+    if (!image.naturalWidth || !image.naturalHeight) return
+    setSize({
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+    })
+  }, [])
+
+  useEffect(() => {
+    setSize(null)
+    const image = rootRef.current?.querySelector('img')
+    if (image?.complete) {
+      handleLoaded(image)
+    }
+  }, [handleLoaded, src])
+
+  useEffect(() => {
+    setFileSize(null)
+    if (!showSize || !width || !height) return
+
+    const controller = new AbortController()
+    fetch(src, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+        return response.blob()
+      })
+      .then((blob) => setFileSize(blob.size))
+      .catch(() => {})
+
+    return () => controller.abort()
+  }, [height, showSize, src, width])
 
   return (
     <>
-      <Image
-        src={src}
-        alt="result"
-        preview={preview}
-        classNames={{
-          root: 'w-full h-full',
-          image: 'w-full! h-full! object-cover',
-        }}
-        onLoad={(event) => {
-          const image = event.target as HTMLImageElement
-          setSize({
-            width: image.naturalWidth,
-            height: image.naturalHeight,
-          })
-        }}
-      />
+      <div ref={rootRef} className="contents">
+        <Image
+          src={src}
+          alt="result"
+          preview={preview}
+          classNames={{
+            root: 'w-full h-full',
+            image: 'w-full! h-full! object-cover',
+          }}
+          onLoad={(event) => {
+            handleLoaded(event.target as HTMLImageElement)
+          }}
+        />
+      </div>
       {showSize && size && (
         <div className="pointer-events-none absolute top-0 left-0 z-10 rounded-br bg-black/55 px-1 text-[10px] leading-4 text-white">
           {size.width}×{size.height}
+          {fileSize !== null && ` · ${formatFileSize(fileSize)}`}
         </div>
       )}
     </>

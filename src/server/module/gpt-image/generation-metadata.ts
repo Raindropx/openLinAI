@@ -1,3 +1,4 @@
+import packageJson from '../../../../package.json'
 import { logger } from '../utils/logger'
 
 type SharpFactory = typeof import('sharp')
@@ -26,6 +27,7 @@ export interface GenerationMetadataInput {
 interface GenerationMetadataDocument extends GenerationMetadataInput {
   schema: 'openlinai.image-generation.v1'
   software: 'openLinAI'
+  version: string
   generatedAt: string
   output: {
     format: GenerationImageFormat
@@ -89,7 +91,7 @@ function buildParametersText(document: GenerationMetadataDocument): string {
     `Requested size: ${safeParameterValue(document.requestedSize)}`,
     `Aspect ratio: ${safeParameterValue(document.aspectRatio)}`,
     `Reference images: ${document.referenceImageCount}`,
-    'Software: openLinAI',
+    `Software: ${safeParameterValue(document.software)} ${safeParameterValue(document.version)}`,
   ]
   if (document.endpointName?.trim()) {
     fields.push(`Endpoint: ${safeParameterValue(document.endpointName)}`)
@@ -108,9 +110,13 @@ function encodeUtf16Be(value: string): Buffer {
 }
 
 /** 创建 A1111/Piexif 常用的 EXIF UserComment，并附带基础描述与软件名。 */
-function createExifTiff(parameters: string, prompt: string): Buffer {
+function createExifTiff(
+  parameters: string,
+  prompt: string,
+  softwareLabel: string,
+): Buffer {
   const description = Buffer.from(`${limitUtf8(prompt, 8_000)}\0`, 'utf8')
-  const software = Buffer.from('openLinAI\0', 'ascii')
+  const software = Buffer.from(`${softwareLabel}\0`, 'ascii')
   const userComment = Buffer.concat([
     Buffer.from('UNICODE\0', 'ascii'),
     encodeUtf16Be(limitUtf8(parameters, 24_000)),
@@ -698,7 +704,7 @@ async function embedWithSharp(
     .withExifMerge({
       IFD0: {
         ImageDescription: limitUtf8(document.prompt, 8_000),
-        Software: document.software,
+        Software: `${document.software} ${document.version}`,
         UserComment: limitUtf8(parameters, 24_000),
       },
     })
@@ -733,6 +739,7 @@ export async function embedGenerationMetadata(
     ...input,
     schema: 'openlinai.image-generation.v1',
     software: 'openLinAI',
+    version: packageJson.version,
     generatedAt: input.generatedAt || new Date().toISOString(),
     output: {
       format,
@@ -741,7 +748,11 @@ export async function embedGenerationMetadata(
     },
   }
   const parameters = buildParametersText(document)
-  const exifTiff = createExifTiff(parameters, document.prompt)
+  const exifTiff = createExifTiff(
+    parameters,
+    document.prompt,
+    `${document.software} ${document.version}`,
+  )
   const xmp = createXmp(document)
 
   switch (format) {
