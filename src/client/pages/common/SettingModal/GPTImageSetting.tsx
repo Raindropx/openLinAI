@@ -491,12 +491,12 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   })
                 }}
               >
-                <Radio.Button value="yunwu">New API（云雾）</Radio.Button>
+                <Radio.Button value="yunwu">New API</Radio.Button>
                 <Radio.Button value="openrouter">OpenRouter</Radio.Button>
                 <Radio.Button value="custom">自定义</Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-slate-500">
-                New API（云雾）/ OpenRouter
+                New API / OpenRouter
                 类型端点会在右上角显示余额；自定义端点可按需开启余额查询。
               </div>
             </Form.Item>
