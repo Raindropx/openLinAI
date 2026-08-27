@@ -27,7 +27,7 @@ interface GlobalState {
   setFocusNewestTask: () => void
   setGptImageApiKey: (key: string | null) => Promise<void>
   saveEndpoints: (endpoints: GptImageEndpoint[]) => Promise<boolean>
-  saveLlmEndpoints: (endpoints: LlmEndpoint[]) => Promise<void>
+  saveLlmEndpoints: (endpoints: LlmEndpoint[]) => Promise<boolean>
   saveLlmPrompts: (prompts: LlmPrompts) => Promise<void>
   fetchConfig: () => Promise<void>
 }
@@ -100,10 +100,12 @@ export const useGlobalStore = create<GlobalState>()((set) => ({
       const json = await res.json()
       if (json.success) {
         set(syncFromConfigData(json.data as any))
+        return true
       }
     } catch (error) {
       console.error('Failed to save llm endpoints', error)
     }
+    return false
   },
   saveLlmPrompts: async (llmPrompts) => {
     try {

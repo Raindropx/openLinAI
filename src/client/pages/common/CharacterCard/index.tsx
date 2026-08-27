@@ -4,6 +4,7 @@ import {
   FileTextOutlined,
   IdcardOutlined,
   PlusOutlined,
+  RobotOutlined,
   SaveOutlined,
   SettingOutlined,
   ThunderboltOutlined,
@@ -12,6 +13,7 @@ import {
   Button,
   Input,
   message,
+  Modal,
   Segmented,
   Select,
   Tooltip,
@@ -46,10 +48,20 @@ import {
 } from '../../../utils/characterCard'
 import { openSettingModal } from '../SettingModal'
 import { ImageUpload } from '../TemplateSection/TemplateForm/ImageUpload'
+import { CharacterCardAiEditModal } from './CharacterCardAiEditModal'
 import { CharacterCardEditorFields } from './CharacterCardEditorFields'
 import { CharacterCardLibrary } from './CharacterCardLibrary'
 
 const client = hc<AppType>('/')
+
+const CHARACTER_CARD_EDIT_SYSTEM_PROMPT = `你是一名 SillyTavern 角色卡编辑助手。请根据用户的修改要求编辑所提供的完整角色卡 JSON。
+
+要求：
+1. 返回完整、有效的 JSON 对象，不要使用 Markdown 代码块，不要添加说明文字。
+2. 保持原有 JSON 结构、字段和未被要求修改的内容，不得省略字段。
+3. 只修改用户要求涉及的设定，以及为了让这些设定自然一致而必须同步调整的相关字段。
+4. 保留原文的语言、文风、详细程度和所有自定义字段。
+5. 输出必须能直接替换原角色卡 JSON。`
 
 function arrayBufferToDataUrl(buffer: ArrayBuffer) {
   return new Promise<string>((resolve, reject) => {
@@ -72,6 +84,15 @@ export function CharacterCardPage() {
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [uploadingCount, setUploadingCount] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [generateModalOpen, setGenerateModalOpen] = useState(false)
+  const [generateInstructions, setGenerateInstructions] = useState('')
+  const [aiEditOpen, setAiEditOpen] = useState(false)
+  const [aiEditLoading, setAiEditLoading] = useState(false)
+  const [aiEditInstructions, setAiEditInstructions] = useState('')
+  const [aiEditOriginalJson, setAiEditOriginalJson] = useState('')
+  const [aiEditCandidate, setAiEditCandidate] = useState<ReturnType<
+    typeof toV2Format
+  > | null>(null)
   const [saving, setSaving] = useState(false)
   const [card, setCard] = useState<CharacterCard>(emptyCharacterCard)
   const [hasCard, setHasCard] = useState(false)
@@ -113,7 +134,7 @@ export function CharacterCardPage() {
     setRawData(JSON.stringify(toV2Format(normalized, extra), null, 2))
   }
 
-  const handleGenerate = async () => {
+  const openGenerateModal = () => {
     if (imageUrls.length === 0) {
       message.warning('请先上传或选择一张图片')
       return
@@ -123,14 +144,32 @@ export function CharacterCardPage() {
     const epId = ensureEndpoint()
     if (!epId) return
 
+    setGenerateInstructions('')
+    setGenerateModalOpen(true)
+  }
+
+  const handleGenerate = async () => {
+    if (loading) return
+
+    const epId = ensureEndpoint()
+    if (!epId) return
+
+    const instructions = generateInstructions.trim()
+    setGenerateModalOpen(false)
     setLoading(true)
     try {
+      const userContent: ChatMessage['content'] = []
+      if (instructions) {
+        userContent.push({ type: 'text', text: instructions })
+      }
+      userContent.push({
+        type: 'image_url',
+        image_url: { url: imageUrls[0] },
+      })
+
       const messages: ChatMessage[] = [
         { role: 'system', content: llmPrompts.charCardPrompt },
-        {
-          role: 'user',
-          content: [{ type: 'image_url', image_url: { url: imageUrls[0] } }],
-        },
+        { role: 'user', content: userContent },
       ]
       const reply = await requestChatCompletion({ endpointId: epId, messages })
       setRawData(reply)
@@ -149,6 +188,72 @@ export function CharacterCardPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const openAiEditModal = () => {
+    if (!hasCard) {
+      message.warning('请先生成、导入或载入一张角色卡')
+      return
+    }
+    if (!ensureEndpoint()) return
+
+    setAiEditInstructions('')
+    setAiEditOriginalJson(
+      JSON.stringify(toV2Format(card, extraFields), null, 2),
+    )
+    setAiEditCandidate(null)
+    setAiEditOpen(true)
+  }
+
+  const handleGenerateAiEdit = async () => {
+    const instructions = aiEditInstructions.trim()
+    if (!instructions || aiEditLoading) return
+
+    const epId = ensureEndpoint()
+    if (!epId) return
+
+    setAiEditLoading(true)
+    try {
+      const reply = await requestChatCompletion({
+        endpointId: epId,
+        messages: [
+          { role: 'system', content: CHARACTER_CARD_EDIT_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: `修改要求：\n${instructions}\n\n当前完整角色卡 JSON：\n${aiEditOriginalJson}`,
+          },
+        ],
+      })
+      const raw = extractJsonFromText(reply)
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        message.error('未能从 LLM 返回中解析出角色卡 JSON，请重新尝试')
+        return
+      }
+
+      const normalized = normalizeCharacterCard(raw)
+      const proposed = toV2Format(normalized, extractExtraFields(raw))
+      setAiEditCandidate(proposed)
+      message.success('AI 修改已生成，请审查差异')
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'AI 修改失败')
+    } finally {
+      setAiEditLoading(false)
+    }
+  }
+
+  const handleAcceptAiEdit = () => {
+    if (!aiEditCandidate) return
+    applyRawJson(aiEditCandidate)
+    setDirty(true)
+    setAiEditOpen(false)
+    setAiEditCandidate(null)
+    message.success('AI 修改已应用到当前角色卡')
+  }
+
+  const handleDiscardAiEdit = () => {
+    if (aiEditLoading) return
+    setAiEditOpen(false)
+    setAiEditCandidate(null)
   }
 
   const handleClear = () => {
@@ -407,7 +512,7 @@ export function CharacterCardPage() {
             <Button
               type="primary"
               icon={<ThunderboltOutlined />}
-              onClick={handleGenerate}
+              onClick={openGenerateModal}
               loading={loading}
               disabled={uploadingCount > 0 || imageUrls.length === 0}
               className="mt-3 w-full"
@@ -487,6 +592,13 @@ export function CharacterCardPage() {
               </div>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                icon={<RobotOutlined />}
+                disabled={!hasCard}
+                onClick={openAiEditModal}
+              >
+                AI 修改
+              </Button>
               <Button
                 icon={<SaveOutlined />}
                 disabled={!hasCard || !activeAssetId}
@@ -586,6 +698,44 @@ export function CharacterCardPage() {
           </div>
         </aside>
       </div>
+
+      <Modal
+        title="生成角色卡"
+        open={generateModalOpen}
+        centered
+        width="min(640px, calc(100vw - 24px))"
+        okText="开始生成"
+        cancelText="取消"
+        onOk={() => void handleGenerate()}
+        onCancel={() => setGenerateModalOpen(false)}
+      >
+        <div className="pb-5">
+          <div className="mb-2 text-sm text-slate-400">补充信息（可选）</div>
+          <Input.TextArea
+            value={generateInstructions}
+            onChange={(event) => setGenerateInstructions(event.target.value)}
+            autoSize={{ minRows: 5, maxRows: 12 }}
+            placeholder="例如：角色为女性，姓名叫小云；也可以补充身份、性格或背景设定。留空将仅根据图片生成。"
+            maxLength={2000}
+            showCount
+            autoFocus
+          />
+        </div>
+      </Modal>
+
+      <CharacterCardAiEditModal
+        open={aiEditOpen}
+        loading={aiEditLoading}
+        instructions={aiEditInstructions}
+        originalJson={aiEditOriginalJson}
+        proposedJson={
+          aiEditCandidate ? JSON.stringify(aiEditCandidate, null, 2) : undefined
+        }
+        onInstructionsChange={setAiEditInstructions}
+        onGenerate={() => void handleGenerateAiEdit()}
+        onAccept={handleAcceptAiEdit}
+        onDiscard={handleDiscardAiEdit}
+      />
     </div>
   )
 }

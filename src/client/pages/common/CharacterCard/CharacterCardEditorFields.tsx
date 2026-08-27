@@ -341,7 +341,9 @@ function MesExampleEditor({
                       autoSize={{ minRows: 1 }}
                       placeholder="输入对话内容…"
                       className={`w-full! min-w-0! p-0! text-sm! ${
-                        isChar ? 'text-slate-100!' : 'app-accent-field'
+                        isChar
+                          ? 'character-card-char-message-field'
+                          : 'app-accent-field'
                       }`}
                     />
                   </div>

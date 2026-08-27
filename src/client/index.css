@@ -290,6 +290,10 @@
   border: 1px solid #343a44;
 }
 
+.character-card-char-message-field {
+  color: #f1f5f9 !important;
+}
+
 /* Tailwind 页面色板的亮色映射。图片画布的半透明黑底刻意保留。 */
 html[data-theme='light'] [class~='bg-[#101216]'],
 html[data-theme='light'] [class~='bg-[#111419]'] {
@@ -349,6 +353,10 @@ html[data-theme='light'] [class~='hover:border-[#49515f]!']:hover {
 
 html[data-theme='light'] [class~='text-slate-100'] {
   color: #172033;
+}
+
+html[data-theme='light'] .character-card-char-message-field {
+  color: #172033 !important;
 }
 
 html[data-theme='light'] [class~='text-slate-200'] {

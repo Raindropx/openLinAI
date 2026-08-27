@@ -1,6 +1,12 @@
 import { PlusOutlined } from '@ant-design/icons'
 import { Button, Form, Input, message, Select } from 'antd'
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { LlmEndpoint, LlmPrompts } from '../../../../server/common/config'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
@@ -37,9 +43,15 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
   )
   const [activeId, setActiveId] = useState<string>(draftEndpoints[0]?.id || '')
   const [draftPrompts, setDraftPrompts] = useState<LlmPrompts>(llmPrompts)
+  const [updatingEndpoint, setUpdatingEndpoint] = useState(false)
+  const skipNextEndpointSyncRef = useRef(false)
 
   // 配置变化时同步草稿
   useEffect(() => {
+    if (skipNextEndpointSyncRef.current) {
+      skipNextEndpointSyncRef.current = false
+      return
+    }
     if (llmEndpoints.length) {
       setDraftEndpoints(llmEndpoints)
       if (!llmEndpoints.find((e) => e.id === activeId)) {
@@ -90,6 +102,54 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
     })
   }
 
+  const handleUpdateEndpoint = async () => {
+    if (!activeEndpoint) return
+
+    const cleanedEndpoint = {
+      ...activeEndpoint,
+      name: activeEndpoint.name.trim(),
+    }
+    if (
+      !cleanedEndpoint.name ||
+      !cleanedEndpoint.baseURL ||
+      !cleanedEndpoint.model ||
+      !cleanedEndpoint.apiKey
+    ) {
+      message.warning('请完整配置当前 LLM 端点（名称/地址/模型/Key）')
+      return
+    }
+
+    const nextEndpoints = llmEndpoints.some(
+      (endpoint) => endpoint.id === cleanedEndpoint.id,
+    )
+      ? llmEndpoints.map((endpoint) =>
+          endpoint.id === cleanedEndpoint.id ? cleanedEndpoint : endpoint,
+        )
+      : [...llmEndpoints, cleanedEndpoint]
+
+    setUpdatingEndpoint(true)
+    skipNextEndpointSyncRef.current = true
+    try {
+      const saved = await saveLlmEndpoints(nextEndpoints)
+      if (!saved) {
+        skipNextEndpointSyncRef.current = false
+        message.error('当前 LLM 端点更新失败')
+        return
+      }
+      setDraftEndpoints((list) =>
+        list.some((endpoint) => endpoint.id === cleanedEndpoint.id)
+          ? list.map((endpoint) =>
+              endpoint.id === cleanedEndpoint.id ? cleanedEndpoint : endpoint,
+            )
+          : [...list, cleanedEndpoint],
+      )
+      setActiveId(cleanedEndpoint.id)
+      message.success('当前 LLM 端点已更新')
+    } finally {
+      setUpdatingEndpoint(false)
+    }
+  }
+
   useImperativeHandle(ref, () => ({
     save: async () => {
       const cleaned = draftEndpoints
@@ -99,7 +159,11 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         message.warning('请至少完整配置一个 LLM 端点（名称/地址/模型/Key）')
         throw new Error('No LLM endpoint')
       }
-      await saveLlmEndpoints(cleaned)
+      const saved = await saveLlmEndpoints(cleaned)
+      if (!saved) {
+        message.error('LLM 端点配置保存失败')
+        throw new Error('Failed to save LLM endpoints')
+      }
       await saveLlmPrompts(draftPrompts)
       // 确保两个功能都有端点，缺失则默认用第一个
       if (
@@ -137,6 +201,9 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
           />
           <Button icon={<PlusOutlined />} onClick={handleAddEndpoint}>
             新增
+          </Button>
+          <Button loading={updatingEndpoint} onClick={handleUpdateEndpoint}>
+            更新
           </Button>
           {draftEndpoints.length > 1 && (
             <Button
