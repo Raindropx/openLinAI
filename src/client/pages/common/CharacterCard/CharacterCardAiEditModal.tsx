@@ -207,8 +207,8 @@ function formatJsonValue(value: unknown): string {
 
 const segmentStyles: Record<TextSegmentKind, string> = {
   equal: '',
-  removed: 'rounded-sm bg-red-500/25 text-red-200',
-  added: 'rounded-sm bg-emerald-500/25 text-emerald-200',
+  removed: 'character-card-diff-removed-highlight rounded-sm',
+  added: 'character-card-diff-added-highlight rounded-sm',
 }
 
 function DiffValue({ segments }: { segments: TextSegment[] }) {
@@ -237,9 +237,9 @@ const changeLabels: Record<ChangeKind, string> = {
 }
 
 const changeLabelStyles: Record<ChangeKind, string> = {
-  changed: 'bg-amber-500/10 text-amber-300',
-  added: 'bg-emerald-500/10 text-emerald-300',
-  removed: 'bg-red-500/10 text-red-300',
+  changed: 'character-card-diff-changed',
+  added: 'character-card-diff-added',
+  removed: 'character-card-diff-removed',
 }
 
 function JsonFieldDiff({ change }: { change: JsonFieldChange }) {
@@ -266,11 +266,13 @@ function JsonFieldDiff({ change }: { change: JsonFieldChange }) {
       </div>
       <div className="grid md:grid-cols-2">
         <div className="border-b border-[#343a44] p-3 font-mono text-xs leading-5 text-slate-300 md:border-r md:border-b-0">
-          <div className="mb-2 font-sans text-[11px] text-red-300">修改前</div>
+          <div className="character-card-diff-removed-text mb-2 font-sans text-[11px]">
+            修改前
+          </div>
           <DiffValue segments={beforeSegments} />
         </div>
         <div className="p-3 font-mono text-xs leading-5 text-slate-300">
-          <div className="mb-2 font-sans text-[11px] text-emerald-300">
+          <div className="character-card-diff-added-text mb-2 font-sans text-[11px]">
             修改后
           </div>
           <DiffValue segments={afterSegments} />
@@ -334,21 +336,21 @@ export function CharacterCardAiEditModal({
       {reviewing ? (
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded bg-slate-700/70 px-2 py-1 text-slate-200">
+            <span className="character-card-diff-summary rounded px-2 py-1">
               JSON Diff · {changes.length} 个字段
             </span>
             {modifiedCount > 0 && (
-              <span className="rounded bg-amber-500/10 px-2 py-1 text-amber-300">
+              <span className="character-card-diff-changed rounded px-2 py-1">
                 修改 {modifiedCount}
               </span>
             )}
             {addedCount > 0 && (
-              <span className="rounded bg-emerald-500/10 px-2 py-1 text-emerald-300">
+              <span className="character-card-diff-added rounded px-2 py-1">
                 新增 {addedCount}
               </span>
             )}
             {removedCount > 0 && (
-              <span className="rounded bg-red-500/10 px-2 py-1 text-red-300">
+              <span className="character-card-diff-removed rounded px-2 py-1">
                 删除 {removedCount}
               </span>
             )}

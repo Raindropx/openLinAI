@@ -49,6 +49,18 @@
     --endpoint-preset-note-muted: rgb(224 242 254 / 70%);
     --endpoint-preset-note-link: #7dd3fc;
     --endpoint-preset-note-link-hover: #bae6fd;
+    --character-card-diff-summary-bg: rgb(51 65 85 / 70%);
+    --character-card-diff-summary-text: #e2e8f0;
+    --character-card-diff-changed-bg: rgb(245 158 11 / 10%);
+    --character-card-diff-changed-text: #fcd34d;
+    --character-card-diff-removed-bg: rgb(239 68 68 / 10%);
+    --character-card-diff-removed-text: #fca5a5;
+    --character-card-diff-removed-highlight-bg: rgb(239 68 68 / 25%);
+    --character-card-diff-removed-highlight-text: #fecaca;
+    --character-card-diff-added-bg: rgb(16 185 129 / 10%);
+    --character-card-diff-added-text: #6ee7b7;
+    --character-card-diff-added-highlight-bg: rgb(16 185 129 / 25%);
+    --character-card-diff-added-highlight-text: #a7f3d0;
     color-scheme: dark;
     background: #101216;
   }
@@ -112,6 +124,18 @@
     --endpoint-preset-note-muted: #475569;
     --endpoint-preset-note-link: #0369a1;
     --endpoint-preset-note-link-hover: #075985;
+    --character-card-diff-summary-bg: #e2e8f0;
+    --character-card-diff-summary-text: #334155;
+    --character-card-diff-changed-bg: #fef3c7;
+    --character-card-diff-changed-text: #92400e;
+    --character-card-diff-removed-bg: #fee2e2;
+    --character-card-diff-removed-text: #991b1b;
+    --character-card-diff-removed-highlight-bg: #fecaca;
+    --character-card-diff-removed-highlight-text: #7f1d1d;
+    --character-card-diff-added-bg: #d1fae5;
+    --character-card-diff-added-text: #065f46;
+    --character-card-diff-added-highlight-bg: #a7f3d0;
+    --character-card-diff-added-highlight-text: #064e3b;
     color-scheme: light;
     background: #f4f6f9;
   }
@@ -267,6 +291,44 @@
 
   .endpoint-preset-note-muted {
     color: var(--endpoint-preset-note-muted);
+  }
+
+  .character-card-diff-summary {
+    background-color: var(--character-card-diff-summary-bg);
+    color: var(--character-card-diff-summary-text);
+  }
+
+  .character-card-diff-changed {
+    background-color: var(--character-card-diff-changed-bg);
+    color: var(--character-card-diff-changed-text);
+  }
+
+  .character-card-diff-removed {
+    background-color: var(--character-card-diff-removed-bg);
+    color: var(--character-card-diff-removed-text);
+  }
+
+  .character-card-diff-removed-text {
+    color: var(--character-card-diff-removed-text);
+  }
+
+  .character-card-diff-removed-highlight {
+    background-color: var(--character-card-diff-removed-highlight-bg);
+    color: var(--character-card-diff-removed-highlight-text);
+  }
+
+  .character-card-diff-added {
+    background-color: var(--character-card-diff-added-bg);
+    color: var(--character-card-diff-added-text);
+  }
+
+  .character-card-diff-added-text {
+    color: var(--character-card-diff-added-text);
+  }
+
+  .character-card-diff-added-highlight {
+    background-color: var(--character-card-diff-added-highlight-bg);
+    color: var(--character-card-diff-added-highlight-text);
   }
 }
 
