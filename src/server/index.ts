@@ -14,7 +14,9 @@ import stylePresetApi from './api/common/style-preset'
 import taskApi from './api/common/task'
 import templateApi from './api/common/template'
 import gptImageApi from './api/gpt-image'
+import modelCatalogApi from './api/model-catalog'
 import styleAnalyzeApi from './api/style-analyze'
+import veniceApi from './api/venice'
 import yunwuTokenApi from './api/yunwu-token'
 
 const app = new Hono()
@@ -22,6 +24,8 @@ const app = new Hono()
 const routes = app
   // module
   .route('/api/chat', chatApi)
+  .route('/api/model-catalog', modelCatalogApi)
+  .route('/api/venice', veniceApi)
   .route('/api/style-analyze', styleAnalyzeApi)
   .route('/api/gptImage', gptImageApi)
   .route('/api/gptImage', yunwuTokenApi)

@@ -93,10 +93,11 @@ export function useGPTImageQuota() {
     () => endpoints.find((e) => e.id === selectedEndpointId) || endpoints[0],
     [endpoints, selectedEndpointId],
   )
-  // New API / OpenRouter 默认查余额；自定义端点按配置决定
+  // New API / OpenRouter / Venice 默认查余额；自定义端点按配置决定
   const activeEndpointId =
     selectedEndpoint?.type === 'yunwu' ||
     selectedEndpoint?.type === 'openrouter' ||
+    selectedEndpoint?.type === 'venice' ||
     (selectedEndpoint?.type === 'custom' && selectedEndpoint.balanceEnabled)
       ? selectedEndpoint.id
       : null

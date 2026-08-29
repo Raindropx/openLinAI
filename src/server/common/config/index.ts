@@ -9,12 +9,17 @@ import { GPT_IMAGE_SOURCE_MODEL } from '../../module/gpt-image/enum'
 const DEFAULT_YUNWU_BASE_URL = 'https://api.wlai.vip/v1'
 
 /** 端点的余额来源类型：决定 /quota 走哪个余额接口。yunwu 为兼容旧配置保留，界面含义为 New API。 */
-export type GptImageEndpointType = 'yunwu' | 'openrouter' | 'custom'
+export type GptImageEndpointType =
+  | 'yunwu'
+  | 'openrouter'
+  | 'venice'
+  | 'custom'
 
 /** 端点的生成引擎：决定 /generate 走哪种调用方式 */
 export type GptImageEndpointEngine =
   | 'openai-images'
   | 'openrouter-images'
+  | 'venice-images'
   | 'chat-completions'
 
 export interface GptImageEndpoint {
@@ -22,11 +27,14 @@ export interface GptImageEndpoint {
   name: string
   baseURL: string
   model: string
+  /** Venice 原生图片编辑模型；生成模型与编辑模型使用不同目录。 */
+  editModel?: string
   apiKey: string
   /**
    * 余额来源类型：
    * - yunwu：New API /api/usage/token/ 查余额（字段名为兼容旧配置保留）
    * - openrouter：OpenRouter /api/v1/credits 查余额
+   * - venice：Venice /api/v1/api_keys/rate_limits 查 USD 与 DIEM
    * - custom：可按下方自定义配置查询余额
    */
   type: GptImageEndpointType
@@ -40,6 +48,7 @@ export interface GptImageEndpoint {
    * 生成引擎：
    * - openai-images：OpenAI SDK images.edit / images.generate（gpt-image-2 / dall-e）
    * - openrouter-images：OpenRouter 专用 POST /images 接口
+   * - venice-images：Venice 原生 /image/generate、/image/edit 与 /image/multi-edit
    * - chat-completions：OpenAI 兼容 /chat/completions（Nano Banana 等）
    */
   engine?: GptImageEndpointEngine

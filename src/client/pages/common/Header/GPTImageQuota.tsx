@@ -28,9 +28,11 @@ export function GPTImageQuota({
   const supportsQuota =
     selectedEndpoint.type === 'yunwu' ||
     selectedEndpoint.type === 'openrouter' ||
+    selectedEndpoint.type === 'venice' ||
     (selectedEndpoint.type === 'custom' && selectedEndpoint.balanceEnabled)
   const isOpenRouter = selectedEndpoint.type === 'openrouter'
   const isNewApi = selectedEndpoint.type === 'yunwu'
+  const isVenice = selectedEndpoint.type === 'venice'
   const endpointName =
     selectedEndpoint.name || selectedEndpoint.model || '未命名端点'
   const sidebar = variant === 'sidebar'
@@ -80,6 +82,17 @@ export function GPTImageQuota({
                 <span className="font-semibold text-slate-100">
                   {quota.unlimited_quota
                     ? '不限'
+                    : isVenice
+                      ? [
+                          quota.balances?.USD !== undefined
+                            ? `$${quota.balances.USD.toFixed(2)}`
+                            : null,
+                          quota.balances?.DIEM !== undefined
+                            ? `${quota.balances.DIEM.toFixed(2)} DIEM`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' / ')
                     : isOpenRouter
                       ? `$${quota.total_available.toFixed(2)}`
                       : isNewApi

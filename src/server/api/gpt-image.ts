@@ -9,6 +9,7 @@ import { handleImageGeneration } from '../module/gpt-image'
 import { handleChatImageGeneration } from '../module/gpt-image/chat-image'
 import { GPT_IMAGE_OUTPUT_MAX_N } from '../module/gpt-image/enum'
 import { handleOpenRouterImageGeneration } from '../module/gpt-image/openrouter-image'
+import { handleVeniceImageGeneration } from '../module/gpt-image/venice-image'
 import { fetchWithTimeout } from '../module/utils/fetch'
 
 export interface GPTImageQuotaResponse {
@@ -20,6 +21,10 @@ export interface GPTImageQuotaResponse {
     total_granted: number
     total_used: number
     unlimited_quota: boolean
+    balances?: {
+      USD?: number
+      DIEM?: number
+    }
   }
 }
 
@@ -77,6 +82,69 @@ const gptImageApi = new Hono()
         { success: false as const, error: '请先选择有效的图片生成端点' },
         400,
       )
+    }
+
+    if (endpoint.type === 'venice') {
+      try {
+        const response = await fetchWithTimeout(
+          resolveBalanceUrl(endpoint.baseURL, '/api_keys/rate_limits'),
+          {
+            headers: {
+              Authorization: `Bearer ${endpoint.apiKey}`,
+            },
+          },
+          15000,
+        )
+        const json: any = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          return c.json(
+            {
+              success: false as const,
+              error: `[Venice] ${getResponseError(json)}`,
+            },
+            500,
+          )
+        }
+
+        const usd = Number(json?.data?.balances?.USD)
+        const diem = Number(json?.data?.balances?.DIEM)
+        const balances = {
+          ...(Number.isFinite(usd) ? { USD: usd } : {}),
+          ...(Number.isFinite(diem) ? { DIEM: diem } : {}),
+        }
+        if (balances.USD === undefined && balances.DIEM === undefined) {
+          return c.json(
+            {
+              success: false as const,
+              error: '[Venice] 余额响应未包含有效的 USD 或 DIEM 数值',
+            },
+            500,
+          )
+        }
+
+        const primaryBalance = balances.USD ?? balances.DIEM ?? 0
+        const normalized: GPTImageQuotaResponse = {
+          message: '',
+          data: {
+            expires_at: -1,
+            name: endpoint.name,
+            total_granted: primaryBalance,
+            total_used: 0,
+            total_available: primaryBalance,
+            unlimited_quota: false,
+            balances,
+          },
+        }
+        return c.json({ success: true as const, data: normalized })
+      } catch (error: any) {
+        return c.json(
+          {
+            success: false as const,
+            error: `[Venice] ${error.message || '获取余额失败'}`,
+          },
+          500,
+        )
+      }
     }
 
     // 自定义端点：按端点配置请求余额并提取指定 JSON 键
@@ -330,6 +398,20 @@ const gptImageApi = new Hono()
         })
         return c.json(result.data, result.status as any)
       }
+      if (endpoint.engine === 'venice-images') {
+        const result = await handleVeniceImageGeneration({
+          apiKey: endpoint.apiKey,
+          baseURL: endpoint.baseURL,
+          model: endpoint.model,
+          editModel: endpoint.editModel,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
+      }
       const result = await handleImageGeneration({
         apiKey: endpoint.apiKey,
         baseURL: endpoint.baseURL,
@@ -408,6 +490,20 @@ const gptImageApi = new Hono()
           apiKey: endpoint.apiKey,
           baseURL: endpoint.baseURL,
           model: endpoint.model,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
+      }
+      if (endpoint.engine === 'venice-images') {
+        const result = await handleVeniceImageGeneration({
+          apiKey: endpoint.apiKey,
+          baseURL: endpoint.baseURL,
+          model: endpoint.model,
+          editModel: endpoint.editModel,
           template,
           size,
           quality,

@@ -9,15 +9,23 @@ import {
 } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { LlmEndpoint, LlmPrompts } from '../../../../server/common/config'
+import { useEndpointModels } from '../../../hooks/useEndpointModels'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { useGlobalStore } from '../../../store/global'
+import {
+  findLlmEndpointPreset,
+  LLM_ENDPOINT_PRESETS,
+  type LlmEndpointPreset,
+} from './llmEndpointPresets'
+import { ModelIdInput } from './ModelIdInput'
 
 export interface LlmSettingRef {
   save: () => Promise<void>
 }
 
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1'
-const DEFAULT_MODEL = 'google/gemini-3-pro'
+const DEFAULT_MODEL = 'openai/gpt-5.6-luna'
+const VENICE_BASE_URL = 'https://api.venice.ai/api/v1'
 
 const createEmptyEndpoint = (): LlmEndpoint => ({
   id: uuidv4(),
@@ -26,6 +34,26 @@ const createEmptyEndpoint = (): LlmEndpoint => ({
   model: DEFAULT_MODEL,
   apiKey: '',
 })
+
+const createPresetEndpoint = (preset: LlmEndpointPreset): LlmEndpoint => ({
+  id: uuidv4(),
+  name: preset.name,
+  baseURL: preset.baseURL,
+  model: preset.model,
+  apiKey: '',
+})
+
+const cleanEndpoint = (endpoint: LlmEndpoint): LlmEndpoint => ({
+  ...endpoint,
+  name: endpoint.name.trim(),
+  baseURL: endpoint.baseURL.trim(),
+  model: endpoint.model.trim(),
+})
+
+const isCompleteEndpoint = (endpoint: LlmEndpoint) =>
+  Boolean(
+    endpoint.name && endpoint.baseURL && endpoint.model && endpoint.apiKey,
+  )
 
 export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
   const { llmEndpoints, llmPrompts, saveLlmEndpoints, saveLlmPrompts } =
@@ -42,6 +70,8 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
     llmEndpoints.length ? llmEndpoints : [createEmptyEndpoint()],
   )
   const [activeId, setActiveId] = useState<string>(draftEndpoints[0]?.id || '')
+  const [pendingPresetEndpoint, setPendingPresetEndpoint] =
+    useState<LlmEndpoint | null>(null)
   const [draftPrompts, setDraftPrompts] = useState<LlmPrompts>(llmPrompts)
   const [updatingEndpoint, setUpdatingEndpoint] = useState(false)
   const skipNextEndpointSyncRef = useRef(false)
@@ -66,18 +96,56 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
   }, [llmPrompts])
 
   const activeEndpoint =
-    draftEndpoints.find((e) => e.id === activeId) || draftEndpoints[0]
+    pendingPresetEndpoint ||
+    draftEndpoints.find((e) => e.id === activeId) ||
+    draftEndpoints[0]
+  const activePreset = findLlmEndpointPreset(activeEndpoint)
+  const isVeniceEndpoint =
+    activeEndpoint?.baseURL.trim().replace(/\/+$/, '') === VENICE_BASE_URL
+  const {
+    models: textModels,
+    loading: loadingTextModels,
+    error: textModelsError,
+    refresh: refreshTextModels,
+  } = useEndpointModels({
+    catalog: isVeniceEndpoint
+      ? 'venice-vision-text'
+      : 'openai-vision-text',
+    baseURL: activeEndpoint?.baseURL,
+    apiKey: activeEndpoint?.apiKey,
+    enabled: Boolean(activeEndpoint),
+  })
 
   const updateActiveEndpoint = (patch: Partial<LlmEndpoint>) => {
+    if (pendingPresetEndpoint) {
+      setPendingPresetEndpoint((endpoint) =>
+        endpoint ? { ...endpoint, ...patch } : endpoint,
+      )
+      return
+    }
     setDraftEndpoints((list) =>
       list.map((e) => (e.id === activeEndpoint.id ? { ...e, ...patch } : e)),
     )
   }
 
+  const handleSelectEndpoint = (id: string) => {
+    setPendingPresetEndpoint(null)
+    setActiveId(id)
+  }
+
   const handleAddEndpoint = () => {
     const ep = createEmptyEndpoint()
+    setPendingPresetEndpoint(null)
     setDraftEndpoints((list) => [...list, ep])
     setActiveId(ep.id)
+  }
+
+  const handleAddPresetEndpoint = (presetId: string) => {
+    const preset = LLM_ENDPOINT_PRESETS.find((item) => item.id === presetId)
+    if (!preset) return
+
+    setPendingPresetEndpoint(createPresetEndpoint(preset))
+    message.info(`已载入“${preset.label}”预设，请填写 API Key 后更新或保存`)
   }
 
   const handleDeleteEndpoint = (id: string) => {
@@ -105,16 +173,8 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
   const handleUpdateEndpoint = async () => {
     if (!activeEndpoint) return
 
-    const cleanedEndpoint = {
-      ...activeEndpoint,
-      name: activeEndpoint.name.trim(),
-    }
-    if (
-      !cleanedEndpoint.name ||
-      !cleanedEndpoint.baseURL ||
-      !cleanedEndpoint.model ||
-      !cleanedEndpoint.apiKey
-    ) {
+    const cleanedEndpoint = cleanEndpoint(activeEndpoint)
+    if (!isCompleteEndpoint(cleanedEndpoint)) {
       message.warning('请完整配置当前 LLM 端点（名称/地址/模型/Key）')
       return
     }
@@ -143,6 +203,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
             )
           : [...list, cleanedEndpoint],
       )
+      setPendingPresetEndpoint(null)
       setActiveId(cleanedEndpoint.id)
       message.success('当前 LLM 端点已更新')
     } finally {
@@ -152,9 +213,12 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
 
   useImperativeHandle(ref, () => ({
     save: async () => {
-      const cleaned = draftEndpoints
-        .map((e) => ({ ...e, name: e.name.trim() }))
-        .filter((e) => e.name && e.baseURL && e.model && e.apiKey)
+      const endpointsToSave = pendingPresetEndpoint
+        ? [...draftEndpoints, pendingPresetEndpoint]
+        : draftEndpoints
+      const cleaned = endpointsToSave
+        .map(cleanEndpoint)
+        .filter(isCompleteEndpoint)
       if (cleaned.length === 0) {
         message.warning('请至少完整配置一个 LLM 端点（名称/地址/模型/Key）')
         throw new Error('No LLM endpoint')
@@ -164,6 +228,11 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         message.error('LLM 端点配置保存失败')
         throw new Error('Failed to save LLM endpoints')
       }
+      setDraftEndpoints(cleaned)
+      if (pendingPresetEndpoint && isCompleteEndpoint(pendingPresetEndpoint)) {
+        setActiveId(pendingPresetEndpoint.id)
+      }
+      setPendingPresetEndpoint(null)
       await saveLlmPrompts(draftPrompts)
       // 确保两个功能都有端点，缺失则默认用第一个
       if (
@@ -191,8 +260,13 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         </div>
         <div className="flex flex-wrap gap-2">
           <Select
-            value={activeEndpoint?.id}
-            onChange={setActiveId}
+            value={pendingPresetEndpoint ? undefined : activeEndpoint?.id}
+            placeholder={
+              pendingPresetEndpoint
+                ? `预设草稿：${pendingPresetEndpoint.name}`
+                : '选择端点'
+            }
+            onChange={handleSelectEndpoint}
             className="min-w-[120px] flex-1"
             options={draftEndpoints.map((e) => ({
               value: e.id,
@@ -202,10 +276,20 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
           <Button icon={<PlusOutlined />} onClick={handleAddEndpoint}>
             新增
           </Button>
+          <Select
+            value={undefined}
+            placeholder="从预设新增"
+            className="min-w-44"
+            onChange={handleAddPresetEndpoint}
+            options={LLM_ENDPOINT_PRESETS.map((preset) => ({
+              value: preset.id,
+              label: preset.label,
+            }))}
+          />
           <Button loading={updatingEndpoint} onClick={handleUpdateEndpoint}>
             更新
           </Button>
-          {draftEndpoints.length > 1 && (
+          {!pendingPresetEndpoint && draftEndpoints.length > 1 && (
             <Button
               danger
               onClick={() => handleDeleteEndpoint(activeEndpoint.id)}
@@ -217,6 +301,29 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
 
         {activeEndpoint && (
           <div className="mt-3 space-y-3 rounded-lg border border-[#343a44] bg-[#181c22] p-3">
+            {activePreset && (
+              <div className="endpoint-preset-note rounded-md border px-3 py-2 text-xs leading-5">
+                <div className="endpoint-preset-note-title font-medium">
+                  {activePreset.label}
+                </div>
+                <div>
+                  官网：{' '}
+                  <a
+                    href={activePreset.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="endpoint-preset-note-link"
+                  >
+                    {activePreset.website}
+                  </a>
+                </div>
+                {activePreset.notes.map((note) => (
+                  <div key={note} className="endpoint-preset-note-muted">
+                    {note}
+                  </div>
+                ))}
+              </div>
+            )}
             <Form.Item label="名称" required>
               <Input
                 value={activeEndpoint.name}
@@ -234,13 +341,28 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
               />
             </Form.Item>
             <Form.Item label="模型 ID" required>
-              <Input
+              <ModelIdInput
                 value={activeEndpoint.model}
-                onChange={(e) =>
-                  updateActiveEndpoint({ model: e.target.value })
+                onChange={(model) => updateActiveEndpoint({ model })}
+                models={textModels}
+                loading={loadingTextModels}
+                error={textModelsError}
+                onRefresh={refreshTextModels}
+                directoryLabel={
+                  isVeniceEndpoint
+                    ? 'Venice 视觉文本模型目录'
+                    : '视觉文本模型目录'
                 }
-                placeholder="如 google/gemini-3-pro"
+                waitingForKey={!activeEndpoint.apiKey.trim()}
+                placeholder={
+                  isVeniceEndpoint
+                    ? '搜索或输入 Venice 文本模型 ID'
+                    : '搜索或输入模型 ID，如 openai/gpt-5.6-luna'
+                }
               />
+              <div className="mt-1 text-xs text-slate-500">
+                候选列表优先显示同时支持文本、图片输入并输出文本的模型；无能力元数据的自定义模型仍可手动输入。
+              </div>
             </Form.Item>
             <Form.Item label="API Key" required>
               <Input.Password
@@ -254,6 +376,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="small"
+                disabled={Boolean(pendingPresetEndpoint)}
                 type={
                   optimizeEndpointId === activeEndpoint.id
                     ? 'primary'
@@ -267,6 +390,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
               </Button>
               <Button
                 size="small"
+                disabled={Boolean(pendingPresetEndpoint)}
                 type={
                   charCardEndpointId === activeEndpoint.id
                     ? 'primary'

@@ -148,8 +148,9 @@ const chatApi = new Hono().post(
       )
     }
 
+    const { endpointId: _endpointId, ...upstreamBody } = body
     const normalizedBody = {
-      ...body,
+      ...upstreamBody,
       // 以端点配置的 model 为准（忽略请求体里的 model，保持与端点一致）
       model: endpoint.model,
       messages: await Promise.all(

@@ -31,8 +31,9 @@ const configApi = new Hono()
               name: z.string(),
               baseURL: z.string(),
               model: z.string(),
+              editModel: z.string().optional(),
               apiKey: z.string(),
-              type: z.enum(['yunwu', 'openrouter', 'custom']),
+              type: z.enum(['yunwu', 'openrouter', 'venice', 'custom']),
               balanceEnabled: z.boolean().optional(),
               balanceApiPath: z.string().optional(),
               balanceResultJsonKey: z.string().optional(),
@@ -40,6 +41,7 @@ const configApi = new Hono()
                 .enum([
                   'openai-images',
                   'openrouter-images',
+                  'venice-images',
                   'chat-completions',
                 ])
                 .optional(),

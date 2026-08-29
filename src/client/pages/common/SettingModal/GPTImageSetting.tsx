@@ -9,6 +9,10 @@ import {
 } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { GptImageEndpoint } from '../../../../server/common/config'
+import {
+  type EndpointModelCatalog,
+  useEndpointModels,
+} from '../../../hooks/useEndpointModels'
 import { useGPTImageQuota } from '../../../hooks/useGPTImageQuota'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { useGlobalStore } from '../../../store/global'
@@ -17,6 +21,7 @@ import {
   GPT_IMAGE_ENDPOINT_PRESETS,
   type GptImageEndpointPreset,
 } from './gptImageEndpointPresets'
+import { ModelIdInput } from './ModelIdInput'
 
 export interface GPTImageSettingRef {
   save: () => Promise<string | undefined>
@@ -24,6 +29,7 @@ export interface GPTImageSettingRef {
 
 const DEFAULT_OPENAI_IMAGES_BASE_URL = 'https://api.openlux.ai/v1'
 const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
+const DEFAULT_VENICE_BASE_URL = 'https://api.venice.ai/api/v1'
 const DEFAULT_MODEL = 'gpt-image-2'
 const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.1-flash-image'
 const DEFAULT_CHAT_MODEL = 'google/gemini-2.5-flash-image'
@@ -47,6 +53,7 @@ const createPresetEndpoint = (
   name: preset.name,
   baseURL: preset.baseURL,
   model: preset.model,
+  editModel: preset.editModel,
   apiKey: '',
   type: preset.type,
   engine: preset.engine,
@@ -59,6 +66,9 @@ const cleanEndpoint = (endpoint: GptImageEndpoint): GptImageEndpoint => {
   const cleaned = {
     ...endpoint,
     name: endpoint.name.trim(),
+    baseURL: endpoint.baseURL.trim(),
+    model: endpoint.model.trim(),
+    editModel: endpoint.editModel?.trim() || undefined,
   }
 
   if (cleaned.type === 'custom' && cleaned.balanceEnabled) {
@@ -130,6 +140,36 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     draftEndpoints.find((e) => e.id === activeId) ||
     draftEndpoints[0]
   const activePreset = findGptImageEndpointPreset(activeEndpoint)
+  const isVeniceEndpoint =
+    activeEndpoint?.type === 'venice' ||
+    activeEndpoint?.engine === 'venice-images'
+  const imageModelCatalog: EndpointModelCatalog = isVeniceEndpoint
+    ? 'venice-image'
+    : activeEndpoint?.engine === 'openrouter-images'
+      ? 'openrouter-images'
+      : 'openai-image'
+  const {
+    models: imageModels,
+    loading: loadingImageModels,
+    error: imageModelsError,
+    refresh: refreshImageModels,
+  } = useEndpointModels({
+    catalog: imageModelCatalog,
+    baseURL: activeEndpoint?.baseURL,
+    apiKey: activeEndpoint?.apiKey,
+    enabled: Boolean(activeEndpoint),
+  })
+  const {
+    models: editModels,
+    loading: loadingEditModels,
+    error: editModelsError,
+    refresh: refreshEditModels,
+  } = useEndpointModels({
+    catalog: 'venice-inpaint',
+    baseURL: activeEndpoint?.baseURL,
+    apiKey: activeEndpoint?.apiKey,
+    enabled: isVeniceEndpoint,
+  })
 
   const updateActiveEndpoint = (patch: Partial<GptImageEndpoint>) => {
     if (pendingPresetEndpoint) {
@@ -385,7 +425,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   updateActiveEndpoint({ baseURL: e.target.value })
                 }
                 placeholder={
-                  activeEndpoint.engine === 'chat-completions' ||
+                  activeEndpoint.engine === 'venice-images'
+                    ? DEFAULT_VENICE_BASE_URL
+                    : activeEndpoint.engine === 'chat-completions' ||
                   activeEndpoint.engine === 'openrouter-images'
                     ? '如 https://openrouter.ai/api/v1'
                     : '如 https://api.openlux.ai/v1'
@@ -393,20 +435,53 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
               />
             </Form.Item>
             <Form.Item label="模型 ID" required>
-              <Input
+              <ModelIdInput
                 value={activeEndpoint.model}
-                onChange={(e) =>
-                  updateActiveEndpoint({ model: e.target.value })
+                onChange={(model) => updateActiveEndpoint({ model })}
+                models={imageModels}
+                loading={loadingImageModels}
+                error={imageModelsError}
+                onRefresh={refreshImageModels}
+                directoryLabel={
+                  imageModelCatalog === 'openrouter-images'
+                    ? 'OpenRouter Images 模型目录'
+                    : isVeniceEndpoint
+                      ? 'Venice 生成模型目录'
+                      : '图片生成/编辑模型目录'
                 }
+                waitingForKey={!activeEndpoint.apiKey.trim()}
                 placeholder={
                   activeEndpoint.engine === 'chat-completions'
-                    ? '如 google/gemini-2.5-flash-image'
+                    ? '搜索或输入模型 ID，如 google/gemini-2.5-flash-image'
                     : activeEndpoint.engine === 'openrouter-images'
-                      ? '如 google/gemini-3.1-flash-image'
-                      : '如 gpt-image-2'
+                      ? '搜索或输入模型 ID，如 google/gemini-3.1-flash-image'
+                      : isVeniceEndpoint
+                        ? '搜索或输入 Venice 生成模型 ID'
+                        : '搜索或输入模型 ID，如 gpt-image-2'
                 }
               />
+              <div className="mt-1 text-xs text-slate-500">
+                候选列表只显示图片生成或编辑模型；目录未收录的模型仍可手动输入。
+              </div>
             </Form.Item>
+            {isVeniceEndpoint && (
+              <Form.Item label="参考图编辑模型 ID">
+                <ModelIdInput
+                  value={activeEndpoint.editModel}
+                  onChange={(editModel) =>
+                    updateActiveEndpoint({ editModel: editModel || undefined })
+                  }
+                  models={editModels}
+                  loading={loadingEditModels}
+                  error={editModelsError}
+                  onRefresh={refreshEditModels}
+                  directoryLabel="Venice 编辑模型目录"
+                  waitingForKey={!activeEndpoint.apiKey.trim()}
+                  placeholder="搜索或输入编辑模型 ID；使用参考图时必填"
+                  allowClear
+                />
+              </Form.Item>
+            )}
             <Form.Item label="API Key" required>
               <Input.Password
                 value={activeEndpoint.apiKey}
@@ -434,6 +509,14 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                     )
                       ? { model: DEFAULT_OPENROUTER_MODEL }
                       : {}),
+                    ...(engine === 'venice-images'
+                      ? {
+                          baseURL: DEFAULT_VENICE_BASE_URL,
+                          type: 'venice' as const,
+                          model: 'gpt-image-2',
+                          editModel: 'gpt-image-2-edit',
+                        }
+                      : {}),
                     ...(engine === 'openai-images' &&
                     [DEFAULT_CHAT_MODEL, DEFAULT_OPENROUTER_MODEL].includes(
                       activeEndpoint.model,
@@ -452,6 +535,24 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                     activeEndpoint.baseURL === DEFAULT_OPENROUTER_BASE_URL
                       ? { baseURL: DEFAULT_OPENAI_IMAGES_BASE_URL }
                       : {}),
+                    ...(engine !== 'venice-images'
+                      ? { editModel: undefined }
+                      : {}),
+                    ...((engine === 'openrouter-images' ||
+                      engine === 'chat-completions') &&
+                    activeEndpoint.baseURL === DEFAULT_VENICE_BASE_URL
+                      ? {
+                          baseURL: DEFAULT_OPENROUTER_BASE_URL,
+                          type: 'openrouter' as const,
+                        }
+                      : {}),
+                    ...(engine === 'openai-images' &&
+                    activeEndpoint.baseURL === DEFAULT_VENICE_BASE_URL
+                      ? {
+                          baseURL: DEFAULT_OPENAI_IMAGES_BASE_URL,
+                          type: 'custom' as const,
+                        }
+                      : {}),
                   })
                 }}
               >
@@ -461,13 +562,14 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 <Radio.Button value="openrouter-images">
                   OpenRouter Images
                 </Radio.Button>
+                <Radio.Button value="venice-images">Venice Images</Radio.Button>
                 <Radio.Button value="chat-completions">
                   聊天式（Nano Banana 等）
                 </Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-slate-500">
                 GPT Image / DALL·E 使用 OpenAI 兼容接口；OpenRouter Images
-                使用专用 /images 接口并按模型能力传参；聊天式使用
+                使用专用 /images；Venice Images 使用原生生成/编辑接口并按实时模型能力传参；聊天式使用
                 chat/completions，并通过 image_config 传递图片参数。
               </div>
             </Form.Item>
@@ -478,6 +580,14 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   const type = e.target.value as GptImageEndpoint['type']
                   updateActiveEndpoint({
                     type,
+                    ...(type === 'venice'
+                      ? {
+                          baseURL: DEFAULT_VENICE_BASE_URL,
+                          engine: 'venice-images' as const,
+                          model: 'gpt-image-2',
+                          editModel: 'gpt-image-2-edit',
+                        }
+                      : {}),
                     ...(type === 'custom'
                       ? {
                           balanceApiPath:
@@ -493,11 +603,12 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
               >
                 <Radio.Button value="yunwu">New API</Radio.Button>
                 <Radio.Button value="openrouter">OpenRouter</Radio.Button>
+                <Radio.Button value="venice">Venice</Radio.Button>
                 <Radio.Button value="custom">自定义</Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-slate-500">
                 New API 使用当前站点的 /api/usage/token/；OpenRouter
-                使用官方余额接口；其他端点可在“自定义”中配置余额路径。
+                使用官方余额接口；Venice 同时读取 USD 与 DIEM；其他端点可在“自定义”中配置余额路径。
               </div>
             </Form.Item>
             {activeEndpoint.type === 'custom' && (
