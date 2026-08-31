@@ -1,6 +1,13 @@
 import { MessageList } from './MessageList'
 
 const upgradeHistory = [
+  `openLinAI v1.2.5 更新内容 🐱：
+🖼️ 图片生成新增 Venice、NovelAI 与 Pollinations 端点，覆盖原生生成、单图及多图编辑等能力
+🧭 LLM 与图片端点支持读取实时模型目录，并按文本、视觉、图片生成和图片编辑能力筛选
+⌨️ 模型目录信息不完整或未命中时仍可手动填写模型 ID，兼容更多 OpenAI-compatible 服务
+💰 Venice 端点支持显示 USD 与 DIEM 余额，并可分别选择生成模型和编辑模型
+⚙️ 新增 Venice、OpenLux、OpenRouter、DragonAPI 等 LLM 快捷预设，并更新 DragonAPI 接口地址
+🧩 优化 OpenWrt 图片尺寸处理，使用 FFmpeg 后端时也可适配要求固定宽高的参考图接口`,
   `openLinAI v1.2.2 更新内容 🐱：
 🎭 角色卡生成新增补充信息，可随参考图片一起指定角色姓名、性别及其他设定
 🤖 角色卡编辑区新增「AI 修改」，支持用一句话自然调整当前角色卡设定
