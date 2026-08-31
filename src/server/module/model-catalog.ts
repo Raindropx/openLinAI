@@ -5,8 +5,11 @@ import { fetchWithTimeout } from './utils/fetch'
 export type ModelCatalogType =
   | 'openai'
   | 'openai-image'
+  | 'openai-image-generation'
+  | 'openai-image-edit'
   | 'openai-vision-text'
   | 'openrouter-images'
+  | 'novelai-image'
   | 'venice-text'
   | 'venice-vision-text'
   | 'venice-image'
@@ -18,6 +21,7 @@ export interface ModelCatalogItem {
   type?: string
   privacy?: string
   constraints?: unknown
+  supportedEndpoints?: string[]
 }
 
 interface CachedCatalog {
@@ -98,9 +102,16 @@ function parseCompatibleModels(data: unknown): CompatibleModelRecord[] {
         : typeof record.model_spec?.name === 'string'
           ? record.model_spec.name
           : id
+    const metadata = item as Record<string, unknown>
     models.push({
-      model: { id, name },
-      metadata: item as Record<string, unknown>,
+      model: {
+        id,
+        name,
+        supportedEndpoints: stringArray(
+          metadata.supported_endpoints || metadata.supported_endpoint_types,
+        ),
+      },
+      metadata,
     })
   }
   return models
@@ -138,9 +149,9 @@ function getArchitecture(metadata: Record<string, unknown>) {
 }
 
 function getSupportedEndpointTypes(metadata: Record<string, unknown>) {
-  return stringArray(metadata.supported_endpoint_types).map((item) =>
-    item.toLowerCase(),
-  )
+  return stringArray(
+    metadata.supported_endpoints || metadata.supported_endpoint_types,
+  ).map((item) => item.toLowerCase())
 }
 
 function isImageOutputModel(record: CompatibleModelRecord) {
@@ -161,6 +172,36 @@ function isImageOutputModel(record: CompatibleModelRecord) {
     model.id,
   )
 }
+
+function supportsImageOperation(
+  record: CompatibleModelRecord,
+  operation: 'generation' | 'edit',
+) {
+  if (!isImageOutputModel(record)) return false
+  const endpoints = getSupportedEndpointTypes(record.metadata)
+  if (endpoints.length === 0) return true
+  const expected =
+    operation === 'generation' ? '/v1/images/generations' : '/v1/images/edits'
+  return endpoints.some(
+    (endpoint) =>
+      endpoint === expected ||
+      (operation === 'generation'
+        ? /images?[-_ ]?generations?/.test(endpoint)
+        : /images?[-_ ]?edits?/.test(endpoint)),
+  )
+}
+
+const NOVELAI_IMAGE_MODELS: ModelCatalogItem[] = [
+  { id: 'nai-diffusion-5-full', name: 'NovelAI Diffusion V5 Full' },
+  { id: 'nai-diffusion-5-curated', name: 'NovelAI Diffusion V5 Curated' },
+  { id: 'nai-diffusion-4-5-full', name: 'NovelAI Diffusion V4.5 Full' },
+  { id: 'nai-diffusion-4-5-curated', name: 'NovelAI Diffusion V4.5 Curated' },
+  { id: 'nai-diffusion-4-full', name: 'NovelAI Diffusion V4 Full' },
+  {
+    id: 'nai-diffusion-4-curated-preview',
+    name: 'NovelAI Diffusion V4 Curated',
+  },
+]
 
 function isVisionTextModel(record: CompatibleModelRecord) {
   const { model, metadata } = record
@@ -239,7 +280,9 @@ export async function listModelCatalog(options: {
 
   const veniceType = getVeniceType(catalog)
   let models: ModelCatalogItem[]
-  if (veniceType) {
+  if (catalog === 'novelai-image') {
+    models = NOVELAI_IMAGE_MODELS
+  } else if (veniceType) {
     const veniceModels = await listVeniceModels({
       type: veniceType,
       baseURL,
@@ -263,7 +306,10 @@ export async function listModelCatalog(options: {
     const path =
       catalog === 'openrouter-images'
         ? '/images/models'
-        : catalog === 'openai-image' && isOpenRouter
+        : (catalog === 'openai-image' ||
+              catalog === 'openai-image-generation' ||
+              catalog === 'openai-image-edit') &&
+            isOpenRouter
           ? '/models?output_modalities=image'
           : catalog === 'openai-vision-text' && isOpenRouter
             ? '/models?input_modalities=text%2Cimage&output_modalities=text'
@@ -293,7 +339,10 @@ export async function listModelCatalog(options: {
     let records = parseCompatibleModels(data)
     if (
       !isOpenRouter &&
-      (catalog === 'openai-image' || catalog === 'openai-vision-text')
+      (catalog === 'openai-image' ||
+        catalog === 'openai-image-generation' ||
+        catalog === 'openai-image-edit' ||
+        catalog === 'openai-vision-text')
     ) {
       const providerMetadata = await getProviderModelMetadata(baseURL)
       records = records.map((record) => ({
@@ -304,13 +353,21 @@ export async function listModelCatalog(options: {
         },
       }))
       records = records.filter(
-        catalog === 'openai-image' ? isImageOutputModel : isVisionTextModel,
+        catalog === 'openai-image-generation'
+          ? (record) => supportsImageOperation(record, 'generation')
+          : catalog === 'openai-image-edit'
+            ? (record) => supportsImageOperation(record, 'edit')
+            : catalog === 'openai-image'
+              ? isImageOutputModel
+              : isVisionTextModel,
       )
     }
     models = records.map((record) => record.model)
     if (models.length === 0) {
       throw new Error(
-        catalog === 'openai-image'
+        catalog === 'openai-image' ||
+          catalog === 'openai-image-generation' ||
+          catalog === 'openai-image-edit'
           ? '目录中未找到图片生成或编辑模型；仍可手动输入模型 ID'
           : catalog === 'openai-vision-text'
             ? '目录中未找到同时支持文本/图片输入、文本输出的模型；仍可手动输入模型 ID'

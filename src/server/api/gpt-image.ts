@@ -8,6 +8,7 @@ import { TRIAL_TEMPLATE_TITLE } from '../common/template-manager/enum'
 import { handleImageGeneration } from '../module/gpt-image'
 import { handleChatImageGeneration } from '../module/gpt-image/chat-image'
 import { GPT_IMAGE_OUTPUT_MAX_N } from '../module/gpt-image/enum'
+import { handleNovelAIImageGeneration } from '../module/gpt-image/novelai-image'
 import { handleOpenRouterImageGeneration } from '../module/gpt-image/openrouter-image'
 import { handleVeniceImageGeneration } from '../module/gpt-image/venice-image'
 import { fetchWithTimeout } from '../module/utils/fetch'
@@ -412,10 +413,24 @@ const gptImageApi = new Hono()
         })
         return c.json(result.data, result.status as any)
       }
+      if (endpoint.engine === 'novelai-images') {
+        const result = await handleNovelAIImageGeneration({
+          apiKey: endpoint.apiKey,
+          baseURL: endpoint.baseURL,
+          model: endpoint.model,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
+      }
       const result = await handleImageGeneration({
         apiKey: endpoint.apiKey,
         baseURL: endpoint.baseURL,
         model: endpoint.model,
+        editModel: endpoint.editModel,
         template,
         size,
         quality,
@@ -512,10 +527,24 @@ const gptImageApi = new Hono()
         })
         return c.json(result.data, result.status as any)
       }
+      if (endpoint.engine === 'novelai-images') {
+        const result = await handleNovelAIImageGeneration({
+          apiKey: endpoint.apiKey,
+          baseURL: endpoint.baseURL,
+          model: endpoint.model,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
+      }
       const result = await handleImageGeneration({
         apiKey: endpoint.apiKey,
         baseURL: endpoint.baseURL,
         model: endpoint.model,
+        editModel: endpoint.editModel,
         template,
         size,
         quality,

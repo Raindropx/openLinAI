@@ -39,6 +39,38 @@ interface GenerateGPTImageOptions {
   generationMetadata?: GenerationMetadataInput
 }
 
+function isPollinationsBaseURL(baseURL: string) {
+  try {
+    return new URL(baseURL).hostname === 'gen.pollinations.ai'
+  } catch {
+    return false
+  }
+}
+
+function mergeUsage(
+  current: GPTImageResponse['usage'] | undefined,
+  next: GPTImageResponse['usage'] | undefined,
+) {
+  if (!next) return current
+  if (!current) return next
+  return {
+    total_tokens: current.total_tokens + next.total_tokens,
+    input_tokens: current.input_tokens + next.input_tokens,
+    output_tokens: current.output_tokens + next.output_tokens,
+    input_tokens_details:
+      current.input_tokens_details || next.input_tokens_details
+        ? {
+            text_tokens:
+              (current.input_tokens_details?.text_tokens || 0) +
+              (next.input_tokens_details?.text_tokens || 0),
+            image_tokens:
+              (current.input_tokens_details?.image_tokens || 0) +
+              (next.input_tokens_details?.image_tokens || 0),
+          }
+        : undefined,
+  }
+}
+
 /** OpenAI client 缓存，按 apiKey+baseURL 复用，避免每次请求重建连接池 */
 const openaiClientCache = new Map<string, OpenAI>()
 const IMAGE_REQUEST_TIMEOUT_MS = 10 * 60 * 1000
@@ -311,6 +343,7 @@ export async function handleImageGeneration(options: {
   apiKey: string
   baseURL: string
   model: string
+  editModel?: string
   template: TaskTemplate
   size?: GptImageSize
   quality?: GptImageQuality
@@ -322,6 +355,7 @@ export async function handleImageGeneration(options: {
       apiKey,
       baseURL,
       model,
+      editModel,
       template,
       size = '1k',
       quality = 'medium',
@@ -329,12 +363,13 @@ export async function handleImageGeneration(options: {
       writeMetadata = true,
     } = options
     const serviceLabel = getServiceLabel(endpointName, baseURL)
+    const activeModel = template.images.length > 0 ? editModel || model : model
 
     logger.info(`Generating GPT image`)
 
     const task = await taskManager.createTaskFromTemplate({
       template,
-      source: model,
+      source: activeModel,
       size,
       quality,
       endpointName,
@@ -374,32 +409,56 @@ export async function handleImageGeneration(options: {
       }
 
       const finalPrompt = buildPromptWithAspectRatio(template)
-      const res = await generateGPTImageNew({
-        apiKey,
-        baseURL,
-        model,
-        prompt: finalPrompt,
-        size: finalSize,
-        quality,
-        imagePaths,
-        n: template.n || 1,
-        generationMetadata: writeMetadata
-          ? {
-              prompt: finalPrompt,
-              model,
-              engine: 'images',
-              endpointName,
-              requestedSize: size,
-              aspectRatio: template.aspectRatio || '1:1',
-              quality,
-              referenceImageCount: imagePaths.length,
-              generatedAt: new Date().toISOString(),
-            }
-          : undefined,
-      })
+      const requestedCount = Math.max(1, template.n || 1)
+      const requestCounts =
+        isPollinationsBaseURL(baseURL) && requestedCount > 1
+          ? Array.from({ length: requestedCount }, () => 1)
+          : [requestedCount]
+      const requestErrors: unknown[] = []
+      for (const requestCount of requestCounts) {
+        try {
+          const res = await generateGPTImageNew({
+            apiKey,
+            baseURL,
+            model: activeModel,
+            prompt: finalPrompt,
+            size: finalSize,
+            quality,
+            imagePaths,
+            n: requestCount,
+            generationMetadata: writeMetadata
+              ? {
+                  prompt: finalPrompt,
+                  model: activeModel,
+                  engine: 'images',
+                  endpointName,
+                  requestedSize: size,
+                  aspectRatio: template.aspectRatio || '1:1',
+                  quality,
+                  referenceImageCount: imagePaths.length,
+                  generatedAt: new Date().toISOString(),
+                }
+              : undefined,
+          })
+          filenames.push(...res.filenames)
+          usage = mergeUsage(usage, res.usage)
+        } catch (error) {
+          requestErrors.push(error)
+          if (requestCounts.length === 1) throw error
+        }
+      }
+      if (filenames.length === 0) {
+        throw requestErrors[0] || new Error('Image API returned no images')
+      }
+      if (
+        requestCounts.length > 1 &&
+        filenames.length < requestedCount
+      ) {
+        logger.warn(
+          `Pollinations returned ${filenames.length}/${requestedCount} images`,
+        )
+      }
       logger.info('GPT image generated successfully')
-      filenames = res.filenames
-      usage = res.usage
     } catch (error: any) {
       const serviceError = `[${serviceLabel}] ${getUserFacingError(error)}`
       logger.error(

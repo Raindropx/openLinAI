@@ -18,6 +18,37 @@ export interface GptImageEndpointPreset {
 
 export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
   {
+    id: 'novelai-v5-full',
+    label: 'NovelAI Diffusion V5 Full',
+    name: 'NovelAI Diffusion V5 Full',
+    baseURL: 'https://image.novelai.net',
+    model: 'nai-diffusion-5-full',
+    type: 'custom',
+    engine: 'novelai-images',
+    website: 'https://novelai.net',
+    notes: [
+      '使用 NovelAI 原生 /ai/generate-image 接口',
+      '支持基础生成与单张参考图 img2img',
+      '请填写 NovelAI Persistent API Token；余额查询默认关闭',
+    ],
+  },
+  {
+    id: 'pollinations-zimage',
+    label: 'Pollinations Z-Image',
+    name: 'Pollinations Z-Image',
+    baseURL: 'https://gen.pollinations.ai/v1',
+    model: 'zimage',
+    editModel: 'gpt-image-2',
+    type: 'custom',
+    engine: 'openai-images',
+    website: 'https://pollinations.ai',
+    notes: [
+      '使用 Pollinations OpenAI-compatible Images 接口',
+      '多图生成会自动拆成多个 n=1 请求',
+      '生成与编辑模型目录按 supported_endpoints 分开显示',
+    ],
+  },
+  {
     id: 'venice-gpt-image-2',
     label: 'Venice GPT Image 2',
     name: 'Venice GPT Image 2',

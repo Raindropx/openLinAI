@@ -3,8 +3,11 @@ import { useEffect, useState } from 'react'
 export type EndpointModelCatalog =
   | 'openai'
   | 'openai-image'
+  | 'openai-image-generation'
+  | 'openai-image-edit'
   | 'openai-vision-text'
   | 'openrouter-images'
+  | 'novelai-image'
   | 'venice-text'
   | 'venice-vision-text'
   | 'venice-image'
@@ -16,6 +19,7 @@ export interface EndpointModelOption {
   type?: string
   privacy?: string
   constraints?: unknown
+  supportedEndpoints?: string[]
 }
 
 export function useEndpointModels(options: {

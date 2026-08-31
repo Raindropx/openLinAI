@@ -11,8 +11,11 @@ const modelCatalogApi = new Hono().post(
       catalog: z.enum([
         'openai',
         'openai-image',
+        'openai-image-generation',
+        'openai-image-edit',
         'openai-vision-text',
         'openrouter-images',
+        'novelai-image',
         'venice-text',
         'venice-vision-text',
         'venice-image',

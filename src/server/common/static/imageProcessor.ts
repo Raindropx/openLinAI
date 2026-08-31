@@ -166,6 +166,47 @@ export async function compressUploadImage(buffer: Buffer): Promise<Buffer> {
     .toBuffer()
 }
 
+/**
+ * 将图片拉伸到指定尺寸，供要求固定宽高的上游 img2img 接口使用。
+ * OpenWrt 使用 ffmpeg 输出 JPEG；桌面环境使用按需加载的 sharp 输出 PNG。
+ */
+export async function resizeImageToExactDimensions(
+  buffer: Buffer,
+  width: number,
+  height: number,
+): Promise<Buffer> {
+  if (getBackend() === 'ffmpeg') {
+    return runQueuedFfmpegStdin(buffer, [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-max_pixels',
+      String(IMAGE_MAX_INPUT_PIXELS),
+      '-i',
+      'pipe:0',
+      '-filter_complex',
+      buildJpegFilter(`scale=${width}:${height}`),
+      '-map',
+      '[output]',
+      '-frames:v',
+      '1',
+      '-c:v',
+      'mjpeg',
+      '-q:v',
+      String(FFMPEG_JPEG_QUALITY_UPLOAD),
+      '-f',
+      'image2pipe',
+      'pipe:1',
+    ])
+  }
+
+  const sharp = (await import('sharp')).default
+  return sharp(buffer, { limitInputPixels: IMAGE_MAX_INPUT_PIXELS })
+    .resize(width, height, { fit: 'fill' })
+    .png()
+    .toBuffer()
+}
+
 async function compressUploadWithFfmpeg(buffer: Buffer): Promise<Buffer> {
   // 用原图尺寸与上限的较小值作为缩放框，确保只缩小、不放大。
   const scaleFilter =

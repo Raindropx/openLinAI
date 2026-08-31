@@ -30,6 +30,8 @@ export interface GPTImageSettingRef {
 const DEFAULT_OPENAI_IMAGES_BASE_URL = 'https://api.openlux.ai/v1'
 const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 const DEFAULT_VENICE_BASE_URL = 'https://api.venice.ai/api/v1'
+const DEFAULT_NOVELAI_BASE_URL = 'https://image.novelai.net'
+const DEFAULT_NOVELAI_MODEL = 'nai-diffusion-5-full'
 const DEFAULT_MODEL = 'gpt-image-2'
 const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.1-flash-image'
 const DEFAULT_CHAT_MODEL = 'google/gemini-2.5-flash-image'
@@ -143,11 +145,17 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
   const isVeniceEndpoint =
     activeEndpoint?.type === 'venice' ||
     activeEndpoint?.engine === 'venice-images'
+  const isNovelAIEndpoint = activeEndpoint?.engine === 'novelai-images'
+  const isOpenAIImagesEndpoint = activeEndpoint?.engine === 'openai-images'
   const imageModelCatalog: EndpointModelCatalog = isVeniceEndpoint
     ? 'venice-image'
-    : activeEndpoint?.engine === 'openrouter-images'
-      ? 'openrouter-images'
-      : 'openai-image'
+    : isNovelAIEndpoint
+      ? 'novelai-image'
+      : activeEndpoint?.engine === 'openrouter-images'
+        ? 'openrouter-images'
+        : isOpenAIImagesEndpoint
+          ? 'openai-image-generation'
+          : 'openai-image'
   const {
     models: imageModels,
     loading: loadingImageModels,
@@ -165,10 +173,10 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     error: editModelsError,
     refresh: refreshEditModels,
   } = useEndpointModels({
-    catalog: 'venice-inpaint',
+    catalog: isVeniceEndpoint ? 'venice-inpaint' : 'openai-image-edit',
     baseURL: activeEndpoint?.baseURL,
     apiKey: activeEndpoint?.apiKey,
-    enabled: isVeniceEndpoint,
+    enabled: isVeniceEndpoint || isOpenAIImagesEndpoint,
   })
 
   const updateActiveEndpoint = (patch: Partial<GptImageEndpoint>) => {
@@ -427,10 +435,12 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 placeholder={
                   activeEndpoint.engine === 'venice-images'
                     ? DEFAULT_VENICE_BASE_URL
-                    : activeEndpoint.engine === 'chat-completions' ||
-                  activeEndpoint.engine === 'openrouter-images'
-                    ? '如 https://openrouter.ai/api/v1'
-                    : '如 https://api.openlux.ai/v1'
+                    : activeEndpoint.engine === 'novelai-images'
+                      ? DEFAULT_NOVELAI_BASE_URL
+                      : activeEndpoint.engine === 'chat-completions' ||
+                          activeEndpoint.engine === 'openrouter-images'
+                        ? '如 https://openrouter.ai/api/v1'
+                        : '如 https://api.openlux.ai/v1'
                 }
               />
             </Form.Item>
@@ -445,9 +455,11 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 directoryLabel={
                   imageModelCatalog === 'openrouter-images'
                     ? 'OpenRouter Images 模型目录'
-                    : isVeniceEndpoint
-                      ? 'Venice 生成模型目录'
-                      : '图片生成/编辑模型目录'
+                    : isNovelAIEndpoint
+                      ? 'NovelAI 图片模型目录'
+                      : isVeniceEndpoint
+                        ? 'Venice 生成模型目录'
+                        : '图片生成/编辑模型目录'
                 }
                 waitingForKey={!activeEndpoint.apiKey.trim()}
                 placeholder={
@@ -457,14 +469,16 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                       ? '搜索或输入模型 ID，如 google/gemini-3.1-flash-image'
                       : isVeniceEndpoint
                         ? '搜索或输入 Venice 生成模型 ID'
-                        : '搜索或输入模型 ID，如 gpt-image-2'
+                        : isNovelAIEndpoint
+                          ? '选择或输入 NovelAI 图片模型 ID'
+                          : '搜索或输入模型 ID，如 gpt-image-2'
                 }
               />
               <div className="mt-1 text-xs text-slate-500">
-                候选列表只显示图片生成或编辑模型；目录未收录的模型仍可手动输入。
+                候选列表只显示支持图片生成的模型；目录未收录的模型仍可手动输入。
               </div>
             </Form.Item>
-            {isVeniceEndpoint && (
+            {(isVeniceEndpoint || isOpenAIImagesEndpoint) && (
               <Form.Item label="参考图编辑模型 ID">
                 <ModelIdInput
                   value={activeEndpoint.editModel}
@@ -475,9 +489,17 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   loading={loadingEditModels}
                   error={editModelsError}
                   onRefresh={refreshEditModels}
-                  directoryLabel="Venice 编辑模型目录"
+                  directoryLabel={
+                    isVeniceEndpoint
+                      ? 'Venice 编辑模型目录'
+                      : 'OpenAI Images 编辑模型目录'
+                  }
                   waitingForKey={!activeEndpoint.apiKey.trim()}
-                  placeholder="搜索或输入编辑模型 ID；使用参考图时必填"
+                  placeholder={
+                    isVeniceEndpoint
+                      ? '搜索或输入编辑模型 ID；使用参考图时必填'
+                      : '搜索或输入支持 /images/edits 的模型；留空则沿用生成模型'
+                  }
                   allowClear
                 />
               </Form.Item>
@@ -500,13 +522,17 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                     engine,
                     // 切换引擎时给出对应默认值，减少用户手动改的麻烦
                     ...(engine === 'chat-completions' &&
-                    activeEndpoint.model === DEFAULT_MODEL
+                    [DEFAULT_MODEL, DEFAULT_NOVELAI_MODEL].includes(
+                      activeEndpoint.model,
+                    )
                       ? { model: DEFAULT_CHAT_MODEL }
                       : {}),
                     ...(engine === 'openrouter-images' &&
-                    [DEFAULT_MODEL, DEFAULT_CHAT_MODEL].includes(
-                      activeEndpoint.model,
-                    )
+                    [
+                      DEFAULT_MODEL,
+                      DEFAULT_CHAT_MODEL,
+                      DEFAULT_NOVELAI_MODEL,
+                    ].includes(activeEndpoint.model)
                       ? { model: DEFAULT_OPENROUTER_MODEL }
                       : {}),
                     ...(engine === 'venice-images'
@@ -517,10 +543,20 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                           editModel: 'gpt-image-2-edit',
                         }
                       : {}),
+                    ...(engine === 'novelai-images'
+                      ? {
+                          baseURL: DEFAULT_NOVELAI_BASE_URL,
+                          type: 'custom' as const,
+                          model: DEFAULT_NOVELAI_MODEL,
+                          editModel: undefined,
+                        }
+                      : {}),
                     ...(engine === 'openai-images' &&
-                    [DEFAULT_CHAT_MODEL, DEFAULT_OPENROUTER_MODEL].includes(
-                      activeEndpoint.model,
-                    )
+                    [
+                      DEFAULT_CHAT_MODEL,
+                      DEFAULT_OPENROUTER_MODEL,
+                      DEFAULT_NOVELAI_MODEL,
+                    ].includes(activeEndpoint.model)
                       ? { model: DEFAULT_MODEL }
                       : {}),
                     ...((engine === 'openrouter-images' ||
@@ -535,19 +571,25 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                     activeEndpoint.baseURL === DEFAULT_OPENROUTER_BASE_URL
                       ? { baseURL: DEFAULT_OPENAI_IMAGES_BASE_URL }
                       : {}),
-                    ...(engine !== 'venice-images'
+                    ...(engine !== 'venice-images' && engine !== 'openai-images'
                       ? { editModel: undefined }
                       : {}),
                     ...((engine === 'openrouter-images' ||
                       engine === 'chat-completions') &&
-                    activeEndpoint.baseURL === DEFAULT_VENICE_BASE_URL
+                    [
+                      DEFAULT_VENICE_BASE_URL,
+                      DEFAULT_NOVELAI_BASE_URL,
+                    ].includes(activeEndpoint.baseURL)
                       ? {
                           baseURL: DEFAULT_OPENROUTER_BASE_URL,
                           type: 'openrouter' as const,
                         }
                       : {}),
                     ...(engine === 'openai-images' &&
-                    activeEndpoint.baseURL === DEFAULT_VENICE_BASE_URL
+                    [
+                      DEFAULT_VENICE_BASE_URL,
+                      DEFAULT_NOVELAI_BASE_URL,
+                    ].includes(activeEndpoint.baseURL)
                       ? {
                           baseURL: DEFAULT_OPENAI_IMAGES_BASE_URL,
                           type: 'custom' as const,
@@ -563,14 +605,17 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   OpenRouter Images
                 </Radio.Button>
                 <Radio.Button value="venice-images">Venice Images</Radio.Button>
+                <Radio.Button value="novelai-images">NovelAI</Radio.Button>
                 <Radio.Button value="chat-completions">
                   聊天式（Nano Banana 等）
                 </Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-slate-500">
                 GPT Image / DALL·E 使用 OpenAI 兼容接口；OpenRouter Images
-                使用专用 /images；Venice Images 使用原生生成/编辑接口并按实时模型能力传参；聊天式使用
-                chat/completions，并通过 image_config 传递图片参数。
+                使用专用 /images；Venice Images
+                使用原生生成/编辑接口并按实时模型能力传参；NovelAI 使用原生
+                /ai/generate-image；聊天式使用 chat/completions，并通过
+                image_config 传递图片参数。
               </div>
             </Form.Item>
             <Form.Item label="端点类型" required>

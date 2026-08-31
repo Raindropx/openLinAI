@@ -42,6 +42,7 @@ const configApi = new Hono()
                   'openai-images',
                   'openrouter-images',
                   'venice-images',
+                  'novelai-images',
                   'chat-completions',
                 ])
                 .optional(),

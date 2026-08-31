@@ -20,6 +20,7 @@ export type GptImageEndpointEngine =
   | 'openai-images'
   | 'openrouter-images'
   | 'venice-images'
+  | 'novelai-images'
   | 'chat-completions'
 
 export interface GptImageEndpoint {
@@ -27,7 +28,7 @@ export interface GptImageEndpoint {
   name: string
   baseURL: string
   model: string
-  /** Venice 原生图片编辑模型；生成模型与编辑模型使用不同目录。 */
+  /** 参考图编辑模型；供生成、编辑使用不同模型的端点选择。 */
   editModel?: string
   apiKey: string
   /**
@@ -49,6 +50,7 @@ export interface GptImageEndpoint {
    * - openai-images：OpenAI SDK images.edit / images.generate（gpt-image-2 / dall-e）
    * - openrouter-images：OpenRouter 专用 POST /images 接口
    * - venice-images：Venice 原生 /image/generate、/image/edit 与 /image/multi-edit
+   * - novelai-images：NovelAI 原生 /ai/generate-image
    * - chat-completions：OpenAI 兼容 /chat/completions（Nano Banana 等）
    */
   engine?: GptImageEndpointEngine
