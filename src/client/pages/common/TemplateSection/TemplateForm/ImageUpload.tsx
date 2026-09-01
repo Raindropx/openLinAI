@@ -1,9 +1,8 @@
 import {
-  CloseCircleFilled,
   PictureOutlined,
   UploadOutlined,
 } from '@ant-design/icons'
-import { Image as AntImage, Button, message, Upload } from 'antd'
+import { Button, message, Upload } from 'antd'
 import { useEffect, useRef } from 'react'
 import { useRecentImages } from '../../../../hooks/useRecentImages'
 import { imageBlobToUploadDataUrl } from '../../../../utils/image'
@@ -15,6 +14,10 @@ import {
   openGallery,
   type GalleryImageSelection,
 } from '../../components/Gallery'
+import { ImageCropModal } from './ImageCrop/ImageCropModal'
+import { ImageUploadItem } from './ImageCrop/ImageUploadItem'
+import { ImageDrawModal } from './ImageDraw/ImageDrawModal'
+import { useImageEditUpload } from './ImageEdit/useImageEditUpload'
 
 interface ImageUploadProps {
   value?: string[]
@@ -69,6 +72,22 @@ export function ImageUpload({
     uploadingCountRef.current = newCount
     onUploadingChange?.(newCount > 0)
   }
+
+  const {
+    cropTarget,
+    drawTarget,
+    openCrop,
+    openDraw,
+    closeEditor,
+    handleEditConfirm,
+    handleEditCopy,
+  } = useImageEditUpload({
+    latestValueRef,
+    uploadImageBase64: uploadInputImageBase64,
+    handleUploadCountChange,
+    onChange,
+    addRecentImages,
+  })
 
   const handleUpload = async (file: File) => {
     handleUploadCountChange(1)
@@ -220,32 +239,31 @@ export function ImageUpload({
       {value.length > 0 && (
         <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
           {value.map((url, index) => (
-            <div
-              key={index}
-              className="relative shrink-0 overflow-hidden rounded-lg border border-[#343a44] bg-[#20252d] shadow-sm"
-              style={{ width: '80px', height: '120px' }}
-            >
-              <div
-                className="absolute top-0 right-1 z-10 cursor-pointer text-xl text-red-500 drop-shadow-md transition-all"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleRemove(index)
-                }}
-              >
-                <CloseCircleFilled />
-              </div>
-              <AntImage
-                src={url}
-                alt={`preview-${index}`}
-                width={80}
-                height={120}
-                className="object-cover"
-                preview={{ src: url }}
-              />
-            </div>
+            <ImageUploadItem
+              key={`${url}-${index}`}
+              url={url}
+              index={index}
+              onRemove={handleRemove}
+              onCrop={openCrop}
+              onDraw={openDraw}
+            />
           ))}
         </div>
       )}
+      <ImageCropModal
+        open={!!cropTarget}
+        src={cropTarget?.url || null}
+        onCancel={closeEditor}
+        onConfirm={handleEditConfirm}
+        onConfirmCopy={handleEditCopy}
+      />
+      <ImageDrawModal
+        open={!!drawTarget}
+        src={drawTarget?.url || null}
+        onCancel={closeEditor}
+        onConfirm={handleEditConfirm}
+        onConfirmCopy={handleEditCopy}
+      />
     </div>
   )
 }

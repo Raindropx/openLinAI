@@ -41,6 +41,9 @@ importers:
       openai:
         specifier: ^6.48.0
         version: 6.48.0(ws@8.20.0)(zod@4.3.6)
+      react-image-crop:
+        specifier: ^11.1.2
+        version: 11.1.2(react@19.2.5)
       react-router-dom:
         specifier: ^7.15.0
         version: 7.15.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -1804,6 +1807,11 @@ packages:
 
   react-fast-compare@3.2.2:
     resolution: {integrity: sha512-nsO+KSNgo1SbJqJEYRE9ERzo7YtYbou/OqjSQKxV7jcKox7+usiUVZOAC+XnDOABXggQTno0Y1CpVnuWEc1boQ==}
+
+  react-image-crop@11.1.2:
+    resolution: {integrity: sha512-+0Pc2fxpwKL4u4oLmdKBw8XSwUceFbXbKEHvFOlsl/MGB1OVNic4uBlAPmEHGXYgoJIq+b63xHbc/aJMG0AVkA==}
+    peerDependencies:
+      react: '>=16.13.1'
 
   react-is@18.3.1:
     resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
@@ -3611,6 +3619,10 @@ snapshots:
       scheduler: 0.27.0
 
   react-fast-compare@3.2.2: {}
+
+  react-image-crop@11.1.2(react@19.2.5):
+    dependencies:
+      react: 19.2.5
 
   react-is@18.3.1: {}
 
