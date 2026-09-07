@@ -1,9 +1,10 @@
 import { Button, Modal } from 'antd'
 import { ImageDrawToolbar } from './ImageDrawToolbar'
-import { ImageDrawViewport } from './ImageDrawViewport'
-import { useImageDrawEditor } from './useImageDrawEditor'
+import { ImageEditorViewport } from './ImageEditorViewport'
+import { ImageTransformToolbar } from './ImageTransformToolbar'
+import { useImageEditor } from './useImageEditor'
 
-interface ImageDrawModalProps {
+interface ImageEditorModalProps {
   open: boolean
   src: string | null
   onCancel: () => void
@@ -11,14 +12,14 @@ interface ImageDrawModalProps {
   onConfirmCopy: (dataUrl: string) => Promise<void>
 }
 
-export function ImageDrawModal({
+export function ImageEditorModal({
   open,
   src,
   onCancel,
   onConfirm,
   onConfirmCopy,
-}: ImageDrawModalProps) {
-  const editor = useImageDrawEditor({
+}: ImageEditorModalProps) {
+  const editor = useImageEditor({
     open,
     src,
     onConfirm,
@@ -27,9 +28,9 @@ export function ImageDrawModal({
 
   return (
     <Modal
-      title="涂抹图片"
+      title="编辑图片"
       open={open}
-      width={800}
+      width={900}
       destroyOnHidden
       mask={{ closable: !editor.modal.submitting }}
       keyboard={!editor.modal.submitting}
@@ -63,8 +64,9 @@ export function ImageDrawModal({
       }
     >
       <div className="flex min-h-0 flex-col gap-3">
-        <ImageDrawToolbar {...editor.toolbarProps} />
-        <ImageDrawViewport {...editor.viewportProps} />
+        <ImageDrawToolbar {...editor.drawToolbarProps} />
+        <ImageEditorViewport {...editor.viewportProps} />
+        <ImageTransformToolbar {...editor.transformToolbarProps} />
       </div>
     </Modal>
   )

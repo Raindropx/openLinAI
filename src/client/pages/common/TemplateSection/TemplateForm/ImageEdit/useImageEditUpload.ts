@@ -1,10 +1,7 @@
 import { message } from 'antd'
 import { useRef, useState, type MutableRefObject } from 'react'
 
-export type ImageEditMode = 'crop' | 'draw'
-
 export interface ImageEditTarget {
-  mode: ImageEditMode
   index: number
   url: string
 }
@@ -15,11 +12,6 @@ interface UseImageEditUploadOptions {
   handleUploadCountChange: (delta: number) => void
   onChange?: (urls: string[]) => void
   addRecentImages: (urls: string | string[]) => void
-}
-
-const actionNames: Record<ImageEditMode, string> = {
-  crop: '裁剪',
-  draw: '涂抹',
 }
 
 export function useImageEditUpload({
@@ -61,7 +53,7 @@ export function useImageEditUpload({
       onChange?.(newUrls)
       addRecentImages(newUrl)
       setEditTarget(null)
-      message.success(`图片${actionNames[target.mode]}成功`)
+      message.success('图片编辑成功')
     } finally {
       handleUploadCountChange(-1)
     }
@@ -85,18 +77,15 @@ export function useImageEditUpload({
       latestValueRef.current = newUrls
       onChange?.(newUrls)
       addRecentImages(newUrl)
-      message.success(`已添加图片${actionNames[target.mode]}副本`)
+      message.success('已添加图片编辑副本')
     } finally {
       handleUploadCountChange(-1)
     }
   }
 
-  const openEditor = (
-    mode: ImageEditMode,
-    target: Omit<ImageEditTarget, 'mode'>,
-  ) => {
+  const openEditor = (target: ImageEditTarget) => {
     insertedCopyCountRef.current = 0
-    setEditTarget({ ...target, mode })
+    setEditTarget(target)
   }
 
   const closeEditor = () => {
@@ -105,12 +94,8 @@ export function useImageEditUpload({
   }
 
   return {
-    cropTarget: editTarget?.mode === 'crop' ? editTarget : null,
-    drawTarget: editTarget?.mode === 'draw' ? editTarget : null,
-    openCrop: (target: Omit<ImageEditTarget, 'mode'>) =>
-      openEditor('crop', target),
-    openDraw: (target: Omit<ImageEditTarget, 'mode'>) =>
-      openEditor('draw', target),
+    editTarget,
+    openEditor,
     closeEditor,
     handleEditConfirm,
     handleEditCopy,

@@ -21,6 +21,7 @@ interface ImageDrawToolbarProps {
   brushSize: number
   zoom: number
   submitting: boolean
+  zoomDisabled: boolean
   canUndo: boolean
   canRedo: boolean
   canReset: boolean
@@ -37,6 +38,7 @@ export function ImageDrawToolbar({
   brushSize,
   zoom,
   submitting,
+  zoomDisabled,
   canUndo,
   canRedo,
   canReset,
@@ -97,7 +99,11 @@ export function ImageDrawToolbar({
       />
       <span className="w-12 shrink-0 text-sm tabular-nums">{brushSize} px</span>
       <Tooltip title="滚轮缩放，点击恢复 100%">
-        <Button type="text" disabled={submitting} onClick={onRestoreZoom}>
+        <Button
+          type="text"
+          disabled={submitting || zoomDisabled}
+          onClick={onRestoreZoom}
+        >
           {Math.round(zoom * 100)}%
         </Button>
       </Tooltip>
@@ -120,10 +126,10 @@ export function ImageDrawToolbar({
           onClick={onRedo}
         />
       </Tooltip>
-      <Tooltip title="重置">
+      <Tooltip title="还原原图">
         <Button
           type="text"
-          aria-label="重置"
+          aria-label="还原原图"
           icon={<DeleteOutlined />}
           disabled={submitting || !canReset}
           onClick={onReset}

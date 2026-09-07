@@ -6,20 +6,24 @@ import {
   type PointerEvent,
   type SyntheticEvent,
 } from 'react'
+import type { PixelCrop } from 'react-image-crop'
 import {
   drawStroke,
-  exportDrawnImage,
+  exportEditedImage,
   getCanvasPoint,
-  redrawStrokes,
+  getEditedImageSize,
+  renderEditedImage,
   type DrawStroke,
-} from './drawImage'
+  type ImageEditOperation,
+  type ImageSize,
+} from './imageEditor'
 import { DEFAULT_DRAW_COLOR } from './ImageDrawToolbar'
-import type { BrushPreview, ImageSize } from './ImageDrawViewport'
+import type { BrushPreview } from './ImageEditorViewport'
 
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 4
 
-interface UseImageDrawEditorOptions {
+interface UseImageEditorOptions {
   open: boolean
   src: string | null
   onConfirm: (dataUrl: string) => Promise<void>
@@ -33,19 +37,18 @@ function isInsideCanvas(canvas: HTMLCanvasElement, x: number, y: number) {
   return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
 }
 
-export function useImageDrawEditor({
+export function useImageEditor({
   open,
   src,
   onConfirm,
   onConfirmCopy,
-}: UseImageDrawEditorOptions) {
+}: UseImageEditorOptions) {
   const imageRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const zoomFrameRef = useRef<number | null>(null)
   const activePointerRef = useRef<number | null>(null)
   const currentStrokeRef = useRef<DrawStroke | null>(null)
-  const strokeBaseRef = useRef<DrawStroke[]>([])
   const drawingRef = useRef(false)
   const zoomRef = useRef(1)
   const lastPointerRef = useRef<{
@@ -55,7 +58,7 @@ export function useImageDrawEditor({
   } | null>(null)
 
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
-  const [imageSize, setImageSize] = useState<ImageSize | null>(null)
+  const [originalSize, setOriginalSize] = useState<ImageSize | null>(null)
   const [baseDisplaySize, setBaseDisplaySize] = useState<ImageSize | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -64,32 +67,40 @@ export function useImageDrawEditor({
   const submitting = submittingAction !== null
   const [color, setColor] = useState(DEFAULT_DRAW_COLOR)
   const [brushSize, setBrushSize] = useState(12)
-  const [strokes, setStrokes] = useState<DrawStroke[]>([])
+  const [operations, setOperations] = useState<ImageEditOperation[]>([])
   const [historyIndex, setHistoryIndex] = useState(0)
   const [zoom, setZoom] = useState(1)
+  const [cropMode, setCropMode] = useState(false)
+  const [crop, setCrop] = useState<PixelCrop>()
   const [preview, setPreview] = useState<BrushPreview>({
     visible: false,
     x: 0,
     y: 0,
   })
 
+  const currentOperations = operations.slice(0, historyIndex)
+  const imageSize = originalSize
+    ? getEditedImageSize(originalSize, currentOperations)
+    : null
+
   const resetEditorState = () => {
     activePointerRef.current = null
     currentStrokeRef.current = null
-    strokeBaseRef.current = []
     drawingRef.current = false
     zoomRef.current = 1
     lastPointerRef.current = null
-    setImageSize(null)
+    setOriginalSize(null)
     setBaseDisplaySize(null)
     setLoadError(null)
     setLoading(false)
     setSubmittingAction(null)
     setColor(DEFAULT_DRAW_COLOR)
     setBrushSize(12)
-    setStrokes([])
+    setOperations([])
     setHistoryIndex(0)
     setZoom(1)
+    setCropMode(false)
+    setCrop(undefined)
     setPreview({ visible: false, x: 0, y: 0 })
   }
 
@@ -138,17 +149,61 @@ export function useImageDrawEditor({
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !imageSize) return
-    canvas.width = imageSize.width
-    canvas.height = imageSize.height
+    const image = imageRef.current
+    if (!canvas || !image || !imageSize || !image.complete) return
     try {
-      redrawStrokes(canvas, strokes.slice(0, historyIndex))
+      renderEditedImage(image, currentOperations, canvas)
     } catch (error) {
-      setLoadError(
-        error instanceof Error ? error.message : '无法创建图片绘制画布',
-      )
+      setLoadError(error instanceof Error ? error.message : '图片编辑失败')
     }
-  }, [historyIndex, imageSize, strokes])
+  }, [baseDisplaySize, cropMode, historyIndex, operations, originalSize])
+
+  const fitImageInViewport = (size: ImageSize) => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const availableWidth = Math.max(1, viewport.clientWidth - 32)
+    const availableHeight = Math.max(1, viewport.clientHeight - 32)
+    const scale = Math.min(
+      availableWidth / size.width,
+      availableHeight / size.height,
+    )
+    setBaseDisplaySize({
+      width: size.width * scale,
+      height: size.height * scale,
+    })
+  }
+
+  useEffect(() => {
+    if (!imageSize) return
+    const frame = requestAnimationFrame(() => fitImageInViewport(imageSize))
+    return () => cancelAnimationFrame(frame)
+  }, [imageSize?.width, imageSize?.height])
+
+  const centerViewport = () => {
+    requestAnimationFrame(() => {
+      const viewport = viewportRef.current
+      if (!viewport) return
+      viewport.scrollTo({
+        left: Math.max(0, (viewport.scrollWidth - viewport.clientWidth) / 2),
+        top: Math.max(0, (viewport.scrollHeight - viewport.clientHeight) / 2),
+      })
+    })
+  }
+
+  const resetViewAfterTransform = () => {
+    zoomRef.current = 1
+    setZoom(1)
+    setCropMode(false)
+    setCrop(undefined)
+    setPreview((current) => ({ ...current, visible: false }))
+    centerViewport()
+  }
+
+  const commitOperation = (operation: ImageEditOperation) => {
+    const nextOperations = [...operations.slice(0, historyIndex), operation]
+    setOperations(nextOperations)
+    setHistoryIndex(nextOperations.length)
+  }
 
   const updatePreview = (
     event: Pick<
@@ -162,7 +217,12 @@ export function useImageDrawEditor({
       pointerType: event.pointerType,
     }
     const canvas = canvasRef.current
-    if (!canvas || event.pointerType === 'touch' || submitting) {
+    if (
+      !canvas ||
+      cropMode ||
+      event.pointerType === 'touch' ||
+      submitting
+    ) {
       setPreview((current) => ({ ...current, visible: false }))
       return
     }
@@ -177,14 +237,11 @@ export function useImageDrawEditor({
   const finishStroke = (pointerId: number) => {
     if (activePointerRef.current !== pointerId) return
     const canvas = canvasRef.current
-    if (canvas?.hasPointerCapture(pointerId))
+    if (canvas?.hasPointerCapture(pointerId)) {
       canvas.releasePointerCapture(pointerId)
-    const stroke = currentStrokeRef.current
-    if (stroke) {
-      const nextStrokes = [...strokeBaseRef.current, stroke]
-      setStrokes(nextStrokes)
-      setHistoryIndex(nextStrokes.length)
     }
+    const stroke = currentStrokeRef.current
+    if (stroke) commitOperation({ type: 'stroke', stroke })
     activePointerRef.current = null
     currentStrokeRef.current = null
     drawingRef.current = false
@@ -193,6 +250,7 @@ export function useImageDrawEditor({
   const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
     if (
       submitting ||
+      cropMode ||
       loadError ||
       activePointerRef.current !== null ||
       (event.pointerType === 'mouse' && event.button !== 0)
@@ -210,11 +268,10 @@ export function useImageDrawEditor({
       width: brushSize * (imageSize.width / baseDisplaySize.width),
       points: [getCanvasPoint(canvas, event.clientX, event.clientY)],
     }
-    strokeBaseRef.current = strokes.slice(0, historyIndex)
     currentStrokeRef.current = stroke
     const context = canvas.getContext('2d')
     if (!context) {
-      setLoadError('无法创建图片绘制画布')
+      setLoadError('无法创建图片编辑画布')
       currentStrokeRef.current = null
       finishStroke(event.pointerId)
       return
@@ -235,7 +292,7 @@ export function useImageDrawEditor({
     stroke.points.push(point)
     const context = canvas.getContext('2d')
     if (!context) {
-      setLoadError('无法创建图片绘制画布')
+      setLoadError('无法创建图片编辑画布')
       currentStrokeRef.current = null
       finishStroke(event.pointerId)
       return
@@ -244,19 +301,24 @@ export function useImageDrawEditor({
   }
 
   const undo = () => {
-    if (!submitting) setHistoryIndex((current) => Math.max(0, current - 1))
+    if (submitting || activePointerRef.current !== null) return
+    setCropMode(false)
+    setCrop(undefined)
+    setHistoryIndex((current) => Math.max(0, current - 1))
   }
 
   const redo = () => {
-    if (!submitting) {
-      setHistoryIndex((current) => Math.min(strokes.length, current + 1))
-    }
+    if (submitting || activePointerRef.current !== null) return
+    setCropMode(false)
+    setCrop(undefined)
+    setHistoryIndex((current) => Math.min(operations.length, current + 1))
   }
 
-  const resetStrokes = () => {
-    if (submitting) return
-    setStrokes([])
+  const resetEdits = () => {
+    if (submitting || activePointerRef.current !== null) return
+    setOperations([])
     setHistoryIndex(0)
+    resetViewAfterTransform()
   }
 
   useEffect(() => {
@@ -275,7 +337,7 @@ export function useImageDrawEditor({
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [historyIndex, open, strokes.length, submitting])
+  }, [historyIndex, open, operations.length, submitting])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -283,6 +345,7 @@ export function useImageDrawEditor({
     const handleWheel = (event: WheelEvent) => {
       if (
         submitting ||
+        cropMode ||
         drawingRef.current ||
         !isInsideCanvas(canvas, event.clientX, event.clientY)
       ) {
@@ -302,8 +365,9 @@ export function useImageDrawEditor({
       const clientY = event.clientY
       zoomRef.current = nextZoom
       setZoom(nextZoom)
-      if (zoomFrameRef.current !== null)
+      if (zoomFrameRef.current !== null) {
         cancelAnimationFrame(zoomFrameRef.current)
+      }
       zoomFrameRef.current = requestAnimationFrame(() => {
         const viewport = viewportRef.current
         const newRect = canvas.getBoundingClientRect()
@@ -318,42 +382,26 @@ export function useImageDrawEditor({
     }
     canvas.addEventListener('wheel', handleWheel, { passive: false })
     return () => canvas.removeEventListener('wheel', handleWheel)
-  }, [baseDisplaySize, submitting])
+  }, [baseDisplaySize, cropMode, submitting])
 
   const restoreZoom = () => {
-    if (submitting) return
+    if (submitting || cropMode) return
     zoomRef.current = 1
     setZoom(1)
-    requestAnimationFrame(() => {
-      const viewport = viewportRef.current
-      if (!viewport) return
-      viewport.scrollTo({
-        left: Math.max(0, (viewport.scrollWidth - viewport.clientWidth) / 2),
-        top: Math.max(0, (viewport.scrollHeight - viewport.clientHeight) / 2),
-      })
-    })
+    centerViewport()
   }
 
   const handleImageLoad = (event: SyntheticEvent<HTMLImageElement>) => {
-    const viewport = viewportRef.current
     const naturalWidth = event.currentTarget.naturalWidth
     const naturalHeight = event.currentTarget.naturalHeight
-    if (!viewport || !naturalWidth || !naturalHeight) {
+    if (!naturalWidth || !naturalHeight) {
       setLoadError('图片加载失败')
       setLoading(false)
       return
     }
-    const availableWidth = Math.max(1, viewport.clientWidth - 32)
-    const availableHeight = Math.max(1, viewport.clientHeight - 32)
-    const scale = Math.min(
-      availableWidth / naturalWidth,
-      availableHeight / naturalHeight,
-    )
-    setImageSize({ width: naturalWidth, height: naturalHeight })
-    setBaseDisplaySize({
-      width: naturalWidth * scale,
-      height: naturalHeight * scale,
-    })
+    const nextSize = { width: naturalWidth, height: naturalHeight }
+    setOriginalSize(nextSize)
+    fitImageInViewport(nextSize)
     setLoading(false)
   }
 
@@ -362,19 +410,73 @@ export function useImageDrawEditor({
     setLoading(false)
   }
 
+  const applyTransform = (
+    operation:
+      | Extract<ImageEditOperation, { type: 'rotate' }>
+      | Extract<ImageEditOperation, { type: 'flip' }>,
+  ) => {
+    if (submitting || !imageSize || activePointerRef.current !== null) return
+    commitOperation(operation)
+    resetViewAfterTransform()
+  }
+
+  const startCrop = () => {
+    if (submitting || !displaySize || activePointerRef.current !== null) return
+    setCrop({
+      unit: 'px',
+      x: 0,
+      y: 0,
+      width: displaySize.width,
+      height: displaySize.height,
+    })
+    setCropMode(true)
+    setPreview((current) => ({ ...current, visible: false }))
+  }
+
+  const cancelCrop = () => {
+    if (submitting) return
+    setCropMode(false)
+    setCrop(undefined)
+  }
+
+  const applyCurrentCrop = () => {
+    if (!cropMode || !crop || !displaySize || !imageSize || submitting) return
+    const scaleX = imageSize.width / displaySize.width
+    const scaleY = imageSize.height / displaySize.height
+    const rectangle = {
+      x: Math.max(0, Math.round(crop.x * scaleX)),
+      y: Math.max(0, Math.round(crop.y * scaleY)),
+      width: Math.max(1, Math.round(crop.width * scaleX)),
+      height: Math.max(1, Math.round(crop.height * scaleY)),
+    }
+    const isFullImage =
+      rectangle.x === 0 &&
+      rectangle.y === 0 &&
+      rectangle.width >= imageSize.width &&
+      rectangle.height >= imageSize.height
+    if (!isFullImage) {
+      commitOperation({ type: 'crop', rectangle })
+    }
+    resetViewAfterTransform()
+  }
+
   const handleSubmit = async (action: SubmitAction) => {
     const image = imageRef.current
-    if (!image || historyIndex === 0) return
+    if (
+      !image ||
+      historyIndex === 0 ||
+      cropMode ||
+      activePointerRef.current !== null
+    ) {
+      return
+    }
     setSubmittingAction(action)
     setPreview((current) => ({ ...current, visible: false }))
     try {
-      const dataUrl = await exportDrawnImage(
-        image,
-        strokes.slice(0, historyIndex),
-      )
+      const dataUrl = await exportEditedImage(image, currentOperations)
       await (action === 'copy' ? onConfirmCopy : onConfirm)(dataUrl)
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '图片涂抹失败')
+      message.error(error instanceof Error ? error.message : '图片编辑失败')
     } finally {
       setSubmittingAction(null)
     }
@@ -386,30 +488,46 @@ export function useImageDrawEditor({
         height: baseDisplaySize.height * zoom,
       }
     : null
-  const canUndo = historyIndex > 0
 
   return {
     modal: {
       submitting,
       submittingAction,
-      canConfirm: !!imageSize && !loadError && canUndo,
+      canConfirm: !!imageSize && !loadError && historyIndex > 0 && !cropMode,
       onConfirm: () => handleSubmit('replace'),
       onConfirmCopy: () => handleSubmit('copy'),
     },
-    toolbarProps: {
+    drawToolbarProps: {
       color,
       brushSize,
       zoom,
       submitting,
-      canUndo,
-      canRedo: historyIndex < strokes.length,
-      canReset: strokes.length > 0,
+      zoomDisabled: cropMode,
+      canUndo: historyIndex > 0,
+      canRedo: historyIndex < operations.length,
+      canReset: historyIndex > 0,
       onColorChange: setColor,
       onBrushSizeChange: setBrushSize,
       onRestoreZoom: restoreZoom,
       onUndo: undo,
       onRedo: redo,
-      onReset: resetStrokes,
+      onReset: resetEdits,
+    },
+    transformToolbarProps: {
+      disabled: submitting || !imageSize,
+      cropMode,
+      canApplyCrop: !!crop && crop.width > 0 && crop.height > 0,
+      onRotateLeft: () =>
+        applyTransform({ type: 'rotate', direction: 'left' }),
+      onRotateRight: () =>
+        applyTransform({ type: 'rotate', direction: 'right' }),
+      onFlipHorizontal: () =>
+        applyTransform({ type: 'flip', axis: 'horizontal' }),
+      onFlipVertical: () =>
+        applyTransform({ type: 'flip', axis: 'vertical' }),
+      onStartCrop: startCrop,
+      onCancelCrop: cancelCrop,
+      onApplyCrop: applyCurrentCrop,
     },
     viewportProps: {
       viewportRef,
@@ -422,10 +540,14 @@ export function useImageDrawEditor({
       color,
       brushSize,
       zoom,
+      cropMode,
+      crop,
+      submitting,
       loading,
       loadError,
       onImageLoad: handleImageLoad,
       onImageError: handleImageError,
+      onCropChange: setCrop,
       onPointerDown: handlePointerDown,
       onPointerMove: handlePointerMove,
       onPointerFinish: finishStroke,

@@ -14,9 +14,8 @@ import {
   openGallery,
   type GalleryImageSelection,
 } from '../../components/Gallery'
-import { ImageCropModal } from './ImageCrop/ImageCropModal'
-import { ImageUploadItem } from './ImageCrop/ImageUploadItem'
-import { ImageDrawModal } from './ImageDraw/ImageDrawModal'
+import { ImageEditorModal } from './ImageEdit/ImageEditorModal'
+import { ImageUploadItem } from './ImageEdit/ImageUploadItem'
 import { useImageEditUpload } from './ImageEdit/useImageEditUpload'
 
 interface ImageUploadProps {
@@ -74,10 +73,8 @@ export function ImageUpload({
   }
 
   const {
-    cropTarget,
-    drawTarget,
-    openCrop,
-    openDraw,
+    editTarget,
+    openEditor,
     closeEditor,
     handleEditConfirm,
     handleEditCopy,
@@ -244,22 +241,14 @@ export function ImageUpload({
               url={url}
               index={index}
               onRemove={handleRemove}
-              onCrop={openCrop}
-              onDraw={openDraw}
+              onEdit={openEditor}
             />
           ))}
         </div>
       )}
-      <ImageCropModal
-        open={!!cropTarget}
-        src={cropTarget?.url || null}
-        onCancel={closeEditor}
-        onConfirm={handleEditConfirm}
-        onConfirmCopy={handleEditCopy}
-      />
-      <ImageDrawModal
-        open={!!drawTarget}
-        src={drawTarget?.url || null}
+      <ImageEditorModal
+        open={!!editTarget}
+        src={editTarget?.url || null}
         onCancel={closeEditor}
         onConfirm={handleEditConfirm}
         onConfirmCopy={handleEditCopy}
