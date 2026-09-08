@@ -1,6 +1,10 @@
 import { MessageList } from './MessageList'
 
 const upgradeHistory = [
+  `openLinAI v1.3.0 更新内容 🐱：
+🖼️ 参考图新增统一图片编辑器，可在同一窗口完成裁剪与涂鸦编辑
+🔄 支持向左或向右旋转 90°，以及水平和垂直翻转
+📋 新增「提交副本」，保留原图并支持连续添加编辑副本；点击「提交」可替换当前参考图`,
   `openLinAI v1.2.5 更新内容 🐱：
 🖼️ 图片生成新增 Venice、NovelAI 与 Pollinations 端点，覆盖原生生成、单图及多图编辑等能力
 🧭 LLM 与图片端点支持读取实时模型目录，并按文本、视觉、图片生成和图片编辑能力筛选
