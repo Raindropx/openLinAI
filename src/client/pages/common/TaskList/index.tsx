@@ -43,6 +43,10 @@ import { TaskListHeader } from './TaskListHeader'
 import { TaskItemDeleteButton } from './components/TaskItemDeleteButton'
 import { TaskItemDownloadButton } from './components/TaskItemDownloadButton'
 import { TaskItemTags } from './components/TaskItemTags'
+import {
+  TaskReviewPreview,
+  type ReviewImage,
+} from './components/TaskReviewPreview'
 
 const client = hc<AppType>('/')
 
@@ -66,10 +70,12 @@ function TaskImage({
   src,
   showSize,
   preview = true,
+  onPreview,
 }: {
   src: string
   showSize: boolean
   preview?: boolean
+  onPreview?: () => void
 }) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(
     null,
@@ -119,10 +125,18 @@ function TaskImage({
         <Image
           src={src}
           alt="result"
-          preview={preview}
+          preview={onPreview ? false : preview}
+          onClick={
+            onPreview
+              ? (event) => {
+                  event.stopPropagation()
+                  onPreview()
+                }
+              : undefined
+          }
           classNames={{
             root: 'w-full h-full',
-            image: 'w-full! h-full! object-cover',
+            image: `w-full! h-full! object-cover${onPreview ? ' cursor-pointer' : ''}`,
           }}
           onLoad={(event) => {
             handleLoaded(event.target as HTMLImageElement)
@@ -167,6 +181,9 @@ export function TaskList({
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [batchDeleting, setBatchDeleting] = useState(false)
+  const [reviewImage, setReviewImage] = useState<ReviewImage | null>(null)
+  const [reviewedTaskId, setReviewedTaskId] = useState<string | null>(null)
+  const taskCardRefs = useRef(new Map<string, HTMLDivElement>())
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const focusNewestTaskSignal = useGlobalStore(
     (state) => state.focusNewestTaskSignal,
@@ -238,6 +255,49 @@ export function TaskList({
     })
   }, [gptImageTasks, searchText, sortMode])
 
+  const reviewImages = useMemo(
+    () =>
+      managementMode
+        ? filteredTasks.flatMap((task) =>
+            task.status === 'failed' && task.error
+              ? []
+              : task.outputUrls.map((src, imageIndex) => ({
+                  taskId: task.id,
+                  imageIndex,
+                  src,
+                })),
+          )
+        : [],
+    [filteredTasks, managementMode],
+  )
+  // Track identity rather than a numeric position: SSE updates may insert tasks.
+  const reviewIndex = reviewImage
+    ? reviewImages.findIndex(
+        (image) =>
+          image.taskId === reviewImage.taskId &&
+          image.imageIndex === reviewImage.imageIndex &&
+          image.src === reviewImage.src,
+      )
+    : -1
+
+  useEffect(() => {
+    if (reviewImage && reviewIndex < 0) setReviewImage(null)
+  }, [reviewImage, reviewIndex])
+
+  const showReviewImage = (image: ReviewImage) => {
+    setReviewImage(image)
+    setReviewedTaskId(image.taskId)
+  }
+
+  const scrollToReviewedTask = useCallback(() => {
+    if (!reviewedTaskId) return
+    taskCardRefs.current.get(reviewedTaskId)?.scrollIntoView({
+      block: 'nearest',
+      inline: 'nearest',
+      behavior: 'instant',
+    })
+  }, [reviewedTaskId])
+
   useEffect(() => {
     setPage(0)
     setVisibleCount(pageSize)
@@ -269,6 +329,29 @@ export function TaskList({
   const loadMoreTasks = useCallback(() => {
     setVisibleCount((count) => Math.min(count + pageSize, filteredTasks.length))
   }, [filteredTasks.length, pageSize])
+
+  useEffect(() => {
+    if (reviewIndex < 0 || !reviewImage) return
+    const taskIndex = filteredTasks.findIndex(
+      (task) => task.id === reviewImage.taskId,
+    )
+    if (infiniteScroll) {
+      setVisibleCount((count) => Math.max(count, taskIndex + 1))
+    } else {
+      setPage(Math.floor(taskIndex / pageSize))
+    }
+    const frame = requestAnimationFrame(scrollToReviewedTask)
+    return () => cancelAnimationFrame(frame)
+  }, [
+    reviewIndex,
+    reviewImage,
+    filteredTasks,
+    infiniteScroll,
+    pageSize,
+    page,
+    visibleCount,
+    scrollToReviewedTask,
+  ])
 
   const toggleTaskSelection = (taskId: string) => {
     setSelectedIds((ids) =>
@@ -432,11 +515,17 @@ export function TaskList({
               }
             >
               {visibleTasks.map((task) => {
-                const active = task.id === selectedTaskId
+                const active =
+                  task.id === selectedTaskId ||
+                  (managementMode && task.id === reviewedTaskId)
                 const selected = selectedIds.includes(task.id)
                 return (
                   <Card
                     key={task.id}
+                    ref={(node) => {
+                      if (node) taskCardRefs.current.set(task.id, node)
+                      else taskCardRefs.current.delete(task.id)
+                    }}
                     size="small"
                     onClick={() =>
                       selectionMode
@@ -522,12 +611,32 @@ export function TaskList({
                               width={panelMode ? 90 : 100}
                               height={panelMode ? 120 : 130}
                               preview={!panelMode}
+                              onPreview={
+                                managementMode
+                                  ? (imageIndex) =>
+                                      showReviewImage({
+                                        taskId: task.id,
+                                        imageIndex,
+                                        src: task.outputUrls[imageIndex],
+                                      })
+                                  : undefined
+                              }
                             />
                           </div>
                         ) : (
                           <TaskImage
                             src={task.outputUrls[0]}
                             preview={!panelMode}
+                            onPreview={
+                              managementMode
+                                ? () =>
+                                    showReviewImage({
+                                      taskId: task.id,
+                                      imageIndex: 0,
+                                      src: task.outputUrls[0],
+                                    })
+                                : undefined
+                            }
                             showSize={
                               gptImageSettings.showImageSizeInTaskList ?? true
                             }
@@ -721,6 +830,18 @@ export function TaskList({
       styles={{ body: { paddingTop: 0 } }}
     >
       {taskContent}
+      {managementMode && (
+        <TaskReviewPreview
+          images={reviewImages}
+          current={reviewIndex}
+          onChange={(index) => {
+            const image = reviewImages[index]
+            if (image) showReviewImage(image)
+          }}
+          onClose={() => setReviewImage(null)}
+          onAfterClose={scrollToReviewedTask}
+        />
+      )}
     </Card>
   )
 }

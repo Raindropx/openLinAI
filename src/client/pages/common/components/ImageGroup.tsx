@@ -5,6 +5,7 @@ interface ImageGroupProps {
   width: number
   height: number
   preview?: boolean
+  onPreview?: (index: number) => void
 }
 
 const MAX_VISIBLE_IMAGES = 8
@@ -15,6 +16,7 @@ export function ImageGroup({
   width,
   height,
   preview = true,
+  onPreview,
 }: ImageGroupProps) {
   if (!images || images.length === 0) return null
 
@@ -37,7 +39,7 @@ export function ImageGroup({
       className="relative shrink-0 rounded-lg bg-[#111318]"
       style={{ width: `${width}px`, height: `${height}px` }}
     >
-      <Image.PreviewGroup preview={preview}>
+      <Image.PreviewGroup preview={onPreview ? false : preview}>
         {visibleImages.map((url, index) => {
           const rowIndex = rows === 1 ? 0 : index < rowCounts[0] ? 0 : 1
           const colIndex =
@@ -83,7 +85,15 @@ export function ImageGroup({
               <Image
                 src={url}
                 alt={`image-${index}`}
-                preview={preview}
+                preview={onPreview ? false : preview}
+                onClick={
+                  onPreview
+                    ? (event) => {
+                        event.stopPropagation()
+                        onPreview(index)
+                      }
+                    : undefined
+                }
                 width={cardWidth}
                 height={cardHeight}
                 className="object-cover"
