@@ -11,12 +11,14 @@ interface TaskItemTagsProps {
   task: Task
   downloadedIds: string[]
   compact?: boolean
+  showEndpoint?: boolean
 }
 
 export function TaskItemTags({
   task,
   downloadedIds,
   compact = false,
+  showEndpoint = true,
 }: TaskItemTagsProps) {
   const { isDesktop } = usePlatform()
 
@@ -87,8 +89,12 @@ export function TaskItemTags({
           {(task.duration / 1000).toFixed(1)}s
         </Tag>
       )}
-      {!compact && task.endpointName && (
-        <Tag color="purple">{task.endpointName}</Tag>
+      {showEndpoint && (
+        <Tooltip title={task.endpointName || '未记录端点'}>
+          <Tag color="purple" className="max-w-full truncate">
+            {task.endpointName || '未知端点'}
+          </Tag>
+        </Tooltip>
       )}
     </div>
   )

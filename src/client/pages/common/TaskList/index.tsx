@@ -541,6 +541,7 @@ export function TaskList({
                             task={task}
                             downloadedIds={downloadedIds || []}
                             compact={panelMode || managementMode}
+                            showEndpoint={!panelMode}
                           />
                           <div className="flex min-w-0 items-center gap-2">
                             {task.rawTemplate?.title && (
