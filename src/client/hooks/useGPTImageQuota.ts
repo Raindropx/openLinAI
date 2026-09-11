@@ -8,11 +8,6 @@ import { useGlobalStore } from '../store/global'
 import { useLocalSetting } from './useLocalSetting'
 import { useTasks } from './useTasks'
 
-// 人民币和积分的汇率
-export const GPT_IMAGE_RMB_RATIO = 2
-// 分组的积分消耗倍率
-export const MODEL_GROUP_RATIO = 1.0
-
 const client = hc<AppType>('/')
 
 interface QuotaStore {

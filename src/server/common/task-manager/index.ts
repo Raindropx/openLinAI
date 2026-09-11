@@ -9,6 +9,7 @@ import { GENERATED_IMAGES_API_PATH } from '../static/enum'
 import { GptImageQuality, GptImageSize } from '../../module/gpt-image/enum'
 import { Logger } from '../../module/utils/logger'
 import { TaskTemplate } from '../template-manager'
+import type { ImageBilling } from '../../module/gpt-image/billing'
 
 export interface Task {
   id: string
@@ -24,6 +25,7 @@ export interface Task {
   quality?: GptImageQuality
   /** 生成时使用的端点名快照（任务列表展示用） */
   endpointName?: string
+  imageBilling?: ImageBilling
   [key: string]: any
 }
 
@@ -56,6 +58,10 @@ export class TaskManager extends EventEmitter {
       const tasks: Task[] = JSON.parse(data)
       let changed = false
       for (const task of tasks) {
+        if (task.imageBilling?.status === 'pending') {
+          task.imageBilling.status = 'unavailable'
+          changed = true
+        }
         if (task.status === 'pending' || task.status === 'running') {
           task.status = 'failed'
           task.error = '[服务] 连接已丢失'

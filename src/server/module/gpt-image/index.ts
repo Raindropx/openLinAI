@@ -6,6 +6,7 @@ import { GENERATED_IMAGES_API_PATH } from '../../common/static/enum'
 import { taskManager } from '../../common/task-manager'
 import { TaskTemplate } from '../../common/template-manager'
 import { logger } from '../utils/logger'
+import { fetchImageBill, getBillingRequestId } from './billing'
 import { GptImageQuality, GptImageSize } from './enum'
 import type { GenerationMetadataInput } from './generation-metadata'
 import { persistImageBuffers } from './image-files'
@@ -287,24 +288,33 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
     : undefined
 
   let res: OpenAI.Images.ImagesResponse
+  let requestId: string | undefined
   if (imagesToUpload) {
-    res = await client.images.edit({
-      model,
-      image: imagesToUpload || [],
-      prompt: prompt,
-      n,
-      size: size as any,
-      quality,
-    })
+    const response = await client.images
+      .edit({
+        model,
+        image: imagesToUpload || [],
+        prompt: prompt,
+        n,
+        size: size as any,
+        quality,
+      })
+      .withResponse()
+    res = response.data
+    requestId = getBillingRequestId(response.response.headers)
   } else {
-    res = await client.images.generate({
-      model,
-      prompt,
-      n,
-      size: size as any,
-      quality,
-      moderation: 'low',
-    })
+    const response = await client.images
+      .generate({
+        model,
+        prompt,
+        n,
+        size: size as any,
+        quality,
+        moderation: 'low',
+      })
+      .withResponse()
+    res = response.data
+    requestId = getBillingRequestId(response.response.headers)
   }
 
   const imageBuffers: Buffer[] = []
@@ -336,6 +346,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
   return {
     filenames,
     usage: res.usage,
+    requestId,
   }
 }
 
@@ -349,6 +360,7 @@ export async function handleImageGeneration(options: {
   quality?: GptImageQuality
   endpointName?: string
   writeMetadata?: boolean
+  queryBilling?: boolean
 }) {
   try {
     const {
@@ -361,6 +373,7 @@ export async function handleImageGeneration(options: {
       quality = 'medium',
       endpointName,
       writeMetadata = true,
+      queryBilling = false,
     } = options
     const serviceLabel = getServiceLabel(endpointName, baseURL)
     const activeModel = template.images.length > 0 ? editModel || model : model
@@ -391,6 +404,8 @@ export async function handleImageGeneration(options: {
     const imagePaths: string[] = []
     let filenames: string[] = []
     let usage: GPTImageResponse['usage'] | undefined
+    const requestIds: string[] = []
+    let missingRequestId = false
     try {
       const finalSize = calculateSize(template.aspectRatio || '1:1', size)
 
@@ -442,6 +457,8 @@ export async function handleImageGeneration(options: {
           })
           filenames.push(...res.filenames)
           usage = mergeUsage(usage, res.usage)
+          if (res.requestId) requestIds.push(res.requestId)
+          else missingRequestId = true
         } catch (error) {
           requestErrors.push(error)
           if (requestCounts.length === 1) throw error
@@ -450,10 +467,7 @@ export async function handleImageGeneration(options: {
       if (filenames.length === 0) {
         throw requestErrors[0] || new Error('Image API returned no images')
       }
-      if (
-        requestCounts.length > 1 &&
-        filenames.length < requestedCount
-      ) {
+      if (requestCounts.length > 1 && filenames.length < requestedCount) {
         logger.warn(
           `Pollinations returned ${filenames.length}/${requestedCount} images`,
         )
@@ -479,7 +493,27 @@ export async function handleImageGeneration(options: {
       duration,
       outputUrls,
       gptTokenUsage: usage,
+      ...(queryBilling
+        ? {
+            imageBilling: {
+              status:
+                missingRequestId || !requestIds.length
+                  ? ('unavailable' as const)
+                  : ('pending' as const),
+              currency: 'USD' as const,
+              requestIds,
+            },
+          }
+        : {}),
     })
+
+    if (queryBilling && !missingRequestId && requestIds.length) {
+      void fetchImageBill({ baseURL, apiKey, requestIds })
+        .then((imageBilling) =>
+          taskManager.updateTask(task.id, { imageBilling }),
+        )
+        .catch(() => logger.warn('Unable to save image billing result'))
+    }
 
     logger.info(`GPT image task finished`)
     return {
