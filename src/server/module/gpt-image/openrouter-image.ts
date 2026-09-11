@@ -9,6 +9,7 @@ import { logger } from '../utils/logger'
 import { GptImageQuality, GptImageSize } from './enum'
 import { persistImages, readImageAsDataUrl } from './image-files'
 import { buildPromptWithAspectRatio } from './index'
+import { summarizeProviderImageUsage } from './billing'
 
 interface CapabilityDescriptor {
   type: 'enum' | 'range' | 'boolean'
@@ -161,32 +162,6 @@ function validateReferenceCount(model: OpenRouterImageModel, count: number) {
       `模型 ${model.id} 最多支持 ${descriptor.max} 张参考图，当前选择了 ${count} 张`,
     )
   }
-}
-
-function normalizeUsage(usages: Array<Record<string, unknown> | undefined>) {
-  const totals = {
-    input_tokens: 0,
-    output_tokens: 0,
-    total_tokens: 0,
-    cost: 0,
-  }
-  let hasUsage = false
-
-  for (const usage of usages) {
-    if (!usage) continue
-    hasUsage = true
-    const input = Number(usage.input_tokens ?? usage.prompt_tokens ?? 0)
-    const output = Number(usage.output_tokens ?? usage.completion_tokens ?? 0)
-    totals.input_tokens += Number.isFinite(input) ? input : 0
-    totals.output_tokens += Number.isFinite(output) ? output : 0
-    totals.total_tokens += Number.isFinite(Number(usage.total_tokens))
-      ? Number(usage.total_tokens)
-      : input + output
-    const cost = Number(usage.cost ?? 0)
-    totals.cost += Number.isFinite(cost) ? cost : 0
-  }
-
-  return hasUsage ? totals : undefined
 }
 
 export async function handleOpenRouterImageGeneration(options: {
@@ -350,11 +325,20 @@ export async function handleOpenRouterImageGeneration(options: {
     const outputUrls = filenames.map(
       (filename) => `${GENERATED_IMAGES_API_PATH}/${filename}`,
     )
+    const { usage, billing } = summarizeProviderImageUsage(
+      successful.map((item) => item.usage),
+    )
     await taskManager.updateTask(task.id, {
       status: 'completed',
       duration: Date.now() - startTime,
       outputUrls,
-      gptTokenUsage: normalizeUsage(successful.map((item) => item.usage)),
+      ...(usage ? { gptTokenUsage: usage } : {}),
+      imageBilling: billing || {
+        status: 'unavailable',
+        currency: 'USD',
+        requestIds: [],
+        source: 'provider-response',
+      },
     })
 
     logger.info(`OpenRouter image task finished: ${model}`)

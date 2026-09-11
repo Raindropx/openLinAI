@@ -9,6 +9,7 @@ import { logger } from '../utils/logger'
 import { GptImageQuality, GptImageSize } from './enum'
 import { persistImages, readImageAsDataUrl } from './image-files'
 import { buildPromptWithAspectRatio } from './index'
+import { summarizeProviderImageUsage } from './billing'
 
 /** chat-completions 消息中的内容块 */
 interface ChatContentPart {
@@ -29,6 +30,7 @@ interface ChatChoice {
 
 interface ChatCompletionResponse {
   choices?: ChatChoice[]
+  usage?: Record<string, unknown>
   error?: { message?: string } | string
   [key: string]: unknown
 }
@@ -243,7 +245,10 @@ export async function handleChatImageGeneration(options: {
       }
 
       const url = `${baseURL.replace(/\/$/, '')}/chat/completions`
-      const requestOnce = async (): Promise<string[]> => {
+      const requestOnce = async (): Promise<{
+        imageUrls: string[]
+        usage?: Record<string, unknown>
+      }> => {
         const response = await fetchWithTimeout(
           url,
           {
@@ -283,7 +288,7 @@ export async function handleChatImageGeneration(options: {
 
         const message = data.choices?.[0]?.message
         const { imageUrls } = extractImageUrls(message?.content, message)
-        if (imageUrls.length > 0) return imageUrls
+        if (imageUrls.length > 0) return { imageUrls, usage: data.usage }
 
         const debugPreview = JSON.stringify(message, (_key, value) =>
           typeof value === 'string' && value.length > 160
@@ -300,9 +305,10 @@ export async function handleChatImageGeneration(options: {
       const results = await Promise.allSettled(
         Array.from({ length: requestedCount }, () => requestOnce()),
       )
-      const imageUrls = results.flatMap((result) =>
-        result.status === 'fulfilled' ? result.value : [],
+      const successful = results.flatMap((result) =>
+        result.status === 'fulfilled' ? [result.value] : [],
       )
+      const imageUrls = successful.flatMap((result) => result.imageUrls)
       const failedReasons = results
         .filter(
           (result): result is PromiseRejectedResult =>
@@ -342,6 +348,18 @@ export async function handleChatImageGeneration(options: {
       if (filenames.length === 0) {
         throw new Error('模型返回的图片格式不受支持或下载失败')
       }
+      const { usage, billing } = summarizeProviderImageUsage(
+        successful.map((result) => result.usage),
+      )
+      await taskManager.updateTask(task.id, {
+        ...(usage ? { gptTokenUsage: usage } : {}),
+        imageBilling: billing || {
+          status: 'unavailable',
+          currency: 'USD',
+          requestIds: [],
+          source: 'provider-response',
+        },
+      })
       logger.info('Chat-completions image generated successfully')
     } catch (error: any) {
       logger.error(

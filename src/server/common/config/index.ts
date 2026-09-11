@@ -45,6 +45,8 @@ export interface GptImageEndpoint {
   balanceApiPath?: string
   /** 从余额响应中读取数值的 JSON 键路径 */
   balanceResultJsonKey?: string
+  /** New API 实际消费日志不可用时，用于费用估算的分组倍率快照。 */
+  groupRatio?: number
   /**
    * 生成引擎：
    * - openai-images：OpenAI SDK images.edit / images.generate（gpt-image-2 / dall-e）

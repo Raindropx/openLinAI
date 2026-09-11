@@ -4,6 +4,7 @@ import type { Task } from '../../../../../server/common/task-manager'
 import { usePlatform } from '../../../../hooks/usePlatform'
 import {
   estimateImageCost,
+  formatImageCost,
   formatImageUsd,
   formatImageUsdLabel,
 } from '../../../../utils/imageCost'
@@ -35,8 +36,12 @@ export function TaskItemTags({
         <Tooltip
           title={
             <div>
-              <div>实际费用: {formatImageUsd(bill.cost)} USD</div>
-              <div>扣费点数: {bill.quota?.toLocaleString()}</div>
+              <div>
+                实际费用: {formatImageCost(bill.cost, bill.currency)}
+              </div>
+              {bill.quota !== undefined && (
+                <div>扣费点数: {bill.quota.toLocaleString()}</div>
+              )}
               {bill.entries?.map((entry) => (
                 <div key={entry.requestId}>
                   分组: {entry.group || '未提供'}
@@ -45,16 +50,49 @@ export function TaskItemTags({
                     : ''}
                 </div>
               ))}
-              <div>来自本次请求的消费日志，已包含分组倍率及上游计费调整</div>
+              <div>
+                {bill.source === 'provider-response'
+                  ? '来自本次请求的服务商响应，已包含服务商计费调整'
+                  : '来自本次请求的消费日志，已包含分组倍率及上游计费调整'}
+              </div>
             </div>
           }
         >
           <Tag color="gold" style={{ cursor: 'help' }}>
-            实际{formatImageUsdLabel(bill.cost)}
+            实际{formatImageCost(bill.cost, bill.currency, true)}
           </Tag>
         </Tooltip>
       )
     }
+    if (
+      bill?.status === 'estimated' &&
+      typeof bill.cost === 'number' &&
+      Number.isFinite(bill.cost) &&
+      bill.cost >= 0
+    ) {
+      return (
+        <Tooltip
+          title={
+            <div>
+              <div>
+                预估费用: {formatImageCost(bill.cost, bill.currency)}
+              </div>
+              {bill.note && <div>{bill.note}</div>}
+              <div>实际费用以服务商账单为准</div>
+            </div>
+          }
+        >
+          <Tag color="gold" style={{ cursor: 'help' }}>
+            约{formatImageCost(bill.cost, bill.currency, true)}
+          </Tag>
+        </Tooltip>
+      )
+    }
+    const suppressLegacyEstimate =
+      /pollinations|dragonapi|novelai|venice|openrouter/i.test(
+        record.endpointName || '',
+      )
+    if (bill?.status === 'unavailable' || suppressLegacyEstimate) return null
     if (record.gptTokenUsage) {
       const inputTokens = record.gptTokenUsage.input_tokens || 0
       const outputTokens = record.gptTokenUsage.output_tokens || 0
@@ -62,13 +100,9 @@ export function TaskItemTags({
         record.source,
         inputTokens,
         outputTokens,
+        bill?.estimatedGroupRatio,
       )
-      if (!estimate)
-        return (
-          <Tooltip title="该模型暂无可靠估价，实际费用以服务商账单为准">
-            <Tag>费用未知</Tag>
-          </Tooltip>
-        )
+      if (!estimate) return null
       const inputCost = estimate.input
       const outputCost = estimate.output
       const totalCost = inputCost + outputCost
@@ -84,7 +118,17 @@ export function TaskItemTags({
               ? '正在查询实际账单'
               : '未取得可匹配的实际账单'}
           </div>
-          <div>美元基准估算，未包含分组倍率、图片输入差价及其他计费调整</div>
+          {bill?.estimatedGroupRatio !== undefined ? (
+            <div>
+              已包含配置的分组倍率 {bill.estimatedGroupRatio}
+              ，未包含图片输入差价及其他计费调整
+            </div>
+          ) : (
+            <div>
+              美元基准估算，分组倍率按 1
+              计算，未包含图片输入差价及其他计费调整
+            </div>
+          )}
           <div>实际费用以服务商账单为准</div>
         </div>
       )
@@ -97,9 +141,7 @@ export function TaskItemTags({
         </Tooltip>
       )
     }
-    return bill ? (
-      <Tag>{bill.status === 'pending' ? '费用查询中' : '费用未知'}</Tag>
-    ) : null
+    return bill?.status === 'pending' ? <Tag>费用查询中</Tag> : null
   }
 
   return (

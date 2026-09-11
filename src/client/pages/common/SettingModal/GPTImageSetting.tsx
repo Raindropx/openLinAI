@@ -1,5 +1,14 @@
 import { ExclamationCircleOutlined, PlusOutlined } from '@ant-design/icons'
-import { Button, Form, Input, message, Radio, Select, Switch } from 'antd'
+import {
+  Button,
+  Form,
+  Input,
+  InputNumber,
+  message,
+  Radio,
+  Select,
+  Switch,
+} from 'antd'
 import {
   forwardRef,
   useEffect,
@@ -78,6 +87,10 @@ const cleanEndpoint = (endpoint: GptImageEndpoint): GptImageEndpoint => {
       cleaned.balanceApiPath?.trim() || DEFAULT_BALANCE_API_PATH
     cleaned.balanceResultJsonKey =
       cleaned.balanceResultJsonKey?.trim() || DEFAULT_BALANCE_RESULT_JSON_KEY
+  }
+
+  if (cleaned.type !== 'yunwu') {
+    delete cleaned.groupRatio
   }
 
   return cleaned
@@ -656,6 +669,25 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 使用官方余额接口；Venice 同时读取 USD 与 DIEM；其他端点可在“自定义”中配置余额路径。
               </div>
             </Form.Item>
+            {activeEndpoint.type === 'yunwu' && (
+              <Form.Item label="估算分组倍率">
+                <InputNumber
+                  className="w-full"
+                  min={0}
+                  step={0.01}
+                  value={activeEndpoint.groupRatio}
+                  onChange={(groupRatio) =>
+                    updateActiveEndpoint({
+                      groupRatio: groupRatio ?? undefined,
+                    })
+                  }
+                  placeholder="留空按 1 倍估算"
+                />
+                <div className="mt-1 text-xs text-slate-500">
+                  填写这把 Key 在 New API 中使用的分组倍率。仅在未取得实际消费日志时参与估算；实际扣费仍以日志为准。
+                </div>
+              </Form.Item>
+            )}
             {activeEndpoint.type === 'custom' && (
               <div className="rounded-md border border-white/10 bg-white/[0.03] p-3">
                 <div className="flex items-center justify-between gap-3">

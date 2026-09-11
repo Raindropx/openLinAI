@@ -6,7 +6,12 @@ import { taskManager } from '../../common/task-manager'
 import { TaskTemplate } from '../../common/template-manager'
 import { fetchWithTimeout } from '../utils/fetch'
 import { logger } from '../utils/logger'
-import { getVeniceModel, VeniceModelConstraints } from '../venice/models'
+import {
+  getVeniceModel,
+  VeniceModelConstraints,
+  VeniceModelPricing,
+} from '../venice/models'
+import { createEstimatedImageBilling } from './billing'
 import { GptImageQuality, GptImageSize } from './enum'
 import { persistImageBuffers, readImageAsDataUrl } from './image-files'
 import { buildPromptWithAspectRatio } from './index'
@@ -154,6 +159,42 @@ function validatePrompt(prompt: string, constraints?: VeniceModelConstraints) {
   if (limit && prompt.length > limit) {
     throw new Error(`提示词长度 ${prompt.length} 超过 Venice 模型上限 ${limit}`)
   }
+}
+
+export function estimateVeniceImageCost(options: {
+  pricing: VeniceModelPricing | undefined
+  parameters: Record<string, unknown>
+  hasReferences: boolean
+  referenceCount: number
+  completedRequests: number
+}) {
+  const { pricing, parameters } = options
+  if (!pricing || options.completedRequests < 1) return null
+  const resolution =
+    typeof parameters.resolution === 'string'
+      ? parameters.resolution.toUpperCase()
+      : undefined
+  const quality =
+    typeof parameters.quality === 'string'
+      ? parameters.quality.toLowerCase()
+      : undefined
+  const unitPrice =
+    (resolution && quality
+      ? pricing.quality?.[resolution]?.[quality]?.usd
+      : undefined) ??
+    (resolution ? pricing.resolutions?.[resolution]?.usd : undefined) ??
+    (options.hasReferences ? pricing.inpaint?.usd : pricing.generation?.usd)
+  if (typeof unitPrice !== 'number' || !Number.isFinite(unitPrice)) return null
+
+  const includedImages = Math.max(0, pricing.inputImages?.included || 0)
+  const additionalImagePrice = pricing.inputImages?.additional?.usd || 0
+  const extraImages = options.hasReferences
+    ? Math.max(0, options.referenceCount - includedImages)
+    : 0
+  return (
+    (unitPrice + extraImages * additionalImagePrice) *
+    options.completedRequests
+  )
 }
 
 async function readTemplateImages(template: TaskTemplate) {
@@ -394,10 +435,31 @@ export async function handleVeniceImageGeneration(options: {
     const outputUrls = filenames.map(
       (filename) => `${GENERATED_IMAGES_API_PATH}/${filename}`,
     )
+    const completedRequests = requestedCount - failures.length
+    const estimatedCost = estimateVeniceImageCost({
+      pricing: catalogModel.model_spec?.pricing,
+      parameters,
+      hasReferences,
+      referenceCount: referenceImages.length,
+      completedRequests,
+    })
     await taskManager.updateTask(task.id, {
       status: 'completed',
       duration: Date.now() - startedAt,
       outputUrls,
+      imageBilling:
+        estimatedCost === null
+          ? {
+              status: 'unavailable',
+              currency: 'USD',
+              requestIds: [],
+              source: 'model-pricing',
+            }
+          : createEstimatedImageBilling({
+              currency: 'USD',
+              cost: estimatedCost,
+              note: `生成时读取的 Venice 模型目录价格，按 ${completedRequests} 次成功请求计算`,
+            }),
     })
     logger.info(`Venice image task finished: ${activeModel}`)
     return {

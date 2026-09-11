@@ -37,6 +37,7 @@ const configApi = new Hono()
               balanceEnabled: z.boolean().optional(),
               balanceApiPath: z.string().optional(),
               balanceResultJsonKey: z.string().optional(),
+              groupRatio: z.number().finite().nonnegative().optional(),
               engine: z
                 .enum([
                   'openai-images',

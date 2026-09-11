@@ -5,6 +5,8 @@ import os from 'node:os'
 import path from 'node:path'
 
 async function main() {
+  const imageBase64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='
   const dataDir = await fs.mkdtemp(
     path.join(os.tmpdir(), 'linai-billing-test-'),
   )
@@ -22,11 +24,60 @@ async function main() {
         JSON.stringify({
           data: [
             {
-              b64_json:
-                'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+              b64_json: imageBase64,
             },
           ],
           usage: { input_tokens: 1701, output_tokens: 460, total_tokens: 2161 },
+        }),
+      )
+    } else if (req.url === '/v1/images/models') {
+      res.end(
+        JSON.stringify({
+          data: [
+            {
+              id: 'google/test-image',
+              supported_parameters: {
+                n: { type: 'range', min: 1, max: 1 },
+              },
+            },
+          ],
+        }),
+      )
+    } else if (req.url === '/v1/models') {
+      res.end(
+        JSON.stringify({
+          data: [
+            {
+              id: 'tongyi-mai/z-image-turbo',
+              aliases: ['zimage'],
+              pricing: {
+                currency: 'pollen',
+                completionImageTokens: '0.004',
+              },
+            },
+          ],
+        }),
+      )
+    } else if (req.url === '/v1/images') {
+      res.end(
+        JSON.stringify({
+          data: [{ b64_json: imageBase64 }],
+          usage: { prompt_tokens: 10, completion_tokens: 20, cost: 0.004 },
+        }),
+      )
+    } else if (req.url === '/v1/chat/completions') {
+      res.end(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                images: [
+                  `data:image/png;base64,${imageBase64}`,
+                ],
+              },
+            },
+          ],
+          usage: { prompt_tokens: 30, completion_tokens: 40, cost: 0.006 },
         }),
       )
     } else if (req.url === '/api/log/token') {
@@ -52,6 +103,14 @@ async function main() {
     // Import only after isolating data, so tests never load real configuration/tasks.
     const { handleImageGeneration } =
       await import('../src/server/module/gpt-image')
+    const { handleOpenRouterImageGeneration } =
+      await import('../src/server/module/gpt-image/openrouter-image')
+    const { handleChatImageGeneration } =
+      await import('../src/server/module/gpt-image/chat-image')
+    const { estimatePollinationsImageBilling } =
+      await import('../src/server/module/gpt-image/pollinations-billing')
+    const { estimateVeniceImageCost } =
+      await import('../src/server/module/gpt-image/venice-image')
     const { taskManager } = await import('../src/server/common/task-manager')
     const template = {
       id: 'test',
@@ -80,6 +139,7 @@ async function main() {
         model: 'gpt-image-2',
         template,
         queryBilling: true,
+        billingGroupRatio: 0.58824,
         writeMetadata: false,
       })
       assert.equal(result.status, 200)
@@ -100,8 +160,63 @@ async function main() {
         await new Promise((resolve) => setTimeout(resolve, 50))
       }
     }
+
+    template.images = []
+    template.n = 2
+    const openRouterResult = await handleOpenRouterImageGeneration({
+      apiKey: 'test',
+      baseURL: `http://127.0.0.1:${port}/v1`,
+      model: 'google/test-image',
+      template,
+      writeMetadata: false,
+    })
+    assert.equal(openRouterResult.status, 200)
+    let tasks = await taskManager.getTasks()
+    let latestTask = tasks[tasks.length - 1]
+    assert.equal(latestTask.imageBilling?.cost, 0.008)
+    assert.equal(latestTask.imageBilling?.source, 'provider-response')
+    assert.equal(latestTask.gptTokenUsage.total_tokens, 60)
+
+    const chatResult = await handleChatImageGeneration({
+      apiKey: 'test',
+      baseURL: `http://127.0.0.1:${port}/v1`,
+      model: 'google/test-image',
+      template,
+      writeMetadata: false,
+    })
+    assert.equal(chatResult.status, 200)
+    tasks = await taskManager.getTasks()
+    latestTask = tasks[tasks.length - 1]
+    assert.equal(latestTask.imageBilling?.cost, 0.012)
+    assert.equal(latestTask.imageBilling?.source, 'provider-response')
+    assert.equal(latestTask.gptTokenUsage.total_tokens, 140)
+
+    const pollinationsBill = await estimatePollinationsImageBilling({
+      baseURL: `http://127.0.0.1:${port}/v1`,
+      model: 'zimage',
+      usage: undefined,
+      imageCount: 3,
+    })
+    assert.equal(pollinationsBill?.currency, 'POLLEN')
+    assert.equal(pollinationsBill?.cost, 0.012)
+    assert.equal(pollinationsBill?.status, 'estimated')
+
+    assert.equal(
+      estimateVeniceImageCost({
+        pricing: {
+          resolutions: { '2K': { usd: 0.52 } },
+          quality: { '2K': { medium: { usd: 0.14 } } },
+          inputImages: { included: 1, additional: { usd: 0.01 } },
+        },
+        parameters: { resolution: '2K', quality: 'medium' },
+        hasReferences: true,
+        referenceCount: 3,
+        completedRequests: 2,
+      }),
+      0.32,
+    )
     console.log(
-      'Image billing integration passed: SDK generate/edit headers -> saved task -> exact bill, using only a local mock provider.',
+      'Image billing integration passed: OpenAI logs plus OpenRouter Images/chat response costs, using only a local mock provider.',
     )
   } finally {
     server.closeAllConnections()

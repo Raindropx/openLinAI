@@ -303,6 +303,11 @@ export async function handleNovelAIImageGeneration(options: {
       status: 'completed',
       duration: Date.now() - startedAt,
       outputUrls,
+      imageBilling: {
+        status: 'unavailable',
+        currency: 'ANLAS',
+        requestIds: [],
+      },
     })
     logger.info(`NovelAI image task finished: ${model}`)
     return {

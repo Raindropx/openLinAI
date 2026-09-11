@@ -9,11 +9,27 @@ export function formatImageUsdLabel(cost: number): string {
   return '$' + cost.toFixed(3)
 }
 
+type ImageCurrency = 'USD' | 'CNY' | 'POLLEN' | 'ANLAS'
+
+export function formatImageCost(
+  cost: number,
+  currency: ImageCurrency,
+  compact = false,
+): string {
+  const amount = compact
+    ? cost.toFixed(3)
+    : cost.toFixed(6).replace(/0+$/, '').replace(/\.$/, '.00')
+  if (currency === 'USD') return `$${amount}`
+  if (currency === 'CNY') return `￥${amount}`
+  return `${amount} ${currency === 'POLLEN' ? 'Pollen' : 'Anlas'}`
+}
+
 // Unmultiplied reference rates only. Unknown/per-image models have no token estimate.
 export function estimateImageCost(
   model: string,
   inputTokens: number,
   outputTokens: number,
+  groupRatio = 1,
 ) {
   const rates: Record<string, [number, number]> = {
     'gpt-image-1': [5, 40],
@@ -28,12 +44,14 @@ export function estimateImageCost(
     !rate ||
     !Number.isFinite(inputTokens) ||
     !Number.isFinite(outputTokens) ||
+    !Number.isFinite(groupRatio) ||
     inputTokens < 0 ||
-    outputTokens < 0
+    outputTokens < 0 ||
+    groupRatio < 0
   )
     return null
   return {
-    input: (inputTokens * rate[0]) / 1_000_000,
-    output: (outputTokens * rate[1]) / 1_000_000,
+    input: (inputTokens * rate[0] * groupRatio) / 1_000_000,
+    output: (outputTokens * rate[1] * groupRatio) / 1_000_000,
   }
 }

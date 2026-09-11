@@ -17,6 +17,22 @@ export interface VeniceModelConstraints {
   widthHeightDivisor?: number
 }
 
+export interface VenicePrice {
+  usd?: number
+  diem?: number
+}
+
+export interface VeniceModelPricing {
+  generation?: VenicePrice
+  inpaint?: VenicePrice
+  resolutions?: Record<string, VenicePrice>
+  quality?: Record<string, Record<string, VenicePrice>>
+  inputImages?: {
+    included?: number
+    additional?: VenicePrice
+  }
+}
+
 export interface VeniceModel {
   id: string
   type: string
@@ -24,6 +40,7 @@ export interface VeniceModel {
     name?: string
     offline?: boolean
     privacy?: string
+    pricing?: VeniceModelPricing
     capabilities?: {
       supportsVision?: boolean
     }

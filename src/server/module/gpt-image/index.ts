@@ -10,6 +10,7 @@ import { fetchImageBill, getBillingRequestId } from './billing'
 import { GptImageQuality, GptImageSize } from './enum'
 import type { GenerationMetadataInput } from './generation-metadata'
 import { persistImageBuffers } from './image-files'
+import { estimatePollinationsImageBilling } from './pollinations-billing'
 
 interface GPTImageResponse {
   created: number
@@ -361,6 +362,7 @@ export async function handleImageGeneration(options: {
   endpointName?: string
   writeMetadata?: boolean
   queryBilling?: boolean
+  billingGroupRatio?: number
 }) {
   try {
     const {
@@ -374,6 +376,7 @@ export async function handleImageGeneration(options: {
       endpointName,
       writeMetadata = true,
       queryBilling = false,
+      billingGroupRatio,
     } = options
     const serviceLabel = getServiceLabel(endpointName, baseURL)
     const activeModel = template.images.length > 0 ? editModel || model : model
@@ -488,6 +491,42 @@ export async function handleImageGeneration(options: {
 
     const duration = Date.now() - startTime
     const outputUrls = filenames.map((f) => `${GENERATED_IMAGES_API_PATH}/${f}`)
+    const estimatedGroupRatio =
+      typeof billingGroupRatio === 'number' &&
+      Number.isFinite(billingGroupRatio) &&
+      billingGroupRatio >= 0
+        ? billingGroupRatio
+        : undefined
+    const pollinationsBilling = isPollinationsBaseURL(baseURL)
+      ? await estimatePollinationsImageBilling({
+          baseURL,
+          model: activeModel,
+          usage,
+          imageCount: filenames.length,
+        })
+      : undefined
+    const isDragonApi = (() => {
+      try {
+        return new URL(baseURL).hostname === 'newapi.dragon3api.com'
+      } catch {
+        return false
+      }
+    })()
+    const compatibleBilling = isPollinationsBaseURL(baseURL)
+      ? pollinationsBilling || {
+          status: 'unavailable' as const,
+          currency: 'POLLEN' as const,
+          requestIds: [],
+          source: 'model-pricing' as const,
+        }
+      : isDragonApi
+        ? {
+            status: 'unavailable' as const,
+            currency: 'CNY' as const,
+            requestIds: [],
+            source: 'model-pricing' as const,
+          }
+        : undefined
     await taskManager.updateTask(task.id, {
       status: 'completed',
       duration,
@@ -502,13 +541,21 @@ export async function handleImageGeneration(options: {
                   : ('pending' as const),
               currency: 'USD' as const,
               requestIds,
+              estimatedGroupRatio,
             },
           }
-        : {}),
+        : compatibleBilling
+          ? { imageBilling: compatibleBilling }
+          : {}),
     })
 
     if (queryBilling && !missingRequestId && requestIds.length) {
-      void fetchImageBill({ baseURL, apiKey, requestIds })
+      void fetchImageBill({
+        baseURL,
+        apiKey,
+        requestIds,
+        estimatedGroupRatio,
+      })
         .then((imageBilling) =>
           taskManager.updateTask(task.id, { imageBilling }),
         )

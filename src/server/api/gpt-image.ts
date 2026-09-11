@@ -428,6 +428,7 @@ const gptImageApi = new Hono()
       }
       const result = await handleImageGeneration({
         queryBilling: endpoint.type === 'yunwu',
+        billingGroupRatio: endpoint.groupRatio,
         apiKey: endpoint.apiKey,
         baseURL: endpoint.baseURL,
         model: endpoint.model,
@@ -543,6 +544,7 @@ const gptImageApi = new Hono()
       }
       const result = await handleImageGeneration({
         queryBilling: endpoint.type === 'yunwu',
+        billingGroupRatio: endpoint.groupRatio,
         apiKey: endpoint.apiKey,
         baseURL: endpoint.baseURL,
         model: endpoint.model,

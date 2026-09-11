@@ -1,8 +1,12 @@
 /** A snapshot of the provider's bill, never recomputed using today's prices. */
 export interface ImageBilling {
-  status: 'pending' | 'actual' | 'unavailable'
-  currency: 'USD'
+  status: 'pending' | 'actual' | 'estimated' | 'unavailable'
+  currency: 'USD' | 'CNY' | 'POLLEN' | 'ANLAS'
   requestIds: string[]
+  source?: 'provider-log' | 'provider-response' | 'model-pricing'
+  note?: string
+  /** Configured New API group ratio used only for fallback estimation. */
+  estimatedGroupRatio?: number
   quota?: number
   cost?: number
   entries?: Array<{
@@ -11,6 +15,93 @@ export interface ImageBilling {
     groupRatio?: number
     quota: number
   }>
+}
+
+export function createEstimatedImageBilling(options: {
+  currency: ImageBilling['currency']
+  cost: number
+  note: string
+}): ImageBilling | undefined {
+  if (!Number.isFinite(options.cost) || options.cost < 0) return undefined
+  return {
+    status: 'estimated',
+    currency: options.currency,
+    requestIds: [],
+    source: 'model-pricing',
+    cost: options.cost,
+    note: options.note,
+  }
+}
+
+interface ProviderImageUsage {
+  input_tokens: number
+  output_tokens: number
+  total_tokens: number
+  cost?: number
+}
+
+function readNonNegativeNumber(value: unknown): number | undefined {
+  const number =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim()
+        ? Number(value)
+        : Number.NaN
+  return Number.isFinite(number) && number >= 0 ? number : undefined
+}
+
+/**
+ * Combine successful provider responses without inventing a zero-dollar bill.
+ * The cost is exact only when every response explicitly includes usage.cost.
+ */
+export function summarizeProviderImageUsage(
+  usages: Array<Record<string, unknown> | undefined>,
+): { usage?: ProviderImageUsage; billing?: ImageBilling } {
+  if (!usages.length) return {}
+  const records = usages.filter(
+    (usage): usage is Record<string, unknown> => usage !== undefined,
+  )
+  if (!records.length) return {}
+
+  let hasCompleteCost = records.length === usages.length
+  let totalCost = 0
+  const usage: ProviderImageUsage = {
+    input_tokens: 0,
+    output_tokens: 0,
+    total_tokens: 0,
+  }
+
+  for (const record of records) {
+    const input =
+      readNonNegativeNumber(record.input_tokens ?? record.prompt_tokens) ?? 0
+    const output =
+      readNonNegativeNumber(record.output_tokens ?? record.completion_tokens) ??
+      0
+    const total = readNonNegativeNumber(record.total_tokens) ?? input + output
+    usage.input_tokens += input
+    usage.output_tokens += output
+    usage.total_tokens += total
+
+    const cost = readNonNegativeNumber(record.cost)
+    if (cost === undefined) {
+      hasCompleteCost = false
+    } else {
+      totalCost += cost
+    }
+  }
+
+  if (!hasCompleteCost) return { usage }
+  usage.cost = totalCost
+  return {
+    usage,
+    billing: {
+      status: 'actual',
+      currency: 'USD',
+      requestIds: [],
+      source: 'provider-response',
+      cost: totalCost,
+    },
+  }
 }
 
 export function getBillingRequestId(headers: Headers): string | undefined {
@@ -87,6 +178,7 @@ export function matchImageBill(
     status: 'actual',
     currency: 'USD',
     requestIds,
+    source: 'provider-log',
     quota,
     cost: quota / 500_000,
     entries,
@@ -97,11 +189,13 @@ export async function fetchImageBill(options: {
   baseURL: string
   apiKey: string
   requestIds: string[]
+  estimatedGroupRatio?: number
 }): Promise<ImageBilling> {
   const unavailable: ImageBilling = {
     status: 'unavailable',
     currency: 'USD',
     requestIds: options.requestIds,
+    estimatedGroupRatio: options.estimatedGroupRatio,
   }
   if (!options.requestIds.length) return unavailable
   // Poll briefly for asynchronous log writes, without delaying the generated image.
