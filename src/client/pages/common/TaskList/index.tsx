@@ -197,6 +197,15 @@ export function TaskList({
     message.success('任务生成信息已填入模板编辑器')
   }
 
+  const handleRefill = (task: Task) => {
+    if (!task.rawTemplate) return
+    useGlobalStore.getState().setFillTemplateData(task.rawTemplate)
+    if (managementMode) {
+      navigate('/', { state: { mobilePanel: 'parameters' } })
+    }
+    message.success('已重新填入表单')
+  }
+
   const handleRetry = async (task: Task) => {
     await client.api.gptImage.generate.$post({
       json: {
@@ -727,17 +736,13 @@ export function TaskList({
                                   </Button>
                                 </Tooltip>
                               )}
-                              {!managementMode && task.rawTemplate && (
+                              {task.rawTemplate && (
                                 <Tooltip title="重新填入">
                                   <Button
                                     type="text"
                                     icon={<VerticalAlignTopOutlined />}
-                                    onClick={() => {
-                                      useGlobalStore
-                                        .getState()
-                                        .setFillTemplateData(task.rawTemplate)
-                                      message.success('已重新填入表单')
-                                    }}
+                                    onClick={() => handleRefill(task)}
+                                    aria-label="重新填入"
                                   />
                                 </Tooltip>
                               )}

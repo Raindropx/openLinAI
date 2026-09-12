@@ -5,6 +5,7 @@ import {
 } from '@ant-design/icons'
 import { Segmented } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import type { TaskTemplate } from '../../../../server/common/template-manager'
 import { useTasks } from '../../../hooks/useTasks'
 import { useGlobalStore } from '../../../store/global'
@@ -20,6 +21,7 @@ type ResourcePanel = 'tasks' | 'templates'
 type MobileWorkspacePanel = 'parameters' | 'canvas' | 'resources'
 
 export const Home = () => {
+  const location = useLocation()
   const templateListRef = useRef<TemplateListRef>(null)
   const setFillTemplateData = useGlobalStore(
     (state) => state.setFillTemplateData,
@@ -29,7 +31,12 @@ export const Home = () => {
   )
   const { data: tasks = [] } = useTasks()
   const [resourcePanel, setResourcePanel] = useState<ResourcePanel>('tasks')
-  const [mobilePanel, setMobilePanel] = useState<MobileWorkspacePanel>('canvas')
+  const [mobilePanel, setMobilePanel] = useState<MobileWorkspacePanel>(() =>
+    (location.state as { mobilePanel?: MobileWorkspacePanel } | null)
+      ?.mobilePanel === 'parameters'
+      ? 'parameters'
+      : 'canvas',
+  )
   const [selectedTaskId, setSelectedTaskId] = useState<string>()
 
   const imageTasks = useMemo(
