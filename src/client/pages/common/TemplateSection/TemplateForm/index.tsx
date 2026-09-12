@@ -79,7 +79,7 @@ export function TemplateForm({
   const [optimizeLoading, setOptimizeLoading] = useState(false)
   const [optimizeText, setOptimizeText] = useState('')
   const [optimizeSourcePrompt, setOptimizeSourcePrompt] = useState('')
-  const [originalPrompt, setOriginalPrompt] = useState<string>()
+  const pendingOriginalPromptRef = useRef<string | undefined>(undefined)
 
   // 触发填入模板数据
   useEffect(() => {
@@ -107,7 +107,7 @@ export function TemplateForm({
       }
       setFillTemplateData(null)
       setDirty(false)
-      setOriginalPrompt(undefined)
+      pendingOriginalPromptRef.current = undefined
 
       setTimeout(() => {
         formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -158,6 +158,9 @@ export function TemplateForm({
       form.getFieldValue('endpointId') ||
       gptImageSettings.selectedEndpointId ||
       endpoints[0]?.id
+    // 一次优化记录只绑定下一次生成，避免后续普通任务复用旧提示词。
+    const originalPrompt = pendingOriginalPromptRef.current
+    pendingOriginalPromptRef.current = undefined
 
     message.success('任务提交成功')
     // 提交即让任务列表与画布自动聚焦到最新任务，无需等待生成成功
@@ -258,7 +261,7 @@ export function TemplateForm({
 
   const handleAdoptOptimize = (text: string) => {
     form.setFieldsValue({ prompt: text })
-    setOriginalPrompt(optimizeSourcePrompt)
+    pendingOriginalPromptRef.current = optimizeSourcePrompt
     setDirty(true)
     setOptimizeOpen(false)
     message.success('已采纳优化后的提示词')
@@ -295,7 +298,7 @@ export function TemplateForm({
       if (json.success) {
         message.success(shouldUpdate ? '模板已更新' : '已另存为新模板')
         setDirty(false)
-        setOriginalPrompt(undefined)
+        pendingOriginalPromptRef.current = undefined
         if (editorMode) {
           onEditingTemplateChange?.(json.data as TaskTemplate)
         } else {
@@ -328,7 +331,7 @@ export function TemplateForm({
     })
     setImageUrls([])
     setDirty(false)
-    setOriginalPrompt(undefined)
+    pendingOriginalPromptRef.current = undefined
     onEditingTemplateChange?.(null)
     message.success('已新建空白模板草稿')
   }
