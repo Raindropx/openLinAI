@@ -172,6 +172,7 @@ export async function handleOpenRouterImageGeneration(options: {
   size?: GptImageSize
   quality?: GptImageQuality
   endpointName?: string
+  originalPrompt?: string
   writeMetadata?: boolean
 }) {
   const {
@@ -182,6 +183,7 @@ export async function handleOpenRouterImageGeneration(options: {
     size = '1k',
     quality = 'medium',
     endpointName,
+    originalPrompt,
     writeMetadata = true,
   } = options
 
@@ -191,6 +193,7 @@ export async function handleOpenRouterImageGeneration(options: {
     size,
     quality,
     endpointName,
+    originalPrompt,
   })
   await taskManager.updateTaskStatus(task.id, 'running')
   const startTime = Date.now()
@@ -307,6 +310,7 @@ export async function handleOpenRouterImageGeneration(options: {
       writeMetadata
         ? {
             prompt: buildPromptWithAspectRatio(template),
+            originalPrompt,
             model,
             engine: 'openrouter-images',
             endpointName,

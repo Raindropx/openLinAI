@@ -25,6 +25,8 @@ export interface Task {
   quality?: GptImageQuality
   /** 生成时使用的端点名快照（任务列表展示用） */
   endpointName?: string
+  /** 采纳提示词优化结果前的本地文本，不参与生图请求 */
+  originalPrompt?: string
   imageBilling?: ImageBilling
   [key: string]: any
 }
@@ -99,6 +101,7 @@ export class TaskManager extends EventEmitter {
     size?: GptImageSize
     quality?: GptImageQuality
     endpointName?: string
+    originalPrompt?: string
   }): Promise<Task> {
     const newTask: Task = {
       id: uuidv4(),
@@ -107,6 +110,9 @@ export class TaskManager extends EventEmitter {
       size: options.size,
       quality: options.quality,
       endpointName: options.endpointName,
+      ...(options.originalPrompt !== undefined
+        ? { originalPrompt: options.originalPrompt }
+        : {}),
       status: 'pending',
       createdAt: Date.now(),
     }

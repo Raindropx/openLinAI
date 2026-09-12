@@ -297,6 +297,7 @@ export async function handleVeniceImageGeneration(options: {
   size?: GptImageSize
   quality?: GptImageQuality
   endpointName?: string
+  originalPrompt?: string
   writeMetadata?: boolean
 }) {
   const {
@@ -308,6 +309,7 @@ export async function handleVeniceImageGeneration(options: {
     size = '1k',
     quality = 'medium',
     endpointName,
+    originalPrompt,
     writeMetadata = true,
   } = options
   const hasReferences = template.images.length > 0
@@ -328,6 +330,7 @@ export async function handleVeniceImageGeneration(options: {
     size,
     quality,
     endpointName,
+    originalPrompt,
   })
   if (!task) {
     return {
@@ -417,6 +420,7 @@ export async function handleVeniceImageGeneration(options: {
       writeMetadata
         ? {
             prompt,
+            originalPrompt,
             model: activeModel,
             engine: 'venice-images',
             endpointName,

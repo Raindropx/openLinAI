@@ -360,6 +360,7 @@ export async function handleImageGeneration(options: {
   size?: GptImageSize
   quality?: GptImageQuality
   endpointName?: string
+  originalPrompt?: string
   writeMetadata?: boolean
   queryBilling?: boolean
   billingGroupRatio?: number
@@ -374,6 +375,7 @@ export async function handleImageGeneration(options: {
       size = '1k',
       quality = 'medium',
       endpointName,
+      originalPrompt,
       writeMetadata = true,
       queryBilling = false,
       billingGroupRatio,
@@ -389,6 +391,7 @@ export async function handleImageGeneration(options: {
       size,
       quality,
       endpointName,
+      originalPrompt,
     })
 
     if (!task) {
@@ -447,6 +450,7 @@ export async function handleImageGeneration(options: {
             generationMetadata: writeMetadata
               ? {
                   prompt: finalPrompt,
+                  originalPrompt,
                   model: activeModel,
                   engine: 'images',
                   endpointName,

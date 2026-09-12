@@ -352,12 +352,19 @@ const gptImageApi = new Hono()
         endpointId: z.string().min(1, 'Endpoint ID is required'),
         size: z.enum(['1k', '2k', '4k']),
         quality: z.enum(['medium', 'high']),
+        originalPrompt: z.string().optional(),
         writeMetadata: z.boolean().optional().default(true),
       }),
     ),
     async (c) => {
-      const { templateId, endpointId, size, quality, writeMetadata } =
-        c.req.valid('json')
+      const {
+        templateId,
+        endpointId,
+        size,
+        quality,
+        originalPrompt,
+        writeMetadata,
+      } = c.req.valid('json')
       const endpoint = getEndpointById(endpointId)
       if (!endpoint) {
         return c.json(
@@ -382,6 +389,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          originalPrompt,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -395,6 +403,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          originalPrompt,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -409,6 +418,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          originalPrompt,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -422,6 +432,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          originalPrompt,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -437,6 +448,7 @@ const gptImageApi = new Hono()
         size,
         quality,
         endpointName: endpoint.name,
+        originalPrompt,
         writeMetadata,
       })
       return c.json(result.data, result.status as any)
@@ -455,6 +467,7 @@ const gptImageApi = new Hono()
         size: z.enum(['1k', '2k', '4k']).optional().default('1k'),
         quality: z.enum(['medium', 'high']).optional().default('medium'),
         n: z.number().min(1).max(GPT_IMAGE_OUTPUT_MAX_N).optional().default(1),
+        originalPrompt: z.string().optional(),
         writeMetadata: z.boolean().optional().default(true),
       }),
     ),
@@ -468,6 +481,7 @@ const gptImageApi = new Hono()
         size,
         quality,
         n,
+        originalPrompt,
         writeMetadata,
       } = c.req.valid('json')
       const endpoint = getEndpointById(endpointId)
@@ -498,6 +512,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          originalPrompt,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -511,6 +526,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          originalPrompt,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -525,6 +541,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          originalPrompt,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -538,6 +555,7 @@ const gptImageApi = new Hono()
           size,
           quality,
           endpointName: endpoint.name,
+          originalPrompt,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -553,6 +571,7 @@ const gptImageApi = new Hono()
         size,
         quality,
         endpointName: endpoint.name,
+        originalPrompt,
         writeMetadata,
       })
       return c.json(result.data, result.status as any)

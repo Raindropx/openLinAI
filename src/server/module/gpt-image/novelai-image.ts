@@ -204,6 +204,7 @@ export async function handleNovelAIImageGeneration(options: {
   size?: GptImageSize
   quality?: GptImageQuality
   endpointName?: string
+  originalPrompt?: string
   writeMetadata?: boolean
 }) {
   const {
@@ -214,6 +215,7 @@ export async function handleNovelAIImageGeneration(options: {
     size = '1k',
     quality = 'medium',
     endpointName,
+    originalPrompt,
     writeMetadata = true,
   } = options
   const task = await taskManager.createTaskFromTemplate({
@@ -222,6 +224,7 @@ export async function handleNovelAIImageGeneration(options: {
     size,
     quality,
     endpointName,
+    originalPrompt,
   })
   if (!task) {
     return {
@@ -281,6 +284,7 @@ export async function handleNovelAIImageGeneration(options: {
       writeMetadata
         ? {
             prompt,
+            originalPrompt,
             model,
             engine: 'novelai-images',
             endpointName,

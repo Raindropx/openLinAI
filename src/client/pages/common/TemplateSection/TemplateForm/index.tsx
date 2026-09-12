@@ -78,6 +78,8 @@ export function TemplateForm({
   const [optimizeOpen, setOptimizeOpen] = useState(false)
   const [optimizeLoading, setOptimizeLoading] = useState(false)
   const [optimizeText, setOptimizeText] = useState('')
+  const [optimizeSourcePrompt, setOptimizeSourcePrompt] = useState('')
+  const [originalPrompt, setOriginalPrompt] = useState<string>()
 
   // 触发填入模板数据
   useEffect(() => {
@@ -105,6 +107,7 @@ export function TemplateForm({
       }
       setFillTemplateData(null)
       setDirty(false)
+      setOriginalPrompt(undefined)
 
       setTimeout(() => {
         formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -170,6 +173,7 @@ export function TemplateForm({
           size,
           quality: gptImageSettings.quality,
           n,
+          originalPrompt,
           writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
         },
       })
@@ -227,6 +231,7 @@ export function TemplateForm({
     setOptimizeOpen(true)
     setOptimizeLoading(true)
     setOptimizeText('')
+    setOptimizeSourcePrompt(prompt || '')
     try {
       const content: any[] = []
       // 系统提示词
@@ -253,6 +258,7 @@ export function TemplateForm({
 
   const handleAdoptOptimize = (text: string) => {
     form.setFieldsValue({ prompt: text })
+    setOriginalPrompt(optimizeSourcePrompt)
     setDirty(true)
     setOptimizeOpen(false)
     message.success('已采纳优化后的提示词')
@@ -289,6 +295,7 @@ export function TemplateForm({
       if (json.success) {
         message.success(shouldUpdate ? '模板已更新' : '已另存为新模板')
         setDirty(false)
+        setOriginalPrompt(undefined)
         if (editorMode) {
           onEditingTemplateChange?.(json.data as TaskTemplate)
         } else {
@@ -321,6 +328,7 @@ export function TemplateForm({
     })
     setImageUrls([])
     setDirty(false)
+    setOriginalPrompt(undefined)
     onEditingTemplateChange?.(null)
     message.success('已新建空白模板草稿')
   }

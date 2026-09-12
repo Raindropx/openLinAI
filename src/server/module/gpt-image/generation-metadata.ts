@@ -14,6 +14,8 @@ export type GenerationImageFormat =
 
 export interface GenerationMetadataInput {
   prompt: string
+  /** 采纳提示词优化结果前的本地文本 */
+  originalPrompt?: string
   model: string
   engine: string
   endpointName?: string
@@ -95,6 +97,11 @@ function buildParametersText(document: GenerationMetadataDocument): string {
   ]
   if (document.endpointName?.trim()) {
     fields.push(`Endpoint: ${safeParameterValue(document.endpointName)}`)
+  }
+  if (document.originalPrompt !== undefined) {
+    fields.push(
+      `Original prompt: ${safeParameterValue(document.originalPrompt) || '(empty)'}`,
+    )
   }
   return `${document.prompt}\n${fields.join(', ')}`
 }
@@ -391,6 +398,10 @@ function createXmp(document: GenerationMetadataDocument): Buffer {
   const xmpDocument = {
     ...document,
     prompt: limitUtf8(document.prompt, 12_000),
+    originalPrompt:
+      document.originalPrompt !== undefined
+        ? limitUtf8(document.originalPrompt, 12_000)
+        : undefined,
     model: limitUtf8(document.model, 2_000),
     endpointName: document.endpointName
       ? limitUtf8(document.endpointName, 2_000)

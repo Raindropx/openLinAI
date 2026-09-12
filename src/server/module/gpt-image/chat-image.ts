@@ -181,6 +181,7 @@ export async function handleChatImageGeneration(options: {
   size?: GptImageSize
   quality?: GptImageQuality
   endpointName?: string
+  originalPrompt?: string
   writeMetadata?: boolean
 }) {
   try {
@@ -192,6 +193,7 @@ export async function handleChatImageGeneration(options: {
       size = '1k',
       quality = 'medium',
       endpointName,
+      originalPrompt,
       writeMetadata = true,
     } = options
 
@@ -203,6 +205,7 @@ export async function handleChatImageGeneration(options: {
       size,
       quality,
       endpointName,
+      originalPrompt,
     })
 
     if (!task) {
@@ -334,6 +337,7 @@ export async function handleChatImageGeneration(options: {
         writeMetadata
           ? {
               prompt: finalPrompt,
+              originalPrompt,
               model,
               engine: 'chat-completions',
               endpointName,

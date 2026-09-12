@@ -1,4 +1,5 @@
 import {
+  BulbOutlined,
   CheckSquareOutlined,
   DeleteOutlined,
   FileAddOutlined,
@@ -183,6 +184,9 @@ export function TaskList({
   const [batchDeleting, setBatchDeleting] = useState(false)
   const [reviewImage, setReviewImage] = useState<ReviewImage | null>(null)
   const [reviewedTaskId, setReviewedTaskId] = useState<string | null>(null)
+  const [originalPromptView, setOriginalPromptView] = useState<{
+    text: string
+  } | null>(null)
   const taskCardRefs = useRef(new Map<string, HTMLDivElement>())
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const focusNewestTaskSignal = useGlobalStore(
@@ -214,6 +218,7 @@ export function TaskList({
           gptImageSettings.selectedEndpointId || endpoints[0]?.id || '',
         size: (task.size as any) || '2k',
         quality: (task.quality as any) || 'medium',
+        originalPrompt: task.originalPrompt,
         writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
       },
     })
@@ -246,6 +251,7 @@ export function TaskList({
           [
             task.rawTemplate?.title,
             task.rawTemplate?.prompt,
+            task.originalPrompt,
             task.rawTemplate?.folder,
             task.endpointName,
             task.status,
@@ -720,6 +726,21 @@ export function TaskList({
                               </Tooltip>
                             )}
                             <div className="flex items-center gap-0.5">
+                              {task.originalPrompt !== undefined && (
+                                <Tooltip title="查看优化前的提示词">
+                                  <Button
+                                    type="text"
+                                    icon={<BulbOutlined />}
+                                    onClick={() =>
+                                      setOriginalPromptView({
+                                        text: task.originalPrompt || '',
+                                      })
+                                    }
+                                    aria-label="查看优化前的提示词"
+                                    className="text-amber-300!"
+                                  />
+                                </Tooltip>
+                              )}
                               {managementMode && task.rawTemplate && (
                                 <Tooltip title="添加到模板">
                                   <Button
@@ -813,6 +834,37 @@ export function TaskList({
           </>
         )}
       </div>
+      <Modal
+        title="优化前的提示词"
+        open={originalPromptView !== null}
+        onCancel={() => setOriginalPromptView(null)}
+        width={620}
+        destroyOnHidden
+        footer={[
+          <Button
+            key="copy"
+            disabled={!originalPromptView?.text}
+            onClick={() => {
+              if (!originalPromptView?.text) return
+              copy(originalPromptView.text)
+              message.success('优化前的提示词已复制')
+            }}
+          >
+            复制
+          </Button>,
+          <Button
+            key="close"
+            type="primary"
+            onClick={() => setOriginalPromptView(null)}
+          >
+            关闭
+          </Button>,
+        ]}
+      >
+        <div className="max-h-[60vh] overflow-y-auto rounded-md border border-slate-700 bg-slate-950/40 p-3 text-sm break-words whitespace-pre-wrap text-slate-200">
+          {originalPromptView?.text || '（优化前未填写文字提示词）'}
+        </div>
+      </Modal>
     </>
   )
 
