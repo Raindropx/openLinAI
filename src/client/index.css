@@ -20,6 +20,8 @@
       transparent
     );
     --task-list-card-active-shadow: 0 0 0 1px var(--app-accent-ring);
+    --task-list-review-accent: #79c7ff;
+    --task-list-review-badge-text: #102331;
     --template-list-shell-bg: #171a20;
     --template-card-bg: #1d2128;
     --template-card-hover-bg: #242932;
@@ -99,6 +101,8 @@
     --task-list-card-media-border: #d8dee7;
     --task-list-card-active-border: var(--app-accent);
     --task-list-card-active-shadow: 0 0 0 1px var(--app-accent-ring);
+    --task-list-review-accent: #1261a6;
+    --task-list-review-badge-text: #ffffff;
     --template-list-shell-bg: #ffffff;
     --template-card-bg: #ffffff;
     --template-card-hover-bg: #f3f6fa;
@@ -547,6 +551,37 @@ html[data-theme='light'] .ant-drawer-content {
 
 .task-list-card-body:hover {
   background-color: var(--task-list-card-hover-bg);
+}
+
+/* Review focus must remain distinct even when the card is batch-selected. */
+.task-list-card-reviewing,
+.task-list-card-reviewing:hover {
+  border-color: var(--task-list-review-accent) !important;
+  box-shadow: 0 0 0 2px var(--task-list-review-accent);
+}
+
+.task-list-card-reviewing .task-list-card-body,
+.task-list-card-reviewing .task-list-card-body:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--task-list-review-accent) 10%,
+    var(--task-list-card-bg)
+  );
+  box-shadow: inset 4px 0 0 var(--task-list-review-accent);
+}
+
+.task-list-review-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 4px;
+  padding: 2px 8px;
+  background-color: var(--task-list-review-accent);
+  color: var(--task-list-review-badge-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
 }
 
 .task-list-card-media {

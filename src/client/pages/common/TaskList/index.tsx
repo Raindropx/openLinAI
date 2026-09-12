@@ -2,6 +2,7 @@ import {
   BulbOutlined,
   CheckSquareOutlined,
   DeleteOutlined,
+  EyeOutlined,
   FileAddOutlined,
   GlobalOutlined,
   RedoOutlined,
@@ -530,9 +531,8 @@ export function TaskList({
               }
             >
               {visibleTasks.map((task) => {
-                const active =
-                  task.id === selectedTaskId ||
-                  (managementMode && task.id === reviewedTaskId)
+                const active = task.id === selectedTaskId
+                const reviewing = managementMode && task.id === reviewedTaskId
                 const selected = selectedIds.includes(task.id)
                 return (
                   <Card
@@ -542,6 +542,7 @@ export function TaskList({
                       else taskCardRefs.current.delete(task.id)
                     }}
                     size="small"
+                    aria-current={reviewing ? 'true' : undefined}
                     onClick={() =>
                       selectionMode
                         ? toggleTaskSelection(task.id)
@@ -551,21 +552,31 @@ export function TaskList({
                       onSelectTask || selectionMode ? 'cursor-pointer' : ''
                     } ${
                       active || selected ? 'task-list-card-active' : 'shadow-sm'
-                    }`}
+                    } ${reviewing ? 'task-list-card-reviewing' : ''}`}
                     classNames={{
                       body: 'task-list-card-body p-[10px]! transition-colors duration-100',
                     }}
                   >
-                    {selectionMode && (
+                    {(selectionMode || reviewing) && (
                       <div
                         className="mb-2 flex items-center gap-2 text-xs text-slate-400"
                         onClick={(event) => event.stopPropagation()}
                       >
-                        <Checkbox
-                          checked={selected}
-                          onChange={() => toggleTaskSelection(task.id)}
-                        />
-                        选择任务
+                        {selectionMode && (
+                          <>
+                            <Checkbox
+                              checked={selected}
+                              onChange={() => toggleTaskSelection(task.id)}
+                            />
+                            选择任务
+                          </>
+                        )}
+                        {reviewing && (
+                          <span className="task-list-review-badge ml-auto">
+                            <EyeOutlined />
+                            当前审阅
+                          </span>
+                        )}
                       </div>
                     )}
                     <div
