@@ -2,7 +2,9 @@ import {
   DownloadOutlined,
   FileImageOutlined,
   FileTextOutlined,
+  FolderOpenOutlined,
   IdcardOutlined,
+  PictureOutlined,
   PlusOutlined,
   RobotOutlined,
   SaveOutlined,
@@ -11,6 +13,7 @@ import {
 } from '@ant-design/icons'
 import {
   Button,
+  Dropdown,
   Input,
   message,
   Modal,
@@ -20,7 +23,7 @@ import {
   Upload,
 } from 'antd'
 import { hc } from 'hono/client'
-import { useState } from 'react'
+import { type ChangeEvent, useRef, useState } from 'react'
 import type { AppType } from '../../../../server'
 import type {
   CharacterCardFormat,
@@ -104,6 +107,11 @@ export function CharacterCardPage() {
   const [mobilePanel, setMobilePanel] = useState<
     'generate' | 'editor' | 'library'
   >('editor')
+  const pngFileInputRef = useRef<HTMLInputElement>(null)
+  const pngPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  const isAndroid =
+    typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
 
   const endpointId = charCardEndpointId || llmEndpoints[0]?.id
 
@@ -310,6 +318,46 @@ export function CharacterCardPage() {
     }
     reader.readAsArrayBuffer(file)
     return false
+  }
+
+  const handlePngInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) handleImportPng(file)
+    event.target.value = ''
+  }
+
+  const openPngFilePicker = async () => {
+    const pickerWindow = window as Window & {
+      showOpenFilePicker?: (options: {
+        multiple: boolean
+        types: Array<{
+          description: string
+          accept: Record<string, string[]>
+        }>
+      }) => Promise<FileSystemFileHandle[]>
+    }
+
+    if (!pickerWindow.showOpenFilePicker) {
+      pngFileInputRef.current?.click()
+      return
+    }
+
+    try {
+      const [handle] = await pickerWindow.showOpenFilePicker({
+        multiple: false,
+        types: [
+          {
+            description: 'PNG 角色卡',
+            accept: { 'image/png': ['.png'] },
+          },
+        ],
+      })
+      if (handle) handleImportPng(await handle.getFile())
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        message.error('无法打开文件选择器')
+      }
+    }
   }
 
   const handleSubmitRawData = () => {
@@ -536,15 +584,61 @@ export function CharacterCardPage() {
                   导入 JSON
                 </Button>
               </Upload>
-              <Upload
-                accept=".png"
-                showUploadList={false}
-                beforeUpload={handleImportPng}
-              >
-                <Button icon={<FileImageOutlined />} className="w-full">
-                  导入 PNG
-                </Button>
-              </Upload>
+              {isAndroid ? (
+                <>
+                  <Dropdown
+                    trigger={['click']}
+                    menu={{
+                      items: [
+                        {
+                          key: 'file',
+                          icon: <FolderOpenOutlined />,
+                          label: '打开文件选择器',
+                        },
+                        {
+                          key: 'photo',
+                          icon: <PictureOutlined />,
+                          label: '打开照片选择器',
+                        },
+                      ],
+                      onClick: ({ key }) => {
+                        if (key === 'file') {
+                          void openPngFilePicker()
+                        } else {
+                          pngPhotoInputRef.current?.click()
+                        }
+                      },
+                    }}
+                  >
+                    <Button icon={<FileImageOutlined />} className="w-full">
+                      导入 PNG
+                    </Button>
+                  </Dropdown>
+                  <input
+                    ref={pngFileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handlePngInputChange}
+                  />
+                  <input
+                    ref={pngPhotoInputRef}
+                    type="file"
+                    accept="image/png,.png"
+                    className="hidden"
+                    onChange={handlePngInputChange}
+                  />
+                </>
+              ) : (
+                <Upload
+                  accept=".png"
+                  showUploadList={false}
+                  beforeUpload={handleImportPng}
+                >
+                  <Button icon={<FileImageOutlined />} className="w-full">
+                    导入 PNG
+                  </Button>
+                </Upload>
+              )}
             </div>
           </section>
 
