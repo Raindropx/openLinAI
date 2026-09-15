@@ -1,5 +1,5 @@
-import { saveAs } from 'file-saver'
 import dayjs from 'dayjs'
+import { saveAs } from 'file-saver'
 
 /** SillyTavern 角色卡数据（扁平结构，用于编辑） */
 export interface CharacterCard {
@@ -51,6 +51,7 @@ function crc32(data: Uint8Array): number {
 // ── PNG chunk 操作 ──────────────────────────────────────
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+const CHARACTER_CARD_PNG_KEYWORDS = ['ccv3', 'chara'] as const
 
 interface PngChunk {
   type: string
@@ -99,29 +100,32 @@ function base64ToUtf8(b64: string): string {
 }
 
 /** 从 PNG 的 tEXt chunk 中提取角色卡原始 JSON 对象 */
-export function parsePngCharacterCardRaw(
-  buffer: ArrayBuffer,
-): any | null {
+export function parsePngCharacterCardRaw(buffer: ArrayBuffer): any | null {
   const chunks = parsePngChunks(buffer)
-  for (const chunk of chunks) {
-    if (chunk.type !== 'tEXt') continue
-    const nullIndex = chunk.data.indexOf(0)
-    if (nullIndex === -1) continue
-    const keyword = new TextDecoder().decode(chunk.data.slice(0, nullIndex))
-    if (keyword !== 'chara') continue
-    const textBytes = chunk.data.slice(nullIndex + 1)
-    const base64 = new TextDecoder().decode(textBytes)
-    try {
-      const json = base64ToUtf8(base64)
-      return JSON.parse(json)
-    } catch {
-      return null
+  // CCv3 规范要求 ccv3 优先于用于 V1/V2 的 chara。
+  for (const expectedKeyword of CHARACTER_CARD_PNG_KEYWORDS) {
+    for (const chunk of chunks) {
+      if (chunk.type !== 'tEXt') continue
+      const nullIndex = chunk.data.indexOf(0)
+      if (nullIndex === -1) continue
+      const keyword = new TextDecoder()
+        .decode(chunk.data.slice(0, nullIndex))
+        .toLowerCase()
+      if (keyword !== expectedKeyword) continue
+      const textBytes = chunk.data.slice(nullIndex + 1)
+      const base64 = new TextDecoder().decode(textBytes)
+      try {
+        const json = base64ToUtf8(base64)
+        return JSON.parse(json)
+      } catch {
+        // 同类块损坏时继续尝试后续块或低版本回填数据。
+      }
     }
   }
   return null
 }
 
-/** 将角色卡数据写入 PNG（在 IEND 前插入 tEXt chunk，移除旧 chara chunk） */
+/** 将角色卡数据写入 PNG（在 IEND 前插入 tEXt chunk，移除旧角色卡 chunk） */
 export function writePngCharacterCard(
   pngBuffer: ArrayBuffer,
   card: CharacterCard,
@@ -154,14 +158,18 @@ export function writePngCharacterCard(
   fullChunk.set(chunkData, 8)
   dv.setUint32(8 + chunkData.length, crc)
 
-  // 解析原 PNG，过滤掉已有 chara tEXt chunk，在 IEND 前插入
+  // 解析原 PNG，过滤掉已有 chara/ccv3 tEXt chunk，在 IEND 前插入
   const chunks = parsePngChunks(pngBuffer)
   const filteredChunks = chunks.filter((c) => {
     if (c.type !== 'tEXt') return true
     const nullIndex = c.data.indexOf(0)
     if (nullIndex === -1) return true
-    const keyword = new TextDecoder().decode(c.data.slice(0, nullIndex))
-    return keyword !== 'chara'
+    const keyword = new TextDecoder()
+      .decode(c.data.slice(0, nullIndex))
+      .toLowerCase()
+    return !CHARACTER_CARD_PNG_KEYWORDS.includes(
+      keyword as (typeof CHARACTER_CARD_PNG_KEYWORDS)[number],
+    )
   })
 
   const iendIndex = filteredChunks.findIndex((c) => c.type === 'IEND')
@@ -184,7 +192,11 @@ export function writePngCharacterCard(
   pos += signatureSize
 
   for (const chunk of beforeIend) {
-    const chunkBytes = new Uint8Array(pngBuffer, chunk.offset, chunk.totalLength)
+    const chunkBytes = new Uint8Array(
+      pngBuffer,
+      chunk.offset,
+      chunk.totalLength,
+    )
     result.set(chunkBytes, pos)
     pos += chunk.totalLength
   }
@@ -193,7 +205,11 @@ export function writePngCharacterCard(
   pos += fullChunk.length
 
   for (const chunk of afterIend) {
-    const chunkBytes = new Uint8Array(pngBuffer, chunk.offset, chunk.totalLength)
+    const chunkBytes = new Uint8Array(
+      pngBuffer,
+      chunk.offset,
+      chunk.totalLength,
+    )
     result.set(chunkBytes, pos)
     pos += chunk.totalLength
   }
@@ -216,10 +232,18 @@ const STANDARD_FIELDS = [
   'character_version',
 ]
 
-/** 将任意 JSON 规范化为 CharacterCard（兼容 V1 扁平和 V2 spec/data 格式） */
+function isDataWrappedCharacterCard(raw: any): boolean {
+  return (
+    (raw?.spec === 'chara_card_v2' || raw?.spec === 'chara_card_v3') &&
+    raw.data &&
+    typeof raw.data === 'object'
+  )
+}
+
+/** 将任意 JSON 规范化为 CharacterCard（兼容 V1 扁平和 V2/V3 spec/data 格式） */
 export function normalizeCharacterCard(raw: any): CharacterCard {
-  // V2 格式: { spec, spec_version, data: {...} }
-  if (raw?.spec === 'chara_card_v2' && raw.data) {
+  // V2/V3 格式: { spec, spec_version, data: {...} }
+  if (isDataWrappedCharacterCard(raw)) {
     const d = raw.data
     return {
       name: d.name ?? '',
@@ -256,7 +280,7 @@ export function normalizeCharacterCard(raw: any): CharacterCard {
 /** 提取非标准字段（不在编辑面板中的字段），用于保留完整角色卡信息 */
 export function extractExtraFields(raw: any): Record<string, any> {
   if (!raw || typeof raw !== 'object') return {}
-  const source = raw.spec === 'chara_card_v2' && raw.data ? raw.data : raw
+  const source = isDataWrappedCharacterCard(raw) ? raw.data : raw
   const extra: Record<string, any> = {}
   for (const [key, value] of Object.entries(source)) {
     if (!STANDARD_FIELDS.includes(key)) {
@@ -266,7 +290,7 @@ export function extractExtraFields(raw: any): Record<string, any> {
   return extra
 }
 
-/** 转换为 SillyTavern V2 格式 */
+/** 转换为 SillyTavern V2 格式，并附带供旧版编辑器读取的 V1 字段 */
 export function toV2Format(
   card: CharacterCard,
   extraFields?: Record<string, any>,
@@ -278,10 +302,14 @@ export function toV2Format(
     scenario: card.scenario,
     first_mes: card.first_mes,
     mes_example: card.mes_example,
+    creator_notes: '',
+    system_prompt: '',
+    post_history_instructions: '',
     alternate_greetings: card.alternate_greetings ?? [],
     tags: card.tags,
     creator: card.creator ?? '',
     character_version: card.character_version ?? '',
+    extensions: {},
   }
   if (extraFields) {
     Object.assign(data, extraFields)
@@ -290,6 +318,13 @@ export function toV2Format(
     spec: 'chara_card_v2',
     spec_version: '2.0',
     data,
+    // 旧版 TavernAI 编辑器只识别顶层字段；从最终 data 同步，避免两份内容不一致。
+    name: data.name,
+    description: data.description,
+    personality: data.personality,
+    scenario: data.scenario,
+    first_mes: data.first_mes,
+    mes_example: data.mes_example,
   }
 }
 
@@ -321,9 +356,7 @@ export function extractJsonFromText(text: string): any | null {
 // ── 图片转 PNG ─────────────────────────────────────────
 
 /** 将图片 URL 转换为 PNG ArrayBuffer（非 PNG 图片通过 canvas 转换） */
-export async function imageUrlToPngBuffer(
-  url: string,
-): Promise<ArrayBuffer> {
+export async function imageUrlToPngBuffer(url: string): Promise<ArrayBuffer> {
   const response = await fetch(url)
   const blob = await response.blob()
 
