@@ -287,6 +287,7 @@ export async function handleNovelAIImageGeneration(options: {
             originalPrompt,
             model,
             engine: 'novelai-images',
+            title: template.title,
             endpointName,
             requestedSize: size,
             aspectRatio: template.aspectRatio || '1:1',

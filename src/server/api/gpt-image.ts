@@ -460,6 +460,7 @@ const gptImageApi = new Hono()
       'json',
       z.object({
         prompt: z.string().min(1, 'Prompt is required'),
+        title: z.string().optional(),
         endpointId: z.string().min(1, 'Endpoint ID is required'),
         aspectRatio: z.string().optional().default('1:1'),
         injectAspectRatio: z.boolean().optional(),
@@ -474,6 +475,7 @@ const gptImageApi = new Hono()
     async (c) => {
       const {
         prompt,
+        title,
         endpointId,
         aspectRatio,
         injectAspectRatio,
@@ -500,7 +502,7 @@ const gptImageApi = new Hono()
         injectAspectRatio,
         usageType: isChat ? 'chat-image' : 'image',
         images: images || [],
-        title: TRIAL_TEMPLATE_TITLE,
+        title: title?.trim() || TRIAL_TEMPLATE_TITLE,
         n,
       }
       if (isChat) {

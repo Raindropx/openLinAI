@@ -1,4 +1,5 @@
 import packageJson from '../../../../package.json'
+import { TRIAL_TEMPLATE_TITLE } from '../../common/template-manager/enum'
 import { logger } from '../utils/logger'
 
 type SharpFactory = typeof import('sharp')
@@ -13,6 +14,7 @@ export type GenerationImageFormat =
   | 'svg'
 
 export interface GenerationMetadataInput {
+  title?: string
   prompt: string
   /** 采纳提示词优化结果前的本地文本 */
   originalPrompt?: string
@@ -50,9 +52,8 @@ async function loadSharp(): Promise<SharpFactory | null> {
     sharpFactoryPromise = (async (): Promise<SharpFactory | null> => {
       try {
         const module = await import('sharp')
-        const defaultExport = (
-          module as unknown as { default?: SharpFactory }
-        ).default
+        const defaultExport = (module as unknown as { default?: SharpFactory })
+          .default
         return defaultExport || (module as unknown as SharpFactory)
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
@@ -116,9 +117,9 @@ function encodeUtf16Be(value: string): Buffer {
   return bytes
 }
 
-/** 创建 A1111/Piexif 常用的 EXIF UserComment，并附带基础描述与软件名。 */
+/** 创建 EXIF UserComment，并附带基础描述与软件名；调用方负责限制评论大小。 */
 function createExifTiff(
-  parameters: string,
+  comment: string,
   prompt: string,
   softwareLabel: string,
 ): Buffer {
@@ -126,7 +127,7 @@ function createExifTiff(
   const software = Buffer.from(`${softwareLabel}\0`, 'ascii')
   const userComment = Buffer.concat([
     Buffer.from('UNICODE\0', 'ascii'),
-    encodeUtf16Be(limitUtf8(parameters, 24_000)),
+    encodeUtf16Be(comment),
   ])
 
   const ifd0Offset = 8
@@ -244,14 +245,68 @@ function createPngLatin1Text(keyword: string, text: string): Buffer {
   )
 }
 
-function createCompatiblePngParameters(parameters: string): Buffer {
-  // spell.novelai.dev only parses a PNG as A1111 when it sees exactly one
-  // textual chunk. Its iTXt decoder only handles the Description keyword,
-  // while tEXt cannot represent Unicode. EXIF UserComment remains the
-  // standards-compatible A1111 fallback for Unicode prompts.
-  return isLatin1(parameters)
-    ? createPngLatin1Text('parameters', parameters)
-    : createPngInternationalText('Description', parameters)
+function createPngText(keyword: string, text: string): Buffer {
+  return isLatin1(text)
+    ? createPngLatin1Text(keyword, text)
+    : createPngInternationalText(keyword, text)
+}
+
+function buildInspectComment(
+  document: GenerationMetadataDocument,
+  maxTextBytes?: number,
+): string {
+  return JSON.stringify(
+    {
+      ...document,
+      width: document.output.width,
+      height: document.output.height,
+    },
+    (_key, value: unknown) =>
+      typeof value === 'string' && maxTextBytes !== undefined
+        ? limitUtf8(value, maxTextBytes)
+        : value,
+  )
+}
+
+function buildInspectExifComment(document: GenerationMetadataDocument): string {
+  // Inspect expects the PNG-style envelope inside JPEG/WebP UserComment.
+  // Limit fields before serializing both JSON layers, never slice JSON.
+  // 24,000 UTF-16 code units leave room for the other JPEG APP1 fields.
+  for (let textLimit = 8_000; ; textLimit = Math.floor(textLimit / 2)) {
+    const json = JSON.stringify({
+      Title: limitUtf8(document.title || TRIAL_TEMPLATE_TITLE, textLimit),
+      Description: limitUtf8(document.prompt, textLimit),
+      Software: document.software,
+      Source: limitUtf8(document.model, textLimit),
+      Comment: buildInspectComment(document, textLimit),
+    })
+    if (json.length <= 24_000) return json
+  }
+}
+
+function createInspectablePngText(
+  document: GenerationMetadataDocument,
+  parameters: string,
+): Buffer[] {
+  // NovelAI Inspect requires a JSON Comment; its simplified view reads
+  // prompt/width/height directly. Keep the actual software/model identity
+  // and omit sampling settings or signatures that the API did not supply.
+  const comment = buildInspectComment(document).replace(
+    /[\u007f-\uffff]/g,
+    (character) =>
+      `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  )
+
+  return [
+    createPngText('Title', document.title || TRIAL_TEMPLATE_TITLE),
+    createPngText('parameters', parameters),
+    createPngText('Description', document.prompt),
+    // ASCII-escaped JSON also works in spell.novelai.dev, whose iTXt
+    // decoder only recognizes Description. JSON.parse restores Unicode.
+    createPngLatin1Text('Comment', comment),
+    createPngLatin1Text('Software', document.software),
+    createPngText('Source', document.model),
+  ]
 }
 
 function readPngTextKeyword(type: string, data: Buffer): string | undefined {
@@ -275,11 +330,7 @@ interface PngMetadataArchive {
   sourceTextChunks: PngTextChunkArchiveEntry[]
 }
 
-const PNG_TEXT_CHUNK_TYPES = new Set<PngTextChunkType>([
-  'tEXt',
-  'zTXt',
-  'iTXt',
-])
+const PNG_TEXT_CHUNK_TYPES = new Set<PngTextChunkType>(['tEXt', 'zTXt', 'iTXt'])
 const OPENLINAI_PNG_ARCHIVE_CHUNK = 'liNa'
 
 function readPngMetadataArchive(data: Buffer): PngTextChunkArchiveEntry[] {
@@ -334,6 +385,7 @@ function embedPngMetadata(
   exifTiff: Buffer,
 ): Buffer {
   const replacementKeys = new Set([
+    'Title',
     'parameters',
     'Description',
     'Comment',
@@ -368,7 +420,7 @@ function embedPngMetadata(
     } else if (type === 'IEND') {
       hasIend = true
       chunks.push(
-        createCompatiblePngParameters(parameters),
+        ...createInspectablePngText(document, parameters),
         createPngMetadataArchive(document, sourceTextChunks),
       )
       if (!hasExif) chunks.push(createPngChunk('eXIf', exifTiff))
@@ -433,12 +485,143 @@ function createJpegSegment(marker: number, data: Buffer): Buffer {
   return result
 }
 
+/** 保留原 EXIF 的方向、色彩及其他标签，只替换描述、软件和 UserComment。 */
+function mergeExifTiff(source: Buffer, replacement: Buffer): Buffer {
+  const littleEndian = source.toString('ascii', 0, 2) === 'II'
+  const read16 = (offset: number) =>
+    littleEndian ? source.readUInt16LE(offset) : source.readUInt16BE(offset)
+  const read32 = (offset: number) =>
+    littleEndian ? source.readUInt32LE(offset) : source.readUInt32BE(offset)
+  const write16 = (buffer: Buffer, value: number, offset: number) =>
+    littleEndian
+      ? buffer.writeUInt16LE(value, offset)
+      : buffer.writeUInt16BE(value, offset)
+  const write32 = (buffer: Buffer, value: number, offset: number) =>
+    littleEndian
+      ? buffer.writeUInt32LE(value, offset)
+      : buffer.writeUInt32BE(value, offset)
+  if (
+    source.length < 8 ||
+    (!littleEndian && source.toString('ascii', 0, 2) !== 'MM') ||
+    read16(2) !== 42
+  )
+    throw new Error('Invalid source EXIF header')
+
+  const readIfd = (offset: number) => {
+    if (offset < 8 || offset + 2 > source.length)
+      throw new Error('Invalid EXIF IFD')
+    const count = read16(offset)
+    const end = offset + 2 + count * 12
+    if (end + 4 > source.length) throw new Error('Truncated EXIF IFD')
+    const entries = new Map<number, Buffer>()
+    for (let index = offset + 2; index < end; index += 12) {
+      entries.set(
+        read16(index),
+        Buffer.from(source.subarray(index, index + 12)),
+      )
+    }
+    return { entries, next: read32(end) }
+  }
+  const root = readIfd(read32(4))
+  const exifPointer = root.entries.get(0x8769)
+  const sourceExifOffset = exifPointer
+    ? littleEndian
+      ? exifPointer.readUInt32LE(8)
+      : exifPointer.readUInt32BE(8)
+    : 0
+  const exif = sourceExifOffset
+    ? readIfd(sourceExifOffset)
+    : { entries: new Map<number, Buffer>(), next: 0 }
+  const baseOffset = source.length + (source.length % 2)
+  const replacementRoot = replacement.readUInt32LE(4)
+  const replacementExif = replacement.readUInt32LE(replacementRoot + 34)
+  const copyReplacementEntry = (offset: number) => {
+    const entry = Buffer.from(replacement.subarray(offset, offset + 12))
+    const tag = replacement.readUInt16LE(offset)
+    const type = replacement.readUInt16LE(offset + 2)
+    const count = replacement.readUInt32LE(offset + 4)
+    write16(entry, tag, 0)
+    write16(entry, type, 2)
+    write32(entry, count, 4)
+    // Our replacement contains only ASCII/UNDEFINED byte arrays and LONG pointers.
+    if (type === 4 || count > 4) {
+      write32(entry, replacement.readUInt32LE(offset + 8) + baseOffset, 8)
+    }
+    return entry
+  }
+  root.entries.set(0x010e, copyReplacementEntry(replacementRoot + 2))
+  root.entries.set(0x0131, copyReplacementEntry(replacementRoot + 14))
+  exif.entries.set(0x9286, copyReplacementEntry(replacementExif + 2))
+  const exifOffset = baseOffset + replacement.length + (replacement.length % 2)
+  const pointer = copyReplacementEntry(replacementRoot + 26)
+  write32(pointer, exifOffset, 8)
+  root.entries.set(0x8769, pointer)
+  const writeIfd = ({
+    entries,
+    next,
+  }: {
+    entries: Map<number, Buffer>
+    next: number
+  }) => {
+    const result = Buffer.alloc(6 + entries.size * 12)
+    write16(result, entries.size, 0)
+    const sorted = [...entries].sort(([a], [b]) => a - b)
+    sorted.forEach(([, entry], index) => entry.copy(result, 2 + index * 12))
+    write32(result, next, result.length - 4)
+    return result
+  }
+  const exifIfd = writeIfd(exif)
+  const result = Buffer.concat([
+    source,
+    Buffer.alloc(source.length % 2),
+    replacement,
+    Buffer.alloc(replacement.length % 2),
+    exifIfd,
+    writeIfd(root),
+  ])
+  write32(result, exifOffset + exifIfd.length, 4)
+  return result
+}
+
 function embedJpegMetadata(
   buffer: Buffer,
   parameters: string,
   exifTiff: Buffer,
   xmp: Buffer,
 ): Buffer {
+  const sourceSegments: Buffer[] = []
+  let offset = 2
+  let sourceExif: Buffer | undefined
+  while (offset + 4 <= buffer.length) {
+    if (buffer[offset] !== 0xff) return buffer
+    const marker = buffer[offset + 1]
+    if (marker === 0xda || marker === 0xd9) break
+    const length = buffer.readUInt16BE(offset + 2)
+    const end = offset + 2 + length
+    if (length < 2 || end > buffer.length) return buffer
+    const segment = buffer.subarray(offset, end)
+    if (
+      marker === 0xe1 &&
+      buffer.toString('ascii', offset + 4, offset + 10) === 'Exif\0\0'
+    ) {
+      if (!sourceExif) {
+        sourceExif = buffer.subarray(offset + 10, end)
+      } else {
+        // The first EXIF is retained inside the merged TIFF. Archive any
+        // additional EXIF as APP15 to avoid competing UserComment fields.
+        const archived = Buffer.from(segment)
+        archived[1] = 0xef
+        sourceSegments.push(archived)
+      }
+    } else {
+      sourceSegments.push(segment)
+    }
+    offset = end
+  }
+  if (sourceExif) exifTiff = mergeExifTiff(sourceExif, exifTiff)
+  if (exifTiff.length + 6 > 0xffff - 2) {
+    throw new Error('Merged EXIF exceeds JPEG APP1 capacity')
+  }
   const exif = createJpegSegment(
     0xe1,
     Buffer.concat([Buffer.from('Exif\0\0', 'ascii'), exifTiff]),
@@ -456,7 +639,8 @@ function embedJpegMetadata(
     exif,
     xmpSegment,
     comment,
-    buffer.subarray(2),
+    ...sourceSegments,
+    buffer.subarray(offset),
   ])
 }
 
@@ -486,8 +670,7 @@ function getPngDimensions(
 }
 
 const JPEG_START_OF_FRAME_MARKERS = new Set([
-  0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce,
-  0xcf,
+  0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
 ])
 
 function getJpegDimensions(
@@ -539,10 +722,10 @@ function parseSvgLength(value: string | undefined): number | undefined {
   return Number.isFinite(number) && number > 0 ? Math.round(number) : undefined
 }
 
-function getSvgDimensions(
-  buffer: Buffer,
-): { width?: number; height?: number } {
-  const openingTag = /<svg\b[^>]*>/i.exec(buffer.subarray(0, 16_384).toString('utf8'))
+function getSvgDimensions(buffer: Buffer): { width?: number; height?: number } {
+  const openingTag = /<svg\b[^>]*>/i.exec(
+    buffer.subarray(0, 16_384).toString('utf8'),
+  )
   if (!openingTag) return {}
 
   const readAttribute = (name: string): string | undefined => {
@@ -647,14 +830,28 @@ function embedWebpMetadata(
   vp8x[0] = flags
   vp8x.writeUIntLE(canvas.width - 1, 4, 3)
   vp8x.writeUIntLE(canvas.height - 1, 7, 3)
+  const sourceExif = originalMetadataChunks.find(
+    (chunk) => chunk.type === 'EXIF',
+  )
+  if (sourceExif) {
+    const sourceTiff = sourceExif.data.subarray(
+      sourceExif.data.toString('ascii', 0, 6) === 'Exif\0\0' ? 6 : 0,
+    )
+    exifTiff = mergeExifTiff(sourceTiff, exifTiff)
+  }
   const chunks = [
     createWebpChunk('VP8X', vp8x),
     ...sourceChunks.map((chunk) => createWebpChunk(chunk.type, chunk.data)),
     createWebpChunk('EXIF', exifTiff),
     createWebpChunk('XMP ', xmp),
-    ...originalMetadataChunks.map((chunk) =>
-      createWebpChunk(chunk.type, chunk.data),
-    ),
+    ...originalMetadataChunks
+      .filter((chunk) => chunk !== sourceExif)
+      .map((chunk) =>
+        createWebpChunk(
+          chunk.type === 'EXIF' ? 'liNa' : chunk.type,
+          chunk.data,
+        ),
+      ),
   ]
   const payload = Buffer.concat([Buffer.from('WEBP', 'ascii'), ...chunks])
   const result = Buffer.alloc(8 + payload.length)
@@ -748,6 +945,7 @@ export async function embedGenerationMetadata(
               : await sharp!(buffer, { animated: true }).metadata()
   const document: GenerationMetadataDocument = {
     ...input,
+    title: input.title || TRIAL_TEMPLATE_TITLE,
     schema: 'openlinai.image-generation.v1',
     software: 'openLinAI',
     version: packageJson.version,
@@ -760,9 +958,11 @@ export async function embedGenerationMetadata(
   }
   const parameters = buildParametersText(document)
   const exifTiff = createExifTiff(
-    parameters,
+    format === 'jpeg' || format === 'webp'
+      ? buildInspectExifComment(document)
+      : limitUtf8(parameters, 24_000),
     document.prompt,
-    `${document.software} ${document.version}`,
+    document.software,
   )
   const xmp = createXmp(document)
 

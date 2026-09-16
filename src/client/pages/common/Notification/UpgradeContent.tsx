@@ -1,6 +1,11 @@
 import { MessageList } from './MessageList'
 
 const upgradeHistory = [
+  `openLinAI v1.3.3 更新内容 🐱：
+🔎 PNG、JPEG 与 WebP 生成图片的元数据支持 NovelAI Inspect，可查看标题、提示词、模型和生成参数
+📱 Android 导入 PNG 角色卡时可选择打开文件选择器或照片选择器
+🎭 支持 V3 角色卡 JSON 与 PNG 导入，优先读取 V3 数据并保留额外字段
+🧩 完善角色卡导出与旧版编辑器的兼容性，避免 PNG 中残留的旧角色卡数据影响读取`,
   `openLinAI v1.3.2 更新内容 🐱：
 📋 任务管理卡片新增「重新填入」，可快速将历史任务参数恢复到生成表单
 💡 任务会记录提示词优化前的内容，支持查看与复制，并避免后续普通任务复用旧记录

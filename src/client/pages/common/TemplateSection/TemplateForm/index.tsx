@@ -169,6 +169,7 @@ export function TemplateForm({
       const res = await client.api.gptImage.trial.$post({
         json: {
           prompt,
+          title: form.getFieldValue('title'),
           endpointId,
           aspectRatio,
           injectAspectRatio,

@@ -340,6 +340,7 @@ export async function handleChatImageGeneration(options: {
               originalPrompt,
               model,
               engine: 'chat-completions',
+              title: template.title,
               endpointName,
               requestedSize: size,
               aspectRatio: template.aspectRatio || '1:1',

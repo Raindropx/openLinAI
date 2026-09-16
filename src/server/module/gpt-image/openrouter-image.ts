@@ -313,6 +313,7 @@ export async function handleOpenRouterImageGeneration(options: {
             originalPrompt,
             model,
             engine: 'openrouter-images',
+            title: template.title,
             endpointName,
             requestedSize: size,
             aspectRatio: template.aspectRatio || '1:1',

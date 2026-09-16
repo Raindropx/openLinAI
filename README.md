@@ -57,6 +57,8 @@ openLinAI fork 自 [libudu/LinAI](https://github.com/libudu/LinAI)，保留了�
 - 大图预览与任务卡保持联动，支持键盘方向键切换、当前卡片高亮和移动端未缩放时滑动切图。
 - 支持单图下载、未下载任务打包、全部任务打包、批量删除和输入图片清理。
 - 可将提示词、模型、尺寸等生成参数写入输出图片元数据，方便归档和追溯。
+  - PNG、JPEG、WebP 支持 [NovelAI Inspect](https://novelai.net/inspect)：Title 为生成标题（默认 Trial Template），Source 为实际模型 ID，Software 为 openLinAI。
+  - JPEG/WebP 优先使用 Inspect 所需的 JSON EXIF，部分只读取 A1111 文本的工具可能不再识别；超长文本会在保持 JSON 完整的前提下截短。PNG 保留完整参数与 A1111 参数文本。
 
 ### 🏠 Local-First 与轻量部署
 

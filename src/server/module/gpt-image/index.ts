@@ -449,6 +449,7 @@ export async function handleImageGeneration(options: {
             n: requestCount,
             generationMetadata: writeMetadata
               ? {
+                  title: template.title,
                   prompt: finalPrompt,
                   originalPrompt,
                   model: activeModel,
