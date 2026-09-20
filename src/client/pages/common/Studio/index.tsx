@@ -14,7 +14,6 @@ import {
   Alert,
   Button,
   Dropdown,
-  Empty,
   Form,
   Image,
   InputNumber,
@@ -34,8 +33,16 @@ import {
   studioSourceLabel,
   type StudioItem,
 } from '../../../../shared/studio'
+import type { StudioProviderSettings } from '../../../../shared/studio-generation'
 import { useGlobalStore } from '../../../store/global'
-import { studioJson, studioRequest, uploadStudioFile } from './api'
+import {
+  getStudioProviderSettings,
+  studioJson,
+  studioRequest,
+  uploadStudioFile,
+} from './api'
+import { CivitaiStudio } from './CivitaiStudio'
+import { NovelAIStudio } from './NovelAIStudio'
 import './studio.css'
 import { PHOTOPEA_URL, usePhotopea } from './usePhotopea'
 
@@ -43,6 +50,8 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const { token } = theme.useToken()
   const navigate = useNavigate()
   const [items, setItems] = useState<StudioItem[]>([])
+  const [providerSettings, setProviderSettings] =
+    useState<StudioProviderSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [tab, setTab] = useState('photopea')
@@ -79,6 +88,11 @@ export function StudioPage({ active = true }: { active?: boolean }) {
     setItems((list) => [item, ...list.filter((entry) => entry.id !== item.id)])
     void refresh()
   }
+  const addItems = (added: StudioItem[]) => {
+    const ids = new Set(added.map((item) => item.id))
+    setItems((list) => [...added, ...list.filter((item) => !ids.has(item.id))])
+    void refresh()
+  }
   const pick = (open: boolean) => {
     openAfterImport.current = open
     fileInput.current?.click()
@@ -88,7 +102,16 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const editorRef = useRef<EditorHandle | null>(null)
 
   useEffect(() => {
-    if (active) void refresh()
+    if (active) {
+      void refresh()
+      void getStudioProviderSettings()
+        .then(setProviderSettings)
+        .catch((failure) =>
+          message.error(
+            failure instanceof Error ? failure.message : '工作室配置读取失败',
+          ),
+        )
+    }
     window.addEventListener('studio-changed', refresh)
     return () => window.removeEventListener('studio-changed', refresh)
   }, [active, refresh])
@@ -221,18 +244,39 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             </button>
           ))}
         </div>
-        {tab !== 'photopea' && (
+        {tab === 'novelai' && (
           <div
-            className="studio-placeholder"
+            className="studio-native-panel"
             role="tabpanel"
-            id={`studio-panel-${tab}`}
-            aria-labelledby={`studio-tab-${tab}`}
+            id="studio-panel-novelai"
+            aria-labelledby="studio-tab-novelai"
           >
-            <Empty
-              description={`${tab === 'novelai' ? 'NovelAI Image' : 'Civitai Image'} 尚未接入`}
-            />
-            <p>暂存台已经准备好，可以先使用 Photopea 创作和编辑图片。</p>
-            <Button onClick={() => setTab('photopea')}>打开 Photopea</Button>
+            {providerSettings ? (
+              <NovelAIStudio
+                settings={providerSettings.novelai}
+                onSettings={setProviderSettings}
+                onItems={addItems}
+              />
+            ) : (
+              <Spin />
+            )}
+          </div>
+        )}
+        {tab === 'civitai' && (
+          <div
+            className="studio-native-panel"
+            role="tabpanel"
+            id="studio-panel-civitai"
+            aria-labelledby="studio-tab-civitai"
+          >
+            {providerSettings ? (
+              <CivitaiStudio
+                settings={providerSettings.civitai}
+                onSettings={setProviderSettings}
+              />
+            ) : (
+              <Spin />
+            )}
           </div>
         )}
         <div

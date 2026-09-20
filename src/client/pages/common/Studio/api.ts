@@ -2,6 +2,11 @@ import {
   STUDIO_MAX_FILE_BYTES,
   type StudioItem,
 } from '../../../../shared/studio'
+import type {
+  CivitaiModelSearchResult,
+  NovelAIStudioGenerateRequest,
+  StudioProviderSettings,
+} from '../../../../shared/studio-generation'
 
 export async function studioRequest<T>(
   route: string,
@@ -39,3 +44,53 @@ export async function copyTaskImageToStudio(
   window.dispatchEvent(new Event('studio-changed'))
   return item
 }
+
+export const getStudioProviderSettings = () =>
+  studioRequest<StudioProviderSettings>('/providers')
+
+export const updateNovelAISettings = (data: {
+  apiKey?: string
+  clearApiKey?: boolean
+  model?: string
+}) =>
+  studioRequest<StudioProviderSettings>(
+    '/providers/novelai',
+    studioJson('PUT', data),
+  )
+
+export const updateCivitaiSettings = (data: {
+  apiKey?: string
+  clearApiKey?: boolean
+}) =>
+  studioRequest<StudioProviderSettings>(
+    '/providers/civitai',
+    studioJson('PUT', data),
+  )
+
+export const testStudioProvider = (provider: 'novelai' | 'civitai') =>
+  studioRequest<{ connected: boolean; username?: string }>(
+    `/providers/${provider}/test`,
+    { method: 'POST' },
+  )
+
+export const generateNovelAIStudioImages = (
+  data: NovelAIStudioGenerateRequest,
+) =>
+  studioRequest<{ items: StudioItem[] }>(
+    '/providers/novelai/generate',
+    studioJson('POST', data),
+  )
+
+export const searchCivitaiModels = (data: {
+  query?: string
+  type?: string
+  baseModel?: string
+  sort?: string
+  favorites?: boolean
+  cursor?: string
+  limit?: number
+}) =>
+  studioRequest<CivitaiModelSearchResult>(
+    '/providers/civitai/models',
+    studioJson('POST', data),
+  )

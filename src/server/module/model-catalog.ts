@@ -1,6 +1,7 @@
 import crypto from 'crypto'
-import { listVeniceModels, VeniceModelType } from './venice/models'
+import { NOVELAI_IMAGE_MODELS } from '../../shared/studio-generation'
 import { fetchWithTimeout } from './utils/fetch'
+import { listVeniceModels, VeniceModelType } from './venice/models'
 
 export type ModelCatalogType =
   | 'openai'
@@ -191,18 +192,6 @@ function supportsImageOperation(
   )
 }
 
-const NOVELAI_IMAGE_MODELS: ModelCatalogItem[] = [
-  { id: 'nai-diffusion-5-full', name: 'NovelAI Diffusion V5 Full' },
-  { id: 'nai-diffusion-5-curated', name: 'NovelAI Diffusion V5 Curated' },
-  { id: 'nai-diffusion-4-5-full', name: 'NovelAI Diffusion V4.5 Full' },
-  { id: 'nai-diffusion-4-5-curated', name: 'NovelAI Diffusion V4.5 Curated' },
-  { id: 'nai-diffusion-4-full', name: 'NovelAI Diffusion V4 Full' },
-  {
-    id: 'nai-diffusion-4-curated-preview',
-    name: 'NovelAI Diffusion V4 Curated',
-  },
-]
-
 function isVisionTextModel(record: CompatibleModelRecord) {
   const { model, metadata } = record
   if (isImageOutputModel(record)) return false
@@ -281,7 +270,7 @@ export async function listModelCatalog(options: {
   const veniceType = getVeniceType(catalog)
   let models: ModelCatalogItem[]
   if (catalog === 'novelai-image') {
-    models = NOVELAI_IMAGE_MODELS
+    models = [...NOVELAI_IMAGE_MODELS]
   } else if (veniceType) {
     const veniceModels = await listVeniceModels({
       type: veniceType,

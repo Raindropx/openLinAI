@@ -1,6 +1,10 @@
 import fs from 'fs-extra'
 import JSZip from 'jszip'
 import path from 'path'
+import type {
+  NovelAICharacterPrompt,
+  NovelAIStudioGenerateRequest,
+} from '../../../shared/studio-generation'
 import { INPUT_IMAGES_DIR } from '../../common/static'
 import { GENERATED_IMAGES_API_PATH } from '../../common/static/enum'
 import { resizeImageToExactDimensions } from '../../common/static/imageProcessor'
@@ -70,24 +74,46 @@ function buildNovelAIBody(options: {
   n: number
   seed: number
   image?: string
+  advanced?: Pick<
+    NovelAIStudioGenerateRequest,
+    | 'negativePrompt'
+    | 'steps'
+    | 'scale'
+    | 'cfgRescale'
+    | 'sampler'
+    | 'noiseSchedule'
+    | 'qualityToggle'
+    | 'characters'
+  >
 }) {
-  const { model, prompt, width, height, quality, n, seed, image } = options
+  const { model, prompt, width, height, quality, n, seed, image, advanced } =
+    options
+  const characters: NovelAICharacterPrompt[] = advanced?.characters || []
+  const characterPrompts = characters.map((character) => ({
+    char_caption: character.prompt,
+    centers: [],
+  }))
+  const characterNegativePrompts = characters.map((character) => ({
+    char_caption: character.negativePrompt,
+    centers: [],
+  }))
   const parameters: Record<string, unknown> = {
-    cfg_rescale: 0,
+    cfg_rescale: advanced?.cfgRescale ?? 0,
     dynamic_thresholding: false,
     legacy: false,
     legacy_v3_extend: false,
     n_samples: n,
-    negative_prompt: '',
+    negative_prompt: advanced?.negativePrompt ?? '',
     params_version: isV5(model) ? 4 : 3,
-    noise_schedule: isV4OrLater(model) ? 'karras' : 'native',
-    qualityToggle: false,
-    sampler: 'k_euler',
-    scale: 5,
+    noise_schedule:
+      advanced?.noiseSchedule || (isV4OrLater(model) ? 'karras' : 'native'),
+    qualityToggle: advanced?.qualityToggle ?? false,
+    sampler: advanced?.sampler || 'k_euler',
+    scale: advanced?.scale ?? 5,
     seed,
     sm: false,
     sm_dyn: false,
-    steps: quality === 'high' ? 28 : 23,
+    steps: advanced?.steps ?? (quality === 'high' ? 28 : 23),
     width,
     height,
   }
@@ -99,19 +125,22 @@ function buildNovelAIBody(options: {
       deliberate_euler_ancestral_bug: false,
       v4_negative_prompt: {
         legacy_uc: false,
-        caption: { base_caption: '', char_captions: [] },
+        caption: {
+          base_caption: advanced?.negativePrompt ?? '',
+          char_captions: characterNegativePrompts,
+        },
       },
       v4_prompt: {
         use_coords: false,
         use_order: true,
-        caption: { base_caption: prompt, char_captions: [] },
+        caption: { base_caption: prompt, char_captions: characterPrompts },
       },
     })
   }
 
   if (isV5(model)) {
     Object.assign(parameters, {
-      tag_hint_qt: 1,
+      tag_hint_qt: advanced ? (advanced.qualityToggle ? 1 : 0) : 1,
       tag_hint_uc_preset: 2,
       straight_alpha: true,
       image_format: 'png',
@@ -206,6 +235,7 @@ export async function handleNovelAIImageGeneration(options: {
   endpointName?: string
   originalPrompt?: string
   writeMetadata?: boolean
+  advanced?: Omit<NovelAIStudioGenerateRequest, 'title' | 'prompt' | 'model'>
 }) {
   const {
     apiKey,
@@ -217,6 +247,7 @@ export async function handleNovelAIImageGeneration(options: {
     endpointName,
     originalPrompt,
     writeMetadata = true,
+    advanced,
   } = options
   const task = await taskManager.createTaskFromTemplate({
     template,
@@ -237,10 +268,9 @@ export async function handleNovelAIImageGeneration(options: {
   const startedAt = Date.now()
   try {
     const prompt = buildPromptWithAspectRatio(template)
-    const { width, height } = calculateNovelAISize(
-      template.aspectRatio || '1:1',
-      size,
-    )
+    const { width, height } = advanced
+      ? { width: advanced.width, height: advanced.height }
+      : calculateNovelAISize(template.aspectRatio || '1:1', size)
     const image = await getReferenceImage(template, width, height)
     const response = await fetchWithTimeout(
       `${baseURL.replace(/\/+$/, '')}/ai/generate-image`,
@@ -258,9 +288,13 @@ export async function handleNovelAIImageGeneration(options: {
             width,
             height,
             quality,
-            n: Math.max(1, template.n || 1),
-            seed: Math.floor(Math.random() * 0x7fffffff),
+            n: advanced?.n ?? Math.max(1, template.n || 1),
+            seed:
+              advanced && advanced.seed >= 0
+                ? advanced.seed
+                : Math.floor(Math.random() * 0x7fffffff),
             image,
+            advanced,
           }),
         ),
       },
