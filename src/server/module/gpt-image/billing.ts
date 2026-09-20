@@ -132,6 +132,22 @@ function parseOther(value: unknown): Record<string, unknown> {
     : {}
 }
 
+function parseRequestIdSecond(value: unknown): number | undefined {
+  if (typeof value !== 'string') return undefined
+  const match =
+    /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(value)
+  if (!match) return undefined
+  const [, year, month, day, hour, minute, second] = match
+  return Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second),
+  )
+}
+
 /** Never match on timestamp/token counts: concurrent requests can be identical. */
 export function matchImageBill(
   payload: unknown,
@@ -159,22 +175,23 @@ export function matchImageBill(
     })
     // OpenLux's Openai-Gpt-1 route has been observed returning a response ID
     // whose random suffix differs from the ID persisted in its billing log.
-    // Both IDs still share the gateway-generated second prefix. Only use this
-    // correlation for one-request bills, with exact model and token usage, and
-    // accept it only when the candidate is unique. Concurrent ambiguous calls
-    // therefore remain unavailable instead of being charged to the wrong task.
+    // Their gateway timestamps may also drift by one second. Only use this
+    // correlation for one-request bills within a two-second ID timestamp
+    // window, with exact model and token usage, and accept it only when the
+    // candidate is unique. Concurrent ambiguous calls therefore remain
+    // unavailable instead of being charged to the wrong task.
     if (
       matches.length === 0 &&
       requestIds.length === 1 &&
       correlation &&
-      /^\d{14}/.test(requestId) &&
+      parseRequestIdSecond(requestId) !== undefined &&
       correlation.model &&
       Number.isSafeInteger(correlation.inputTokens) &&
       correlation.inputTokens >= 0 &&
       Number.isSafeInteger(correlation.outputTokens) &&
       correlation.outputTokens >= 0
     ) {
-      const requestPrefix = requestId.slice(0, 14)
+      const requestSecond = parseRequestIdSecond(requestId)!
       matches = logs.filter((log) => {
         if (
           !log ||
@@ -186,8 +203,13 @@ export function matchImageBill(
           return false
         const other = parseOther(log.other)
         return [log.request_id, log.upstream_request_id, other.request_id].some(
-          (value) =>
-            typeof value === 'string' && value.startsWith(requestPrefix),
+          (value) => {
+            const logSecond = parseRequestIdSecond(value)
+            return (
+              logSecond !== undefined &&
+              Math.abs(logSecond - requestSecond) <= 2_000
+            )
+          },
         )
       })
     }

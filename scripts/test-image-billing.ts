@@ -44,7 +44,7 @@ async function main() {
     quota: 9475,
     group: 'Openai-Gpt-1',
     other: JSON.stringify({
-      request_id: '20260921035935121246958adKu4N3r',
+      request_id: '20260921035934121246958adKu4N3r',
       group_ratio: 0.58824,
     }),
   }
@@ -66,11 +66,33 @@ async function main() {
       {
         success: true,
         data: [
+          {
+            ...mismatchedOpenLuxLog,
+            other: JSON.stringify({
+              request_id: '20260921035932999999999tooLate',
+            }),
+          },
+        ],
+      },
+      ['20260921035935167241442nL4l2WWb'],
+      {
+        model: 'gpt-image-2.5-flare',
+        inputTokens: 2320,
+        outputTokens: 460,
+      },
+    ),
+    null,
+  )
+  assert.equal(
+    matchImageBill(
+      {
+        success: true,
+        data: [
           mismatchedOpenLuxLog,
           {
             ...mismatchedOpenLuxLog,
             other: JSON.stringify({
-              request_id: '20260921035935999999999ambiguous',
+              request_id: '20260921035936999999999ambiguous',
             }),
           },
         ],
