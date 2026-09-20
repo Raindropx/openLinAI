@@ -152,13 +152,16 @@ function runQueuedFfmpegStdin(input: Buffer, args: string[]): Promise<Buffer> {
  * 压缩上传的参考图：等比缩放到最长边不超过 IMAGE_MAX_DIMENSION（不放大）。
  * sharp 输出 webp；ffmpeg 输出 jpeg（精简版无 libwebp）。
  */
-export async function compressUploadImage(buffer: Buffer): Promise<Buffer> {
+export async function compressUploadImage(
+  buffer: Buffer,
+  maxDimension = IMAGE_MAX_DIMENSION,
+): Promise<Buffer> {
   if (getBackend() === 'ffmpeg') {
-    return compressUploadWithFfmpeg(buffer)
+    return compressUploadWithFfmpeg(buffer, maxDimension)
   }
   const sharp = (await import('sharp')).default
   return sharp(buffer, { limitInputPixels: IMAGE_MAX_INPUT_PIXELS })
-    .resize(IMAGE_MAX_DIMENSION, IMAGE_MAX_DIMENSION, {
+    .resize(maxDimension, maxDimension, {
       fit: 'inside',
       withoutEnlargement: true,
     })
@@ -167,7 +170,7 @@ export async function compressUploadImage(buffer: Buffer): Promise<Buffer> {
 }
 
 /**
- * 将图片拉伸到指定尺寸，供要求固定宽高的上游 img2img 接口使用。
+ * 将图片等比缩放并居中裁切到指定尺寸，供要求固定宽高的上游 img2img 接口使用。
  * OpenWrt 使用 ffmpeg 输出 JPEG；桌面环境使用按需加载的 sharp 输出 PNG。
  */
 export async function resizeImageToExactDimensions(
@@ -185,7 +188,9 @@ export async function resizeImageToExactDimensions(
       '-i',
       'pipe:0',
       '-filter_complex',
-      buildJpegFilter(`scale=${width}:${height}`),
+      buildJpegFilter(
+        `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`,
+      ),
       '-map',
       '[output]',
       '-frames:v',
@@ -202,16 +207,19 @@ export async function resizeImageToExactDimensions(
 
   const sharp = (await import('sharp')).default
   return sharp(buffer, { limitInputPixels: IMAGE_MAX_INPUT_PIXELS })
-    .resize(width, height, { fit: 'fill' })
+    .resize(width, height, { fit: 'cover', position: 'centre' })
     .png()
     .toBuffer()
 }
 
-async function compressUploadWithFfmpeg(buffer: Buffer): Promise<Buffer> {
+async function compressUploadWithFfmpeg(
+  buffer: Buffer,
+  maxDimension: number,
+): Promise<Buffer> {
   // 用原图尺寸与上限的较小值作为缩放框，确保只缩小、不放大。
   const scaleFilter =
-    `scale='min(iw,${IMAGE_MAX_DIMENSION})':` +
-    `'min(ih,${IMAGE_MAX_DIMENSION})':force_original_aspect_ratio=decrease`
+    `scale='min(iw,${maxDimension})':` +
+    `'min(ih,${maxDimension})':force_original_aspect_ratio=decrease`
   return runQueuedFfmpegStdin(buffer, [
     '-hide_banner',
     '-loglevel',

@@ -167,6 +167,71 @@
   gap: 12px;
   margin-bottom: 12px;
 }
+.studio-reference-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+  border: 1px solid var(--studio-border);
+  border-radius: 8px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--studio-panel) 96%, var(--app-accent));
+}
+.studio-reference-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.studio-reference-actions > .ant-select {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.studio-reference-preview {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border-radius: 8px;
+  padding: 8px;
+  background: color-mix(in srgb, var(--studio-panel) 88%, var(--app-accent));
+}
+.studio-reference-preview img {
+  width: 80px;
+  height: 80px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: var(--task-list-card-media-bg);
+}
+.studio-reference-preview > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.studio-reference-preview strong,
+.studio-reference-preview span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.studio-reference-preview span,
+.studio-reference-empty {
+  color: var(--studio-muted);
+  font-size: 12px;
+}
+.studio-reference-empty {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--studio-border);
+  border-radius: 8px;
+}
+.studio-reference-section .studio-slider-grid .ant-form-item {
+  margin-bottom: 0;
+}
 .studio-section-heading > div {
   display: flex;
   flex-direction: column;
@@ -420,6 +485,12 @@
     flex-direction: column;
   }
   .studio-search-actions .ant-btn {
+    width: 100%;
+  }
+  .studio-reference-actions > .ant-select,
+  .studio-reference-actions > .ant-btn,
+  .studio-reference-actions > .ant-upload-wrapper,
+  .studio-reference-actions > .ant-upload-wrapper .ant-btn {
     width: 100%;
   }
   .studio-generation-form,

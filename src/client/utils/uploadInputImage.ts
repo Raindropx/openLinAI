@@ -4,9 +4,12 @@ import { imageBlobToUploadDataUrl } from './image'
 
 const client = hc<AppType>('/')
 
-export async function uploadInputImageBase64(base64: string) {
+export async function uploadInputImageBase64(
+  base64: string,
+  options?: { maxDimension?: number },
+) {
   const response = await client.api.static.images.upload.$post({
-    json: { image: base64 },
+    json: { image: base64, maxDimension: options?.maxDimension },
   })
   const data = await response.json()
 
@@ -17,12 +20,15 @@ export async function uploadInputImageBase64(base64: string) {
   return data.url as string
 }
 
-export async function uploadInputImageFromUrl(url: string) {
+export async function uploadInputImageFromUrl(
+  url: string,
+  options?: { maxDimension?: number },
+) {
   const response = await fetch(url)
   if (!response.ok) {
     throw new Error('图片下载失败')
   }
 
   const uploadDataUrl = await imageBlobToUploadDataUrl(await response.blob())
-  return uploadInputImageBase64(uploadDataUrl)
+  return uploadInputImageBase64(uploadDataUrl, options)
 }

@@ -1,7 +1,11 @@
 import {
+  DeleteOutlined,
+  FolderOpenOutlined,
   MinusCircleOutlined,
+  PictureOutlined,
   PlusOutlined,
   ThunderboltOutlined,
+  UploadOutlined,
 } from '@ant-design/icons'
 import {
   Alert,
@@ -14,11 +18,16 @@ import {
   Slider,
   Space,
   Switch,
+  Upload,
   message,
 } from 'antd'
 import { useEffect, useState } from 'react'
-import type { StudioItem } from '../../../../shared/studio'
 import {
+  studioFileUrl,
+  type StudioItem,
+} from '../../../../shared/studio'
+import {
+  calculateNovelAIImg2ImgSize,
   NOVELAI_IMAGE_MODELS,
   NOVELAI_NOISE_SCHEDULES,
   NOVELAI_SAMPLERS,
@@ -26,6 +35,12 @@ import {
   type StudioProviderSettings,
 } from '../../../../shared/studio-generation'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import { imageBlobToUploadDataUrl } from '../../../utils/image'
+import {
+  uploadInputImageBase64,
+  uploadInputImageFromUrl,
+} from '../../../utils/uploadInputImage'
+import { openGallery } from '../components/Gallery'
 import {
   generateNovelAIStudioImages,
   testStudioProvider,
@@ -48,25 +63,144 @@ const INITIAL_VALUES: NovelAIStudioGenerateRequest = {
   seed: -1,
   n: 1,
   qualityToggle: false,
+  strength: 0.7,
+  noise: 0.1,
   characters: [],
+}
+
+const NOVELAI_REFERENCE_MAX_DIMENSION = 2048
+const NOVELAI_REFERENCE_MAX_BYTES = 16 * 1024 * 1024
+const REFERENCE_ACCEPT =
+  'image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp,image/svg+xml,.svg'
+
+interface SelectedReferenceImage {
+  url: string
+  name: string
+  source: '暂存台' | '图库' | '上传文件'
+  sourceId?: string
+  sourceWidth: number
+  sourceHeight: number
+  targetWidth: number
+  targetHeight: number
+}
+
+function readImageSize(url: string) {
+  return new Promise<{ width: number; height: number }>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () =>
+      resolve({ width: image.naturalWidth, height: image.naturalHeight })
+    image.onerror = () => reject(new Error('无法读取参考图尺寸'))
+    image.src = url
+  })
 }
 
 export function NovelAIStudio({
   settings,
+  items,
   onSettings,
   onItems,
 }: {
   settings: StudioProviderSettings['novelai']
+  items: StudioItem[]
   onSettings: (settings: StudioProviderSettings) => void
   onItems: (items: StudioItem[]) => void
 }) {
   const [form] = Form.useForm<NovelAIStudioGenerateRequest>()
   const [generating, setGenerating] = useState(false)
+  const [referenceLoading, setReferenceLoading] = useState(false)
+  const [referenceImage, setReferenceImage] =
+    useState<SelectedReferenceImage | null>(null)
   const { gptImageSettings } = useLocalSetting()
 
   useEffect(() => {
     form.setFieldValue('model', settings.model)
   }, [form, settings.model])
+
+  function clearReferenceImage() {
+    setReferenceImage(null)
+    form.setFieldValue('referenceImageUrl', undefined)
+  }
+
+  async function stageReferenceImage(
+    source: Pick<SelectedReferenceImage, 'name' | 'source' | 'sourceId'>,
+    load: () => Promise<string>,
+  ) {
+    if (referenceLoading) return
+    setReferenceLoading(true)
+    try {
+      const url = await load()
+      const sourceSize = await readImageSize(url)
+      const targetSize = calculateNovelAIImg2ImgSize(
+        sourceSize.width,
+        sourceSize.height,
+      )
+      setReferenceImage({
+        ...source,
+        url,
+        sourceWidth: sourceSize.width,
+        sourceHeight: sourceSize.height,
+        targetWidth: targetSize.width,
+        targetHeight: targetSize.height,
+      })
+      form.setFieldsValue({
+        referenceImageUrl: url,
+        width: targetSize.width,
+        height: targetSize.height,
+      })
+      message.success(
+        `已按参考图比例设为 ${targetSize.width}×${targetSize.height}`,
+      )
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : '参考图处理失败',
+      )
+    } finally {
+      setReferenceLoading(false)
+    }
+  }
+
+  function selectStudioReference(itemId: string) {
+    const item = items.find((entry) => entry.id === itemId)
+    if (!item || item.format === 'psd') return
+    void stageReferenceImage(
+      { name: item.name, source: '暂存台', sourceId: item.id },
+      () =>
+        uploadInputImageFromUrl(studioFileUrl(item.id), {
+          maxDimension: NOVELAI_REFERENCE_MAX_DIMENSION,
+        }),
+    )
+  }
+
+  function selectGalleryReference() {
+    openGallery({
+      maxCount: 1,
+      onSelect: (images) => {
+        const image = images[0]
+        if (!image) return
+        const name =
+          image.url.split('/').pop()?.split(/[?#]/, 1)[0] || '图库图片'
+        void stageReferenceImage({ name, source: '图库' }, () =>
+          uploadInputImageFromUrl(image.url, {
+            maxDimension: NOVELAI_REFERENCE_MAX_DIMENSION,
+          }),
+        )
+      },
+    })
+  }
+
+  async function uploadReferenceFile(file: File) {
+    if (file.size > NOVELAI_REFERENCE_MAX_BYTES) {
+      message.error('参考图不能超过 16 MiB')
+      return false
+    }
+    await stageReferenceImage({ name: file.name, source: '上传文件' }, async () => {
+      const image = await imageBlobToUploadDataUrl(file)
+      return uploadInputImageBase64(image, {
+        maxDimension: NOVELAI_REFERENCE_MAX_DIMENSION,
+      })
+    })
+    return false
+  }
 
   async function generate() {
     if (!settings.configured) {
@@ -110,8 +244,8 @@ export function NovelAIStudio({
       <Alert
         showIcon
         type="info"
-        title="首阶段已接入原生文生图、UC 与角色提示词"
-        description="角色精密参考、Vibe Transfer、图生图与局部重绘会在后续阶段接入暂存台素材。"
+        title="已接入原生文生图、图生图、UC 与角色提示词"
+        description="图生图支持暂存台、图库和本地文件。SVG 及其他非直接格式会先渲染为单帧位图，再按目标尺寸送入 NovelAI。"
       />
       <Form
         form={form}
@@ -156,6 +290,99 @@ export function NovelAIStudio({
             placeholder="不希望出现在画面中的内容"
           />
         </Form.Item>
+        <div className="studio-reference-section">
+          <div className="studio-section-heading">
+            <div>
+              <strong>图生图参考图</strong>
+              <small>
+                仅使用一张；自动读取比例并匹配最接近的 64 倍数生成尺寸
+              </small>
+            </div>
+          </div>
+          <div className="studio-reference-actions">
+            <Select
+              showSearch
+              allowClear
+              optionFilterProp="label"
+              placeholder="从暂存台选择"
+              loading={referenceLoading}
+              disabled={referenceLoading || generating}
+              value={
+                referenceImage?.source === '暂存台'
+                  ? referenceImage.sourceId
+                  : undefined
+              }
+              options={items.map((item) => ({
+                label: `${item.name} · ${item.format.toUpperCase()}`,
+                value: item.id,
+                disabled: item.format === 'psd',
+              }))}
+              onChange={(itemId) => {
+                if (itemId) selectStudioReference(itemId)
+                else clearReferenceImage()
+              }}
+            />
+            <Button
+              icon={<FolderOpenOutlined />}
+              loading={referenceLoading}
+              disabled={referenceLoading || generating}
+              onClick={selectGalleryReference}
+            >
+              图库
+            </Button>
+            <Upload
+              accept={REFERENCE_ACCEPT}
+              maxCount={1}
+              showUploadList={false}
+              beforeUpload={uploadReferenceFile}
+            >
+              <Button
+                icon={<UploadOutlined />}
+                loading={referenceLoading}
+                disabled={referenceLoading || generating}
+              >
+                上传文件
+              </Button>
+            </Upload>
+          </div>
+          <Form.Item name="referenceImageUrl" hidden>
+            <Input />
+          </Form.Item>
+          {referenceImage ? (
+            <div className="studio-reference-preview">
+              <img src={referenceImage.url} alt={referenceImage.name} />
+              <div>
+                <strong>{referenceImage.name}</strong>
+                <span>来源：{referenceImage.source}</span>
+                <span>
+                  参考图 {referenceImage.sourceWidth}×
+                  {referenceImage.sourceHeight} · 自动生成尺寸{' '}
+                  {referenceImage.targetWidth}×{referenceImage.targetHeight}
+                </span>
+              </div>
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                aria-label="移除参考图"
+                onClick={clearReferenceImage}
+              />
+            </div>
+          ) : (
+            <div className="studio-reference-empty">
+              <PictureOutlined />
+              <span>未选择参考图，将使用文生图模式</span>
+            </div>
+          )}
+          <div className="studio-slider-grid">
+            <Form.Item label="图像变化强度" name="strength">
+              <Slider min={0} max={1} step={0.01} disabled={!referenceImage} />
+            </Form.Item>
+            <Form.Item label="额外噪声" name="noise">
+              <Slider min={0} max={1} step={0.01} disabled={!referenceImage} />
+            </Form.Item>
+          </div>
+        </div>
         <Form.List name="characters">
           {(fields, { add, remove }) => (
             <div className="studio-character-list">

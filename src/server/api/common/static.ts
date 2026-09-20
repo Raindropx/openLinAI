@@ -26,12 +26,18 @@ const staticApi = new Hono()
           413,
         ),
     }),
-    zValidator('json', z.object({ image: z.string() })),
+    zValidator(
+      'json',
+      z.object({
+        image: z.string(),
+        maxDimension: z.number().int().min(64).max(2048).optional(),
+      }),
+    ),
     async (c) => {
-      const { image } = c.req.valid('json')
+      const { image, maxDimension } = c.req.valid('json')
 
       try {
-        const result = await uploadInputImage(image)
+        const result = await uploadInputImage(image, { maxDimension })
 
         return c.json({
           success: true,

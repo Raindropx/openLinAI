@@ -10,6 +10,7 @@ import {
   generateThumbnailFile,
   getImageOutputExtension,
   getImageOutputMimeType,
+  IMAGE_MAX_DIMENSION,
 } from './imageProcessor'
 import { GENERATED_IMAGES_API_PATH, INPUT_IMAGES_API_PATH } from './enum'
 
@@ -110,7 +111,10 @@ async function ensureThumbnail(
   return await fs.readFile(thumbPath)
 }
 
-export async function uploadInputImage(image: string) {
+export async function uploadInputImage(
+  image: string,
+  options?: { maxDimension?: number },
+) {
   if (!image.startsWith('data:image')) {
     throw new Error('Invalid image format')
   }
@@ -124,7 +128,10 @@ export async function uploadInputImage(image: string) {
   if (buffer.length > IMAGE_UPLOAD_MAX_BYTES) {
     throw new ImageUploadTooLargeError()
   }
-  const outputBuffer = await compressUploadImage(buffer)
+  const outputBuffer = await compressUploadImage(
+    buffer,
+    options?.maxDimension ?? IMAGE_MAX_DIMENSION,
+  )
 
   const hash = crypto.createHash('md5').update(outputBuffer).digest('hex')
   const filename = `${hash}${getImageOutputExtension()}`

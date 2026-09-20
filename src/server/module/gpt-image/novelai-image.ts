@@ -83,6 +83,8 @@ function buildNovelAIBody(options: {
     | 'sampler'
     | 'noiseSchedule'
     | 'qualityToggle'
+    | 'strength'
+    | 'noise'
     | 'characters'
   >
 }) {
@@ -155,8 +157,8 @@ function buildNovelAIBody(options: {
   if (image) {
     Object.assign(parameters, {
       image,
-      strength: 0.7,
-      noise: 0.1,
+      strength: advanced?.strength ?? 0.7,
+      noise: advanced?.noise ?? 0.1,
       extra_noise_seed: seed,
     })
   }
@@ -221,8 +223,15 @@ async function getReferenceImage(
     throw new Error(`Template image not found on Input Dir: ${imagePath}`)
   }
   const source = await fs.readFile(imagePath)
-  const resized = await resizeImageToExactDimensions(source, width, height)
-  return resized.toString('base64')
+  try {
+    const resized = await resizeImageToExactDimensions(source, width, height)
+    return resized.toString('base64')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(
+      `NovelAI 参考图无法转换为 ${width}×${height} 位图：${message}`,
+    )
+  }
 }
 
 export async function handleNovelAIImageGeneration(options: {

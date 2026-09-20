@@ -14,6 +14,7 @@ import {
 import { studioManager, studioMimeType } from '../common/studio-manager'
 import { studioProviderSettings } from '../common/studio-provider-settings'
 import { taskManager } from '../common/task-manager'
+import { INPUT_IMAGES_API_PATH } from '../common/static/enum'
 import { handleNovelAIImageGeneration } from '../module/gpt-image/novelai-image'
 import { fetchWithTimeout } from '../module/utils/fetch'
 
@@ -30,6 +31,15 @@ const dimensionSchema = z
   .min(64)
   .max(2048)
   .refine((value) => value % 64 === 0, '尺寸必须是 64 的倍数')
+const inputImageUrlSchema = z
+  .string()
+  .max(1000)
+  .refine((value) => {
+    const prefix = `${INPUT_IMAGES_API_PATH}/`
+    if (!value.startsWith(prefix) || /[?#]/.test(value)) return false
+    const filename = value.slice(prefix.length)
+    return Boolean(filename) && filename === filename.split('/').pop()
+  }, '参考图必须是已上传的本地图片')
 const novelaiGenerateSchema = z.object({
   title: z.string().trim().max(120).optional(),
   prompt: z.string().trim().min(1, '提示词不能为空').max(20000),
@@ -50,6 +60,9 @@ const novelaiGenerateSchema = z.object({
   seed: z.number().int().min(-1).max(0x7fffffff),
   n: z.number().int().min(1).max(4),
   qualityToggle: z.boolean(),
+  referenceImageUrl: inputImageUrlSchema.optional(),
+  strength: z.number().min(0).max(1).default(0.7),
+  noise: z.number().min(0).max(1).default(0.1),
   saveToTaskList: z.boolean().default(false),
   characters: z
     .array(
@@ -198,7 +211,7 @@ const studioApi = new Hono()
           id: uuidv4(),
           title: input.title || 'NovelAI Studio',
           prompt: input.prompt,
-          images: [],
+          images: input.referenceImageUrl ? [input.referenceImageUrl] : [],
           usageType: 'image',
           aspectRatio: `${input.width}:${input.height}`,
           n: input.n,

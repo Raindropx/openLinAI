@@ -29,6 +29,65 @@ export const NOVELAI_NOISE_SCHEDULES = [
   'native',
 ] as const
 
+const NOVELAI_SIZE_STEP = 64
+const NOVELAI_NORMAL_PIXELS = 1024 * 1024
+const NOVELAI_MIN_DIMENSION = 256
+
+/**
+ * 为 img2img 选择接近参考图比例的 NovelAI 常规尺寸。
+ * 候选边长使用 64 的倍数，总像素不超过 1024²，并遵守横竖图的最长边上限。
+ */
+export function calculateNovelAIImg2ImgSize(
+  sourceWidth: number,
+  sourceHeight: number,
+) {
+  if (
+    !Number.isFinite(sourceWidth) ||
+    !Number.isFinite(sourceHeight) ||
+    sourceWidth <= 0 ||
+    sourceHeight <= 0
+  ) {
+    throw new Error('参考图尺寸无效')
+  }
+
+  const sourceRatio = sourceWidth / sourceHeight
+  const landscape = sourceRatio >= 1
+  const maxWidth = landscape ? 2048 : 1536
+  const maxHeight = landscape ? 1536 : 2048
+  let best:
+    | { width: number; height: number; score: number; pixels: number }
+    | undefined
+
+  for (
+    let width = NOVELAI_MIN_DIMENSION;
+    width <= maxWidth;
+    width += NOVELAI_SIZE_STEP
+  ) {
+    for (
+      let height = NOVELAI_MIN_DIMENSION;
+      height <= maxHeight;
+      height += NOVELAI_SIZE_STEP
+    ) {
+      const pixels = width * height
+      if (pixels > NOVELAI_NORMAL_PIXELS) continue
+      const aspectError = Math.abs(Math.log(width / height / sourceRatio))
+      const unusedArea = 1 - pixels / NOVELAI_NORMAL_PIXELS
+      // 比例误差是首要因素，面积只用于在接近比例中挑选更高清的桶。
+      const score = aspectError * 4 + unusedArea * 0.25
+      if (
+        !best ||
+        score < best.score - 1e-9 ||
+        (Math.abs(score - best.score) <= 1e-9 && pixels > best.pixels)
+      ) {
+        best = { width, height, score, pixels }
+      }
+    }
+  }
+
+  if (!best) throw new Error('无法为参考图匹配 NovelAI 尺寸')
+  return { width: best.width, height: best.height }
+}
+
 export interface StudioProviderStatus {
   configured: boolean
   keyHint?: string
@@ -59,6 +118,9 @@ export interface NovelAIStudioGenerateRequest {
   seed: number
   n: number
   qualityToggle: boolean
+  referenceImageUrl?: string
+  strength: number
+  noise: number
   characters: NovelAICharacterPrompt[]
   saveToTaskList?: boolean
 }

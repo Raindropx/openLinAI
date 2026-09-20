@@ -254,6 +254,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             {providerSettings ? (
               <NovelAIStudio
                 settings={providerSettings.novelai}
+                items={items}
                 onSettings={setProviderSettings}
                 onItems={addItems}
               />

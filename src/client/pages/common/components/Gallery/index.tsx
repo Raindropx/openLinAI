@@ -20,6 +20,7 @@ interface GalleryModalProps {
   visible: boolean
   onClose: () => void
   onSelect: (images: GalleryImageSelection[]) => void
+  maxCount?: number
 }
 
 type ImageItem = {
@@ -46,7 +47,12 @@ const isManagedGalleryUrl = (url: string) => {
   )
 }
 
-function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
+function GalleryModal({
+  visible,
+  onClose,
+  onSelect,
+  maxCount,
+}: GalleryModalProps) {
   const [activeKey, setActiveKey] = useState('recent')
   const [images, setImages] = useState<ImageItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -216,9 +222,12 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
   }
 
   const handleSelect = (url: string) => {
-    setSelectedUrls((prev) =>
-      prev.includes(url) ? prev.filter((item) => item !== url) : [...prev, url],
-    )
+    setSelectedUrls((prev) => {
+      if (prev.includes(url)) return prev.filter((item) => item !== url)
+      if (maxCount === 1) return [url]
+      if (maxCount && prev.length >= maxCount) return prev
+      return [...prev, url]
+    })
   }
 
   const handleConfirm = () => {
@@ -383,6 +392,7 @@ function GalleryModal({ visible, onClose, onSelect }: GalleryModalProps) {
 
 export function openGallery(options: {
   onSelect: (images: GalleryImageSelection[]) => void
+  maxCount?: number
 }) {
   const container = document.createElement('div')
   document.body.appendChild(container)
@@ -395,6 +405,7 @@ export function openGallery(options: {
           visible={false}
           onClose={destroy}
           onSelect={options.onSelect}
+          maxCount={options.maxCount}
         />
       </AppThemeProvider>,
     )
@@ -414,6 +425,7 @@ export function openGallery(options: {
         visible={true}
         onClose={handleClose}
         onSelect={options.onSelect}
+        maxCount={options.maxCount}
       />
     </AppThemeProvider>,
   )
