@@ -555,18 +555,19 @@ export async function handleImageGeneration(options: {
     })
 
     if (queryBilling && !missingRequestId && requestIds.length) {
-      void fetchImageBill({
-        baseURL,
-        apiKey,
-        requestIds,
-        estimatedGroupRatio,
-        model: activeModel,
-        usage,
-      })
-        .then((imageBilling) =>
-          taskManager.updateTask(task.id, { imageBilling }),
-        )
-        .catch(() => logger.warn('Unable to save image billing result'))
+      try {
+        const imageBilling = await fetchImageBill({
+          baseURL,
+          apiKey,
+          requestIds,
+          estimatedGroupRatio,
+          model: activeModel,
+          usage,
+        })
+        await taskManager.updateTask(task.id, { imageBilling })
+      } catch {
+        logger.warn('Unable to save image billing result')
+      }
     }
 
     logger.info(`GPT image task finished`)
