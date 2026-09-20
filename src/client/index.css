@@ -644,6 +644,7 @@ html[data-theme='light'] .ant-drawer-content {
 }
 
 .canvas-task-meta-button {
+  border-left-color: var(--canvas-task-meta-divider) !important;
   border-right-color: var(--canvas-task-meta-divider) !important;
   color: var(--canvas-task-meta-button-text) !important;
 }
