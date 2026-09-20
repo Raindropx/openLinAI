@@ -2,7 +2,6 @@ import { ClockCircleOutlined } from '@ant-design/icons'
 import { Tag, Tooltip } from 'antd'
 import type { Task } from '../../../../../server/common/task-manager'
 import { studioSourceLabel } from '../../../../../shared/studio'
-import { usePlatform } from '../../../../hooks/usePlatform'
 import {
   estimateImageCost,
   formatImageCost,
@@ -15,16 +14,21 @@ interface TaskItemTagsProps {
   downloadedIds: string[]
   compact?: boolean
   showEndpoint?: boolean
+  showMetrics?: boolean
+  showDuration?: boolean
 }
 
-export function TaskItemTags({
+export function TaskItemMetrics({
   task,
-  downloadedIds,
-  compact = false,
-  showEndpoint = true,
-}: TaskItemTagsProps) {
-  const { isDesktop } = usePlatform()
-
+  className = '',
+  showCost = true,
+  showDuration = true,
+}: {
+  task: Task
+  className?: string
+  showCost?: boolean
+  showDuration?: boolean
+}) {
   const renderCost = (record: Task) => {
     const bill = record.imageBilling
     if (
@@ -140,9 +144,43 @@ export function TaskItemTags({
     return bill?.status === 'pending' ? <Tag>费用查询中</Tag> : null
   }
 
+  const cost = showCost ? renderCost(task) : null
+  const hasDuration =
+    showDuration &&
+    typeof task.duration === 'number' &&
+    Number.isFinite(task.duration) &&
+    task.duration > 0
+
+  if (!cost && !hasDuration) return null
+
   return (
     <div
-      className={`${compact ? 'mb-1' : 'mb-2'} flex flex-wrap gap-1 [&_.ant-tag]:m-0!`}
+      className={`flex flex-wrap items-center gap-1 [&_.ant-tag]:m-0! ${className}`}
+    >
+      {cost}
+      {hasDuration && (
+        <Tooltip title="生成耗时">
+          <Tag color="lime">
+            <ClockCircleOutlined className="mr-1" />
+            {(task.duration! / 1000).toFixed(1)}s
+          </Tag>
+        </Tooltip>
+      )}
+    </div>
+  )
+}
+
+export function TaskItemTags({
+  task,
+  downloadedIds,
+  compact = false,
+  showEndpoint = true,
+  showMetrics = true,
+  showDuration = false,
+}: TaskItemTagsProps) {
+  return (
+    <div
+      className={`${compact ? 'mb-1' : 'mb-2'} flex min-w-0 flex-1 flex-wrap gap-1 [&_.ant-tag]:m-0!`}
     >
       {task.studioProvenance && (
         <Tag
@@ -174,12 +212,12 @@ export function TaskItemTags({
       ) : (
         <Tag color="geekblue">未下载</Tag>
       )}
-      {isDesktop && renderCost(task)}
-      {isDesktop && task.duration && (
-        <Tag color="lime">
-          <ClockCircleOutlined className="mr-1" />
-          {(task.duration / 1000).toFixed(1)}s
-        </Tag>
+      {(showMetrics || showDuration) && (
+        <TaskItemMetrics
+          task={task}
+          className="contents!"
+          showCost={showMetrics}
+        />
       )}
       {showEndpoint && !task.studioProvenance && (
         <Tooltip title={task.endpointName || '未记录端点'}>

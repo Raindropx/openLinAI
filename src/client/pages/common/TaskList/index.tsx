@@ -32,6 +32,7 @@ import type { AppType } from '../../../../server'
 import type { Task } from '../../../../server/common/task-manager'
 import { TRIAL_TEMPLATE_TITLE } from '../../../../server/common/template-manager/enum'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import { usePlatform } from '../../../hooks/usePlatform'
 import { useTasks } from '../../../hooks/useTasks'
 import { ImageGroup } from '../../../pages/common/components/ImageGroup'
 import { useGlobalStore } from '../../../store/global'
@@ -44,7 +45,7 @@ import {
 import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
 import { TaskItemDeleteButton } from './components/TaskItemDeleteButton'
 import { TaskItemDownloadButton } from './components/TaskItemDownloadButton'
-import { TaskItemTags } from './components/TaskItemTags'
+import { TaskItemMetrics, TaskItemTags } from './components/TaskItemTags'
 import {
   TaskReviewPreview,
   type ReviewImage,
@@ -163,6 +164,7 @@ export function TaskList({
 }: TaskListProps) {
   const panelMode = variant === 'panel'
   const managementMode = variant === 'management'
+  const { isMobile } = usePlatform()
   const navigate = useNavigate()
   const { data: tasks = [], loading } = useTasks()
   const { gptImageSettings } = useLocalSetting()
@@ -555,7 +557,7 @@ export function TaskList({
                       active || selected ? 'task-list-card-active' : 'shadow-sm'
                     } ${reviewing ? 'task-list-card-reviewing' : ''}`}
                     classNames={{
-                      body: 'task-list-card-body p-[10px]! transition-colors duration-100',
+                      body: 'task-list-card-body p-2! transition-colors duration-100 md:p-[10px]!',
                     }}
                   >
                     {(selectionMode || reviewing) && (
@@ -583,10 +585,10 @@ export function TaskList({
                     <div
                       className={
                         panelMode
-                          ? 'flex gap-3'
+                          ? 'task-list-card-layout flex gap-3'
                           : managementMode
-                            ? 'flex gap-2 sm:gap-4'
-                            : 'flex gap-4'
+                            ? 'task-list-card-layout flex gap-2 sm:gap-4'
+                            : 'task-list-card-layout flex gap-4'
                       }
                     >
                       <div
@@ -671,32 +673,54 @@ export function TaskList({
                         )}
                       </div>
 
-                      <div className="flex min-w-0 grow flex-col justify-between overflow-hidden">
-                        <div>
-                          <TaskItemTags
-                            task={task}
-                            downloadedIds={downloadedIds || []}
-                            compact={panelMode || managementMode}
-                            showEndpoint={!panelMode}
-                          />
-                          <div className="flex min-w-0 items-center gap-2">
-                            {task.rawTemplate?.title && (
-                              <Typography.Text
-                                strong
-                                className="min-w-0 flex-1 truncate"
-                                title={task.rawTemplate.title}
-                              >
-                                {task.rawTemplate.title}
-                              </Typography.Text>
+                      <div className="task-list-card-details flex min-w-0 grow flex-col justify-between overflow-hidden">
+                        <div className="task-list-card-summary">
+                          <div
+                            className={`task-list-card-tags ${isMobile ? 'flex items-start justify-between gap-2' : ''}`}
+                          >
+                            <TaskItemTags
+                              task={task}
+                              downloadedIds={downloadedIds || []}
+                              compact={panelMode || managementMode}
+                              showEndpoint={!panelMode}
+                              showMetrics={!isMobile}
+                              showDuration={isMobile && panelMode}
+                            />
+                            {isMobile && panelMode && (
+                              <TaskItemMetrics
+                                task={task}
+                                className="task-list-card-panel-metrics"
+                                showDuration={false}
+                              />
                             )}
-                            <div className="shrink-0 text-[11px] text-slate-500">
-                              {dayjs(task.createdAt).format('YY/MM/DD HH:mm')}
+                          </div>
+                          <div className="task-list-card-heading flex min-w-0 flex-col gap-1">
+                            <div className="task-list-card-title flex min-w-0 items-center gap-2">
+                              {task.rawTemplate?.title && (
+                                <Typography.Text
+                                  strong
+                                  className="min-w-0 flex-1 truncate"
+                                  title={task.rawTemplate.title}
+                                >
+                                  {task.rawTemplate.title}
+                                </Typography.Text>
+                              )}
+                              {(!isMobile || !managementMode) && (
+                                <div className="shrink-0 text-[11px] text-slate-500">
+                                  {dayjs(task.createdAt).format(
+                                    'YY/MM/DD HH:mm',
+                                  )}
+                                </div>
+                              )}
                             </div>
+                            {isMobile && !panelMode && (
+                              <TaskItemMetrics task={task} />
+                            )}
                           </div>
                           {task.rawTemplate?.prompt && (
                             <Typography.Paragraph
                               type="secondary"
-                              className="app-accent-hover mb-0! cursor-pointer text-xs transition-colors"
+                              className="task-list-card-prompt app-accent-hover mb-0! cursor-pointer text-xs transition-colors"
                               ellipsis={{
                                 rows: 2,
                                 tooltip: {
@@ -716,20 +740,25 @@ export function TaskList({
                           )}
                         </div>
 
-                        {!selectionMode && (
+                        {((isMobile && managementMode) || !selectionMode) && (
                           <div
-                            className={`flex min-w-0 items-center ${
-                              panelMode
+                            className={`task-list-card-actions flex min-w-0 items-center ${
+                              panelMode || (isMobile && managementMode)
                                 ? 'justify-between gap-2'
                                 : 'justify-end'
                             }`}
                             onClick={(event) => event.stopPropagation()}
                           >
+                            {isMobile && managementMode && (
+                              <div className="mr-auto shrink-0 text-[11px] whitespace-nowrap text-slate-500">
+                                {dayjs(task.createdAt).format('YY/MM/DD HH:mm')}
+                              </div>
+                            )}
                             {panelMode && (
                               <Tooltip
                                 title={task.endpointName || '未记录端点'}
                               >
-                                <div className="flex min-w-0 items-center gap-1 text-[11px] text-violet-300/80">
+                                <div className="task-list-card-endpoint flex min-w-0 items-center gap-1 text-[11px] text-violet-300/80">
                                   <GlobalOutlined className="shrink-0" />
                                   <span className="truncate">
                                     {task.endpointName || '未知端点'}
@@ -737,95 +766,99 @@ export function TaskList({
                                 </div>
                               </Tooltip>
                             )}
-                            <div className="flex items-center gap-0.5">
-                              {task.outputUrls.length > 0 && (
-                                <CopyToStudioButton
-                                  taskId={task.id}
-                                  count={task.outputUrls.length}
-                                />
-                              )}
-                              {task.originalPrompt !== undefined && (
-                                <Tooltip title="查看优化前的提示词">
-                                  <Button
-                                    type="text"
-                                    icon={<BulbOutlined />}
-                                    onClick={() =>
-                                      setOriginalPromptView({
-                                        text: task.originalPrompt || '',
-                                      })
-                                    }
-                                    aria-label="查看优化前的提示词"
-                                    className="text-amber-300!"
+                            {!selectionMode && (
+                              <div className="task-list-card-buttons flex items-center gap-0.5">
+                                {task.outputUrls.length > 0 && (
+                                  <CopyToStudioButton
+                                    taskId={task.id}
+                                    count={task.outputUrls.length}
                                   />
-                                </Tooltip>
-                              )}
-                              {managementMode &&
-                                task.rawTemplate &&
-                                (!task.studioProvenance ||
-                                  task.studioProvenance.template) && (
-                                  <Tooltip title="添加到模板">
-                                    <Button
-                                      type="primary"
-                                      size="small"
-                                      icon={<FileAddOutlined />}
-                                      onClick={() => handleAddToTemplate(task)}
-                                      aria-label="添加到模板"
-                                      className="px-2! sm:px-3!"
-                                    >
-                                      <span className="hidden sm:inline">
-                                        添加到模板
-                                      </span>
-                                    </Button>
-                                  </Tooltip>
                                 )}
-                              {task.rawTemplate &&
-                                (!task.studioProvenance ||
-                                  task.studioProvenance.template) && (
-                                  <Tooltip title="重新填入">
+                                {task.originalPrompt !== undefined && (
+                                  <Tooltip title="查看优化前的提示词">
                                     <Button
                                       type="text"
-                                      icon={<VerticalAlignTopOutlined />}
-                                      onClick={() => handleRefill(task)}
-                                      aria-label="重新填入"
+                                      icon={<BulbOutlined />}
+                                      onClick={() =>
+                                        setOriginalPromptView({
+                                          text: task.originalPrompt || '',
+                                        })
+                                      }
+                                      aria-label="查看优化前的提示词"
+                                      className="text-amber-300!"
                                     />
                                   </Tooltip>
                                 )}
-                              {task.outputUrls.length > 0 && (
-                                <TaskItemDownloadButton
-                                  outputUrls={task.outputUrls}
-                                  fileName={
-                                    task.rawTemplate?.title ||
-                                    task.rawTemplate?.prompt ||
-                                    `task_${task.id}`
-                                  }
-                                  endpointName={task.endpointName}
-                                  createdAt={task.createdAt}
-                                  onDownloaded={() => {
-                                    if (!downloadedIds?.includes(task.id)) {
-                                      setDownloadedIds([
-                                        ...(downloadedIds || []),
-                                        task.id,
-                                      ])
+                                {managementMode &&
+                                  task.rawTemplate &&
+                                  (!task.studioProvenance ||
+                                    task.studioProvenance.template) && (
+                                    <Tooltip title="添加到模板">
+                                      <Button
+                                        type="primary"
+                                        size="small"
+                                        icon={<FileAddOutlined />}
+                                        onClick={() =>
+                                          handleAddToTemplate(task)
+                                        }
+                                        aria-label="添加到模板"
+                                        className="px-2! sm:px-3!"
+                                      >
+                                        <span className="hidden sm:inline">
+                                          添加到模板
+                                        </span>
+                                      </Button>
+                                    </Tooltip>
+                                  )}
+                                {task.rawTemplate &&
+                                  (!task.studioProvenance ||
+                                    task.studioProvenance.template) && (
+                                    <Tooltip title="重新填入">
+                                      <Button
+                                        type="text"
+                                        icon={<VerticalAlignTopOutlined />}
+                                        onClick={() => handleRefill(task)}
+                                        aria-label="重新填入"
+                                      />
+                                    </Tooltip>
+                                  )}
+                                {task.outputUrls.length > 0 && (
+                                  <TaskItemDownloadButton
+                                    outputUrls={task.outputUrls}
+                                    fileName={
+                                      task.rawTemplate?.title ||
+                                      task.rawTemplate?.prompt ||
+                                      `task_${task.id}`
                                     }
-                                  }}
-                                />
-                              )}
-                              {!task.studioProvenance &&
-                                task.rawTemplate?.title !==
-                                  TRIAL_TEMPLATE_TITLE && (
-                                  <Tooltip title="重试">
-                                    <Button
-                                      type="text"
-                                      icon={<RedoOutlined />}
-                                      onClick={() => handleRetry(task)}
-                                    />
-                                  </Tooltip>
+                                    endpointName={task.endpointName}
+                                    createdAt={task.createdAt}
+                                    onDownloaded={() => {
+                                      if (!downloadedIds?.includes(task.id)) {
+                                        setDownloadedIds([
+                                          ...(downloadedIds || []),
+                                          task.id,
+                                        ])
+                                      }
+                                    }}
+                                  />
                                 )}
-                              <TaskItemDeleteButton
-                                id={task.id}
-                                status={task.status}
-                              />
-                            </div>
+                                {!task.studioProvenance &&
+                                  task.rawTemplate?.title !==
+                                    TRIAL_TEMPLATE_TITLE && (
+                                    <Tooltip title="重试">
+                                      <Button
+                                        type="text"
+                                        icon={<RedoOutlined />}
+                                        onClick={() => handleRetry(task)}
+                                      />
+                                    </Tooltip>
+                                  )}
+                                <TaskItemDeleteButton
+                                  id={task.id}
+                                  status={task.status}
+                                />
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

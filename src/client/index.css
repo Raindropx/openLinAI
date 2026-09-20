@@ -589,6 +589,102 @@ html[data-theme='light'] .ant-drawer-content {
   background-color: var(--task-list-card-media-bg);
 }
 
+.task-list-card-panel-metrics {
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 50%;
+}
+
+.task-list-card-panel-metrics .ant-tag {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Match usePlatform: desktop cards retain their original layout, even in narrow panels. */
+@media (width < 768px) {
+  .task-list-card .ant-tag {
+    padding-inline: 4px;
+    font-size: 11px;
+    line-height: 18px;
+  }
+
+  .task-list-card .ant-tag .anticon {
+    margin-right: 2px;
+  }
+
+  .task-list-card-layout {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-areas:
+      'tags tags'
+      'media heading'
+      'media prompt'
+      'actions actions';
+    grid-template-rows: auto auto 1fr auto;
+    gap: 8px 12px;
+  }
+
+  .task-list-card-details,
+  .task-list-card-summary {
+    display: contents;
+  }
+
+  .task-list-card-tags {
+    grid-area: tags;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .task-list-card-tags > div {
+    margin-bottom: 0;
+    gap: 2px;
+  }
+
+  .task-list-card-media {
+    grid-area: media;
+    align-self: start;
+    width: 76px;
+    height: 100px;
+  }
+
+  .task-list-card-heading {
+    grid-area: heading;
+  }
+
+  .task-list-card-title {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  .task-list-card-prompt {
+    grid-area: prompt;
+    min-width: 0;
+    align-self: start;
+  }
+
+  .task-list-card-actions {
+    grid-area: actions;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    padding-top: 6px;
+    border-top: 1px solid var(--task-list-card-border);
+  }
+
+  .task-list-card-endpoint {
+    flex: 1 1 96px;
+  }
+
+  .task-list-card-buttons {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
+    margin-left: auto;
+  }
+}
+
 .task-list-management-shell {
   border: 0 !important;
   background-color: transparent !important;
