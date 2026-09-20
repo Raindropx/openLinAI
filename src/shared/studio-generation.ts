@@ -60,6 +60,7 @@ export interface NovelAIStudioGenerateRequest {
   n: number
   qualityToggle: boolean
   characters: NovelAICharacterPrompt[]
+  saveToTaskList?: boolean
 }
 
 export interface CivitaiModelVersionSummary {

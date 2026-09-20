@@ -11,6 +11,7 @@ export interface GPTImageSettings {
   enableMultiple?: boolean
   keepImageWhenDeleteTask?: boolean
   showImageSizeInTaskList?: boolean
+  autoSaveStudioTasksToTaskList?: boolean
   autoSelectAspectRatioFromReference?: boolean
   writeGenerationMetadata?: boolean
   /** 工作台右侧的任务/模板列表使用无限滚动，否则使用分页。 */
@@ -43,6 +44,7 @@ export const defaultGPTImageSettings: GPTImageSettings = {
   enableMultiple: false,
   keepImageWhenDeleteTask: false,
   showImageSizeInTaskList: true,
+  autoSaveStudioTasksToTaskList: false,
   autoSelectAspectRatioFromReference: true,
   writeGenerationMetadata: true,
   workspaceListInfiniteScroll: true,

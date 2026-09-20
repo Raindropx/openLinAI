@@ -13,6 +13,7 @@ import {
 } from '../../shared/studio-generation'
 import { studioManager, studioMimeType } from '../common/studio-manager'
 import { studioProviderSettings } from '../common/studio-provider-settings'
+import { taskManager } from '../common/task-manager'
 import { handleNovelAIImageGeneration } from '../module/gpt-image/novelai-image'
 import { fetchWithTimeout } from '../module/utils/fetch'
 
@@ -49,6 +50,7 @@ const novelaiGenerateSchema = z.object({
   seed: z.number().int().min(-1).max(0x7fffffff),
   n: z.number().int().min(1).max(4),
   qualityToggle: z.boolean(),
+  saveToTaskList: z.boolean().default(false),
   characters: z
     .array(
       z.object({
@@ -204,12 +206,27 @@ const studioApi = new Hono()
         },
         advanced: input,
       })
-      if (!result.data.success) throw new Error(result.data.error)
-      const items = []
-      for (let index = 0; index < result.data.outputUrls.length; index += 1) {
-        items.push(await studioManager.fromTask(result.data.taskId, index))
+      if (!result.data.success) {
+        if (!input.saveToTaskList && result.data.taskId) {
+          await taskManager.deleteTask(result.data.taskId)
+        }
+        throw new Error(result.data.error)
       }
-      return c.json({ success: true as const, data: { items } })
+      try {
+        const items = []
+        for (
+          let index = 0;
+          index < result.data.outputUrls.length;
+          index += 1
+        ) {
+          items.push(await studioManager.fromTask(result.data.taskId, index))
+        }
+        return c.json({ success: true as const, data: { items } })
+      } finally {
+        if (!input.saveToTaskList) {
+          await taskManager.deleteTask(result.data.taskId)
+        }
+      }
     },
   )
   .post(

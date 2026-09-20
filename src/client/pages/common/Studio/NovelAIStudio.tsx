@@ -25,6 +25,7 @@ import {
   type NovelAIStudioGenerateRequest,
   type StudioProviderSettings,
 } from '../../../../shared/studio-generation'
+import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import {
   generateNovelAIStudioImages,
   testStudioProvider,
@@ -61,6 +62,7 @@ export function NovelAIStudio({
 }) {
   const [form] = Form.useForm<NovelAIStudioGenerateRequest>()
   const [generating, setGenerating] = useState(false)
+  const { gptImageSettings } = useLocalSetting()
 
   useEffect(() => {
     form.setFieldValue('model', settings.model)
@@ -74,7 +76,11 @@ export function NovelAIStudio({
     const values = await form.validateFields()
     setGenerating(true)
     try {
-      const result = await generateNovelAIStudioImages(values)
+      const result = await generateNovelAIStudioImages({
+        ...values,
+        saveToTaskList:
+          gptImageSettings.autoSaveStudioTasksToTaskList ?? false,
+      })
       onItems(result.items)
       message.success(`NovelAI 已生成 ${result.items.length} 张图片`)
     } catch (error) {

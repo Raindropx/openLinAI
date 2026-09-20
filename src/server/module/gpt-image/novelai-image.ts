@@ -359,7 +359,11 @@ export async function handleNovelAIImageGeneration(options: {
     await taskManager.updateTaskStatus(task.id, 'failed', message)
     return {
       status: 500,
-      data: { success: false as const, error: `[NovelAI] ${message}` },
+      data: {
+        success: false as const,
+        error: `[NovelAI] ${message}`,
+        taskId: task.id,
+      },
     }
   }
 }
