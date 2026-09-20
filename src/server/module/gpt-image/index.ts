@@ -560,6 +560,8 @@ export async function handleImageGeneration(options: {
         apiKey,
         requestIds,
         estimatedGroupRatio,
+        model: activeModel,
+        usage,
       })
         .then((imageBilling) =>
           taskManager.updateTask(task.id, { imageBilling }),

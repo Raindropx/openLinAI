@@ -36,6 +36,66 @@ async function main() {
   assert.equal(formatImageUsdLabel(0), '$0.000')
   assert.equal(formatImageUsdLabel(0.000002), '$0.000')
   assert.equal(matchImageBill(payload, ['other-request']), null)
+  const mismatchedOpenLuxLog = {
+    type: 2,
+    model_name: 'gpt-image-2.5-flare',
+    prompt_tokens: 2320,
+    completion_tokens: 460,
+    quota: 9475,
+    group: 'Openai-Gpt-1',
+    other: JSON.stringify({
+      request_id: '20260921035935121246958adKu4N3r',
+      group_ratio: 0.58824,
+    }),
+  }
+  const mismatchedPayload = { success: true, data: [mismatchedOpenLuxLog] }
+  assert.equal(
+    matchImageBill(
+      mismatchedPayload,
+      ['20260921035935167241442nL4l2WWb'],
+      {
+        model: 'gpt-image-2.5-flare',
+        inputTokens: 2320,
+        outputTokens: 460,
+      },
+    )?.cost,
+    0.01895,
+  )
+  assert.equal(
+    matchImageBill(
+      {
+        success: true,
+        data: [
+          mismatchedOpenLuxLog,
+          {
+            ...mismatchedOpenLuxLog,
+            other: JSON.stringify({
+              request_id: '20260921035935999999999ambiguous',
+            }),
+          },
+        ],
+      },
+      ['20260921035935167241442nL4l2WWb'],
+      {
+        model: 'gpt-image-2.5-flare',
+        inputTokens: 2320,
+        outputTokens: 460,
+      },
+    ),
+    null,
+  )
+  assert.equal(
+    matchImageBill(
+      mismatchedPayload,
+      ['20260921035935167241442nL4l2WWb'],
+      {
+        model: 'gpt-image-2.5-flare',
+        inputTokens: 2321,
+        outputTokens: 460,
+      },
+    ),
+    null,
+  )
   assert.equal(matchImageBill(payload, ['req-1', 'missing']), null)
   assert.equal(matchImageBill(payload, ['req-1', 'req-1']), null)
   assert.equal(

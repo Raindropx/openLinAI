@@ -17,6 +17,12 @@ export interface ImageBilling {
   }>
 }
 
+interface ImageBillCorrelation {
+  model: string
+  inputTokens: number
+  outputTokens: number
+}
+
 export function createEstimatedImageBilling(options: {
   currency: ImageBilling['currency']
   cost: number
@@ -130,6 +136,7 @@ function parseOther(value: unknown): Record<string, unknown> {
 export function matchImageBill(
   payload: unknown,
   requestIds: string[],
+  correlation?: ImageBillCorrelation,
 ): ImageBilling | null {
   if (!requestIds.length || new Set(requestIds).size !== requestIds.length)
     return null
@@ -141,7 +148,7 @@ export function matchImageBill(
   const entries: NonNullable<ImageBilling['entries']> = []
   const usedLogs = new Set<unknown>()
   for (const requestId of requestIds) {
-    const matches = logs.filter((log) => {
+    let matches = logs.filter((log) => {
       if (!log || log.type !== 2) return false
       const other = parseOther(log.other)
       return [
@@ -150,6 +157,40 @@ export function matchImageBill(
         other.request_id,
       ].includes(requestId)
     })
+    // OpenLux's Openai-Gpt-1 route has been observed returning a response ID
+    // whose random suffix differs from the ID persisted in its billing log.
+    // Both IDs still share the gateway-generated second prefix. Only use this
+    // correlation for one-request bills, with exact model and token usage, and
+    // accept it only when the candidate is unique. Concurrent ambiguous calls
+    // therefore remain unavailable instead of being charged to the wrong task.
+    if (
+      matches.length === 0 &&
+      requestIds.length === 1 &&
+      correlation &&
+      /^\d{14}/.test(requestId) &&
+      correlation.model &&
+      Number.isSafeInteger(correlation.inputTokens) &&
+      correlation.inputTokens >= 0 &&
+      Number.isSafeInteger(correlation.outputTokens) &&
+      correlation.outputTokens >= 0
+    ) {
+      const requestPrefix = requestId.slice(0, 14)
+      matches = logs.filter((log) => {
+        if (
+          !log ||
+          log.type !== 2 ||
+          log.model_name !== correlation.model ||
+          log.prompt_tokens !== correlation.inputTokens ||
+          log.completion_tokens !== correlation.outputTokens
+        )
+          return false
+        const other = parseOther(log.other)
+        return [log.request_id, log.upstream_request_id, other.request_id].some(
+          (value) =>
+            typeof value === 'string' && value.startsWith(requestPrefix),
+        )
+      })
+    }
     if (matches.length !== 1) return null
     const log = matches[0]
     if (usedLogs.has(log)) return null
@@ -162,8 +203,13 @@ export function matchImageBill(
       return null
     const other = parseOther(log.other)
     const ratio = other.group_ratio
+    const matchedRequestId = [
+      log.request_id,
+      log.upstream_request_id,
+      other.request_id,
+    ].find((value): value is string => typeof value === 'string')
     entries.push({
-      requestId,
+      requestId: matchedRequestId || requestId,
       quota: log.quota,
       group: typeof log.group === 'string' ? log.group : undefined,
       groupRatio:
@@ -190,6 +236,11 @@ export async function fetchImageBill(options: {
   apiKey: string
   requestIds: string[]
   estimatedGroupRatio?: number
+  model?: string
+  usage?: {
+    input_tokens?: number
+    output_tokens?: number
+  }
 }): Promise<ImageBilling> {
   const unavailable: ImageBilling = {
     status: 'unavailable',
@@ -220,7 +271,20 @@ export async function fetchImageBill(options: {
         signal: AbortSignal.timeout(5000),
       })
       if (!response.ok) continue
-      const result = matchImageBill(await response.json(), options.requestIds)
+      const result = matchImageBill(
+        await response.json(),
+        options.requestIds,
+        url.hostname === 'api.openlux.ai' &&
+          options.model &&
+          typeof options.usage?.input_tokens === 'number' &&
+          typeof options.usage?.output_tokens === 'number'
+          ? {
+              model: options.model,
+              inputTokens: options.usage.input_tokens,
+              outputTokens: options.usage.output_tokens,
+            }
+          : undefined,
+      )
       if (result) return result
     } catch {
       // Billing is optional; an unavailable bill must not fail image generation.
