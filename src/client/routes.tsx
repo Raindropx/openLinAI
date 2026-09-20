@@ -35,4 +35,5 @@ export const appRoutes = [
     element: <TaskManagementPage />,
     key: 'tasks',
   },
+  { path: '/studio', label: '工作室', element: null, key: 'studio' },
 ]

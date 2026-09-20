@@ -41,7 +41,7 @@ import {
   sortListItems,
   type ListSortMode,
 } from '../components/ListToolbar'
-import { TaskListHeader } from './TaskListHeader'
+import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
 import { TaskItemDeleteButton } from './components/TaskItemDeleteButton'
 import { TaskItemDownloadButton } from './components/TaskItemDownloadButton'
 import { TaskItemTags } from './components/TaskItemTags'
@@ -49,6 +49,7 @@ import {
   TaskReviewPreview,
   type ReviewImage,
 } from './components/TaskReviewPreview'
+import { TaskListHeader } from './TaskListHeader'
 
 const client = hc<AppType>('/')
 
@@ -737,6 +738,12 @@ export function TaskList({
                               </Tooltip>
                             )}
                             <div className="flex items-center gap-0.5">
+                              {task.outputUrls.length > 0 && (
+                                <CopyToStudioButton
+                                  taskId={task.id}
+                                  count={task.outputUrls.length}
+                                />
+                              )}
                               {task.originalPrompt !== undefined && (
                                 <Tooltip title="查看优化前的提示词">
                                   <Button
@@ -752,32 +759,37 @@ export function TaskList({
                                   />
                                 </Tooltip>
                               )}
-                              {managementMode && task.rawTemplate && (
-                                <Tooltip title="添加到模板">
-                                  <Button
-                                    type="primary"
-                                    size="small"
-                                    icon={<FileAddOutlined />}
-                                    onClick={() => handleAddToTemplate(task)}
-                                    aria-label="添加到模板"
-                                    className="px-2! sm:px-3!"
-                                  >
-                                    <span className="hidden sm:inline">
-                                      添加到模板
-                                    </span>
-                                  </Button>
-                                </Tooltip>
-                              )}
-                              {task.rawTemplate && (
-                                <Tooltip title="重新填入">
-                                  <Button
-                                    type="text"
-                                    icon={<VerticalAlignTopOutlined />}
-                                    onClick={() => handleRefill(task)}
-                                    aria-label="重新填入"
-                                  />
-                                </Tooltip>
-                              )}
+                              {managementMode &&
+                                task.rawTemplate &&
+                                (!task.studioProvenance ||
+                                  task.studioProvenance.template) && (
+                                  <Tooltip title="添加到模板">
+                                    <Button
+                                      type="primary"
+                                      size="small"
+                                      icon={<FileAddOutlined />}
+                                      onClick={() => handleAddToTemplate(task)}
+                                      aria-label="添加到模板"
+                                      className="px-2! sm:px-3!"
+                                    >
+                                      <span className="hidden sm:inline">
+                                        添加到模板
+                                      </span>
+                                    </Button>
+                                  </Tooltip>
+                                )}
+                              {task.rawTemplate &&
+                                (!task.studioProvenance ||
+                                  task.studioProvenance.template) && (
+                                  <Tooltip title="重新填入">
+                                    <Button
+                                      type="text"
+                                      icon={<VerticalAlignTopOutlined />}
+                                      onClick={() => handleRefill(task)}
+                                      aria-label="重新填入"
+                                    />
+                                  </Tooltip>
+                                )}
                               {task.outputUrls.length > 0 && (
                                 <TaskItemDownloadButton
                                   outputUrls={task.outputUrls}
@@ -798,16 +810,17 @@ export function TaskList({
                                   }}
                                 />
                               )}
-                              {task.rawTemplate?.title !==
-                                TRIAL_TEMPLATE_TITLE && (
-                                <Tooltip title="重试">
-                                  <Button
-                                    type="text"
-                                    icon={<RedoOutlined />}
-                                    onClick={() => handleRetry(task)}
-                                  />
-                                </Tooltip>
-                              )}
+                              {!task.studioProvenance &&
+                                task.rawTemplate?.title !==
+                                  TRIAL_TEMPLATE_TITLE && (
+                                  <Tooltip title="重试">
+                                    <Button
+                                      type="text"
+                                      icon={<RedoOutlined />}
+                                      onClick={() => handleRetry(task)}
+                                    />
+                                  </Tooltip>
+                                )}
                               <TaskItemDeleteButton
                                 id={task.id}
                                 status={task.status}

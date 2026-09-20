@@ -4,6 +4,7 @@ import {
   IdcardOutlined,
   PictureOutlined,
   SettingOutlined,
+  ToolOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons'
 import { useEffect, useRef, type ReactNode } from 'react'
@@ -59,10 +60,11 @@ function hasScrolledAncestor(target: Element, root: HTMLElement) {
   return false
 }
 
-export function MobilePullBalance({ children }: { children: ReactNode }) {
+export function MobilePullBalance({ children, disabled = false }: { children: ReactNode; disabled?: boolean }) {
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (disabled) return
     const root = rootRef.current
     if (!root) return
 
@@ -169,7 +171,7 @@ export function MobilePullBalance({ children }: { children: ReactNode }) {
       root.removeEventListener('touchend', settle)
       root.removeEventListener('touchcancel', settle)
     }
-  }, [])
+  }, [disabled])
 
   return (
     <div ref={rootRef} className="mobile-pull-balance-root">
@@ -178,7 +180,7 @@ export function MobilePullBalance({ children }: { children: ReactNode }) {
           <GPTImageQuota variant="pull" />
         </div>
       </div>
-      <div className="mobile-pull-balance-content" data-mobile-pull-content>
+      <div className="mobile-pull-balance-content" data-mobile-pull-content style={disabled ? { transform: 'none', willChange: 'auto' } : undefined}>
         {children}
       </div>
     </div>
@@ -190,6 +192,7 @@ const navigationItems = [
   { to: '/character-card', label: '角色卡', icon: <IdcardOutlined /> },
   { to: '/templates', label: '模板', icon: <AppstoreOutlined /> },
   { to: '/tasks', label: '任务', icon: <UnorderedListOutlined /> },
+  { to: '/studio', label: '工作室', icon: <ToolOutlined /> },
 ]
 
 export function MobileTopBar() {

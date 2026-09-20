@@ -8,6 +8,7 @@ import {
   MenuUnfoldOutlined,
   PictureOutlined,
   SettingOutlined,
+  ToolOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons'
 import { useState, type ReactNode } from 'react'
@@ -133,6 +134,12 @@ export function Header() {
           to="/tasks"
           icon={<UnorderedListOutlined />}
           label="任务列表管理"
+          collapsed={collapsed}
+        />
+        <NavigationItem
+          to="/studio"
+          icon={<ToolOutlined />}
+          label="工作室"
           collapsed={collapsed}
         />
       </nav>

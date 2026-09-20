@@ -1,6 +1,7 @@
 import { ClockCircleOutlined } from '@ant-design/icons'
 import { Tag, Tooltip } from 'antd'
 import type { Task } from '../../../../../server/common/task-manager'
+import { studioSourceLabel } from '../../../../../shared/studio'
 import { usePlatform } from '../../../../hooks/usePlatform'
 import {
   estimateImageCost,
@@ -36,9 +37,7 @@ export function TaskItemTags({
         <Tooltip
           title={
             <div>
-              <div>
-                实际费用: {formatImageCost(bill.cost, bill.currency)}
-              </div>
+              <div>实际费用: {formatImageCost(bill.cost, bill.currency)}</div>
               {bill.quota !== undefined && (
                 <div>扣费点数: {bill.quota.toLocaleString()}</div>
               )}
@@ -74,9 +73,7 @@ export function TaskItemTags({
         <Tooltip
           title={
             <div>
-              <div>
-                预估费用: {formatImageCost(bill.cost, bill.currency)}
-              </div>
+              <div>预估费用: {formatImageCost(bill.cost, bill.currency)}</div>
               {bill.note && <div>{bill.note}</div>}
               <div>实际费用以服务商账单为准</div>
             </div>
@@ -125,8 +122,7 @@ export function TaskItemTags({
             </div>
           ) : (
             <div>
-              美元基准估算，分组倍率按 1
-              计算，未包含图片输入差价及其他计费调整
+              美元基准估算，分组倍率按 1 计算，未包含图片输入差价及其他计费调整
             </div>
           )}
           <div>实际费用以服务商账单为准</div>
@@ -148,6 +144,15 @@ export function TaskItemTags({
     <div
       className={`${compact ? 'mb-1' : 'mb-2'} flex flex-wrap gap-1 [&_.ant-tag]:m-0!`}
     >
+      {task.studioProvenance && (
+        <Tag
+          color={
+            task.studioProvenance.photopea === 'created' ? 'cyan' : 'purple'
+          }
+        >
+          {studioSourceLabel(task.studioProvenance)}
+        </Tag>
+      )}
       {task.rawTemplate?.aspectRatio && (
         <Tag color="blue">{task.rawTemplate.aspectRatio}</Tag>
       )}
@@ -176,7 +181,7 @@ export function TaskItemTags({
           {(task.duration / 1000).toFixed(1)}s
         </Tag>
       )}
-      {showEndpoint && (
+      {showEndpoint && !task.studioProvenance && (
         <Tooltip title={task.endpointName || '未记录端点'}>
           <Tag color="purple" className="max-w-full truncate">
             {task.endpointName || '未知端点'}

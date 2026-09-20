@@ -1,8 +1,6 @@
-import 'dotenv/config'
-import './polyfills'
-import './startup-migrations'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
+import 'dotenv/config'
 import { Hono } from 'hono'
 import * as path from 'path'
 import chatApi from './api/chat'
@@ -15,9 +13,12 @@ import taskApi from './api/common/task'
 import templateApi from './api/common/template'
 import gptImageApi from './api/gpt-image'
 import modelCatalogApi from './api/model-catalog'
+import studioApi from './api/studio'
 import styleAnalyzeApi from './api/style-analyze'
 import veniceApi from './api/venice'
 import yunwuTokenApi from './api/yunwu-token'
+import './polyfills'
+import './startup-migrations'
 
 const app = new Hono()
 
@@ -31,6 +32,7 @@ const routes = app
   .route('/api/gptImage', yunwuTokenApi)
   // common
   .route('/api/task', taskApi)
+  .route('/api/studio', studioApi)
   .route('/api/character-card', characterCardApi)
   .route('/api/template', templateApi)
   .route('/api/style-preset', stylePresetApi)
@@ -55,8 +57,7 @@ if (process.env.NODE_ENV !== 'development') {
 
   app.use('/*', serveStatic({ root: clientPath }))
   app.get('*', async (c, next) => {
-    const isApiRequest =
-      c.req.path === '/api' || c.req.path.startsWith('/api/')
+    const isApiRequest = c.req.path === '/api' || c.req.path.startsWith('/api/')
     const acceptsHtml = c.req.header('Accept')?.includes('text/html')
 
     if (isApiRequest || !acceptsHtml) return next()

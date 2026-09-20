@@ -1,3 +1,4 @@
+import { inflateSync } from 'zlib'
 import packageJson from '../../../../package.json'
 import { TRIAL_TEMPLATE_TITLE } from '../../common/template-manager/enum'
 import { logger } from '../utils/logger'
@@ -225,6 +226,85 @@ function createPngInternationalText(keyword: string, text: string): Buffer {
     Buffer.from(text, 'utf8'),
   ])
   return createPngChunk('iTXt', data)
+}
+
+/** Preserve provider metadata and pixels; replace only our workspace provenance. */
+export function embedPngTextMetadata(
+  buffer: Buffer,
+  keyword: string,
+  text: string,
+): Buffer {
+  if (!buffer.subarray(0, 8).equals(PNG_SIGNATURE))
+    throw new Error('无效的 PNG 文件')
+  const chunks: Buffer[] = [buffer.subarray(0, 8)]
+  let offset = 8
+  while (offset + 12 <= buffer.length) {
+    const length = buffer.readUInt32BE(offset)
+    const end = offset + length + 12
+    if (end > buffer.length) throw new Error('PNG 文件不完整')
+    const type = buffer.toString('ascii', offset + 4, offset + 8)
+    if (type === 'IEND') {
+      chunks.push(
+        createPngInternationalText(keyword, text),
+        buffer.subarray(offset),
+      )
+      return Buffer.concat(chunks)
+    }
+    if (
+      readPngTextKeyword(type, buffer.subarray(offset + 8, end - 4)) !== keyword
+    )
+      chunks.push(buffer.subarray(offset, end))
+    offset = end
+  }
+  throw new Error('PNG 文件缺少结束标记')
+}
+
+export function readPngGenerationText(buffer: Buffer): Record<string, string> {
+  const result: Record<string, string> = {}
+  if (!buffer.subarray(0, 8).equals(PNG_SIGNATURE)) return result
+  const keys = new Set([
+    'parameters',
+    'Comment',
+    'Description',
+    'Source',
+    'Software',
+    'Title',
+  ])
+  for (let offset = 8; offset + 12 <= buffer.length; ) {
+    const length = buffer.readUInt32BE(offset)
+    const end = offset + length + 12
+    if (end > buffer.length) break
+    const type = buffer.toString('ascii', offset + 4, offset + 8)
+    const data = buffer.subarray(offset + 8, end - 4)
+    const key = readPngTextKeyword(type, data)
+    if (key && keys.has(key) && data.length <= 1024 * 1024) {
+      try {
+        const separator = data.indexOf(0)
+        if (type === 'tEXt')
+          result[key] = data.toString('latin1', separator + 1)
+        if (type === 'zTXt' && data[separator + 1] === 0)
+          result[key] = inflateSync(data.subarray(separator + 2), {
+            maxOutputLength: 1024 * 1024,
+          }).toString('latin1')
+        if (type === 'iTXt') {
+          const languageEnd = data.indexOf(0, separator + 3)
+          const translatedEnd = data.indexOf(0, languageEnd + 1)
+          if (languageEnd >= 0 && translatedEnd >= 0) {
+            const text = data.subarray(translatedEnd + 1)
+            result[key] = (
+              data[separator + 1] === 1
+                ? inflateSync(text, { maxOutputLength: 1024 * 1024 })
+                : text
+            ).toString('utf8')
+          }
+        }
+      } catch {
+        /* Keep copying an image even if optional metadata is malformed. */
+      }
+    }
+    offset = end
+  }
+  return result
 }
 
 function isLatin1(value: string): boolean {

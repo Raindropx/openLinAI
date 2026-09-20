@@ -14,6 +14,7 @@ import { useRecentImages } from '../../../hooks/useRecentImages'
 import { useTasks } from '../../../hooks/useTasks'
 import { useGlobalStore } from '../../../store/global'
 import { uploadInputImageFromUrl } from '../../../utils/uploadInputImage'
+import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
 
 interface WorkspaceCanvasProps {
   selectedTaskId?: string
@@ -170,35 +171,42 @@ export function WorkspaceCanvas({
         {selectedTask && (
           <div className="canvas-task-meta absolute top-3 left-3 flex items-center overflow-hidden rounded-md border text-[11px] backdrop-blur">
             {selectedUrls[0] && (
-              <Tooltip title="将当前图片加入左侧参考图">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<ArrowLeftOutlined />}
-                  loading={addingReference}
-                  disabled={addingReference}
+              <>
+                <Tooltip title="将当前图片加入左侧参考图">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<ArrowLeftOutlined />}
+                    loading={addingReference}
+                    disabled={addingReference}
+                    className="canvas-task-meta-button h-7! w-8! rounded-none! border-0! border-r!"
+                    onClick={async () => {
+                      setAddingReference(true)
+                      try {
+                        const inputUrl = await uploadInputImageFromUrl(
+                          selectedUrls[0],
+                        )
+                        addReferenceImage(inputUrl)
+                        addRecentImages(inputUrl)
+                        message.success('已复制到输入区并加入左侧参考图')
+                      } catch (error) {
+                        message.error(
+                          error instanceof Error
+                            ? error.message
+                            : '加入参考图失败',
+                        )
+                      } finally {
+                        setAddingReference(false)
+                      }
+                    }}
+                  />
+                </Tooltip>
+                <CopyToStudioButton
+                  taskId={selectedTask.id}
+                  count={selectedUrls.length}
                   className="canvas-task-meta-button h-7! w-8! rounded-none! border-0! border-r!"
-                  onClick={async () => {
-                    setAddingReference(true)
-                    try {
-                      const inputUrl = await uploadInputImageFromUrl(
-                        selectedUrls[0],
-                      )
-                      addReferenceImage(inputUrl)
-                      addRecentImages(inputUrl)
-                      message.success('已复制到输入区并加入左侧参考图')
-                    } catch (error) {
-                      message.error(
-                        error instanceof Error
-                          ? error.message
-                          : '加入参考图失败',
-                      )
-                    } finally {
-                      setAddingReference(false)
-                    }
-                  }}
                 />
-              </Tooltip>
+              </>
             )}
             <div className="flex items-center gap-2 px-2.5 py-1.5">
               <ClockCircleOutlined />

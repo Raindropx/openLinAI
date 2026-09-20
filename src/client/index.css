@@ -207,7 +207,7 @@
   }
 
   .mobile-bottom-navigation {
-    @apply grid shrink-0 grid-cols-4 border-t border-[#2b3039] bg-[#15181d]/98 px-2 pt-1 shadow-[0_-8px_24px_rgba(0,0,0,0.22)];
+    @apply grid shrink-0 grid-cols-5 border-t border-[#2b3039] bg-[#15181d]/98 px-2 pt-1 shadow-[0_-8px_24px_rgba(0,0,0,0.22)];
     padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
   }
 

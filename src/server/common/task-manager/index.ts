@@ -2,14 +2,15 @@ import { EventEmitter } from 'events'
 import fs from 'fs-extra'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
+import type { StudioProvenance } from '../../../shared/studio'
+import type { ImageBilling } from '../../module/gpt-image/billing'
+import { GptImageQuality, GptImageSize } from '../../module/gpt-image/enum'
+import { Logger } from '../../module/utils/logger'
 import { getDataDir } from '../data-dir'
 import { SafeJsonStore } from '../safe-json-store'
 import { GENERATED_IMAGES_DIR } from '../static'
 import { GENERATED_IMAGES_API_PATH } from '../static/enum'
-import { GptImageQuality, GptImageSize } from '../../module/gpt-image/enum'
-import { Logger } from '../../module/utils/logger'
 import { TaskTemplate } from '../template-manager'
-import type { ImageBilling } from '../../module/gpt-image/billing'
 
 export interface Task {
   id: string
@@ -28,6 +29,8 @@ export interface Task {
   /** 采纳提示词优化结果前的本地文本，不参与生图请求 */
   originalPrompt?: string
   imageBilling?: ImageBilling
+  studioItemId?: string
+  studioProvenance?: StudioProvenance
   [key: string]: any
 }
 
@@ -93,6 +96,12 @@ export class TaskManager extends EventEmitter {
   public async getTasks(): Promise<Task[]> {
     const tasks = await this.store.read()
     return tasks ?? []
+  }
+
+  public async addCompletedTask(task: Task): Promise<void> {
+    if (task.status !== 'completed') throw new Error('只能归档已完成的作品')
+    const tasks = await this.store.mutate((list) => [...list, task])
+    this.notifyTasksUpdate(tasks)
   }
 
   public async createTaskFromTemplate(options: {
