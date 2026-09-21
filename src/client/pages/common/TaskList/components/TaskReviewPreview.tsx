@@ -195,8 +195,6 @@ export function TaskReviewPreview({
         afterOpenChange: (nextOpen) => {
           if (!nextOpen) onAfterClose()
         },
-        countRender: (index, total) =>
-          `${index} / ${total} · ← → 切图 · Enter 选中 · 窄屏可左右滑动`,
         actionsRender: (node, { current: index, transform, actions }) => (
           <ReviewSwipeActions
             open={open}
@@ -206,6 +204,10 @@ export function TaskReviewPreview({
           >
             <div className="task-review-preview-toolbar">
               {node}
+              <div className="task-review-preview-toolbar-progress">
+                {index + 1} / {images.length} · ← → 切图 · Enter 选中 ·
+                窄屏可左右滑动
+              </div>
               <div className="task-review-preview-task-actions">
                 <Tooltip
                   title={

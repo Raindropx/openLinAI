@@ -592,7 +592,16 @@ html[data-theme='light'] .ant-drawer-content {
 }
 
 .task-review-preview .ant-image-preview-progress {
-  transform: translateY(10px);
+  display: none;
+}
+
+.task-review-preview-toolbar-progress {
+  padding: 0 8px;
+  color: rgb(255 255 255 / 85%);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 75%);
 }
 
 .task-review-preview-task-actions {
