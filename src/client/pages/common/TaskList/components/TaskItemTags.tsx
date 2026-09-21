@@ -184,7 +184,7 @@ export function TaskItemTags({
     <div
       className={`${compact ? 'mb-1' : 'mb-2'} flex min-w-0 flex-1 flex-wrap ${
         dense
-          ? 'gap-x-0.5 gap-y-1 [&_.ant-tag]:px-1! [&_.ant-tag]:text-[11px]! [&_.ant-tag]:leading-[18px]! [&_.ant-tag_.anticon]:mr-0.5!'
+          ? 'gap-x-0.25 gap-y-1 [&_.ant-tag]:px-1! [&_.ant-tag]:text-[11px]! [&_.ant-tag]:leading-[18px]! [&_.ant-tag_.anticon]:mr-0.5!'
           : 'gap-1'
       } [&_.ant-tag]:m-0!`}
     >
