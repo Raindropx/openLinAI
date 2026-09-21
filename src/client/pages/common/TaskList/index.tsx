@@ -682,6 +682,7 @@ export function TaskList({
                               task={task}
                               downloadedIds={downloadedIds || []}
                               compact={panelMode || managementMode}
+                              dense={panelMode}
                               showEndpoint={!panelMode}
                               showMetrics={!isMobile}
                               showDuration={isMobile && panelMode}

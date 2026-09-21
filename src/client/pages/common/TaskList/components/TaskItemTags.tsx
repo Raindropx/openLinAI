@@ -13,6 +13,7 @@ interface TaskItemTagsProps {
   task: Task
   downloadedIds: string[]
   compact?: boolean
+  dense?: boolean
   showEndpoint?: boolean
   showMetrics?: boolean
   showDuration?: boolean
@@ -174,13 +175,18 @@ export function TaskItemTags({
   task,
   downloadedIds,
   compact = false,
+  dense = false,
   showEndpoint = true,
   showMetrics = true,
   showDuration = false,
 }: TaskItemTagsProps) {
   return (
     <div
-      className={`${compact ? 'mb-1' : 'mb-2'} flex min-w-0 flex-1 flex-wrap gap-1 [&_.ant-tag]:m-0!`}
+      className={`${compact ? 'mb-1' : 'mb-2'} flex min-w-0 flex-1 flex-wrap ${
+        dense
+          ? 'gap-x-0.5 gap-y-1 [&_.ant-tag]:px-1! [&_.ant-tag]:text-[11px]! [&_.ant-tag]:leading-[18px]! [&_.ant-tag_.anticon]:mr-0.5!'
+          : 'gap-1'
+      } [&_.ant-tag]:m-0!`}
     >
       {task.studioProvenance && (
         <Tag
