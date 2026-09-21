@@ -160,20 +160,7 @@ export class TaskManager extends EventEmitter {
             : []
 
         for (const outputUrl of urlsToDelete) {
-          if (outputUrl.startsWith('/api/static/')) {
-            try {
-              const filepath = path.join(
-                GENERATED_IMAGES_DIR,
-                outputUrl.replace(GENERATED_IMAGES_API_PATH + '/', ''),
-              )
-
-              if (filepath && fs.existsSync(filepath)) {
-                await fs.unlink(filepath)
-              }
-            } catch (error: any) {
-              this.logger.error('Failed to delete task file:', error)
-            }
-          }
+          await this.deleteGeneratedImageFile(outputUrl)
         }
       }
       return { success: true }
@@ -183,6 +170,83 @@ export class TaskManager extends EventEmitter {
         success: false,
         error: `Failed to delete task: ${error.message}`,
       }
+    }
+  }
+
+  public async deleteTaskImage(
+    id: string,
+    imageIndex: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      let outputUrl: string | undefined
+      let error: string | undefined
+      const tasks = await this.store.mutate((list) => {
+        const task = list.find((item) => item.id === id)
+        if (!task) {
+          error = 'Task not found'
+          return list
+        }
+
+        const outputUrls = task.outputUrls
+          ? [...task.outputUrls]
+          : task.outputUrl
+            ? [task.outputUrl]
+            : []
+        if (
+          !Number.isInteger(imageIndex) ||
+          imageIndex < 0 ||
+          imageIndex >= outputUrls.length
+        ) {
+          error = 'Task image not found'
+          return list
+        }
+        if (outputUrls.length <= 1) {
+          error = 'Cannot remove the only image from a task'
+          return list
+        }
+
+        outputUrl = outputUrls[imageIndex]
+        outputUrls.splice(imageIndex, 1)
+        task.outputUrls = outputUrls
+        if (task.outputUrl !== undefined) {
+          task.outputUrl = outputUrls[0]
+        }
+        return list
+      })
+
+      if (error || !outputUrl) {
+        return { success: false, error: error || 'Task image not found' }
+      }
+
+      this.notifyTasksUpdate(tasks)
+      await this.deleteGeneratedImageFile(outputUrl)
+      return { success: true }
+    } catch (error: any) {
+      this.logger.error('Failed to delete task image:', error)
+      return {
+        success: false,
+        error: `Failed to delete task image: ${error.message}`,
+      }
+    }
+  }
+
+  private async deleteGeneratedImageFile(outputUrl: string) {
+    const prefix = `${GENERATED_IMAGES_API_PATH}/`
+    if (!outputUrl.startsWith(prefix)) return
+
+    try {
+      const relativePath = outputUrl.slice(prefix.length)
+      const rootPath = path.resolve(GENERATED_IMAGES_DIR)
+      const filepath = path.resolve(rootPath, relativePath)
+      if (!filepath.startsWith(`${rootPath}${path.sep}`)) {
+        this.logger.error('Refused to delete image outside generated directory')
+        return
+      }
+      if (await fs.pathExists(filepath)) {
+        await fs.unlink(filepath)
+      }
+    } catch (error: any) {
+      this.logger.error('Failed to delete task file:', error)
     }
   }
 

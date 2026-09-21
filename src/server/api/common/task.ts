@@ -68,6 +68,34 @@ const taskApi = new Hono()
     })
   })
   .delete(
+    '/:id/images/:index',
+    zValidator(
+      'param',
+      z.object({
+        id: z.string(),
+        index: z.coerce.number().int().nonnegative(),
+      }),
+    ),
+    async (c) => {
+      try {
+        const { id, index } = c.req.valid('param')
+        const result = await taskManager.deleteTaskImage(id, index)
+        if (!result.success) {
+          return c.json(
+            {
+              success: false as const,
+              error: result.error || 'Failed to delete task image',
+            },
+            404,
+          )
+        }
+        return c.json({ success: true as const })
+      } catch (error: any) {
+        return c.json({ success: false as const, error: error.message }, 500)
+      }
+    },
+  )
+  .delete(
     '/:id',
     zValidator('param', z.object({ id: z.string() })),
     zValidator('query', z.object({ keepImage: z.string().optional() })),

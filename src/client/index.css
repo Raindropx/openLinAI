@@ -584,6 +584,36 @@ html[data-theme='light'] .ant-drawer-content {
   white-space: nowrap;
 }
 
+.task-review-preview-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.task-review-preview .ant-image-preview-progress {
+  transform: translateY(10px);
+}
+
+.task-review-preview-task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 10px;
+  padding: 8px;
+  background: rgb(0 0 0 / 58%);
+  backdrop-filter: blur(8px);
+}
+
+@media (max-width: 520px) {
+  .task-review-preview-task-actions {
+    max-width: calc(100vw - 24px);
+    gap: 6px;
+    padding: 6px;
+  }
+}
+
 .task-list-card-media {
   border-color: var(--task-list-card-media-border);
   background-color: var(--task-list-card-media-bg);

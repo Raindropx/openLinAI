@@ -1,4 +1,9 @@
-import { Image } from 'antd'
+import {
+  CheckSquareOutlined,
+  DeleteOutlined,
+  FileAddOutlined,
+} from '@ant-design/icons'
+import { Button, Image, Tooltip } from 'antd'
 import { useEffect, useRef, type ReactNode } from 'react'
 
 export interface ReviewImage {
@@ -102,12 +107,30 @@ export function TaskReviewPreview({
   onChange,
   onClose,
   onAfterClose,
+  selectionMode,
+  selected,
+  canDelete,
+  canAddToTemplate,
+  canSelect,
+  deleting,
+  onDelete,
+  onAddToTemplate,
+  onToggleSelection,
 }: {
   images: ReviewImage[]
   current: number
   onChange: (index: number) => void
   onClose: () => void
   onAfterClose: () => void
+  selectionMode: boolean
+  selected: boolean
+  canDelete: boolean
+  canAddToTemplate: boolean
+  canSelect: boolean
+  deleting: boolean
+  onDelete: () => void
+  onAddToTemplate: () => void
+  onToggleSelection: () => void
 }) {
   const open = current >= 0
   const lastIndexRef = useRef(0)
@@ -115,6 +138,45 @@ export function TaskReviewPreview({
   useEffect(() => {
     if (open) lastIndexRef.current = current
   }, [open, current])
+
+  useEffect(() => {
+    if (!open) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const hasOpenModal = Array.from(
+        document.querySelectorAll<HTMLElement>('.ant-modal-wrap'),
+      ).some(
+        (element) =>
+          element.getClientRects().length > 0 &&
+          window.getComputedStyle(element).display !== 'none',
+      )
+      if (
+        event.key !== 'Enter' ||
+        event.repeat ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        !canSelect ||
+        hasOpenModal
+      )
+        return
+
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+      )
+        return
+
+      event.preventDefault()
+      event.stopPropagation()
+      onToggleSelection()
+    }
+
+    window.addEventListener('keydown', handleKeyDown, true)
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+  }, [canSelect, open, onToggleSelection])
 
   return (
     <Image.PreviewGroup
@@ -134,7 +196,7 @@ export function TaskReviewPreview({
           if (!nextOpen) onAfterClose()
         },
         countRender: (index, total) =>
-          `${index} / ${total} · ← → 切图 · 窄屏可左右滑动`,
+          `${index} / ${total} · ← → 切图 · Enter 选中 · 窄屏可左右滑动`,
         actionsRender: (node, { current: index, transform, actions }) => (
           <ReviewSwipeActions
             open={open}
@@ -142,7 +204,60 @@ export function TaskReviewPreview({
             scale={transform.scale}
             onActive={actions.onActive}
           >
-            {node}
+            <div className="task-review-preview-toolbar">
+              {node}
+              <div className="task-review-preview-task-actions">
+                <Tooltip
+                  title={
+                    selectionMode
+                      ? '多选模式下不可删除'
+                      : canDelete
+                        ? '删除'
+                        : '当前任务已删除'
+                  }
+                >
+                  <Button
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    disabled={selectionMode || !canDelete}
+                    loading={deleting}
+                    onClick={onDelete}
+                  >
+                    删除
+                  </Button>
+                </Tooltip>
+                <Tooltip
+                  title={
+                    selectionMode
+                      ? '多选模式下不可添加模板'
+                      : canAddToTemplate
+                        ? '添加到模板'
+                        : '当前任务没有可添加的模板信息'
+                  }
+                >
+                  <Button
+                    size="small"
+                    icon={<FileAddOutlined />}
+                    disabled={selectionMode || !canAddToTemplate || deleting}
+                    onClick={onAddToTemplate}
+                  >
+                    添加到模板
+                  </Button>
+                </Tooltip>
+                <Tooltip title="按 Enter 可执行相同行为">
+                  <Button
+                    type={selected ? 'primary' : 'default'}
+                    size="small"
+                    icon={<CheckSquareOutlined />}
+                    disabled={!canSelect || deleting}
+                    onClick={onToggleSelection}
+                  >
+                    {selected ? '取消选中' : '选中'}
+                  </Button>
+                </Tooltip>
+              </div>
+            </div>
           </ReviewSwipeActions>
         ),
       }}

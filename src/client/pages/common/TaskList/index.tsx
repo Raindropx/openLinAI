@@ -173,6 +173,10 @@ export function TaskList({
     'downloadedTaskIds',
     { defaultValue: [] },
   )
+  const [, setSkipDeleteConfirm] = useLocalStorageState<boolean>(
+    'skipDeleteTaskConfirm',
+    { defaultValue: false },
+  )
   const [page, setPage] = useState(0)
   const infiniteScroll = panelMode
     ? (gptImageSettings.workspaceListInfiniteScroll ?? true)
@@ -188,11 +192,16 @@ export function TaskList({
   const [batchDeleting, setBatchDeleting] = useState(false)
   const [reviewImage, setReviewImage] = useState<ReviewImage | null>(null)
   const [reviewedTaskId, setReviewedTaskId] = useState<string | null>(null)
+  const [reviewOrphaned, setReviewOrphaned] = useState(false)
+  const [reviewDeleting, setReviewDeleting] = useState(false)
+  const [reviewDeleteChoice, setReviewDeleteChoice] =
+    useState<ReviewImage | null>(null)
   const [originalPromptView, setOriginalPromptView] = useState<{
     text: string
   } | null>(null)
   const taskCardRefs = useRef(new Map<string, HTMLDivElement>())
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const lastReviewIndexRef = useRef(0)
   const focusNewestTaskSignal = useGlobalStore(
     (state) => state.focusNewestTaskSignal,
   )
@@ -298,12 +307,52 @@ export function TaskList({
           image.src === reviewImage.src,
       )
     : -1
+  const presentedReviewImages =
+    reviewOrphaned && reviewImage && reviewIndex < 0
+      ? [reviewImage]
+      : reviewImages
+  const presentedReviewIndex =
+    reviewOrphaned && reviewImage && reviewIndex < 0 ? 0 : reviewIndex
 
   useEffect(() => {
-    if (reviewImage && reviewIndex < 0) setReviewImage(null)
-  }, [reviewImage, reviewIndex])
+    if (reviewIndex >= 0) lastReviewIndexRef.current = reviewIndex
+  }, [reviewIndex])
+
+  useEffect(() => {
+    if (!reviewImage || reviewIndex >= 0) return
+    if (reviewOrphaned && !reviewImages.length) return
+
+    // Removing an earlier image changes later indices. Follow the image by
+    // stable task/source identity before falling back to a neighbouring item.
+    const relocatedImage = reviewImages.find(
+      (image) =>
+        image.taskId === reviewImage.taskId && image.src === reviewImage.src,
+    )
+    const fallbackImage =
+      relocatedImage ||
+      reviewImages[
+        Math.min(lastReviewIndexRef.current, reviewImages.length - 1)
+      ]
+    if (fallbackImage) {
+      setReviewOrphaned(false)
+      setReviewImage(fallbackImage)
+      setReviewedTaskId(fallbackImage.taskId)
+    } else {
+      setReviewImage(null)
+    }
+  }, [reviewImage, reviewImages, reviewIndex, reviewOrphaned])
+
+  const currentReviewTask = reviewImage
+    ? gptImageTasks.find((task) => task.id === reviewImage.taskId)
+    : undefined
+  const canAddCurrentReviewToTemplate = Boolean(
+    currentReviewTask?.rawTemplate &&
+    (!currentReviewTask.studioProvenance ||
+      currentReviewTask.studioProvenance.template),
+  )
 
   const showReviewImage = (image: ReviewImage) => {
+    setReviewOrphaned(false)
     setReviewImage(image)
     setReviewedTaskId(image.taskId)
   }
@@ -372,18 +421,206 @@ export function TaskList({
     scrollToReviewedTask,
   ])
 
-  const toggleTaskSelection = (taskId: string) => {
+  const toggleTaskSelection = useCallback((taskId: string) => {
     setSelectedIds((ids) =>
       ids.includes(taskId)
         ? ids.filter((id) => id !== taskId)
         : [...ids, taskId],
     )
-  }
+  }, [])
+
+  const toggleReviewedTaskSelection = useCallback(() => {
+    if (!reviewImage) return
+    if (!selectionMode) setSelectionMode(true)
+    toggleTaskSelection(reviewImage.taskId)
+  }, [reviewImage, selectionMode, toggleTaskSelection])
 
   const exitSelectionMode = () => {
     setSelectionMode(false)
     setSelectedIds([])
   }
+
+  const moveReviewToRemainingImage = useCallback(
+    (shouldRemove: (image: ReviewImage) => boolean) => {
+      const remainingImages = reviewImages.filter(
+        (image) => !shouldRemove(image),
+      )
+      if (!remainingImages.length) {
+        setReviewOrphaned(true)
+        return
+      }
+
+      setReviewOrphaned(false)
+      const nextImage =
+        remainingImages[
+          Math.min(Math.max(reviewIndex, 0), remainingImages.length - 1)
+        ]
+      setReviewImage(nextImage)
+      setReviewedTaskId(nextImage.taskId)
+    },
+    [reviewImages, reviewIndex],
+  )
+
+  const deleteReviewedTask = useCallback(
+    async (target: ReviewImage) => {
+      const task = gptImageTasks.find((item) => item.id === target.taskId)
+      if (!task) {
+        message.error('当前任务已不存在')
+        return false
+      }
+
+      setReviewDeleting(true)
+      moveReviewToRemainingImage((image) => image.taskId === target.taskId)
+      try {
+        const response = await client.api.task[':id'].$delete({
+          param: { id: target.taskId },
+          query: {
+            keepImage: gptImageSettings.keepImageWhenDeleteTask
+              ? 'true'
+              : 'false',
+          },
+        })
+        const result = await response.json()
+        if (!result.success) {
+          throw new Error(result.error || '删除失败')
+        }
+        setDownloadedIds(
+          (downloadedIds || []).filter((id) => id !== target.taskId),
+        )
+        message.success('任务已删除')
+        return true
+      } catch (error: any) {
+        setReviewOrphaned(false)
+        setReviewImage(target)
+        setReviewedTaskId(target.taskId)
+        message.error(error.message || '删除失败')
+        return false
+      } finally {
+        setReviewDeleting(false)
+      }
+    },
+    [
+      downloadedIds,
+      gptImageSettings.keepImageWhenDeleteTask,
+      gptImageTasks,
+      moveReviewToRemainingImage,
+      setDownloadedIds,
+    ],
+  )
+
+  const deleteReviewedImage = useCallback(
+    async (target: ReviewImage) => {
+      const task = gptImageTasks.find((item) => item.id === target.taskId)
+      const currentImageIndex =
+        task?.outputUrls[target.imageIndex] === target.src
+          ? target.imageIndex
+          : task?.outputUrls.findIndex((url) => url === target.src)
+      if (!task || currentImageIndex === undefined || currentImageIndex < 0) {
+        message.error('当前图片已不存在')
+        return false
+      }
+
+      setReviewDeleting(true)
+      moveReviewToRemainingImage(
+        (image) =>
+          image.taskId === target.taskId &&
+          image.imageIndex === target.imageIndex &&
+          image.src === target.src,
+      )
+      try {
+        const response = await client.api.task[':id'].images[':index'].$delete({
+          param: { id: target.taskId, index: String(currentImageIndex) },
+        })
+        const result = await response.json()
+        if (!result.success) {
+          throw new Error(result.error || '删除图片失败')
+        }
+        setDownloadedIds(
+          (downloadedIds || []).filter((id) => id !== target.taskId),
+        )
+        message.success('图片已删除')
+        return true
+      } catch (error: any) {
+        setReviewOrphaned(false)
+        setReviewImage(target)
+        setReviewedTaskId(target.taskId)
+        message.error(error.message || '删除图片失败')
+        return false
+      } finally {
+        setReviewDeleting(false)
+      }
+    },
+    [
+      downloadedIds,
+      gptImageTasks,
+      moveReviewToRemainingImage,
+      setDownloadedIds,
+    ],
+  )
+
+  const confirmDeleteReviewedTask = useCallback(
+    (target: ReviewImage) => {
+      const task = gptImageTasks.find((item) => item.id === target.taskId)
+      if (!task) {
+        message.error('当前任务已不存在')
+        return
+      }
+
+      let skip = false
+      try {
+        const raw = localStorage.getItem('skipDeleteTaskConfirm')
+        skip = raw !== null && JSON.parse(raw) === true
+      } catch {
+        skip = false
+      }
+      if (skip || task.status === 'failed') {
+        void deleteReviewedTask(target)
+        return
+      }
+
+      let skipNext = false
+      Modal.confirm({
+        title: '确认删除任务？',
+        content: (
+          <div>
+            <p>
+              {gptImageSettings.keepImageWhenDeleteTask
+                ? '删除任务不会删除其生成的图片文件。'
+                : '删除任务将同时删除其生成的图片文件，且不可恢复。'}
+            </p>
+            <Checkbox
+              onChange={(event) => {
+                skipNext = event.target.checked
+              }}
+            >
+              下次不再提醒
+            </Checkbox>
+          </div>
+        ),
+        okText: '确认删除',
+        okType: 'danger',
+        onOk: async () => {
+          if (skipNext) setSkipDeleteConfirm(true)
+          await deleteReviewedTask(target)
+        },
+      })
+    },
+    [
+      deleteReviewedTask,
+      gptImageSettings.keepImageWhenDeleteTask,
+      gptImageTasks,
+      setSkipDeleteConfirm,
+    ],
+  )
+
+  const handleDeleteReviewedItem = useCallback(() => {
+    if (!reviewImage || !currentReviewTask || selectionMode) return
+    if (currentReviewTask.outputUrls.length > 1) {
+      setReviewDeleteChoice(reviewImage)
+      return
+    }
+    confirmDeleteReviewedTask(reviewImage)
+  }, [confirmDeleteReviewedTask, currentReviewTask, reviewImage, selectionMode])
 
   const handleBatchDelete = () => {
     if (!selectedIds.length) {
@@ -893,6 +1130,67 @@ export function TaskList({
         )}
       </div>
       <Modal
+        title="删除图片还是整个任务？"
+        open={reviewDeleteChoice !== null}
+        closable={!reviewDeleting}
+        maskClosable={!reviewDeleting}
+        keyboard={!reviewDeleting}
+        onCancel={() => {
+          if (!reviewDeleting) setReviewDeleteChoice(null)
+        }}
+        footer={[
+          <Button
+            key="cancel"
+            disabled={reviewDeleting}
+            onClick={() => setReviewDeleteChoice(null)}
+          >
+            取消
+          </Button>,
+          <Button
+            key="image"
+            danger
+            disabled={reviewDeleting}
+            loading={reviewDeleting}
+            onClick={async () => {
+              if (
+                reviewDeleteChoice &&
+                (await deleteReviewedImage(reviewDeleteChoice))
+              ) {
+                setReviewDeleteChoice(null)
+              }
+            }}
+          >
+            只删除这张图片
+          </Button>,
+          <Button
+            key="task"
+            type="primary"
+            danger
+            disabled={reviewDeleting}
+            loading={reviewDeleting}
+            onClick={async () => {
+              if (
+                reviewDeleteChoice &&
+                (await deleteReviewedTask(reviewDeleteChoice))
+              ) {
+                setReviewDeleteChoice(null)
+              }
+            }}
+          >
+            删除整个任务
+          </Button>,
+        ]}
+      >
+        <p className="mb-2">
+          这个任务包含多张图片。你可以只移除当前图片，或删除整个任务。
+        </p>
+        <p className="mb-0 text-sm text-slate-400">
+          {gptImageSettings.keepImageWhenDeleteTask
+            ? '当前设置：删除整个任务时保留图片文件；只删除当前图片仍会删除该图片文件。'
+            : '当前设置：删除整个任务时会同时删除其中所有图片文件。'}
+        </p>
+      </Modal>
+      <Modal
         title="优化前的提示词"
         open={originalPromptView !== null}
         onCancel={() => setOriginalPromptView(null)}
@@ -947,14 +1245,32 @@ export function TaskList({
       {taskContent}
       {managementMode && (
         <TaskReviewPreview
-          images={reviewImages}
-          current={reviewIndex}
+          images={presentedReviewImages}
+          current={presentedReviewIndex}
           onChange={(index) => {
-            const image = reviewImages[index]
+            const image = presentedReviewImages[index]
             if (image) showReviewImage(image)
           }}
-          onClose={() => setReviewImage(null)}
+          onClose={() => {
+            setReviewOrphaned(false)
+            setReviewImage(null)
+          }}
           onAfterClose={scrollToReviewedTask}
+          selectionMode={selectionMode}
+          selected={Boolean(
+            reviewImage && selectedIds.includes(reviewImage.taskId),
+          )}
+          canDelete={Boolean(currentReviewTask) && !reviewOrphaned}
+          canAddToTemplate={canAddCurrentReviewToTemplate && !reviewOrphaned}
+          canSelect={Boolean(currentReviewTask) && !reviewOrphaned}
+          deleting={reviewDeleting}
+          onDelete={handleDeleteReviewedItem}
+          onAddToTemplate={() => {
+            if (currentReviewTask && !selectionMode) {
+              handleAddToTemplate(currentReviewTask)
+            }
+          }}
+          onToggleSelection={toggleReviewedTaskSelection}
         />
       )}
     </Card>
