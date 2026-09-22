@@ -10,6 +10,8 @@ import {
 import { useEffect, useRef, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import LinpxLogo from '../../../assets/icon/linpx.png'
+import LinpxSquareLogo from '../../../assets/icon/linpx2.png'
+import { useAppTheme } from '../../../theme'
 import { GPTImageQuota } from '../Header/GPTImageQuota'
 import { openNotificationModal } from '../Notification'
 import { openSettingModal } from '../SettingModal'
@@ -197,6 +199,7 @@ const navigationItems = [
 
 export function MobileTopBar() {
   const navigate = useNavigate()
+  const { squareCorners } = useAppTheme()
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#2b3039] bg-[#15181d]/95 px-3 backdrop-blur lg:hidden">
@@ -206,7 +209,7 @@ export function MobileTopBar() {
         onClick={() => navigate('/')}
       >
         <img
-          src={LinpxLogo}
+          src={squareCorners ? LinpxSquareLogo : LinpxLogo}
           alt="LinAI Logo"
           className="app-theme-logo h-9 w-9 rounded-lg ring-1 ring-white/8"
         />

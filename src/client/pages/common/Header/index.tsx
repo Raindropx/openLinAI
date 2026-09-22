@@ -15,6 +15,8 @@ import { useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import pkg from '../../../../../package.json'
 import LinpxLogo from '../../../assets/icon/linpx.png'
+import LinpxSquareLogo from '../../../assets/icon/linpx2.png'
+import { useAppTheme } from '../../../theme'
 import { openSettingModal } from '../../common/SettingModal'
 import { openNotificationModal } from '../Notification'
 import { ThemeToggle } from '../ThemeToggle'
@@ -58,6 +60,7 @@ function NavigationItem({
 
 export function Header() {
   const navigate = useNavigate()
+  const { squareCorners } = useAppTheme()
   const [collapsed, setCollapsed] = useState(true)
 
   return (
@@ -76,7 +79,7 @@ export function Header() {
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#262b33] ring-1 ring-white/8">
           <img
-            src={LinpxLogo}
+            src={squareCorners ? LinpxSquareLogo : LinpxLogo}
             alt="LinAI Logo"
             className="app-theme-logo h-full w-full"
           />
