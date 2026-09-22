@@ -14,6 +14,7 @@ export type AppThemeMode = 'light' | 'dark'
 const THEME_STORAGE_KEY = 'app_theme'
 const ACCENT_STORAGE_KEY = 'app_theme_accent'
 const LOGO_ACCENT_SYNC_STORAGE_KEY = 'app_theme_logo_accent_sync'
+const SQUARE_CORNERS_STORAGE_KEY = 'app_theme_square_corners'
 const THEME_CHANGE_EVENT = 'app-theme-change'
 
 export const DEFAULT_ACCENT_COLOR = '#f1b84b'
@@ -92,10 +93,12 @@ type AppThemeContextValue = {
   mode: AppThemeMode
   accentColor: string
   logoFollowsAccent: boolean
+  squareCorners: boolean
   toggleTheme: () => void
   setAccentColor: (color: string) => void
   resetAccentColor: () => void
   setLogoFollowsAccent: (enabled: boolean) => void
+  setSquareCorners: (enabled: boolean) => void
 }
 
 const AppThemeContext = createContext<AppThemeContextValue | null>(null)
@@ -137,6 +140,16 @@ function readStoredLogoFollowsAccent() {
     return window.localStorage.getItem(LOGO_ACCENT_SYNC_STORAGE_KEY) !== 'false'
   } catch {
     return true
+  }
+}
+
+function readStoredSquareCorners() {
+  if (typeof window === 'undefined') return false
+
+  try {
+    return window.localStorage.getItem(SQUARE_CORNERS_STORAGE_KEY) === 'true'
+  } catch {
+    return false
   }
 }
 
@@ -241,7 +254,11 @@ function resolveAccentColor(mode: AppThemeMode, accentColor: string) {
     : ensureAccentContrast(accentColor, '#ffffff', '#000000')
 }
 
-function getThemeConfig(mode: AppThemeMode, accentColor: string): ThemeConfig {
+function getThemeConfig(
+  mode: AppThemeMode,
+  accentColor: string,
+  squareCorners: boolean,
+): ThemeConfig {
   const baseTheme = mode === 'light' ? lightAppTheme : darkAppTheme
   const resolvedAccentColor = resolveAccentColor(mode, accentColor)
 
@@ -251,6 +268,14 @@ function getThemeConfig(mode: AppThemeMode, accentColor: string): ThemeConfig {
       ...baseTheme.token,
       colorPrimary: resolvedAccentColor,
       colorInfo: resolvedAccentColor,
+      ...(squareCorners
+        ? {
+            borderRadius: 0,
+            borderRadiusLG: 0,
+            borderRadiusSM: 0,
+            borderRadiusXS: 0,
+          }
+        : {}),
     },
   }
 }
@@ -259,10 +284,12 @@ function applyDocumentTheme(
   mode: AppThemeMode,
   accentColor: string,
   logoFollowsAccent: boolean,
+  squareCorners: boolean,
 ) {
   if (typeof document === 'undefined') return
 
   document.documentElement.dataset.theme = mode
+  document.documentElement.dataset.squareCorners = String(squareCorners)
   document.documentElement.style.colorScheme = mode
   document.documentElement.style.setProperty(
     '--app-accent',
@@ -274,8 +301,12 @@ function applyDocumentTheme(
   )
 }
 
-function configureStaticTheme(mode: AppThemeMode, accentColor: string) {
-  const themeConfig = getThemeConfig(mode, accentColor)
+function configureStaticTheme(
+  mode: AppThemeMode,
+  accentColor: string,
+  squareCorners: boolean,
+) {
+  const themeConfig = getThemeConfig(mode, accentColor, squareCorners)
 
   ConfigProvider.config({
     theme: themeConfig,
@@ -290,8 +321,14 @@ function configureStaticTheme(mode: AppThemeMode, accentColor: string) {
 const initialTheme = readStoredTheme()
 const initialAccentColor = readStoredAccentColor()
 const initialLogoFollowsAccent = readStoredLogoFollowsAccent()
-applyDocumentTheme(initialTheme, initialAccentColor, initialLogoFollowsAccent)
-configureStaticTheme(initialTheme, initialAccentColor)
+const initialSquareCorners = readStoredSquareCorners()
+applyDocumentTheme(
+  initialTheme,
+  initialAccentColor,
+  initialLogoFollowsAccent,
+  initialSquareCorners,
+)
+configureStaticTheme(initialTheme, initialAccentColor, initialSquareCorners)
 
 export function AppThemeProvider({ children }: PropsWithChildren) {
   const [mode, setMode] = useState<AppThemeMode>(readStoredTheme)
@@ -299,15 +336,19 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
   const [logoFollowsAccent, setLogoFollowsAccentState] = useState(
     readStoredLogoFollowsAccent,
   )
+  const [squareCorners, setSquareCornersState] = useState(
+    readStoredSquareCorners,
+  )
   const themeConfig = useMemo(
-    () => getThemeConfig(mode, accentColor),
-    [accentColor, mode],
+    () => getThemeConfig(mode, accentColor, squareCorners),
+    [accentColor, mode, squareCorners],
   )
   const contextValue = useMemo<AppThemeContextValue>(
     () => ({
       mode,
       accentColor,
       logoFollowsAccent,
+      squareCorners,
       toggleTheme: () => {
         const nextMode = mode === 'dark' ? 'light' : 'dark'
         setMode(nextMode)
@@ -342,8 +383,16 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
           }),
         )
       },
+      setSquareCorners: (enabled) => {
+        setSquareCornersState(enabled)
+        window.dispatchEvent(
+          new CustomEvent(THEME_CHANGE_EVENT, {
+            detail: { squareCorners: enabled },
+          }),
+        )
+      },
     }),
-    [accentColor, logoFollowsAccent, mode],
+    [accentColor, logoFollowsAccent, mode, squareCorners],
   )
 
   useEffect(() => {
@@ -353,6 +402,7 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
           mode?: AppThemeMode
           accentColor?: string
           logoFollowsAccent?: boolean
+          squareCorners?: boolean
         }>
       ).detail
 
@@ -363,6 +413,9 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
       if (typeof detail?.logoFollowsAccent === 'boolean') {
         setLogoFollowsAccentState(detail.logoFollowsAccent)
       }
+      if (typeof detail?.squareCorners === 'boolean') {
+        setSquareCornersState(detail.squareCorners)
+      }
     }
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === THEME_STORAGE_KEY) setMode(readStoredTheme())
@@ -371,6 +424,9 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
       }
       if (event.key === LOGO_ACCENT_SYNC_STORAGE_KEY) {
         setLogoFollowsAccentState(readStoredLogoFollowsAccent())
+      }
+      if (event.key === SQUARE_CORNERS_STORAGE_KEY) {
+        setSquareCornersState(readStoredSquareCorners())
       }
     }
 
@@ -384,8 +440,8 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
   }, [])
 
   useEffect(() => {
-    applyDocumentTheme(mode, accentColor, logoFollowsAccent)
-    configureStaticTheme(mode, accentColor)
+    applyDocumentTheme(mode, accentColor, logoFollowsAccent, squareCorners)
+    configureStaticTheme(mode, accentColor, squareCorners)
 
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, mode)
@@ -394,10 +450,14 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
         LOGO_ACCENT_SYNC_STORAGE_KEY,
         String(logoFollowsAccent),
       )
+      window.localStorage.setItem(
+        SQUARE_CORNERS_STORAGE_KEY,
+        String(squareCorners),
+      )
     } catch {
       // 存储不可用时仍允许当前页面切换主题。
     }
-  }, [accentColor, logoFollowsAccent, mode])
+  }, [accentColor, logoFollowsAccent, mode, squareCorners])
 
   return (
     <AppThemeContext.Provider value={contextValue}>

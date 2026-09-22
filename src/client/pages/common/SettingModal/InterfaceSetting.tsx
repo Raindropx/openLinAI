@@ -16,9 +16,11 @@ export function InterfaceSetting() {
   const {
     accentColor,
     logoFollowsAccent,
+    squareCorners,
     setAccentColor,
     resetAccentColor,
     setLogoFollowsAccent,
+    setSquareCorners,
   } = useAppTheme()
 
   const listSettings = [
@@ -114,6 +116,22 @@ export function InterfaceSetting() {
             </div>
           </div>
           <Switch checked={logoFollowsAccent} onChange={setLogoFollowsAccent} />
+        </div>
+      </div>
+
+      <div className="border-t border-[#303640] pt-6">
+        <div className="font-medium text-slate-200">界面外观</div>
+      </div>
+
+      <div className="rounded-lg border border-[#303640] bg-[#181c22] p-4">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <div>圆角恐惧症模式</div>
+            <div className="mt-1 text-sm text-slate-500">
+              这些方不方圆不圆的东西吵到我了
+            </div>
+          </div>
+          <Switch checked={squareCorners} onChange={setSquareCorners} />
         </div>
       </div>
 

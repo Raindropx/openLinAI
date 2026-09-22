@@ -1,5 +1,14 @@
 @import 'tailwindcss';
 
+html[data-square-corners='true'],
+html[data-square-corners='true'] body,
+html[data-square-corners='true'] *,
+html[data-square-corners='true'] *::before,
+html[data-square-corners='true'] *::after,
+html[data-square-corners='true'] *::-webkit-scrollbar-thumb {
+  border-radius: 0 !important;
+}
+
 /* 全局滚动条优化 */
 @layer base {
   html {
