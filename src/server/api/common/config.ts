@@ -66,6 +66,8 @@ const configApi = new Hono()
             optimizePrompt: z.string(),
             novelaiFurryPrompt: z.string(),
             novelaiAnimePrompt: z.string(),
+            novelaiInpaintFurryPrompt: z.string(),
+            novelaiInpaintAnimePrompt: z.string(),
             styleOptimizePrompt: z.string(),
             charCardPrompt: z.string(),
           })

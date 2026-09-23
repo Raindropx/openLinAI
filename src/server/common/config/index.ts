@@ -7,6 +7,8 @@ import { GPT_IMAGE_SOURCE_MODEL } from '../../module/gpt-image/enum'
 import {
   DEFAULT_NOVELAI_ANIME_PROMPT,
   DEFAULT_NOVELAI_FURRY_PROMPT,
+  DEFAULT_NOVELAI_INPAINT_ANIME_PROMPT,
+  DEFAULT_NOVELAI_INPAINT_FURRY_PROMPT,
 } from './novelai-prompts'
 
 /** 默认云雾生成端点（迁移旧配置用） */
@@ -78,6 +80,9 @@ export interface LlmPrompts {
   /** NovelAI Studio 独立的 Furry/Anime 优化系统提示词 */
   novelaiFurryPrompt: string
   novelaiAnimePrompt: string
+  /** NovelAI 局部重绘独立优化系统提示词 */
+  novelaiInpaintFurryPrompt: string
+  novelaiInpaintAnimePrompt: string
   /** 风格预设模板优化的系统提示词 */
   styleOptimizePrompt: string
   /** 角色卡生成的系统提示词 */
@@ -170,6 +175,8 @@ const DEFAULT_CONFIG: Config = {
     optimizePrompt: DEFAULT_OPTIMIZE_PROMPT,
     novelaiFurryPrompt: DEFAULT_NOVELAI_FURRY_PROMPT,
     novelaiAnimePrompt: DEFAULT_NOVELAI_ANIME_PROMPT,
+    novelaiInpaintFurryPrompt: DEFAULT_NOVELAI_INPAINT_FURRY_PROMPT,
+    novelaiInpaintAnimePrompt: DEFAULT_NOVELAI_INPAINT_ANIME_PROMPT,
     styleOptimizePrompt: DEFAULT_STYLE_OPTIMIZE_PROMPT,
     charCardPrompt: DEFAULT_CHAR_CARD_PROMPT,
   },
@@ -199,6 +206,10 @@ try {
           parsed.llmPrompts?.novelaiFurryPrompt ?? DEFAULT_NOVELAI_FURRY_PROMPT,
         novelaiAnimePrompt:
           parsed.llmPrompts?.novelaiAnimePrompt ?? DEFAULT_NOVELAI_ANIME_PROMPT,
+        novelaiInpaintFurryPrompt:
+          parsed.llmPrompts?.novelaiInpaintFurryPrompt ?? DEFAULT_NOVELAI_INPAINT_FURRY_PROMPT,
+        novelaiInpaintAnimePrompt:
+          parsed.llmPrompts?.novelaiInpaintAnimePrompt ?? DEFAULT_NOVELAI_INPAINT_ANIME_PROMPT,
         styleOptimizePrompt:
           parsed.llmPrompts?.styleOptimizePrompt ?? DEFAULT_STYLE_OPTIMIZE_PROMPT,
         // 角色卡生成是新功能，不迁移旧版 roleplayPrompt，直接使用新默认提示词

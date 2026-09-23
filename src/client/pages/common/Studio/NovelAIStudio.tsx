@@ -55,6 +55,7 @@ import {
 } from './api'
 import { ProviderKeyCard } from './ProviderKeyCard'
 import { NovelAICanvas } from './NovelAICanvas'
+import { NovelAICharacterImagePrompt } from './NovelAICharacterImagePrompt'
 import type { StudioGenerationParameters } from './studio-parameters'
 import { parseNovelAIOptimizedPrompt } from './novelai-prompt'
 
@@ -76,6 +77,9 @@ const INITIAL_VALUES: NovelAIStudioGenerateRequest = {
   qualityPreset: 'standard',
   ucPreset: 0,
   action: 'generate',
+  focusedInpaint: true,
+  inpaintContextPixels: 128,
+  inpaintFeatherPixels: 20,
   strength: 0.7,
   noise: 0.1,
   characters: [],
@@ -157,6 +161,7 @@ export function NovelAIStudio({
   const { llmEndpoints, llmPrompts } = useGlobalStore()
   const model = Form.useWatch('model', form) || settings.model
   const action = Form.useWatch('action', form) || 'generate'
+  const focusedInpaint = Form.useWatch('focusedInpaint', form) ?? true
   const targetWidth = Form.useWatch('width', { form, preserve: true }) || 1024
   const targetHeight = Form.useWatch('height', { form, preserve: true }) || 1024
   const preciseImageUrl = Form.useWatch(['preciseReference', 'imageUrl'], form)
@@ -386,8 +391,12 @@ export function NovelAIStudio({
       const content: ChatContentPart[] = []
       if (optimizeText.trim()) content.push({ type: 'text', text: optimizeText.trim() })
       if (optimizeImage) content.push({ type: 'image_url', image_url: { url: optimizeImage.url } })
+      const inpaint = form.getFieldValue('action') === 'infill'
+      const systemPrompt = inpaint
+        ? promptMode === 'furry' ? llmPrompts.novelaiInpaintFurryPrompt : llmPrompts.novelaiInpaintAnimePrompt
+        : promptMode === 'furry' ? llmPrompts.novelaiFurryPrompt : llmPrompts.novelaiAnimePrompt
       const messages: ChatMessage[] = [
-        { role: 'system', content: promptMode === 'furry' ? llmPrompts.novelaiFurryPrompt : llmPrompts.novelaiAnimePrompt },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content },
       ]
       const result = await requestChatCompletion({ endpointId, messages })
@@ -687,7 +696,26 @@ export function NovelAIStudio({
               <Slider min={0} max={1} step={0.01} disabled={!referenceImage} />
             </Form.Item>
           </div>
-          {action === 'infill' && <Alert type="info" showIcon title="在中间画布涂抹需要重绘的区域" />}
+          {action === 'infill' && <Alert
+            type="info"
+            showIcon
+            title="在中间画布涂抹需要重绘的区域"
+            description="小范围重绘建议开启聚焦，并让遮罩略宽于目标轮廓；提示词只描述要改的局部。"
+          />}
+          {action === 'infill' && <>
+            <Form.Item label="聚焦局部重绘" name="focusedInpaint" valuePropName="checked"
+              extra="放大遮罩附近的画面生成，再按柔和边缘贴回原图；小范围重绘推荐开启。">
+              <Switch />
+            </Form.Item>
+            {focusedInpaint && <Form.Item label="蒙版外上下文像素" name="inpaintContextPixels"
+              extra="保留在遮罩周围供模型参考的原图范围；过小可能失去结构信息。">
+              <Slider min={32} max={512} step={32} />
+            </Form.Item>}
+            {focusedInpaint && <Form.Item label="边缘过渡像素" name="inpaintFeatherPixels"
+              extra="仅在遮罩内侧渐变贴回；偏色或接缝明显时可适当增大。">
+              <Slider min={4} max={32} step={4} />
+            </Form.Item>}
+          </>}
         </div>}
         <Collapse ghost items={[{ key: 'precise', label: '精密参考（V4.5）', children: <>
           <Alert type="info" showIcon title="可参考人物、画风，或两者一起；与图生图参考图用途不同" />
@@ -735,12 +763,21 @@ export function NovelAIStudio({
                 <div className="studio-character-card" key={field.key}>
                   <div className="studio-character-title">
                     <strong>角色 {index + 1}</strong>
-                    <Button
-                      danger
-                      type="text"
-                      icon={<MinusCircleOutlined />}
-                      onClick={() => remove(field.name)}
-                    />
+                    <Space size={4}>
+                      <NovelAICharacterImagePrompt mode={promptMode} onAdopt={(prompt, uc) => {
+                        const characters = form.getFieldValue('characters') || []
+                        form.setFieldValue(['characters', field.name], {
+                          ...characters[field.name], prompt, negativePrompt: uc,
+                        })
+                        saveDraft()
+                      }} />
+                      <Button
+                        danger
+                        type="text"
+                        icon={<MinusCircleOutlined />}
+                        onClick={() => remove(field.name)}
+                      />
+                    </Space>
                   </div>
                   <Form.Item
                     label="角色提示词"
@@ -834,7 +871,7 @@ export function NovelAIStudio({
           ]}
         />
       </Form>
-      <Modal title={`NovelAI ${promptMode === 'furry' ? 'Furry' : 'Anime'} 提示词优化`}
+      <Modal title={`NovelAI ${promptMode === 'furry' ? 'Furry' : 'Anime'} ${action === 'infill' ? '局部重绘' : '文生图/图生图'}提示词优化`}
         open={optimizeOpen} onCancel={closeOptimize} onOk={adoptOptimizedPrompt}
         okText="采纳" cancelText="丢弃" okButtonProps={{ disabled: optimizeLoading || !optimizeText.trim() }}
         width={680} destroyOnHidden>
@@ -855,7 +892,11 @@ export function NovelAIStudio({
         <div style={{ marginTop: 12 }}>
           <Button type="primary" loading={optimizeLoading} onClick={() => void optimizePrompt()}>优化</Button>
         </div>
-        <div style={{ marginTop: 8, color: '#94a3b8' }}>参考图仅发送给提示词优化端点；采纳时分别填入提示词、UC 和角色提示词。</div>
+        <div style={{ marginTop: 8, color: '#94a3b8' }}>
+          {action === 'infill'
+            ? '默认带入未标遮罩的参考原图；如手动换图，则发送换后的图。请在文字中说明要重绘的局部和目标内容。'
+            : '参考图仅发送给提示词优化端点；采纳时分别填入提示词、UC 和角色提示词。'}
+        </div>
       </Modal>
     </div>
         </div>

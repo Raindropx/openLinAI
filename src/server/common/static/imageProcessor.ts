@@ -212,6 +212,50 @@ export async function resizeImageToExactDimensions(
     .toBuffer()
 }
 
+/** Crop a selected image region and scale it to a provider-valid inpaint canvas. */
+export async function cropAndResizeImage(
+  buffer: Buffer,
+  left: number,
+  top: number,
+  size: number,
+  targetSize: number,
+): Promise<Buffer> {
+  if (getBackend() === 'ffmpeg') {
+    return runQueuedFfmpegStdin(buffer, [
+      '-hide_banner', '-loglevel', 'error', '-max_pixels', String(IMAGE_MAX_INPUT_PIXELS),
+      '-i', 'pipe:0',
+      '-vf', `crop=${size}:${size}:${left}:${top},scale=${targetSize}:${targetSize},format=yuvj420p`,
+      '-frames:v', '1', '-c:v', 'mjpeg', '-q:v', String(FFMPEG_JPEG_QUALITY_UPLOAD),
+      '-f', 'image2pipe', 'pipe:1',
+    ])
+  }
+  const sharp = (await import('sharp')).default
+  return sharp(buffer, { limitInputPixels: IMAGE_MAX_INPUT_PIXELS })
+    .extract({ left, top, width: size, height: size })
+    .resize(targetSize, targetSize)
+    .png()
+    .toBuffer()
+}
+
+/** Decode PNG or JPEG into RGBA without requiring Sharp on OpenWrt. */
+export async function decodeImageRgba(
+  buffer: Buffer,
+  width: number,
+  height: number,
+): Promise<Buffer> {
+  const rgba = getBackend() === 'ffmpeg'
+    ? await runQueuedFfmpegStdin(buffer, [
+        '-hide_banner', '-loglevel', 'error', '-max_pixels', String(IMAGE_MAX_INPUT_PIXELS),
+        '-i', 'pipe:0', '-frames:v', '1', '-pix_fmt', 'rgba',
+        '-f', 'rawvideo', 'pipe:1',
+      ])
+    : await (await import('sharp')).default(buffer, { limitInputPixels: IMAGE_MAX_INPUT_PIXELS })
+        .ensureAlpha().raw().toBuffer()
+  if (rgba.length !== width * height * 4)
+    throw new Error('局部重绘图片尺寸与请求不一致')
+  return rgba
+}
+
 /** NovelAI precise reference expects one of three fixed canvases with black padding. */
 export async function padImageToExactDimensions(
   buffer: Buffer,

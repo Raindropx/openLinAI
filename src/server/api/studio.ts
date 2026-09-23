@@ -68,6 +68,9 @@ const novelaiGenerateSchema = z.object({
   action: z.enum(['generate', 'img2img', 'infill']).optional(),
   referenceImageUrl: inputImageUrlSchema.optional(),
   maskImageUrl: inputImageUrlSchema.optional(),
+  focusedInpaint: z.boolean().optional(),
+  inpaintContextPixels: z.number().int().min(32).max(512).optional(),
+  inpaintFeatherPixels: z.number().int().min(4).max(32).optional(),
   preciseReference: z.object({
     imageUrl: inputImageUrlSchema,
     type: z.enum(['character', 'style', 'character-and-style']),

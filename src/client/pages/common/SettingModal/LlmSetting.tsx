@@ -420,7 +420,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
             style={{ resize: 'none' }}
           />
         </Form.Item>
-        <Form.Item label="NovelAI Furry 提示词优化">
+        <Form.Item label="NovelAI Furry 文生图/图生图提示词优化">
           <Input.TextArea
             value={draftPrompts.novelaiFurryPrompt}
             onChange={(e) =>
@@ -429,11 +429,29 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
             autoSize={{ minRows: 6, maxRows: 20 }}
           />
         </Form.Item>
-        <Form.Item label="NovelAI Anime 提示词优化">
+        <Form.Item label="NovelAI Anime 文生图/图生图提示词优化">
           <Input.TextArea
             value={draftPrompts.novelaiAnimePrompt}
             onChange={(e) =>
               setDraftPrompts((p) => ({ ...p, novelaiAnimePrompt: e.target.value }))
+            }
+            autoSize={{ minRows: 6, maxRows: 20 }}
+          />
+        </Form.Item>
+        <Form.Item label="NovelAI Furry 局部重绘提示词优化">
+          <Input.TextArea
+            value={draftPrompts.novelaiInpaintFurryPrompt}
+            onChange={(e) =>
+              setDraftPrompts((p) => ({ ...p, novelaiInpaintFurryPrompt: e.target.value }))
+            }
+            autoSize={{ minRows: 6, maxRows: 20 }}
+          />
+        </Form.Item>
+        <Form.Item label="NovelAI Anime 局部重绘提示词优化">
+          <Input.TextArea
+            value={draftPrompts.novelaiInpaintAnimePrompt}
+            onChange={(e) =>
+              setDraftPrompts((p) => ({ ...p, novelaiInpaintAnimePrompt: e.target.value }))
             }
             autoSize={{ minRows: 6, maxRows: 20 }}
           />

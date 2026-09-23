@@ -136,6 +136,12 @@ export interface NovelAIStudioGenerateRequest {
   referenceImageUrl?: string
   /** 黑色保留、白色重绘；尺寸须与参考图一致。 */
   maskImageUrl?: string
+  /** 将小范围遮罩连同周边画面放大后重绘，再贴回原图。 */
+  focusedInpaint?: boolean
+  /** 聚焦重绘时，遮罩外保留的上下文像素。 */
+  inpaintContextPixels?: number
+  /** 聚焦结果贴回原图时，遮罩内侧的渐变宽度。 */
+  inpaintFeatherPixels?: number
   preciseReference?: NovelAIPreciseReference
   strength: number
   noise: number

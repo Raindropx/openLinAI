@@ -15,6 +15,9 @@ import { fetchWithTimeout } from '../utils/fetch'
 import { logger } from '../utils/logger'
 import { GptImageQuality, GptImageSize } from './enum'
 import { persistImageBuffers } from './image-files'
+import { embedPngTextMetadata, readPngGenerationText } from './generation-metadata'
+import { makeNovelAIInpaintOpaque } from './novelai-inpaint-result'
+import { compositeFocusedInpaint, prepareFocusedInpaint } from './novelai-focused-inpaint'
 import { buildPromptWithAspectRatio } from './index'
 
 interface NovelAIJsonImage {
@@ -98,12 +101,13 @@ function buildNovelAIBody(options: {
     | 'characters'
   >
   mask?: string
+  addOriginalImage?: boolean
   preciseImage?: string
   preciseType?: 'character' | 'style' | 'character-and-style'
   preciseStrength?: number
   preciseFidelity?: number
 }) {
-  const { model, prompt, width, height, quality, n, seed, image, mask, advanced, preciseImage, preciseType, preciseStrength, preciseFidelity } =
+  const { model, prompt, width, height, quality, n, seed, image, mask, addOriginalImage, advanced, preciseImage, preciseType, preciseStrength, preciseFidelity } =
     options
   const characters: NovelAICharacterPrompt[] = advanced?.characters || []
   const hasPositions = characters.some((character) => character.position)
@@ -193,7 +197,17 @@ function buildNovelAIBody(options: {
       extra_noise_seed: seed,
     })
   }
-  if (mask) parameters.mask = mask
+  if (mask) {
+    parameters.mask = mask
+    // NovelAI reads inpainting strength/noise from img2img, not just the
+    // top-level fields used by ordinary image-to-image generation.
+    parameters.img2img = {
+      strength: advanced?.strength ?? 0.7,
+      noise: advanced?.noise ?? 0.1,
+      extra_noise_seed: seed,
+    }
+    parameters.add_original_image = addOriginalImage ?? true
+  }
 
   return {
     action: mask ? 'infill' : image ? 'img2img' : 'generate',
@@ -357,6 +371,22 @@ export async function handleNovelAIImageGeneration(options: {
       ? await getMask(advanced.maskImageUrl, width, height)
       : undefined
     if (action === 'infill' && !mask) throw new Error('局部重绘需要遮罩')
+    const originalImage = image ? Buffer.from(image, 'base64') : undefined
+    const originalMask = mask ? Buffer.from(mask, 'base64') : undefined
+    const focus = advanced?.focusedInpaint && originalImage && originalMask
+      ? await prepareFocusedInpaint(originalImage, originalMask, width, height, advanced.inpaintContextPixels ?? 128)
+      : null
+    const focusedAdvanced = focus && advanced
+      ? {
+          ...advanced,
+          characters: advanced.characters.map((character) => {
+            if (!character.position) return character
+            const x = (character.position.x * width - focus.left) / focus.size
+            const y = (character.position.y * height - focus.top) / focus.size
+            return { ...character, position: x >= 0 && x <= 1 && y >= 0 && y <= 1 ? { x, y } : undefined }
+          }),
+        }
+      : advanced
     if (advanced?.preciseReference && !/^nai-diffusion-4-5-/.test(model))
       throw new Error('精密参考只支持 V4.5 模型')
     const preciseImage = advanced?.preciseReference
@@ -383,18 +413,21 @@ export async function handleNovelAIImageGeneration(options: {
           buildNovelAIBody({
             model,
             prompt,
-            width,
-            height,
+            width: focus ? 1024 : width,
+            height: focus ? 1024 : height,
             quality,
             n: 1,
             seed,
-            image,
-            mask,
+            image: focus?.image ?? image,
+            mask: focus?.mask ?? mask,
+            // Focused mode composites against the original locally; the provider's
+            // hard original-image overlay can leave a visible rectangular seam.
+            addOriginalImage: !focus,
             preciseImage,
             preciseType: advanced?.preciseReference?.type,
             preciseStrength: advanced?.preciseReference?.strength,
             preciseFidelity: advanced?.preciseReference?.fidelity,
-            advanced,
+            advanced: focusedAdvanced,
           }),
         ),
       },
@@ -423,8 +456,23 @@ export async function handleNovelAIImageGeneration(options: {
           }
         : undefined
       const buffers = await parseNovelAIImages(response)
+      let output = focus && originalImage && originalMask
+        ? await compositeFocusedInpaint(
+            originalImage,
+            makeNovelAIInpaintOpaque(buffers[0], Buffer.from(focus.mask, 'base64'), prompt),
+            originalMask, width, height, focus,
+            /\b(?:transparent background|has alpha|alpha transparency)\b/i.test(prompt),
+            advanced?.inpaintFeatherPixels ?? 20,
+          )
+        : mask
+          ? makeNovelAIInpaintOpaque(buffers[0], originalMask!, prompt)
+          : buffers[0]
+      if (focus) {
+        for (const [key, value] of Object.entries(readPngGenerationText(buffers[0])))
+          output = embedPngTextMetadata(output, key, value)
+      }
       const filenames = await persistImageBuffers(
-      buffers.slice(0, 1),
+      [output],
       writeMetadata
         ? {
             prompt,

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import os from 'node:os'
 import path from 'node:path'
+import assert from 'node:assert/strict'
 import fs from 'fs-extra'
 import JSZip from 'jszip'
 import sharp from 'sharp'
@@ -45,13 +46,14 @@ async function main() {
 
     const requestBodies: Array<Record<string, any>> = []
     globalThis.fetch = (async (_input, init) => {
-      requestBodies.push(JSON.parse(String(init?.body)))
+      const requestBody = JSON.parse(String(init?.body))
+      requestBodies.push(requestBody)
       const output = await sharp({
         create: {
-          width: 768,
-          height: 512,
+          width: requestBody.parameters.width,
+          height: requestBody.parameters.height,
           channels: 4,
-          background: '#8a4fbd',
+          background: requestBody.action === 'infill' ? '#8a4fbd80' : '#8a4fbd',
         },
       })
         .png()
@@ -117,7 +119,9 @@ async function main() {
 
     const mask = await sharp({
       create: { width: 768, height: 512, channels: 3, background: '#000000' },
-    }).png().toBuffer()
+    }).composite([{ input: await sharp({
+      create: { width: 100, height: 100, channels: 3, background: '#ffffff' },
+    }).png().toBuffer(), left: 100, top: 100 }]).png().toBuffer()
     const { default: studioApi } = await import('../src/server/api/studio')
     const uploadedMask = await studioApi.request('/providers/novelai/mask', {
       method: 'POST', headers: { 'Content-Type': 'image/png' }, body: new Uint8Array(mask),
@@ -159,6 +163,11 @@ async function main() {
     assert.equal(requestBodies[1].parameters.n_samples, 1)
     assert.equal(requestBodies[1].parameters.seed, 101)
     assert.equal(requestBodies[2].parameters.seed, 102)
+    assert.deepEqual(requestBodies[1].parameters.img2img, {
+      strength: 0.65, noise: 0.1, extra_noise_seed: 101,
+    })
+    assert.equal(requestBodies[1].parameters.add_original_image, true)
+    assert.equal(requestBodies[2].parameters.img2img.extra_noise_seed, 102)
     assert.equal(requestBodies[1].parameters.v4_prompt.use_coords, true)
     assert.deepEqual(requestBodies[1].parameters.v4_prompt.caption.char_captions[0].centers, [{ x: 0.3, y: 0.55 }])
     assert.equal(requestBodies[1].parameters.director_reference_images.length, 1)
@@ -175,6 +184,11 @@ async function main() {
     assert.ok(imageFile)
     const generated = await fs.readFile(path.join(root, 'images', 'generated', imageFile))
     assert.equal(JSON.parse(readPngGenerationText(generated).Comment).novelai.seed, 102)
+    const pixels = (await sharp(generated).ensureAlpha().raw().toBuffer({ resolveWithObject: true })).data
+    assert.equal(pixels[(150 * 768 + 150) * 4 + 3], 255)
+    assert.equal(pixels[(300 * 768 + 300) * 4 + 3], 128)
+    const { makeNovelAIInpaintOpaque } = await import('../src/server/module/gpt-image/novelai-inpaint-result')
+    assert.equal(makeNovelAIInpaintOpaque(generated, mask, 'transparent background'), generated)
     let archivedComment = false
     for (let offset = 8; offset + 12 <= generated.length;) {
       const size = generated.readUInt32BE(offset)
@@ -202,6 +216,59 @@ async function main() {
     })
     assert.equal(v5Result.data.success, true)
     assert.equal(requestBodies[3].model, 'nai-diffusion-5-full-inpainting')
+    const focusedResult = await handleNovelAIImageGeneration({
+      apiKey: 'test-token', baseURL: 'https://image.novelai.net',
+      model: 'nai-diffusion-5-full', endpointName: 'NovelAI Studio',
+      writeMetadata: false,
+      template: {
+        id: 'test-focused-infill-template', title: '聚焦重绘测试',
+        prompt: 'purple fur', images: [studioRequest.referenceImageUrl],
+        usageType: 'image', aspectRatio: '3:2', n: 1, createdAt: Date.now(),
+      },
+      advanced: {
+        ...studioRequest,
+        model: 'nai-diffusion-5-full', n: 1, preciseReference: undefined,
+        focusedInpaint: true, inpaintContextPixels: 64,
+      },
+    })
+    assert.equal(focusedResult.data.success, true)
+    const focusedBody = requestBodies[4]
+    assert.equal(focusedBody.action, 'infill')
+    assert.equal(focusedBody.parameters.width, 1024)
+    assert.equal(focusedBody.parameters.height, 1024)
+    assert.equal(focusedBody.parameters.add_original_image, false)
+    assert.equal((await sharp(Buffer.from(focusedBody.parameters.mask, 'base64')).metadata()).width, 1024)
+    const focusedFile = focusedResult.data.outputUrls?.[0]?.split('/').pop()
+    assert.ok(focusedFile)
+    const focusedGenerated = await fs.readFile(path.join(root, 'images', 'generated', focusedFile))
+    assert.equal(JSON.parse(readPngGenerationText(focusedGenerated).Comment).seed, 999)
+    const focusedPixels = (await sharp(path.join(root, 'images', 'generated', focusedFile))
+      .ensureAlpha().raw().toBuffer({ resolveWithObject: true })).data
+    const rgbaAt = (x: number, y: number) => Array.from(focusedPixels.subarray((y * 768 + x) * 4, (y * 768 + x) * 4 + 4))
+    const sourcePixels = (await sharp(normalized).ensureAlpha().raw().toBuffer({ resolveWithObject: true })).data
+    const sourceAt = (x: number, y: number) => Array.from(sourcePixels.subarray((y * 768 + x) * 4, (y * 768 + x) * 4 + 4))
+    assert.ok(rgbaAt(50, 50).every((value, channel) => Math.abs(value - sourceAt(50, 50)[channel]) <= 1),
+      'outside the mask must match the decoded source (JPEG decoders may differ by one level)')
+    assert.equal(rgbaAt(150, 150)[3], 255, 'mask interior should remain opaque')
+    const difference = (x: number, y: number) => rgbaAt(x, y)
+      .slice(0, 3).reduce((sum, value, channel) => sum + Math.abs(value - sourceAt(x, y)[channel]), 0)
+    assert.ok(difference(150, 150) > 30, 'mask interior should use the generated result')
+    assert.ok(difference(100, 150) < difference(150, 150), 'mask edge should be feathered')
+    const { prepareFocusedInpaint, compositeFocusedInpaint } =
+      await import('../src/server/module/gpt-image/novelai-focused-inpaint')
+    const focus = await prepareFocusedInpaint(normalized, mask, 768, 512, 64)
+    assert.ok(focus)
+    const synthetic = await sharp({ create: { width: 1024, height: 1024, channels: 4, background: '#8a4fbd' } }).png().toBuffer()
+    const narrow = await compositeFocusedInpaint(normalized, synthetic, mask, 768, 512, focus, false, 4)
+    const wide = await compositeFocusedInpaint(normalized, synthetic, mask, 768, 512, focus, false, 20)
+    const narrowPixels = await sharp(narrow).raw().toBuffer()
+    const widePixels = await sharp(wide).raw().toBuffer()
+    const pixelDifference = (pixels: Buffer, x: number, y: number) =>
+      [0, 1, 2].reduce((sum, channel) => sum + Math.abs(pixels[(y * 768 + x) * 4 + channel] - sourceAt(x, y)[channel]), 0)
+    assert.ok(pixelDifference(widePixels, 105, 150) < pixelDifference(narrowPixels, 105, 150),
+      'wider feather must soften the generated color near the mask boundary')
+    assert.equal(pixelDifference(widePixels, 150, 150), pixelDifference(narrowPixels, 150, 150),
+      'feather width must not change the mask interior')
     globalThis.fetch = (async (_input, init) =>
       studioApi.request('/providers/novelai/generate', init)) as typeof fetch
     const { generateNovelAIStudioImages } = await import('../src/client/pages/common/Studio/api')
