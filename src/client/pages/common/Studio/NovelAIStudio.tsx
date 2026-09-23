@@ -140,8 +140,8 @@ export function NovelAIStudio({
   const { gptImageSettings } = useLocalSetting()
   const model = Form.useWatch('model', form) || settings.model
   const action = Form.useWatch('action', form) || 'generate'
-  const targetWidth = Form.useWatch('width', form) || 1024
-  const targetHeight = Form.useWatch('height', form) || 1024
+  const targetWidth = Form.useWatch('width', { form, preserve: true }) || 1024
+  const targetHeight = Form.useWatch('height', { form, preserve: true }) || 1024
   const preciseImageUrl = Form.useWatch(['preciseReference', 'imageUrl'], form)
   const selectedItem = items.find((item) => item.id === selectedItemId)
   const canvasImage = action === 'infill' || (viewSource && referenceImage)
