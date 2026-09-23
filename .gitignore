@@ -10,6 +10,7 @@ data
 tsconfig.tsbuildinfo
 .codegraph
 PROJECT_MEMORY.md
+.codex-remote-attachments/
 
 # Build and release archives
 *.zip
