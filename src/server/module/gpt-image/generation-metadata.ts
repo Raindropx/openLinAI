@@ -1,5 +1,6 @@
 import { inflateSync } from 'zlib'
 import packageJson from '../../../../package.json'
+import type { NovelAIGenerationSnapshot } from '../../../shared/studio-generation'
 import { TRIAL_TEMPLATE_TITLE } from '../../common/template-manager/enum'
 import { logger } from '../utils/logger'
 
@@ -27,6 +28,7 @@ export interface GenerationMetadataInput {
   quality: string
   referenceImageCount: number
   generatedAt?: string
+  novelai?: NovelAIGenerationSnapshot
 }
 
 interface GenerationMetadataDocument extends GenerationMetadataInput {
@@ -490,7 +492,8 @@ function embedPngMetadata(
       sourceTextChunks.push(...readPngMetadataArchive(data))
     } else if (PNG_TEXT_CHUNK_TYPES.has(type as PngTextChunkType)) {
       const keyword = readPngTextKeyword(type, data)
-      if (!keyword || !replacementKeys.has(keyword)) {
+      // Keep NovelAI's original parameter Comment in the private PNG archive.
+      if (!keyword || !replacementKeys.has(keyword) || (keyword === 'Comment' && document.engine === 'novelai-images')) {
         sourceTextChunks.push({
           type: type as PngTextChunkType,
           keyword,

@@ -212,6 +212,28 @@ export async function resizeImageToExactDimensions(
     .toBuffer()
 }
 
+/** NovelAI precise reference expects one of three fixed canvases with black padding. */
+export async function padImageToExactDimensions(
+  buffer: Buffer,
+  width: number,
+  height: number,
+): Promise<Buffer> {
+  if (getBackend() === 'ffmpeg') {
+    return runQueuedFfmpegStdin(buffer, [
+      '-hide_banner', '-loglevel', 'error', '-max_pixels', String(IMAGE_MAX_INPUT_PIXELS),
+      '-i', 'pipe:0',
+      '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,format=yuvj420p`,
+      '-frames:v', '1', '-c:v', 'mjpeg', '-q:v', String(FFMPEG_JPEG_QUALITY_UPLOAD),
+      '-f', 'image2pipe', 'pipe:1',
+    ])
+  }
+  const sharp = (await import('sharp')).default
+  return sharp(buffer, { limitInputPixels: IMAGE_MAX_INPUT_PIXELS })
+    .resize(width, height, { fit: 'contain', background: '#000000' })
+    .png()
+    .toBuffer()
+}
+
 async function compressUploadWithFfmpeg(
   buffer: Buffer,
   maxDimension: number,

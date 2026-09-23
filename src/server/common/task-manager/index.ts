@@ -3,6 +3,7 @@ import fs from 'fs-extra'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import type { StudioProvenance } from '../../../shared/studio'
+import type { NovelAIGenerationSnapshot } from '../../../shared/studio-generation'
 import type { ImageBilling } from '../../module/gpt-image/billing'
 import { GptImageQuality, GptImageSize } from '../../module/gpt-image/enum'
 import { Logger } from '../../module/utils/logger'
@@ -31,6 +32,7 @@ export interface Task {
   imageBilling?: ImageBilling
   studioItemId?: string
   studioProvenance?: StudioProvenance
+  novelaiSnapshots?: NovelAIGenerationSnapshot[]
   [key: string]: any
 }
 

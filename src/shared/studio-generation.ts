@@ -101,6 +101,18 @@ export interface StudioProviderSettings {
 export interface NovelAICharacterPrompt {
   prompt: string
   negativePrompt: string
+  /** 手动角色位置，坐标相对于画布归一化至 0–1。 */
+  position?: { x: number; y: number }
+}
+
+export type NovelAIAction = 'generate' | 'img2img' | 'infill'
+export type NovelAIQualityPreset = 'none' | 'light' | 'standard'
+
+export interface NovelAIPreciseReference {
+  imageUrl: string
+  type: 'character' | 'style' | 'character-and-style'
+  fidelity: number
+  strength: number
 }
 
 export interface NovelAIStudioGenerateRequest {
@@ -118,11 +130,27 @@ export interface NovelAIStudioGenerateRequest {
   seed: number
   n: number
   qualityToggle: boolean
+  qualityPreset?: NovelAIQualityPreset
+  ucPreset?: number
+  action?: NovelAIAction
   referenceImageUrl?: string
+  /** 黑色保留、白色重绘；尺寸须与参考图一致。 */
+  maskImageUrl?: string
+  preciseReference?: NovelAIPreciseReference
   strength: number
   noise: number
   characters: NovelAICharacterPrompt[]
   saveToTaskList?: boolean
+}
+
+/** 不含凭据及图片 Base64，request 可直接用于单张图片的参数回填。 */
+export interface NovelAIGenerationSnapshot {
+  version: 1
+  request: NovelAIStudioGenerateRequest
+  seed: number
+  requestedSeed: number
+  batchSize: number
+  imageIndex: number
 }
 
 export interface CivitaiModelVersionSummary {

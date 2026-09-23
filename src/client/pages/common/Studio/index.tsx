@@ -27,13 +27,13 @@ import {
 } from 'antd'
 import { saveAs } from 'file-saver'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   studioFileUrl,
   studioSourceLabel,
   type StudioItem,
 } from '../../../../shared/studio'
-import type { StudioProviderSettings } from '../../../../shared/studio-generation'
+import type { NovelAIStudioGenerateRequest, StudioProviderSettings } from '../../../../shared/studio-generation'
 import { useGlobalStore } from '../../../store/global'
 import {
   getStudioProviderSettings,
@@ -49,12 +49,16 @@ import { PHOTOPEA_URL, usePhotopea } from './usePhotopea'
 export function StudioPage({ active = true }: { active?: boolean }) {
   const { token } = theme.useToken()
   const navigate = useNavigate()
+  const location = useLocation()
   const [items, setItems] = useState<StudioItem[]>([])
   const [providerSettings, setProviderSettings] =
     useState<StudioProviderSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [tab, setTab] = useState('photopea')
+  const [tab, setTab] = useState('novelai')
+  const [novelaiPanel, setNovelaiPanel] = useState<'parameters' | 'canvas'>('canvas')
+  const [selectedItemId, setSelectedItemId] = useState<string>()
+  const [novelaiRequest, setNovelaiRequest] = useState<{ id: number; request: NovelAIStudioGenerateRequest }>()
   const [mobileShelf, setMobileShelf] = useState(false)
   const [working, setWorking] = useState(false)
   const workingRef = useRef(false)
@@ -91,6 +95,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const addItems = (added: StudioItem[]) => {
     const ids = new Set(added.map((item) => item.id))
     setItems((list) => [...added, ...list.filter((item) => !ids.has(item.id))])
+    if (added[0]) setSelectedItemId(added[0].id)
     void refresh()
   }
   const pick = (open: boolean) => {
@@ -100,6 +105,17 @@ export function StudioPage({ active = true }: { active?: boolean }) {
 
   // A keyed child owns the bridge so an explicit reload resets all command state.
   const editorRef = useRef<EditorHandle | null>(null)
+
+  useEffect(() => {
+    const state = location.state as { novelaiRequest?: NovelAIStudioGenerateRequest } | null
+    if (!active || !state?.novelaiRequest) return
+    setNovelaiRequest({ id: Date.now(), request: state.novelaiRequest })
+    setTab('novelai')
+    setMobileShelf(false)
+    setNovelaiPanel('parameters')
+    const { novelaiRequest: _request, ...rest } = state
+    navigate(location.pathname, { replace: true, state: rest })
+  }, [active, location.pathname, location.state, navigate])
 
   useEffect(() => {
     if (active) {
@@ -186,7 +202,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const unpinned = items.filter((item) => !item.pinned)
   return (
     <div
-      className="studio-layout"
+      className={`studio-layout ${tab === 'novelai' ? 'studio-layout-novelai' : ''}`}
       style={
         {
           color: token.colorText,
@@ -213,12 +229,19 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       <div className="studio-mobile-switch">
         <Segmented
           block
-          value={mobileShelf ? 'shelf' : 'editor'}
-          options={[
+          value={mobileShelf ? 'shelf' : tab === 'novelai' ? novelaiPanel : 'editor'}
+          options={tab === 'novelai' ? [
+            { label: '参数', value: 'parameters' },
+            { label: '画布', value: 'canvas' },
+            { label: `暂存台 (${items.length})`, value: 'shelf' },
+          ] : [
             { label: '工作室', value: 'editor' },
             { label: `暂存台 (${items.length})`, value: 'shelf' },
           ]}
-          onChange={(value) => setMobileShelf(value === 'shelf')}
+          onChange={(value) => {
+            setMobileShelf(value === 'shelf')
+            if (value === 'parameters' || value === 'canvas') setNovelaiPanel(value)
+          }}
         />
       </div>
       <section
@@ -244,9 +267,9 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             </button>
           ))}
         </div>
-        {tab === 'novelai' && (
           <div
-            className="studio-native-panel"
+            className="studio-native-panel studio-novelai-panel"
+            style={{ display: tab === 'novelai' ? 'flex' : 'none' }}
             role="tabpanel"
             id="studio-panel-novelai"
             aria-labelledby="studio-tab-novelai"
@@ -257,12 +280,17 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                 items={items}
                 onSettings={setProviderSettings}
                 onItems={addItems}
+                selectedItemId={selectedItemId}
+                onSelectItem={setSelectedItemId}
+                mobilePanel={novelaiPanel}
+                onMobilePanel={setNovelaiPanel}
+                incomingRequest={novelaiRequest}
+                onOpenPhotopea={openItem}
               />
             ) : (
               <Spin />
             )}
           </div>
-        )}
         {tab === 'civitai' && (
           <div
             className="studio-native-panel"
@@ -396,7 +424,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             items.map((item) => (
               <article
                 key={item.id}
-                className={`studio-item ${item.pinned ? 'is-pinned' : ''}`}
+                className={`studio-item ${item.pinned ? 'is-pinned' : ''} ${tab === 'novelai' && selectedItemId === item.id ? 'is-selected' : ''}`}
                 draggable={!working}
                 onDragStart={(event) => {
                   event.dataTransfer.setData(
@@ -410,9 +438,14 @@ export function StudioPage({ active = true }: { active?: boolean }) {
               >
                 <button
                   className="studio-item-preview"
-                  onClick={() =>
-                    item.format === 'psd' ? openItem(item) : setPreview(item)
-                  }
+                  onClick={() => {
+                    if (item.format === 'psd') openItem(item)
+                    else if (tab === 'novelai') {
+                      setSelectedItemId(item.id)
+                      setNovelaiPanel('canvas')
+                      setMobileShelf(false)
+                    } else setPreview(item)
+                  }}
                   aria-label={`预览 ${item.name}`}
                 >
                   {item.format === 'psd' ? (
@@ -479,6 +512,10 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                       trigger={['click']}
                       menu={{
                         items: [
+                          ...(item.provenance.novelai ? [{
+                            key: 'novelai-refill',
+                            label: '回填 NovelAI 参数',
+                          }] : []),
                           {
                             key: 'download',
                             label: '下载文件',
@@ -506,7 +543,15 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                             icon: <DeleteOutlined />,
                           },
                         ],
-                        onClick: ({ key }) => itemAction(key, item),
+                        onClick: ({ key }) => {
+                          if (key === 'novelai-refill' && item.provenance.novelai) {
+                            setNovelaiRequest({ id: Date.now(), request: item.provenance.novelai.request })
+                            setTab('novelai')
+                            setSelectedItemId(item.id)
+                            setMobileShelf(false)
+                            setNovelaiPanel('parameters')
+                          } else itemAction(key, item)
+                        },
                       }}
                     >
                       <Button
@@ -523,7 +568,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           )}
         </div>
         <footer className="studio-shelf-footer">
-          拖到编辑区打开 · 钉住项不会被倒掉
+          {tab === 'novelai' ? '点击图片在画布查看 · 钉住项不会被倒掉' : '拖到编辑区打开 · 钉住项不会被倒掉'}
           <br />
           文件会保留到你主动清理
         </footer>

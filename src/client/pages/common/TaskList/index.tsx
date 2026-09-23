@@ -43,6 +43,7 @@ import {
   type ListSortMode,
 } from '../components/ListToolbar'
 import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
+import { generateNovelAIStudioImages } from '../Studio/api'
 import { TaskItemDeleteButton } from './components/TaskItemDeleteButton'
 import { TaskItemDownloadButton } from './components/TaskItemDownloadButton'
 import { TaskItemMetrics, TaskItemTags } from './components/TaskItemTags'
@@ -190,6 +191,7 @@ export function TaskList({
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [batchDeleting, setBatchDeleting] = useState(false)
+  const [retryingTaskId, setRetryingTaskId] = useState<string>()
   const [reviewImage, setReviewImage] = useState<ReviewImage | null>(null)
   const [reviewedTaskId, setReviewedTaskId] = useState<string | null>(null)
   const [reviewOrphaned, setReviewOrphaned] = useState(false)
@@ -215,6 +217,12 @@ export function TaskList({
   }
 
   const handleRefill = (task: Task) => {
+    const novelai = task.novelaiSnapshots?.[0] || task.studioProvenance?.novelai
+    if (novelai) {
+      navigate('/studio', { state: { novelaiRequest: novelai.request } })
+      message.success('已回填 NovelAI 工作室参数')
+      return
+    }
     if (!task.rawTemplate) return
     useGlobalStore.getState().setFillTemplateData(task.rawTemplate)
     if (managementMode) {
@@ -224,6 +232,20 @@ export function TaskList({
   }
 
   const handleRetry = async (task: Task) => {
+    const novelai = task.novelaiSnapshots?.[0] || task.studioProvenance?.novelai
+    if (novelai) {
+      setRetryingTaskId(task.id)
+      try {
+        const result = await generateNovelAIStudioImages({ ...novelai.request, saveToTaskList: true })
+        window.dispatchEvent(new Event('studio-changed'))
+        message.success(`已重新生成 ${result.items.length} 张图片`)
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : 'NovelAI 重试失败')
+      } finally {
+        setRetryingTaskId(undefined)
+      }
+      return
+    }
     await client.api.gptImage.generate.$post({
       json: {
         templateId: task.rawTemplate?.id || '',
@@ -1050,7 +1072,8 @@ export function TaskList({
                                   )}
                                 {task.rawTemplate &&
                                   (!task.studioProvenance ||
-                                    task.studioProvenance.template) && (
+                                    task.studioProvenance.template ||
+                                    task.studioProvenance.novelai) && (
                                     <Tooltip title="重新填入">
                                       <Button
                                         type="text"
@@ -1080,14 +1103,15 @@ export function TaskList({
                                     }}
                                   />
                                 )}
-                                {!task.studioProvenance &&
-                                  task.rawTemplate?.title !==
-                                    TRIAL_TEMPLATE_TITLE && (
+                                {(!task.studioProvenance || task.studioProvenance.novelai) &&
+                                  (task.endpointName !== 'NovelAI Studio' || task.novelaiSnapshots?.length || task.studioProvenance?.novelai) &&
+                                  task.rawTemplate?.title !== TRIAL_TEMPLATE_TITLE && (
                                     <Tooltip title="重试">
                                       <Button
                                         type="text"
                                         icon={<RedoOutlined />}
                                         onClick={() => handleRetry(task)}
+                                        loading={retryingTaskId === task.id}
                                       />
                                     </Tooltip>
                                   )}

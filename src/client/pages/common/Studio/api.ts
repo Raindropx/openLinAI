@@ -68,7 +68,7 @@ export const updateCivitaiSettings = (data: {
   )
 
 export const testStudioProvider = (provider: 'novelai' | 'civitai') =>
-  studioRequest<{ connected: boolean; username?: string }>(
+  studioRequest<{ connected: boolean; username?: string; anlas?: number }>(
     `/providers/${provider}/test`,
     { method: 'POST' },
   )
@@ -76,10 +76,19 @@ export const testStudioProvider = (provider: 'novelai' | 'civitai') =>
 export const generateNovelAIStudioImages = (
   data: NovelAIStudioGenerateRequest,
 ) =>
-  studioRequest<{ items: StudioItem[] }>(
+  studioRequest<{ items: StudioItem[]; warning?: string }>(
     '/providers/novelai/generate',
     studioJson('POST', data),
   )
+
+export async function uploadNovelAIMask(dataUrl: string) {
+  const body = await (await fetch(dataUrl)).blob()
+  return studioRequest<{ url: string }>('/providers/novelai/mask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'image/png' },
+    body,
+  })
+}
 
 export const searchCivitaiModels = (data: {
   query?: string

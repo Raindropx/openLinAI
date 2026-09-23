@@ -39,9 +39,13 @@ async function main() {
       .toBuffer()
     await fs.writeFile(path.join(inputDirectory, 'reference.png'), reference)
 
-    let requestBody: Record<string, any> | undefined
+    const { embedPngTextMetadata, readPngGenerationText } =
+      await import('../src/server/module/gpt-image/generation-metadata')
+    const nativeComment = JSON.stringify({ seed: 999, steps: 28, sampler: 'k_euler' })
+
+    const requestBodies: Array<Record<string, any>> = []
     globalThis.fetch = (async (_input, init) => {
-      requestBody = JSON.parse(String(init?.body))
+      requestBodies.push(JSON.parse(String(init?.body)))
       const output = await sharp({
         create: {
           width: 768,
@@ -53,7 +57,7 @@ async function main() {
         .png()
         .toBuffer()
       const zip = new JSZip()
-      zip.file('image.png', output)
+      zip.file('image.png', embedPngTextMetadata(output, 'Comment', nativeComment))
       const body = await zip.generateAsync({ type: 'nodebuffer' })
       return new Response(new Uint8Array(body), {
         status: 200,
@@ -100,6 +104,7 @@ async function main() {
 
     assert.equal(result.status, 200)
     assert.equal(result.data.success, true)
+    const requestBody = requestBodies[0]
     assert.equal(requestBody?.action, 'img2img')
     assert.equal(requestBody?.parameters.strength, 0.42)
     assert.equal(requestBody?.parameters.noise, 0.17)
@@ -109,8 +114,81 @@ async function main() {
     const metadata = await sharp(normalized).metadata()
     assert.equal(metadata.width, 768)
     assert.equal(metadata.height, 512)
+
+    const mask = await sharp({
+      create: { width: 768, height: 512, channels: 3, background: '#000000' },
+    }).png().toBuffer()
+    const { default: studioApi } = await import('../src/server/api/studio')
+    const uploadedMask = await studioApi.request('/providers/novelai/mask', {
+      method: 'POST', headers: { 'Content-Type': 'image/png' }, body: new Uint8Array(mask),
+    })
+    assert.equal(uploadedMask.status, 200)
+    const maskUploadResult = await uploadedMask.json() as { data: { url: string } }
+    assert.match(maskUploadResult.data.url, /^\/api\/static\/images\/input\/novelai-mask-/)
+    assert.ok(await fs.pathExists(path.join(inputDirectory, maskUploadResult.data.url.split('/').pop()!)))
+    const studioRequest = {
+      title: '重绘测试', prompt: 'blue stone lion', negativePrompt: 'blur',
+      model: 'nai-diffusion-4-5-full', width: 768, height: 512,
+      steps: 28, scale: 5, cfgRescale: 0,
+      sampler: 'k_euler' as const, noiseSchedule: 'karras' as const,
+      seed: 101, n: 2, qualityToggle: true,
+      action: 'infill' as const,
+      referenceImageUrl: '/api/static/images/input/reference.png',
+      maskImageUrl: maskUploadResult.data.url,
+      strength: 0.65, noise: 0.1,
+      characters: [{ prompt: 'guardian lion', negativePrompt: '', position: { x: 0.3, y: 0.55 } }],
+      preciseReference: {
+        imageUrl: '/api/static/images/input/reference.png',
+        type: 'character' as const, strength: 0.8, fidelity: 0.6,
+      },
+    }
+    const second = await handleNovelAIImageGeneration({
+      apiKey: 'test-token', baseURL: 'https://image.novelai.net',
+      model: studioRequest.model, endpointName: 'NovelAI Studio',
+      template: {
+        id: 'test-infill-template', title: studioRequest.title,
+        prompt: studioRequest.prompt, images: [studioRequest.referenceImageUrl],
+        usageType: 'image', aspectRatio: '3:2', n: 2, createdAt: Date.now(),
+      },
+      advanced: studioRequest, studioRequest,
+    })
+    assert.equal(second.data.success, true)
+    assert.equal(requestBodies.length, 3)
+    assert.equal(requestBodies[1].action, 'infill')
+    assert.equal(requestBodies[1].parameters.n_samples, 1)
+    assert.equal(requestBodies[1].parameters.seed, 101)
+    assert.equal(requestBodies[2].parameters.seed, 102)
+    assert.equal(requestBodies[1].parameters.v4_prompt.use_coords, true)
+    assert.deepEqual(requestBodies[1].parameters.v4_prompt.caption.char_captions[0].centers, [{ x: 0.3, y: 0.55 }])
+    assert.equal(requestBodies[1].parameters.director_reference_images.length, 1)
+    assert.equal((await sharp(Buffer.from(requestBodies[1].parameters.director_reference_images[0], 'base64')).metadata()).width, 1536)
+    assert.equal((await sharp(Buffer.from(requestBodies[1].parameters.mask, 'base64')).metadata()).width, 768)
+    const { taskManager } = await import('../src/server/common/task-manager')
+    const saved = (await taskManager.getTasks()).find((task) => task.id === second.data.taskId)
+    assert.equal(saved?.novelaiSnapshots?.length, 2)
+    assert.equal(saved?.novelaiSnapshots?.[1].request.seed, 102)
+    const { studioManager } = await import('../src/server/common/studio-manager')
+    const shelf = await studioManager.fromTask(second.data.taskId, 1)
+    assert.equal(shelf.provenance.novelai?.request.seed, 102)
+    const imageFile = second.data.outputUrls?.[1]?.split('/').pop()
+    assert.ok(imageFile)
+    const generated = await fs.readFile(path.join(root, 'images', 'generated', imageFile))
+    assert.equal(JSON.parse(readPngGenerationText(generated).Comment).novelai.seed, 102)
+    let archivedComment = false
+    for (let offset = 8; offset + 12 <= generated.length;) {
+      const size = generated.readUInt32BE(offset)
+      const kind = generated.toString('ascii', offset + 4, offset + 8)
+      if (kind === 'liNa') {
+        const archive = JSON.parse(generated.subarray(offset + 8, offset + 8 + size).toString('utf8'))
+        archivedComment = archive.sourceTextChunks.some((entry: { keyword?: string; dataBase64: string }) =>
+          entry.keyword === 'Comment' && Buffer.from(entry.dataBase64, 'base64').includes(Buffer.from(nativeComment)))
+        break
+      }
+      offset += size + 12
+    }
+    assert.ok(archivedComment, 'NovelAI original Comment should survive in the PNG archive')
     console.log(
-      'NovelAI img2img regression: auto aspect size, action, strength/noise, exact-size bitmap and bare Base64 passed',
+      'NovelAI regression: img2img, mask upload/infill, precise reference, positions, seeds, snapshots and PNG metadata passed',
     )
   } finally {
     globalThis.fetch = originalFetch

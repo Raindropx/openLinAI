@@ -1,6 +1,8 @@
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
+import fs from 'fs-extra'
+import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 import { STUDIO_MAX_FILE_BYTES } from '../../shared/studio'
@@ -14,6 +16,7 @@ import {
 import { studioManager, studioMimeType } from '../common/studio-manager'
 import { studioProviderSettings } from '../common/studio-provider-settings'
 import { taskManager } from '../common/task-manager'
+import { INPUT_IMAGES_DIR } from '../common/static'
 import { INPUT_IMAGES_API_PATH } from '../common/static/enum'
 import { handleNovelAIImageGeneration } from '../module/gpt-image/novelai-image'
 import { fetchWithTimeout } from '../module/utils/fetch'
@@ -60,7 +63,17 @@ const novelaiGenerateSchema = z.object({
   seed: z.number().int().min(-1).max(0x7fffffff),
   n: z.number().int().min(1).max(4),
   qualityToggle: z.boolean(),
+  qualityPreset: z.enum(['none', 'light', 'standard']).optional(),
+  ucPreset: z.number().int().min(0).max(4).optional(),
+  action: z.enum(['generate', 'img2img', 'infill']).optional(),
   referenceImageUrl: inputImageUrlSchema.optional(),
+  maskImageUrl: inputImageUrlSchema.optional(),
+  preciseReference: z.object({
+    imageUrl: inputImageUrlSchema,
+    type: z.enum(['character', 'style', 'character-and-style']),
+    strength: z.number().min(0).max(1),
+    fidelity: z.number().min(0).max(1),
+  }).optional(),
   strength: z.number().min(0).max(1).default(0.7),
   noise: z.number().min(0).max(1).default(0.1),
   saveToTaskList: z.boolean().default(false),
@@ -69,9 +82,19 @@ const novelaiGenerateSchema = z.object({
       z.object({
         prompt: z.string().trim().min(1).max(10000),
         negativePrompt: z.string().max(10000).default(''),
+        position: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
       }),
     )
     .max(22),
+}).superRefine((value, ctx) => {
+  if (value.action === 'img2img' && !value.referenceImageUrl)
+    ctx.addIssue({ code: 'custom', path: ['referenceImageUrl'], message: '图生图需要参考图' })
+  if (value.action === 'infill' && (!value.referenceImageUrl || !value.maskImageUrl))
+    ctx.addIssue({ code: 'custom', path: ['maskImageUrl'], message: '局部重绘需要参考图和遮罩' })
+  if (value.preciseReference && !value.model.startsWith('nai-diffusion-4-5-'))
+    ctx.addIssue({ code: 'custom', path: ['preciseReference'], message: '精密参考仅支持 V4.5' })
+  if (value.action === 'infill' && value.model === 'nai-diffusion-5-curated')
+    ctx.addIssue({ code: 'custom', path: ['model'], message: 'V5 Curated 暂无原生局部重绘' })
 })
 
 function apiError(data: unknown, fallback: string) {
@@ -170,7 +193,14 @@ const studioApi = new Hono()
     const data = await readJson(response)
     if (!response.ok)
       throw new Error(apiError(data, `NovelAI 验证失败 (${response.status})`))
-    return c.json({ success: true as const, data: { connected: true } })
+    const steps = data && typeof data === 'object'
+      ? (data as { trainingStepsLeft?: { fixedTrainingStepsLeft?: unknown; purchasedTrainingSteps?: unknown } }).trainingStepsLeft
+      : undefined
+    const fixed = steps?.fixedTrainingStepsLeft
+    const purchased = steps?.purchasedTrainingSteps
+    const anlas = typeof fixed === 'number' && typeof purchased === 'number' && Number.isFinite(fixed + purchased)
+      ? fixed + purchased : undefined
+    return c.json({ success: true as const, data: { connected: true, anlas } })
   })
   .post('/providers/civitai/test', async (c) => {
     const { apiKey } = await studioProviderSettings.civitai()
@@ -196,6 +226,26 @@ const studioApi = new Hono()
       data: { connected: true, username: username || undefined },
     })
   })
+  .post('/providers/novelai/mask', bodyLimit({
+    maxSize: 16 * 1024 * 1024,
+    onError: (c) => c.json({ success: false as const, error: '遮罩不能超过 16 MiB' }, 413),
+  }), async (c) => {
+    const maxBytes = 16 * 1024 * 1024
+    const statedBytes = Number(c.req.header('content-length') || 0)
+    if (statedBytes > maxBytes) throw new Error('遮罩不能超过 16 MiB')
+    const buffer = Buffer.from(await c.req.arrayBuffer())
+    if (buffer.length > maxBytes || buffer.length < 24 ||
+      !buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
+      throw new Error('遮罩必须为不超过 16 MiB 的 PNG')
+    const width = buffer.readUInt32BE(16)
+    const height = buffer.readUInt32BE(20)
+    if (!width || !height || width > 2048 || height > 2048)
+      throw new Error('遮罩尺寸无效或超过 2048 像素')
+    await fs.ensureDir(INPUT_IMAGES_DIR)
+    const filename = `novelai-mask-${uuidv4()}.png`
+    await fs.writeFile(path.join(INPUT_IMAGES_DIR, filename), buffer, { flag: 'wx' })
+    return c.json({ success: true as const, data: { url: `${INPUT_IMAGES_API_PATH}/${filename}` } })
+  })
   .post(
     '/providers/novelai/generate',
     zValidator('json', novelaiGenerateSchema),
@@ -211,13 +261,14 @@ const studioApi = new Hono()
           id: uuidv4(),
           title: input.title || 'NovelAI Studio',
           prompt: input.prompt,
-          images: input.referenceImageUrl ? [input.referenceImageUrl] : [],
+          images: input.action === 'generate' ? [] : input.referenceImageUrl ? [input.referenceImageUrl] : [],
           usageType: 'image',
           aspectRatio: `${input.width}:${input.height}`,
           n: input.n,
           createdAt: Date.now(),
         },
         advanced: input,
+        studioRequest: input,
       })
       if (!result.data.success) {
         if (!input.saveToTaskList && result.data.taskId) {
@@ -225,7 +276,7 @@ const studioApi = new Hono()
         }
         throw new Error(result.data.error)
       }
-      try {
+      {
         const items = []
         for (
           let index = 0;
@@ -234,11 +285,11 @@ const studioApi = new Hono()
         ) {
           items.push(await studioManager.fromTask(result.data.taskId, index))
         }
-        return c.json({ success: true as const, data: { items } })
-      } finally {
-        if (!input.saveToTaskList) {
+        if (items.length === result.data.outputUrls.length && !input.saveToTaskList) {
+          // Shelf copies are durable now; removing the temporary task also removes its generated files.
           await taskManager.deleteTask(result.data.taskId)
         }
+        return c.json({ success: true as const, data: { items, warning: result.data.warning } })
       }
     },
   )

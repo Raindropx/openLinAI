@@ -19,6 +19,7 @@ import {
   Space,
   Switch,
   Upload,
+  Segmented,
   message,
 } from 'antd'
 import { useEffect, useState } from 'react'
@@ -44,9 +45,11 @@ import { openGallery } from '../components/Gallery'
 import {
   generateNovelAIStudioImages,
   testStudioProvider,
+  uploadNovelAIMask,
   updateNovelAISettings,
 } from './api'
 import { ProviderKeyCard } from './ProviderKeyCard'
+import { NovelAICanvas } from './NovelAICanvas'
 
 const INITIAL_VALUES: NovelAIStudioGenerateRequest = {
   title: 'NovelAI Studio',
@@ -63,6 +66,9 @@ const INITIAL_VALUES: NovelAIStudioGenerateRequest = {
   seed: -1,
   n: 1,
   qualityToggle: false,
+  qualityPreset: 'standard',
+  ucPreset: 0,
+  action: 'generate',
   strength: 0.7,
   noise: 0.1,
   characters: [],
@@ -99,26 +105,96 @@ export function NovelAIStudio({
   items,
   onSettings,
   onItems,
+  selectedItemId,
+  onSelectItem,
+  mobilePanel,
+  onMobilePanel,
+  incomingRequest,
+  onOpenPhotopea,
 }: {
   settings: StudioProviderSettings['novelai']
   items: StudioItem[]
   onSettings: (settings: StudioProviderSettings) => void
   onItems: (items: StudioItem[]) => void
+  selectedItemId?: string
+  onSelectItem: (id: string) => void
+  mobilePanel: 'parameters' | 'canvas'
+  onMobilePanel: (panel: 'parameters' | 'canvas') => void
+  incomingRequest?: { id: number; request: NovelAIStudioGenerateRequest }
+  onOpenPhotopea: (item: StudioItem) => void
 }) {
   const [form] = Form.useForm<NovelAIStudioGenerateRequest>()
   const [generating, setGenerating] = useState(false)
   const [referenceLoading, setReferenceLoading] = useState(false)
   const [referenceImage, setReferenceImage] =
     useState<SelectedReferenceImage | null>(null)
+  const [maskDataUrl, setMaskDataUrl] = useState<string>()
+  const [recentResults, setRecentResults] = useState<StudioItem[]>([])
+  const [viewSource, setViewSource] = useState(false)
+  const [preciseLoading, setPreciseLoading] = useState(false)
   const { gptImageSettings } = useLocalSetting()
+  const model = Form.useWatch('model', form) || settings.model
+  const action = Form.useWatch('action', form) || 'generate'
+  const targetWidth = Form.useWatch('width', form) || 1024
+  const targetHeight = Form.useWatch('height', form) || 1024
+  const preciseImageUrl = Form.useWatch(['preciseReference', 'imageUrl'], form)
+  const selectedItem = items.find((item) => item.id === selectedItemId)
+  const canvasImage = action === 'infill' || (viewSource && referenceImage)
+    ? referenceImage?.url
+    : selectedItem && selectedItem.format !== 'psd'
+      ? studioFileUrl(selectedItem.id)
+      : referenceImage?.url
 
   useEffect(() => {
-    form.setFieldValue('model', settings.model)
-  }, [form, settings.model])
+    try {
+      const saved = window.localStorage.getItem('studio-novelai-draft-v1')
+      if (!saved) return
+      const draft = JSON.parse(saved) as NovelAIStudioGenerateRequest
+      form.setFieldsValue({ ...INITIAL_VALUES, ...draft })
+      setMaskDataUrl(draft.maskImageUrl)
+      if (draft.referenceImageUrl) {
+        void readImageSize(draft.referenceImageUrl).then((size) =>
+          setReferenceImage({
+            url: draft.referenceImageUrl!, name: '上次的参考图', source: '图库',
+            sourceWidth: size.width, sourceHeight: size.height,
+            targetWidth: draft.width, targetHeight: draft.height,
+          }),
+        ).catch(() => form.setFieldValue('referenceImageUrl', undefined))
+      }
+    } catch { /* 私密模式或旧草稿损坏时仍可正常打开 */ }
+  }, [form])
+
+  useEffect(() => {
+    if (!incomingRequest) return
+    const request = incomingRequest.request
+    form.setFieldsValue({ ...INITIAL_VALUES, ...request })
+    setMaskDataUrl(request.maskImageUrl)
+    try { window.localStorage.setItem('studio-novelai-draft-v1', JSON.stringify(request)) }
+    catch { /* 浏览器禁用存储 */ }
+    setViewSource(Boolean(request.referenceImageUrl))
+    if (request.referenceImageUrl) {
+      void readImageSize(request.referenceImageUrl).then((size) =>
+        setReferenceImage({
+          url: request.referenceImageUrl!, name: request.title || '参考图', source: '图库',
+          sourceWidth: size.width, sourceHeight: size.height,
+          targetWidth: request.width, targetHeight: request.height,
+        }),
+      ).catch(() => setReferenceImage(null))
+    } else setReferenceImage(null)
+  }, [form, incomingRequest])
 
   function clearReferenceImage() {
     setReferenceImage(null)
     form.setFieldValue('referenceImageUrl', undefined)
+    form.setFieldValue('action', 'generate')
+    setMaskDataUrl(undefined)
+    setViewSource(false)
+    saveDraft(undefined)
+  }
+
+  function saveDraft(mask = maskDataUrl) {
+    try { window.localStorage.setItem('studio-novelai-draft-v1', JSON.stringify({ ...form.getFieldsValue(true), maskImageUrl: mask })) }
+    catch { /* 浏览器禁用存储 */ }
   }
 
   async function stageReferenceImage(
@@ -144,9 +220,13 @@ export function NovelAIStudio({
       })
       form.setFieldsValue({
         referenceImageUrl: url,
+        action: form.getFieldValue('action') === 'infill' ? 'infill' : 'img2img',
         width: targetSize.width,
         height: targetSize.height,
       })
+      setMaskDataUrl(undefined)
+      setViewSource(true)
+      saveDraft(undefined)
       message.success(
         `已按参考图比例设为 ${targetSize.width}×${targetSize.height}`,
       )
@@ -208,14 +288,44 @@ export function NovelAIStudio({
       return
     }
     const values = await form.validateFields()
+    if (values.action === 'img2img' && !values.referenceImageUrl) {
+      message.warning('图生图需要参考图')
+      return
+    }
+    if (values.action === 'infill' && (!values.referenceImageUrl || !maskDataUrl)) {
+      message.warning('局部重绘需要参考图和涂抹区域')
+      return
+    }
+    if (values.action === 'infill' && values.model !== 'nai-diffusion-5-full' && !values.model.startsWith('nai-diffusion-4')) {
+      message.warning('当前模型不支持局部重绘，请选择 V5 Full 或 V4/V4.5')
+      return
+    }
+    if (values.preciseReference?.imageUrl && !values.model.startsWith('nai-diffusion-4-5-')) {
+      message.warning('精密参考仅支持 V4.5 模型')
+      return
+    }
     setGenerating(true)
     try {
+      const maskImageUrl = values.action === 'infill' && maskDataUrl?.startsWith('data:')
+        ? (await uploadNovelAIMask(maskDataUrl)).url
+        : values.action === 'infill' ? maskDataUrl : undefined
+      const { preciseReference, ...plainValues } = values
       const result = await generateNovelAIStudioImages({
-        ...values,
+        ...plainValues,
+        referenceImageUrl: values.action === 'generate' ? undefined : values.referenceImageUrl,
+        ...(preciseReference?.imageUrl ? { preciseReference } : {}),
+        maskImageUrl,
         saveToTaskList:
           gptImageSettings.autoSaveStudioTasksToTaskList ?? false,
       })
       onItems(result.items)
+      if (result.warning) message.warning(result.warning)
+      setRecentResults(result.items)
+      setViewSource(false)
+      if (result.items[0]) {
+        onSelectItem(result.items[0].id)
+        onMobilePanel('canvas')
+      }
       message.success(`NovelAI 已生成 ${result.items.length} 张图片`)
     } catch (error) {
       message.error(error instanceof Error ? error.message : 'NovelAI 生成失败')
@@ -225,8 +335,12 @@ export function NovelAIStudio({
   }
 
   return (
+    <div className={`studio-novelai-workbench is-mobile-${mobilePanel}`}>
+      <aside className="studio-novelai-parameters">
+        <header className="studio-novelai-parameters-header"><strong>生成参数</strong><span>GENERATION</span></header>
+        <div className="studio-novelai-parameters-scroll">
     <div className="studio-provider-panel">
-      <ProviderKeyCard
+      <Collapse size="small" items={[{ key: 'key', label: `NovelAI 连接 · ${settings.configured ? '已设置' : '未设置'}`, children: <ProviderKeyCard
         provider="NovelAI"
         configured={settings.configured}
         keyHint={settings.keyHint}
@@ -237,22 +351,27 @@ export function NovelAIStudio({
           onSettings(await updateNovelAISettings({ clearApiKey: true }))
         }
         onTest={async () => {
-          await testStudioProvider('novelai')
-          return undefined
+          const status = await testStudioProvider('novelai')
+          return status.anlas === undefined ? undefined : `Anlas 余额 ${status.anlas}`
         }}
-      />
-      <Alert
-        showIcon
-        type="info"
-        title="已接入原生文生图、图生图、UC 与角色提示词"
-        description="图生图支持暂存台、图库和本地文件。SVG 及其他非直接格式会先渲染为单帧位图，再按目标尺寸送入 NovelAI。"
-      />
+      /> }]} />
       <Form
         form={form}
         layout="vertical"
         initialValues={{ ...INITIAL_VALUES, model: settings.model }}
         className="studio-generation-form"
+        onValuesChange={() => saveDraft()}
       >
+        <Form.Item label="生成模式" name="action">
+          <Segmented block options={[
+            { label: '文生图', value: 'generate' },
+            { label: '图生图', value: 'img2img' },
+            { label: '局部重绘', value: 'infill' },
+          ]} onChange={(value) => {
+            if (value !== 'infill') { setMaskDataUrl(undefined); saveDraft(undefined) }
+            onMobilePanel('canvas')
+          }} />
+        </Form.Item>
         <div className="studio-form-grid studio-form-grid-wide">
           <Form.Item label="任务名称" name="title">
             <Input maxLength={120} placeholder="NovelAI Studio" />
@@ -264,6 +383,8 @@ export function NovelAIStudio({
                 value: model.id,
               }))}
               onChange={(model) => {
+                if (!model.startsWith('nai-diffusion-4-5-')) form.setFieldValue(['preciseReference', 'imageUrl'], undefined)
+                saveDraft()
                 void updateNovelAISettings({ model })
                   .then(onSettings)
                   .catch((error) =>
@@ -382,7 +503,38 @@ export function NovelAIStudio({
               <Slider min={0} max={1} step={0.01} disabled={!referenceImage} />
             </Form.Item>
           </div>
+          {action === 'infill' && <Alert type="info" showIcon title="在中间画布涂抹需要重绘的区域" />}
         </div>
+        <Collapse ghost items={[{ key: 'precise', label: '精密参考（V4.5）', children: <>
+          <Alert type="info" showIcon title="可参考人物、画风，或两者一起；与图生图参考图用途不同" />
+          <Form.Item label="暂存台素材" name={['preciseReference', 'imageUrl']}>
+            <Select allowClear showSearch optionFilterProp="label" placeholder="选择精密参考图"
+              disabled={!model.startsWith('nai-diffusion-4-5-')}
+              options={[
+                ...(preciseImageUrl && preciseImageUrl.startsWith('/api/') ? [{ label: '当前精密参考图', value: preciseImageUrl }] : []),
+                ...items.filter((item) => item.format !== 'psd').map((item) => ({label:item.name,value:studioFileUrl(item.id)})),
+              ]}
+              onChange={(url) => {
+                if (url) {
+                  setPreciseLoading(true)
+                  void uploadInputImageFromUrl(url, {maxDimension:2048}).then((inputUrl) => { form.setFieldValue(['preciseReference','imageUrl'], inputUrl); saveDraft() }).catch((error) => message.error(error instanceof Error ? error.message : '精密参考上传失败')).finally(() => setPreciseLoading(false))
+                }
+              }}
+            />
+          </Form.Item>
+          <Upload accept={REFERENCE_ACCEPT} showUploadList={false} beforeUpload={async (file) => {
+            setPreciseLoading(true)
+            try { form.setFieldValue(['preciseReference','imageUrl'], await uploadInputImageBase64(await imageBlobToUploadDataUrl(file), {maxDimension:2048})); saveDraft() }
+            catch (error) { message.error(error instanceof Error ? error.message : '精密参考上传失败') }
+            finally { setPreciseLoading(false) }
+            return false
+          }}><Button loading={preciseLoading} disabled={!model.startsWith('nai-diffusion-4-5-')} icon={<UploadOutlined />}>上传参考图</Button></Upload>
+          <Form.Item label="参考类型" name={['preciseReference','type']} initialValue="character"><Select options={[
+            {label:'角色外观',value:'character'},{label:'画风',value:'style'},{label:'角色与画风',value:'character-and-style'},
+          ]} /></Form.Item>
+          <Form.Item label="参考强度" name={['preciseReference','strength']} initialValue={0.7}><Slider min={0} max={1} step={0.01} /></Form.Item>
+          <Form.Item label="忠实度" name={['preciseReference','fidelity']} initialValue={0.7}><Slider min={0} max={1} step={0.01} /></Form.Item>
+        </> }]} />
         <Form.List name="characters">
           {(fields, { add, remove }) => (
             <div className="studio-character-list">
@@ -419,6 +571,10 @@ export function NovelAIStudio({
                   >
                     <Input.TextArea autoSize={{ minRows: 1, maxRows: 4 }} />
                   </Form.Item>
+                  <div className="studio-form-grid studio-form-grid-wide">
+                    <Form.Item label="横向位置（0–1）" name={[field.name, 'position', 'x']}><InputNumber min={0} max={1} step={0.05} /></Form.Item>
+                    <Form.Item label="纵向位置（0–1）" name={[field.name, 'position', 'y']}><InputNumber min={0} max={1} step={0.05} /></Form.Item>
+                  </div>
                 </div>
               ))}
             </div>
@@ -474,30 +630,58 @@ export function NovelAIStudio({
                     <Form.Item label="生成张数" name="n">
                       <InputNumber min={1} max={4} />
                     </Form.Item>
-                    <Form.Item
+                    {!model.startsWith('nai-diffusion-5-') && <Form.Item
                       label="自动质量标签"
                       name="qualityToggle"
                       valuePropName="checked"
                     >
                       <Switch />
-                    </Form.Item>
+                    </Form.Item>}
                   </Space>
+                  {model.startsWith('nai-diffusion-5-') && <Form.Item label="画质标签" name="qualityPreset"><Select options={[
+                    {label:'关闭',value:'none'},{label:'Light',value:'light'},{label:'Standard',value:'standard'},
+                  ]} /></Form.Item>}
+                  <Form.Item label="UC 预设" name="ucPreset"><Select options={[
+                    {label:'Heavy',value:0},{label:'Light',value:1},{label:'Furry Focus',value:2,disabled:model==='nai-diffusion-4-5-curated'},{label:'Human Focus',value:3},{label:'关闭',value:4},
+                  ]} /></Form.Item>
                 </>
               ),
             },
           ]}
         />
-        <Button
-          type="primary"
-          size="large"
-          icon={<ThunderboltOutlined />}
-          loading={generating}
-          disabled={!settings.configured}
-          onClick={() => void generate()}
-        >
-          生成到暂存台
-        </Button>
       </Form>
+    </div>
+        </div>
+        <div className="studio-novelai-generate">
+          <Button type="primary" size="large" icon={<ThunderboltOutlined />}
+            loading={generating} disabled={!settings.configured}
+            onClick={() => void generate()}>生成到暂存台</Button>
+        </div>
+      </aside>
+      <div className="studio-novelai-stage">
+        <NovelAICanvas
+          imageUrl={canvasImage}
+          name={action === 'infill' ? referenceImage?.name : selectedItem?.name || referenceImage?.name}
+          width={action === 'infill' ? targetWidth : undefined}
+          height={action === 'infill' ? targetHeight : undefined}
+          mode={action === 'infill' ? 'mask' : 'view'}
+          maskDataUrl={maskDataUrl}
+          onMaskChange={(value) => { setMaskDataUrl(value); saveDraft(value) }}
+          generating={generating}
+          actions={<>
+            {referenceImage && action !== 'infill' && <Button size="small" onClick={() => setViewSource((value) => !value)}>{viewSource ? '查看结果' : '查看参考图'}</Button>}
+            {selectedItem && selectedItem.format !== 'psd' && <Button size="small" onClick={() => {
+              void stageReferenceImage({name:selectedItem.name,source:'暂存台',sourceId:selectedItem.id}, () => uploadInputImageFromUrl(studioFileUrl(selectedItem.id), {maxDimension:2048}))
+              onMobilePanel('parameters')
+            }}>用作图生图</Button>}
+            {selectedItem && <Button size="small" onClick={() => onOpenPhotopea(selectedItem)}>在 Photopea 打开</Button>}
+          </>}
+          emptyActions={<Button onClick={() => onMobilePanel('parameters')}>设置生成参数</Button>}
+        />
+        {recentResults.length > 1 && <div className="novelai-result-strip" aria-label="本次生成结果">
+          {recentResults.map((item) => <button key={item.id} className={selectedItemId === item.id ? 'is-selected' : ''} onClick={() => onSelectItem(item.id)} aria-label={`查看 ${item.name}`}><img src={studioFileUrl(item.id)} alt={item.name} /></button>)}
+        </div>}
+      </div>
     </div>
   )
 }

@@ -191,7 +191,23 @@ export class StudioManager {
       const buffer = await fs.readFile(
         path.join(GENERATED_IMAGES_DIR, filename),
       )
-      const provenance: StudioProvenance = task.studioProvenance || {
+      const provenance: StudioProvenance = task.studioProvenance ? {
+        ...task.studioProvenance,
+        novelai: task.novelaiSnapshots?.[imageIndex] || task.studioProvenance.novelai,
+        sourceMetadata: readPngGenerationText(buffer),
+        template: task.studioProvenance.template || {
+          id: template.id,
+          title: template.title,
+          prompt: template.prompt,
+          images: [...(template.images || [])],
+          createdAt: template.createdAt,
+          usageType: template.usageType,
+          endpointId: template.endpointId,
+          aspectRatio: template.aspectRatio,
+          injectAspectRatio: template.injectAspectRatio,
+          n: template.n,
+        },
+      } : {
         origin: /novelai/i.test(task.endpointName || task.source)
           ? 'novelai'
           : /civitai/i.test(task.endpointName || task.source)
