@@ -712,7 +712,7 @@ export function NovelAIStudio({
               <Slider min={32} max={512} step={32} />
             </Form.Item>}
             {focusedInpaint && <Form.Item label="边缘过渡像素" name="inpaintFeatherPixels"
-              extra="仅在遮罩内侧渐变贴回；偏色或接缝明显时可适当增大。">
+              extra="在遮罩内侧平滑衔接，小选区会自动缩短过渡以保留重绘中心；自动参考周围原图校正轻微色偏，结构或光照差异仍需调整重绘参数。">
               <Slider min={4} max={32} step={4} />
             </Form.Item>}
           </>}

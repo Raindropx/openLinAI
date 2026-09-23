@@ -140,7 +140,7 @@ export interface NovelAIStudioGenerateRequest {
   focusedInpaint?: boolean
   /** 聚焦重绘时，遮罩外保留的上下文像素。 */
   inpaintContextPixels?: number
-  /** 聚焦结果贴回原图时，遮罩内侧的渐变宽度。 */
+  /** 聚焦结果贴回原图时，遮罩内侧的最大渐变宽度；小选区自动缩短。 */
   inpaintFeatherPixels?: number
   preciseReference?: NovelAIPreciseReference
   strength: number

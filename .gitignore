@@ -12,6 +12,11 @@ tsconfig.tsbuildinfo
 PROJECT_MEMORY.md
 .codex-remote-attachments/
 
+# Machine-local router update tools
+/update-router.cmd
+/scripts/update-router.ps1
+/scripts/test-router-update.ps1
+
 # Build and release archives
 *.zip
 
