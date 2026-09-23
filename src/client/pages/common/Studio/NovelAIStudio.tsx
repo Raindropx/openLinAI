@@ -50,6 +50,7 @@ import {
 } from './api'
 import { ProviderKeyCard } from './ProviderKeyCard'
 import { NovelAICanvas } from './NovelAICanvas'
+import type { StudioGenerationParameters } from './studio-parameters'
 
 const INITIAL_VALUES: NovelAIStudioGenerateRequest = {
   title: 'NovelAI Studio',
@@ -110,6 +111,8 @@ export function NovelAIStudio({
   mobilePanel,
   onMobilePanel,
   incomingRequest,
+  incomingParameters,
+  incomingReference,
   onOpenPhotopea,
 }: {
   settings: StudioProviderSettings['novelai']
@@ -121,6 +124,8 @@ export function NovelAIStudio({
   mobilePanel: 'parameters' | 'canvas'
   onMobilePanel: (panel: 'parameters' | 'canvas') => void
   incomingRequest?: { id: number; request: NovelAIStudioGenerateRequest }
+  incomingParameters?: { id: number; values: StudioGenerationParameters }
+  incomingReference?: { id: number; itemId: string }
   onOpenPhotopea: (item: StudioItem) => void
 }) {
   const [form] = Form.useForm<NovelAIStudioGenerateRequest>()
@@ -182,6 +187,35 @@ export function NovelAIStudio({
       ).catch(() => setReferenceImage(null))
     } else setReferenceImage(null)
   }, [form, incomingRequest])
+
+  useEffect(() => {
+    if (!incomingParameters) return
+    const values = incomingParameters.values
+    const validSize = (value: number | undefined) => value !== undefined && value >= 64 && value <= 2048 && value % 64 === 0
+    const unsupported = (values.width !== undefined && !validSize(values.width))
+      || (values.height !== undefined && !validSize(values.height))
+      || (values.steps !== undefined && (values.steps < 1 || values.steps > 50))
+      || (values.scale !== undefined && (values.scale < 0 || values.scale > 10))
+      || (values.seed !== undefined && (values.seed < -1 || values.seed > 2147483647))
+      || (values.sampler !== undefined && !NOVELAI_SAMPLERS.includes(values.sampler as NovelAIStudioGenerateRequest['sampler']))
+    form.setFieldsValue({
+      prompt: values.prompt ?? '',
+      negativePrompt: values.negativePrompt ?? '',
+      ...(validSize(values.width) ? { width: values.width } : {}),
+      ...(validSize(values.height) ? { height: values.height } : {}),
+      ...(values.steps !== undefined && values.steps >= 1 && values.steps <= 50 ? { steps: values.steps } : {}),
+      ...(values.sampler && NOVELAI_SAMPLERS.includes(values.sampler as NovelAIStudioGenerateRequest['sampler'])
+        ? { sampler: values.sampler as NovelAIStudioGenerateRequest['sampler'] } : {}),
+      ...(values.scale !== undefined && values.scale >= 0 && values.scale <= 10 ? { scale: values.scale } : {}),
+      ...(values.seed !== undefined && values.seed >= -1 && values.seed <= 2147483647 ? { seed: values.seed } : {}),
+    })
+    saveDraft()
+    if (unsupported) message.info('部分来源参数不受 NovelAI 支持，已保留当前值')
+  }, [form, incomingParameters])
+
+  useEffect(() => {
+    if (incomingReference) selectStudioReference(incomingReference.itemId)
+  }, [incomingReference])
 
   function clearReferenceImage() {
     setReferenceImage(null)
@@ -411,13 +445,24 @@ export function NovelAIStudio({
             placeholder="不希望出现在画面中的内容"
           />
         </Form.Item>
-        <div className="studio-reference-section">
+        {action !== 'generate' && <div
+          className="studio-reference-section"
+          onDragOver={(event) => {
+            if (!event.dataTransfer.types.includes('application/x-linai-studio')) return
+            event.preventDefault()
+            event.dataTransfer.dropEffect = 'copy'
+          }}
+          onDrop={(event) => {
+            const itemId = event.dataTransfer.getData('application/x-linai-studio')
+            if (!itemId) return
+            event.preventDefault()
+            selectStudioReference(itemId)
+          }}
+        >
           <div className="studio-section-heading">
             <div>
               <strong>图生图参考图</strong>
-              <small>
-                仅使用一张；自动读取比例并匹配最接近的 64 倍数生成尺寸
-              </small>
+              <small>拖入暂存台图片，或选择一张；自动匹配生成尺寸</small>
             </div>
           </div>
           <div className="studio-reference-actions">
@@ -492,7 +537,7 @@ export function NovelAIStudio({
           ) : (
             <div className="studio-reference-empty">
               <PictureOutlined />
-              <span>未选择参考图，将使用文生图模式</span>
+              <span>从暂存台拖入图片，或在上方选择参考图</span>
             </div>
           )}
           <div className="studio-slider-grid">
@@ -504,7 +549,7 @@ export function NovelAIStudio({
             </Form.Item>
           </div>
           {action === 'infill' && <Alert type="info" showIcon title="在中间画布涂抹需要重绘的区域" />}
-        </div>
+        </div>}
         <Collapse ghost items={[{ key: 'precise', label: '精密参考（V4.5）', children: <>
           <Alert type="info" showIcon title="可参考人物、画风，或两者一起；与图生图参考图用途不同" />
           <Form.Item label="暂存台素材" name={['preciseReference', 'imageUrl']}>

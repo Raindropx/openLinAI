@@ -1,4 +1,6 @@
 import {
+  ArrowLeftOutlined,
+  ArrowUpOutlined,
   DeleteOutlined,
   DownloadOutlined,
   InboxOutlined,
@@ -43,6 +45,8 @@ import {
 } from './api'
 import { CivitaiStudio } from './CivitaiStudio'
 import { NovelAIStudio } from './NovelAIStudio'
+import { studioGenerationParameters } from './studio-parameters'
+import type { StudioGenerationParameters } from './studio-parameters'
 import './studio.css'
 import { PHOTOPEA_URL, usePhotopea } from './usePhotopea'
 
@@ -59,6 +63,11 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const [novelaiPanel, setNovelaiPanel] = useState<'parameters' | 'canvas'>('canvas')
   const [selectedItemId, setSelectedItemId] = useState<string>()
   const [novelaiRequest, setNovelaiRequest] = useState<{ id: number; request: NovelAIStudioGenerateRequest }>()
+  const [novelaiParameters, setNovelaiParameters] = useState<{ id: number; values: StudioGenerationParameters }>()
+  const [civitaiParameters, setCivitaiParameters] = useState<{ id: number; values: StudioGenerationParameters }>()
+  const [novelaiReference, setNovelaiReference] = useState<{ id: number; itemId: string }>()
+  const [civitaiReference, setCivitaiReference] = useState<{ id: number; itemId: string }>()
+  const signal = useRef(0)
   const [mobileShelf, setMobileShelf] = useState(false)
   const [working, setWorking] = useState(false)
   const workingRef = useRef(false)
@@ -164,6 +173,33 @@ export function StudioPage({ active = true }: { active?: boolean }) {
     setTab('photopea')
     setMobileShelf(false)
     void editorRef.current?.open(item)
+  }
+  const sendItemToPanel = (item: StudioItem) => {
+    if (tab === 'photopea') return openItem(item)
+    if (item.format === 'psd') return
+    const payload = { id: ++signal.current, itemId: item.id }
+    if (tab === 'novelai') {
+      setNovelaiReference(payload)
+      setNovelaiPanel('parameters')
+    } else setCivitaiReference(payload)
+    setMobileShelf(false)
+  }
+  const refillFromItem = (item: StudioItem) => {
+    const values = studioGenerationParameters(item)
+    if (!values) return message.warning('这张图片没有可回填的生成参数')
+    const id = ++signal.current
+    if (tab === 'civitai') setCivitaiParameters({ id, values })
+    else if (item.provenance.novelai) {
+      setNovelaiRequest({ id, request: item.provenance.novelai.request })
+      setTab('novelai')
+    } else {
+      setNovelaiParameters({ id, values })
+      setTab('novelai')
+    }
+    setSelectedItemId(item.id)
+    setNovelaiPanel('parameters')
+    setMobileShelf(false)
+    message.success('生成参数已填入左侧')
   }
   const removeItem = (item: StudioItem) =>
     modal.confirm({
@@ -285,15 +321,18 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                 mobilePanel={novelaiPanel}
                 onMobilePanel={setNovelaiPanel}
                 incomingRequest={novelaiRequest}
+                incomingParameters={novelaiParameters}
+                incomingReference={novelaiReference}
                 onOpenPhotopea={openItem}
               />
             ) : (
               <Spin />
             )}
           </div>
-        {tab === 'civitai' && (
+        {(
           <div
-            className="studio-native-panel"
+            className="studio-native-panel studio-civitai-panel"
+            style={{ display: tab === 'civitai' ? 'flex' : 'none' }}
             role="tabpanel"
             id="studio-panel-civitai"
             aria-labelledby="studio-tab-civitai"
@@ -302,6 +341,9 @@ export function StudioPage({ active = true }: { active?: boolean }) {
               <CivitaiStudio
                 settings={providerSettings.civitai}
                 onSettings={setProviderSettings}
+                items={items}
+                incomingParameters={civitaiParameters}
+                incomingReference={civitaiReference}
               />
             ) : (
               <Spin />
@@ -501,21 +543,22 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                     {item.archivedTaskId ? ' · 已归档' : ''}
                   </span>
                   <div className="studio-item-actions">
-                    <Button
-                      size="small"
-                      disabled={working}
-                      onClick={() => openItem(item)}
-                    >
-                      在 Photopea 打开
-                    </Button>
+                    <Tooltip title={tab === 'photopea' ? '在 Photopea 打开' : '放入图生图参考图'}>
+                      <Button size="small" icon={<ArrowLeftOutlined />}
+                        aria-label={tab === 'photopea' ? `在 Photopea 打开 ${item.name}` : `将 ${item.name} 放入图生图参考图`}
+                        disabled={working || (tab !== 'photopea' && item.format === 'psd')}
+                        onClick={() => sendItemToPanel(item)} />
+                    </Tooltip>
+                    {item.provenance.sourceTaskId && <Tooltip title="将生成参数填入左侧">
+                      <Button size="small" icon={<ArrowUpOutlined />}
+                        aria-label={`回填 ${item.name} 的生成参数`}
+                        disabled={working || !studioGenerationParameters(item)}
+                        onClick={() => refillFromItem(item)} />
+                    </Tooltip>}
                     <Dropdown
                       trigger={['click']}
                       menu={{
                         items: [
-                          ...(item.provenance.novelai ? [{
-                            key: 'novelai-refill',
-                            label: '回填 NovelAI 参数',
-                          }] : []),
                           {
                             key: 'download',
                             label: '下载文件',
@@ -544,13 +587,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                           },
                         ],
                         onClick: ({ key }) => {
-                          if (key === 'novelai-refill' && item.provenance.novelai) {
-                            setNovelaiRequest({ id: Date.now(), request: item.provenance.novelai.request })
-                            setTab('novelai')
-                            setSelectedItemId(item.id)
-                            setMobileShelf(false)
-                            setNovelaiPanel('parameters')
-                          } else itemAction(key, item)
+                          itemAction(key, item)
                         },
                       }}
                     >
