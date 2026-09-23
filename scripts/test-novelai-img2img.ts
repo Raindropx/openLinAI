@@ -155,6 +155,7 @@ async function main() {
     assert.equal(second.data.success, true)
     assert.equal(requestBodies.length, 3)
     assert.equal(requestBodies[1].action, 'infill')
+    assert.equal(requestBodies[1].model, 'nai-diffusion-4-5-full-inpainting')
     assert.equal(requestBodies[1].parameters.n_samples, 1)
     assert.equal(requestBodies[1].parameters.seed, 101)
     assert.equal(requestBodies[2].parameters.seed, 102)
@@ -187,6 +188,30 @@ async function main() {
       offset += size + 12
     }
     assert.ok(archivedComment, 'NovelAI original Comment should survive in the PNG archive')
+    const v5Request = { ...studioRequest, model: 'nai-diffusion-5-full', n: 1, preciseReference: undefined }
+    const v5Result = await handleNovelAIImageGeneration({
+      apiKey: 'test-token', baseURL: 'https://image.novelai.net',
+      model: v5Request.model, endpointName: 'NovelAI Studio',
+      writeMetadata: false,
+      template: {
+        id: 'test-v5-infill-template', title: v5Request.title,
+        prompt: v5Request.prompt, images: [v5Request.referenceImageUrl],
+        usageType: 'image', aspectRatio: '3:2', n: 1, createdAt: Date.now(),
+      },
+      advanced: v5Request,
+    })
+    assert.equal(v5Result.data.success, true)
+    assert.equal(requestBodies[3].model, 'nai-diffusion-5-full-inpainting')
+    globalThis.fetch = (async (_input, init) =>
+      studioApi.request('/providers/novelai/generate', init)) as typeof fetch
+    const { generateNovelAIStudioImages } = await import('../src/client/pages/common/Studio/api')
+    await assert.rejects(
+      generateNovelAIStudioImages({
+        ...studioRequest,
+        characters: [{ prompt: 'guardian lion', negativePrompt: '', position: {} as { x: number; y: number } }],
+      }),
+      /characters\.0\.position\.x: /,
+    )
     console.log(
       'NovelAI regression: img2img, mask upload/infill, precise reference, positions, seeds, snapshots and PNG metadata passed',
     )

@@ -428,7 +428,8 @@ export function NovelAIStudio({
       message.warning('请先保存 NovelAI API Token')
       return
     }
-    const values = await form.validateFields()
+    await form.validateFields()
+    const values = form.getFieldsValue(true) as NovelAIStudioGenerateRequest
     if (values.action === 'img2img' && !values.referenceImageUrl) {
       message.warning('图生图需要参考图')
       return
@@ -451,8 +452,15 @@ export function NovelAIStudio({
         ? (await uploadNovelAIMask(maskDataUrl)).url
         : values.action === 'infill' ? maskDataUrl : undefined
       const { preciseReference, ...plainValues } = values
+      const characters = (values.characters || []).map((character, index) => {
+        const { position, ...rest } = character
+        if ((position?.x == null) !== (position?.y == null))
+          throw new Error(`角色 ${index + 1} 的横向和纵向位置需同时填写`)
+        return position?.x == null ? rest : { ...rest, position }
+      })
       const result = await generateNovelAIStudioImages({
         ...plainValues,
+        characters,
         prompt: promptMode === 'furry'
           ? (/^\s*fur dataset\s*,/i.test(values.prompt) ? values.prompt : `fur dataset, ${values.prompt.trim()}`)
           : values.prompt.replace(/^\s*fur dataset\s*,\s*/i, ''),

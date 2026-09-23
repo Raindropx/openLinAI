@@ -13,9 +13,32 @@ export async function studioRequest<T>(
   init?: RequestInit,
 ): Promise<T> {
   const response = await fetch(`/api/studio${route}`, init)
-  const result = await response.json()
-  if (!response.ok || !result.success)
-    throw new Error(result.error || '工作室请求失败')
+  const result = await response.json() as {
+    success?: boolean
+    data?: T
+    error?: unknown
+  }
+  if (!response.ok || !result.success) {
+    const fallback = `工作室请求失败 (HTTP ${response.status})`
+    const error = result.error
+    const objectMessage = error && typeof error === 'object' && 'message' in error
+      ? (error as { message?: unknown }).message : undefined
+    let issues = error && typeof error === 'object' && 'issues' in error
+      ? (error as { issues?: unknown }).issues
+      : undefined
+    if (!Array.isArray(issues) && typeof objectMessage === 'string') {
+      try { issues = JSON.parse(objectMessage) }
+      catch { /* 普通错误信息不是 JSON */ }
+    }
+    const issue = Array.isArray(issues) ? issues[0] as { path?: unknown; message?: unknown } : undefined
+    const path = Array.isArray(issue?.path) ? issue.path.join('.') : ''
+    const detail = typeof issue?.message === 'string' ? issue.message : undefined
+    const message = typeof error === 'string'
+      ? error
+      : detail ? `${path ? `${path}: ` : ''}${detail}`
+        : typeof objectMessage === 'string' ? objectMessage : fallback
+    throw new Error(message)
+  }
   return result.data as T
 }
 

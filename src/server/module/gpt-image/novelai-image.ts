@@ -66,6 +66,12 @@ function isV5(model: string) {
   return /^nai-diffusion-5(?:-|$)/.test(model)
 }
 
+function inpaintingModel(model: string) {
+  if (model === 'nai-diffusion-4-curated-preview')
+    return 'nai-diffusion-4-curated-inpainting'
+  return `${model}-inpainting`
+}
+
 function buildNovelAIBody(options: {
   model: string
   prompt: string
@@ -192,7 +198,7 @@ function buildNovelAIBody(options: {
   return {
     action: mask ? 'infill' : image ? 'img2img' : 'generate',
     input: prompt,
-    model,
+    model: mask ? inpaintingModel(model) : model,
     parameters,
   }
 }
