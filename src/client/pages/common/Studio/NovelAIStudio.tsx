@@ -1,4 +1,5 @@
 import {
+  BulbOutlined,
   DeleteOutlined,
   FolderOpenOutlined,
   MinusCircleOutlined,
@@ -14,6 +15,7 @@ import {
   Form,
   Input,
   InputNumber,
+  Modal,
   Select,
   Slider,
   Space,
@@ -22,7 +24,7 @@ import {
   Segmented,
   message,
 } from 'antd'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   studioFileUrl,
   type StudioItem,
@@ -36,12 +38,15 @@ import {
   type StudioProviderSettings,
 } from '../../../../shared/studio-generation'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import { requestChatCompletion, type ChatContentPart, type ChatMessage } from '../../../hooks/useChatCompletion'
+import { useGlobalStore } from '../../../store/global'
 import { imageBlobToUploadDataUrl } from '../../../utils/image'
 import {
   uploadInputImageBase64,
   uploadInputImageFromUrl,
 } from '../../../utils/uploadInputImage'
 import { openGallery } from '../components/Gallery'
+import { openSettingModal } from '../SettingModal'
 import {
   generateNovelAIStudioImages,
   testStudioProvider,
@@ -51,6 +56,7 @@ import {
 import { ProviderKeyCard } from './ProviderKeyCard'
 import { NovelAICanvas } from './NovelAICanvas'
 import type { StudioGenerationParameters } from './studio-parameters'
+import { parseNovelAIOptimizedPrompt } from './novelai-prompt'
 
 const INITIAL_VALUES: NovelAIStudioGenerateRequest = {
   title: 'NovelAI Studio',
@@ -137,7 +143,18 @@ export function NovelAIStudio({
   const [recentResults, setRecentResults] = useState<StudioItem[]>([])
   const [viewSource, setViewSource] = useState(false)
   const [preciseLoading, setPreciseLoading] = useState(false)
-  const { gptImageSettings } = useLocalSetting()
+  const [promptMode, setPromptMode] = useState<'anime' | 'furry'>(() => {
+    try { return window.localStorage.getItem('studio-novelai-prompt-mode') === 'furry' ? 'furry' : 'anime' }
+    catch { return 'anime' }
+  })
+  const [optimizeOpen, setOptimizeOpen] = useState(false)
+  const [optimizeText, setOptimizeText] = useState('')
+  const [optimizeImage, setOptimizeImage] = useState<{ name: string; url: string; automatic?: boolean } | null>(null)
+  const [optimizeLoading, setOptimizeLoading] = useState(false)
+  const optimizeRequestId = useRef(0)
+  const optimizeImageId = useRef(0)
+  const { gptImageSettings, optimizeEndpointId, setOptimizeEndpointId } = useLocalSetting()
+  const { llmEndpoints, llmPrompts } = useGlobalStore()
   const model = Form.useWatch('model', form) || settings.model
   const action = Form.useWatch('action', form) || 'generate'
   const targetWidth = Form.useWatch('width', { form, preserve: true }) || 1024
@@ -173,6 +190,7 @@ export function NovelAIStudio({
     if (!incomingRequest) return
     const request = incomingRequest.request
     form.setFieldsValue({ ...INITIAL_VALUES, ...request })
+    setPromptMode(/^\s*fur dataset\s*,/i.test(request.prompt) ? 'furry' : 'anime')
     setMaskDataUrl(request.maskImageUrl)
     try { window.localStorage.setItem('studio-novelai-draft-v1', JSON.stringify(request)) }
     catch { /* 浏览器禁用存储 */ }
@@ -209,6 +227,7 @@ export function NovelAIStudio({
       ...(values.scale !== undefined && values.scale >= 0 && values.scale <= 10 ? { scale: values.scale } : {}),
       ...(values.seed !== undefined && values.seed >= -1 && values.seed <= 2147483647 ? { seed: values.seed } : {}),
     })
+    setPromptMode(/^\s*fur dataset\s*,/i.test(values.prompt ?? '') ? 'furry' : 'anime')
     saveDraft()
     if (unsupported) message.info('部分来源参数不受 NovelAI 支持，已保留当前值')
   }, [form, incomingParameters])
@@ -316,6 +335,94 @@ export function NovelAIStudio({
     return false
   }
 
+  function closeOptimize() {
+    optimizeRequestId.current++
+    optimizeImageId.current++
+    setOptimizeOpen(false)
+    setOptimizeImage(null)
+    setOptimizeLoading(false)
+  }
+
+  async function setOptimizeReference(name: string, load: () => Promise<Blob>) {
+    const imageId = ++optimizeImageId.current
+    try {
+      const blob = await load()
+      if (blob.size > NOVELAI_REFERENCE_MAX_BYTES) throw new Error('参考图不能超过 16 MiB')
+      const url = await imageBlobToUploadDataUrl(blob)
+      if (imageId === optimizeImageId.current) setOptimizeImage({ name, url })
+    } catch (error) {
+      if (imageId === optimizeImageId.current)
+        message.error(error instanceof Error ? error.message : '优化参考图读取失败')
+    }
+  }
+
+  function selectOptimizeGalleryImage() {
+    openGallery({ maxCount: 1, onSelect: (images) => {
+      const image = images[0]
+      if (!image) return
+      void setOptimizeReference('图库参考图', async () => {
+        const response = await fetch(image.url)
+        if (!response.ok) throw new Error('图库参考图读取失败')
+        return response.blob()
+      })
+    } })
+  }
+
+  async function optimizePrompt() {
+    if (!optimizeText.trim() && !optimizeImage) {
+      message.warning('请填写提示词或添加参考图')
+      return
+    }
+    const endpointId = llmEndpoints.find((endpoint) => endpoint.id === optimizeEndpointId)?.id
+      || llmEndpoints[0]?.id
+    if (!endpointId) {
+      openSettingModal({ initialTab: 'llm-endpoints' })
+      return
+    }
+    if (!optimizeEndpointId) setOptimizeEndpointId(endpointId)
+    const requestId = ++optimizeRequestId.current
+    setOptimizeLoading(true)
+    try {
+      const content: ChatContentPart[] = []
+      if (optimizeText.trim()) content.push({ type: 'text', text: optimizeText.trim() })
+      if (optimizeImage) content.push({ type: 'image_url', image_url: { url: optimizeImage.url } })
+      const messages: ChatMessage[] = [
+        { role: 'system', content: promptMode === 'furry' ? llmPrompts.novelaiFurryPrompt : llmPrompts.novelaiAnimePrompt },
+        { role: 'user', content },
+      ]
+      const result = await requestChatCompletion({ endpointId, messages })
+      if (requestId === optimizeRequestId.current) {
+        if (!result.trim()) throw new Error('优化结果为空')
+        setOptimizeText(result)
+      }
+    } catch (error) {
+      if (requestId === optimizeRequestId.current)
+        message.error(error instanceof Error ? error.message : '提示词优化失败')
+    } finally {
+      if (requestId === optimizeRequestId.current) setOptimizeLoading(false)
+    }
+  }
+
+  function adoptOptimizedPrompt() {
+    const parsed = parseNovelAIOptimizedPrompt(optimizeText)
+    if (!parsed.prompt && !parsed.uc && !parsed.characters.length) {
+      message.warning('没有可采纳的提示词内容')
+      return
+    }
+    const existing = form.getFieldValue('characters') || []
+    form.setFieldsValue({
+      ...(parsed.prompt ? { prompt: parsed.prompt } : {}),
+      ...(parsed.uc ? { negativePrompt: parsed.uc } : {}),
+      ...(parsed.characters.length ? {
+        characters: parsed.characters.map((prompt, index) => ({
+          ...existing[index], prompt, negativePrompt: existing[index]?.negativePrompt || '',
+        })),
+      } : {}),
+    })
+    saveDraft()
+    closeOptimize()
+  }
+
   async function generate() {
     if (!settings.configured) {
       message.warning('请先保存 NovelAI API Token')
@@ -346,6 +453,9 @@ export function NovelAIStudio({
       const { preciseReference, ...plainValues } = values
       const result = await generateNovelAIStudioImages({
         ...plainValues,
+        prompt: promptMode === 'furry'
+          ? (/^\s*fur dataset\s*,/i.test(values.prompt) ? values.prompt : `fur dataset, ${values.prompt.trim()}`)
+          : values.prompt.replace(/^\s*fur dataset\s*,\s*/i, ''),
         referenceImageUrl: values.action === 'generate' ? undefined : values.referenceImageUrl,
         ...(preciseReference?.imageUrl ? { preciseReference } : {}),
         maskImageUrl,
@@ -432,6 +542,27 @@ export function NovelAIStudio({
             />
           </Form.Item>
         </div>
+        <div className="studio-section-heading">
+          <div><strong>提示词模式</strong><small>生成时按模式调整 fur dataset 标签</small></div>
+          <Segmented value={promptMode} options={[{ label: 'Anime', value: 'anime' }, { label: 'Furry', value: 'furry' }]}
+            onChange={(value) => {
+              setPromptMode(value as 'anime' | 'furry')
+              try { window.localStorage.setItem('studio-novelai-prompt-mode', value) } catch { /* 存储不可用 */ }
+            }} />
+        </div>
+        <Button icon={<BulbOutlined />} onClick={() => {
+          optimizeImageId.current++
+          setOptimizeText(form.getFieldValue('prompt') || '')
+          const referenceUrl = form.getFieldValue('action') !== 'generate'
+            ? form.getFieldValue('referenceImageUrl') as string | undefined
+            : undefined
+          setOptimizeImage(referenceUrl ? {
+            name: referenceImage?.url === referenceUrl ? referenceImage.name : '生图参考图',
+            url: referenceUrl,
+            automatic: true,
+          } : null)
+          setOptimizeOpen(true)
+        }}>提示词优化</Button>
         <Form.Item
           label="提示词"
           name="prompt"
@@ -695,6 +826,29 @@ export function NovelAIStudio({
           ]}
         />
       </Form>
+      <Modal title={`NovelAI ${promptMode === 'furry' ? 'Furry' : 'Anime'} 提示词优化`}
+        open={optimizeOpen} onCancel={closeOptimize} onOk={adoptOptimizedPrompt}
+        okText="采纳" cancelText="丢弃" okButtonProps={{ disabled: optimizeLoading || !optimizeText.trim() }}
+        width={680} destroyOnHidden>
+        <Input.TextArea value={optimizeText} onChange={(event) => setOptimizeText(event.target.value)}
+          autoSize={{ minRows: 8, maxRows: 18 }} placeholder="填写提示词或描述；优化结果会显示在这里" />
+        <Space wrap style={{ marginTop: 12 }}>
+          <Upload accept={REFERENCE_ACCEPT} showUploadList={false} beforeUpload={(file) => {
+            void setOptimizeReference(file.name, async () => file)
+            return false
+          }}><Button icon={<UploadOutlined />}>上传图片</Button></Upload>
+          <Button icon={<PictureOutlined />} onClick={selectOptimizeGalleryImage}>图库</Button>
+          {optimizeImage && <>
+            <img src={optimizeImage.url} alt={optimizeImage.name} style={{ width: 48, height: 48, objectFit: 'cover' }} />
+            <span>{optimizeImage.automatic ? '自动带入：' : ''}{optimizeImage.name}</span>
+            <Button size="small" onClick={() => { optimizeImageId.current++; setOptimizeImage(null) }}>移除</Button>
+          </>}
+        </Space>
+        <div style={{ marginTop: 12 }}>
+          <Button type="primary" loading={optimizeLoading} onClick={() => void optimizePrompt()}>优化</Button>
+        </div>
+        <div style={{ marginTop: 8, color: '#94a3b8' }}>参考图仅发送给提示词优化端点；采纳时分别填入提示词、UC 和角色提示词。</div>
+      </Modal>
     </div>
         </div>
         <div className="studio-novelai-generate">

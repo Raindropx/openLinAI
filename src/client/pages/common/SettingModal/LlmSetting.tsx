@@ -420,6 +420,24 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
             style={{ resize: 'none' }}
           />
         </Form.Item>
+        <Form.Item label="NovelAI Furry 提示词优化">
+          <Input.TextArea
+            value={draftPrompts.novelaiFurryPrompt}
+            onChange={(e) =>
+              setDraftPrompts((p) => ({ ...p, novelaiFurryPrompt: e.target.value }))
+            }
+            autoSize={{ minRows: 6, maxRows: 20 }}
+          />
+        </Form.Item>
+        <Form.Item label="NovelAI Anime 提示词优化">
+          <Input.TextArea
+            value={draftPrompts.novelaiAnimePrompt}
+            onChange={(e) =>
+              setDraftPrompts((p) => ({ ...p, novelaiAnimePrompt: e.target.value }))
+            }
+            autoSize={{ minRows: 6, maxRows: 20 }}
+          />
+        </Form.Item>
         <Form.Item label="角色卡生成提示词">
           <Input.TextArea
             value={draftPrompts.charCardPrompt}

@@ -40,6 +40,8 @@ function syncFromConfigData(data: Record<string, unknown>) {
     llmEndpoints: (data.llmEndpoints as LlmEndpoint[]) ?? [],
     llmPrompts: (data.llmPrompts as LlmPrompts) ?? {
       optimizePrompt: '',
+      novelaiFurryPrompt: '',
+      novelaiAnimePrompt: '',
       styleOptimizePrompt: '',
       charCardPrompt: '',
     },
@@ -53,6 +55,8 @@ export const useGlobalStore = create<GlobalState>()((set) => ({
   llmEndpoints: [],
   llmPrompts: {
     optimizePrompt: '',
+    novelaiFurryPrompt: '',
+    novelaiAnimePrompt: '',
     styleOptimizePrompt: '',
     charCardPrompt: '',
   },

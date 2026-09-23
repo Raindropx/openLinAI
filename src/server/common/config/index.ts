@@ -4,6 +4,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { getDataDir } from '../data-dir'
 import { decryptApiKey } from '../../module/gpt-image/encrypt'
 import { GPT_IMAGE_SOURCE_MODEL } from '../../module/gpt-image/enum'
+import {
+  DEFAULT_NOVELAI_ANIME_PROMPT,
+  DEFAULT_NOVELAI_FURRY_PROMPT,
+} from './novelai-prompts'
 
 /** 默认云雾生成端点（迁移旧配置用） */
 const DEFAULT_YUNWU_BASE_URL = 'https://api.wlai.vip/v1'
@@ -71,6 +75,9 @@ export interface LlmEndpoint {
 export interface LlmPrompts {
   /** 提示词优化的系统提示词 */
   optimizePrompt: string
+  /** NovelAI Studio 独立的 Furry/Anime 优化系统提示词 */
+  novelaiFurryPrompt: string
+  novelaiAnimePrompt: string
   /** 风格预设模板优化的系统提示词 */
   styleOptimizePrompt: string
   /** 角色卡生成的系统提示词 */
@@ -161,6 +168,8 @@ const DEFAULT_CONFIG: Config = {
   llmEndpoints: [],
   llmPrompts: {
     optimizePrompt: DEFAULT_OPTIMIZE_PROMPT,
+    novelaiFurryPrompt: DEFAULT_NOVELAI_FURRY_PROMPT,
+    novelaiAnimePrompt: DEFAULT_NOVELAI_ANIME_PROMPT,
     styleOptimizePrompt: DEFAULT_STYLE_OPTIMIZE_PROMPT,
     charCardPrompt: DEFAULT_CHAR_CARD_PROMPT,
   },
@@ -186,6 +195,10 @@ try {
       llmPrompts: {
         optimizePrompt:
           parsed.llmPrompts?.optimizePrompt ?? DEFAULT_OPTIMIZE_PROMPT,
+        novelaiFurryPrompt:
+          parsed.llmPrompts?.novelaiFurryPrompt ?? DEFAULT_NOVELAI_FURRY_PROMPT,
+        novelaiAnimePrompt:
+          parsed.llmPrompts?.novelaiAnimePrompt ?? DEFAULT_NOVELAI_ANIME_PROMPT,
         styleOptimizePrompt:
           parsed.llmPrompts?.styleOptimizePrompt ?? DEFAULT_STYLE_OPTIMIZE_PROMPT,
         // 角色卡生成是新功能，不迁移旧版 roleplayPrompt，直接使用新默认提示词
