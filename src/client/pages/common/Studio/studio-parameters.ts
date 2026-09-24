@@ -1,6 +1,8 @@
 import type { StudioItem } from '../../../../shared/studio'
+import type { CivitaiGenerateRequest } from '../../../../shared/civitai-generation'
 
 export interface StudioGenerationParameters {
+  civitai?: CivitaiGenerateRequest
   prompt?: string
   negativePrompt?: string
   width?: number
@@ -29,7 +31,12 @@ function number(value: unknown): number | undefined {
 /** Read the fields shared by image providers, including common PNG parameter text. */
 export function studioGenerationParameters(item: StudioItem): StudioGenerationParameters | undefined {
   const source = item.provenance
-  if (!source.sourceTaskId && !source.novelai && !source.generation) return undefined
+  if (!source.sourceTaskId && !source.novelai && !source.civitai && !source.generation) return undefined
+
+  if (source.civitai) {
+    const request = source.civitai.request
+    return { prompt: request.prompt, negativePrompt: request.negativePrompt, width: request.width, height: request.height, steps: request.steps, sampler: request.sampler, scale: request.scale, seed: source.civitai.seed, civitai: request }
+  }
 
   const snapshot = source.novelai
   const metadata = source.sourceMetadata || {}

@@ -1,6 +1,7 @@
 import type { TaskTemplate } from '../server/common/template-manager'
 import type { GenerationMetadataInput } from '../server/module/gpt-image/generation-metadata'
 import type { NovelAIGenerationSnapshot } from './studio-generation'
+import type { CivitaiGenerationSnapshot } from './civitai-generation'
 
 export interface StudioProvenance {
   origin: 'photopea' | 'novelai' | 'civitai' | 'import' | 'other'
@@ -14,6 +15,7 @@ export interface StudioProvenance {
   /** Original embedded generation fields, retained when Photopea rewrites pixels. */
   sourceMetadata?: Record<string, string>
   novelai?: NovelAIGenerationSnapshot
+  civitai?: CivitaiGenerationSnapshot
   inpaintRaw?: boolean
 }
 

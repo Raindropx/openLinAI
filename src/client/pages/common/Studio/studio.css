@@ -522,6 +522,13 @@
 .studio-civitai-parameters .studio-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .studio-civitai-parameters .studio-reference-section { margin-top: 8px; }
 .studio-civitai-catalog { min-width: 0; overflow-y: auto; padding: 12px; }
+.studio-civitai-selected-model, .studio-civitai-generate-actions, .studio-civitai-job { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; overflow-wrap: anywhere; }
+.studio-civitai-job { border-top: 1px solid var(--studio-border); }
+.studio-civitai-job > div:first-child { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.studio-civitai-lora { display: grid; grid-template-columns: minmax(0, 1fr) 72px 32px; align-items: center; gap: 6px; padding: 6px 0; }
+.studio-civitai-lora > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.studio-civitai-lora .ant-input-number { width: 100%; }
+.studio-civitai-parameters .ant-alert { margin-bottom: 8px; }
 .studio-novelai-stage { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .novelai-canvas { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .novelai-canvas-actions, .novelai-zoom-tools, .novelai-mask-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }

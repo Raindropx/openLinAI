@@ -164,6 +164,20 @@ export class StudioManager {
     })
   }
 
+  fromCivitai(buffer: Buffer, snapshot: NonNullable<StudioProvenance['civitai']>) {
+    return this.run(async () => {
+      const state = await this.read()
+      // Recover safely even if the process stopped after the shelf write.
+      const existing = state.items.find((item) => item.provenance.civitai?.workflowId === snapshot.workflowId && item.provenance.civitai.imageIndex === snapshot.imageIndex)
+      if (existing) return existing
+      return this.add(state, buffer, `Civitai-${snapshot.imageIndex + 1}.png`, {
+        origin: 'civitai', model: snapshot.request.model.name, civitai: snapshot,
+        template: { id: uuidv4(), title: 'Civitai Studio', prompt: snapshot.request.prompt, images: [], usageType: 'image', aspectRatio: `${snapshot.request.width}:${snapshot.request.height}`, n: 1, createdAt: Date.now() },
+        sourceMetadata: readPngGenerationText(buffer),
+      })
+    })
+  }
+
   fromInpaintRaw(buffer: Buffer, snapshot: NovelAIGenerationSnapshot) {
     return this.run(async () => this.add(
       await this.read(),

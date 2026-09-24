@@ -20,6 +20,7 @@ import { INPUT_IMAGES_DIR } from '../common/static'
 import { INPUT_IMAGES_API_PATH } from '../common/static/enum'
 import { handleNovelAIImageGeneration } from '../module/gpt-image/novelai-image'
 import { fetchWithTimeout } from '../module/utils/fetch'
+import { civitaiGenerateSchema, civitaiGenerationManager } from '../module/civitai-generation'
 
 const idSchema = z.object({ id: z.string().uuid() })
 const NOVELAI_IMAGE_API_BASE_URL = 'https://image.novelai.net'
@@ -308,6 +309,19 @@ const studioApi = new Hono()
       }
     },
   )
+  .get('/providers/civitai/jobs', async (c) =>
+    c.json({ success: true as const, data: await civitaiGenerationManager.list() }),
+  )
+  .get('/providers/civitai/jobs/:id', zValidator('param', idSchema), async (c) =>
+    c.json({ success: true as const, data: await civitaiGenerationManager.poll(c.req.valid('param').id) }),
+  )
+  .post('/providers/civitai/estimate', zValidator('json', civitaiGenerateSchema), async (c) =>
+    c.json({ success: true as const, data: await civitaiGenerationManager.estimate(c.req.valid('json')) }),
+  )
+  .post('/providers/civitai/generate', zValidator('json', z.object({ id: z.string().uuid(), request: civitaiGenerateSchema })), async (c) => {
+    const { id, request } = c.req.valid('json')
+    return c.json({ success: true as const, data: await civitaiGenerationManager.submit(id, request) })
+  })
   .post(
     '/providers/civitai/models',
     zValidator(

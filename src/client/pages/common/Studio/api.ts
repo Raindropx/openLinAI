@@ -7,6 +7,14 @@ import type {
   NovelAIStudioGenerateRequest,
   StudioProviderSettings,
 } from '../../../../shared/studio-generation'
+import type { CivitaiGenerateRequest, CivitaiStudioJob } from '../../../../shared/civitai-generation'
+
+export const estimateCivitaiGeneration = (data: CivitaiGenerateRequest) =>
+  studioRequest<{ cost: number }>('/providers/civitai/estimate', studioJson('POST', data))
+export const submitCivitaiGeneration = (id: string, request: CivitaiGenerateRequest) =>
+  studioRequest<CivitaiStudioJob>('/providers/civitai/generate', studioJson('POST', { id, request }))
+export const listCivitaiJobs = () => studioRequest<CivitaiStudioJob[]>('/providers/civitai/jobs')
+export const pollCivitaiJob = (id: string) => studioRequest<CivitaiStudioJob>(`/providers/civitai/jobs/${encodeURIComponent(id)}`)
 
 export async function studioRequest<T>(
   route: string,

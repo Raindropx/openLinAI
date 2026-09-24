@@ -341,6 +341,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
               <CivitaiStudio
                 settings={providerSettings.civitai}
                 onSettings={setProviderSettings}
+                onItems={addItems}
                 items={items}
                 incomingParameters={civitaiParameters}
                 incomingReference={civitaiReference}
