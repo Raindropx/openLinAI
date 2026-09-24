@@ -324,6 +324,7 @@ export async function handleNovelAIImageGeneration(options: {
   writeMetadata?: boolean
   advanced?: Omit<NovelAIStudioGenerateRequest, 'title' | 'prompt' | 'model'>
   studioRequest?: NovelAIStudioGenerateRequest
+  onInpaintRawResult?: (buffer: Buffer, snapshot: NovelAIGenerationSnapshot) => Promise<void>
 }) {
   const {
     apiKey,
@@ -374,15 +375,18 @@ export async function handleNovelAIImageGeneration(options: {
     const originalImage = image ? Buffer.from(image, 'base64') : undefined
     const originalMask = mask ? Buffer.from(mask, 'base64') : undefined
     const focus = advanced?.focusedInpaint && originalImage && originalMask
-      ? await prepareFocusedInpaint(originalImage, originalMask, width, height, advanced.inpaintContextPixels ?? 128)
+      ? await prepareFocusedInpaint(
+          originalImage, originalMask, width, height, advanced.inpaintContextPixels ?? 128,
+          advanced.inpaintBlendMode ?? 'strict', advanced.inpaintFeatherPixels ?? 20,
+        )
       : null
     const focusedAdvanced = focus && advanced
       ? {
           ...advanced,
           characters: advanced.characters.map((character) => {
             if (!character.position) return character
-            const x = (character.position.x * width - focus.left) / focus.size
-            const y = (character.position.y * height - focus.top) / focus.size
+            const x = (character.position.x * width - focus.left) / focus.width
+            const y = (character.position.y * height - focus.top) / focus.height
             return { ...character, position: x >= 0 && x <= 1 && y >= 0 && y <= 1 ? { x, y } : undefined }
           }),
         }
@@ -413,8 +417,8 @@ export async function handleNovelAIImageGeneration(options: {
           buildNovelAIBody({
             model,
             prompt,
-            width: focus ? 1024 : width,
-            height: focus ? 1024 : height,
+            width: focus?.targetWidth ?? width,
+            height: focus?.targetHeight ?? height,
             quality,
             n: 1,
             seed,
@@ -453,6 +457,7 @@ export async function handleNovelAIImageGeneration(options: {
             requestedSeed,
             batchSize: count,
             imageIndex: index,
+            ...(focus ? { inpaintCrop: { left: focus.left, top: focus.top, width: focus.width, height: focus.height } } : {}),
           }
         : undefined
       const buffers = await parseNovelAIImages(response)
@@ -463,6 +468,7 @@ export async function handleNovelAIImageGeneration(options: {
             originalMask, width, height, focus,
             /\b(?:transparent background|has alpha|alpha transparency)\b/i.test(prompt),
             advanced?.inpaintFeatherPixels ?? 20,
+            advanced?.inpaintBlendMode ?? 'strict',
           )
         : mask
           ? makeNovelAIInpaintOpaque(buffers[0], originalMask!, prompt)
@@ -494,6 +500,8 @@ export async function handleNovelAIImageGeneration(options: {
       outputUrls.push(...filenames.map((filename) => `${GENERATED_IMAGES_API_PATH}/${filename}`))
       if (snapshot) snapshots.push(snapshot)
       await taskManager.updateTask(task.id, { outputUrls, novelaiSnapshots: snapshots })
+      if (action === 'infill' && advanced?.saveInpaintRaw && snapshot && options.onInpaintRawResult)
+        await options.onInpaintRawResult(buffers[0], snapshot)
     }
     await taskManager.updateTask(task.id, {
       status: 'completed',

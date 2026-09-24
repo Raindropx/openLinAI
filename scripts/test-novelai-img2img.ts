@@ -269,6 +269,60 @@ async function main() {
       'wider feather must soften the generated color near the mask boundary')
     assert.equal(pixelDifference(widePixels, 150, 150), pixelDifference(narrowPixels, 150, 150),
       'feather width must not change the mask interior')
+
+    // Exercise API validation, shelf copies and temporary-task cleanup with raw saving enabled.
+    const { studioProviderSettings } = await import('../src/server/common/studio-provider-settings')
+    await studioProviderSettings.updateNovelAI({ apiKey: 'test-token' })
+    const softRequest = {
+      ...v5Request, focusedInpaint: true, inpaintContextPixels: 64,
+      inpaintBlendMode: 'soft', inpaintFeatherPixels: 32, saveInpaintRaw: true,
+    }
+    const callApi = (body: unknown) => studioApi.request('/providers/novelai/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    const responseWithRaw = await callApi(softRequest)
+    assert.equal(responseWithRaw.status, 200)
+    const withRaw = (await responseWithRaw.json()).data
+    assert.equal(withRaw.items.length, 1, 'raw images are not counted as additional generated outputs')
+    assert.equal(withRaw.rawItems.length, 1)
+    const finalItem = withRaw.items[0]
+    const rawItem = withRaw.rawItems[0]
+    assert.equal(finalItem.provenance.novelai.request.inpaintBlendMode, 'soft')
+    assert.equal(finalItem.provenance.novelai.request.inpaintFeatherPixels, 32)
+    assert.equal(finalItem.provenance.novelai.request.saveInpaintRaw, true)
+    assert.deepEqual(rawItem.provenance.novelai, finalItem.provenance.novelai)
+    assert.equal(rawItem.provenance.inpaintRaw, true)
+    assert.match(rawItem.name, /上游原始结果/)
+    assert.equal(rawItem.provenance.sourceMetadata.Comment, nativeComment)
+    assert.ok(rawItem.provenance.novelai.inpaintCrop.width > 0)
+    const rawFile = await studioManager.file(rawItem.id)
+    const rawPixels = await sharp(rawFile.buffer).ensureAlpha().raw().toBuffer()
+    const expectedRaw = await sharp({ create: { width: 1024, height: 1024, channels: 4, background: '#8a4fbd80' } }).png().toBuffer()
+    assert.deepEqual(rawPixels, await sharp(expectedRaw).ensureAlpha().raw().toBuffer(), 'raw RGB and alpha must survive without local opacity repair, resizing or blending')
+    assert.ok(!(await taskManager.getTasks()).some((task) => task.id === finalItem.provenance.sourceTaskId), 'temporary task must still be removed')
+    assert.ok((await studioManager.file(finalItem.id)).buffer.length, 'both shelf copies survive temporary-task cleanup')
+    assert.ok((await studioManager.file(rawItem.id)).buffer.length)
+    assert.ok(!JSON.stringify(withRaw).includes('test-token'), 'saved diagnostics must not include credentials')
+
+    const withoutRaw = await callApi({ ...softRequest, saveInpaintRaw: false })
+    assert.equal(withoutRaw.status, 200)
+    assert.deepEqual((await withoutRaw.json()).data.rawItems, [], 'raw saving remains opt-in')
+    const beforeInvalid = requestBodies.length
+    assert.equal((await callApi({ ...softRequest, inpaintBlendMode: 'unknown' })).status, 400)
+    assert.equal(requestBodies.length, beforeInvalid, 'invalid blend modes must not reach the provider')
+
+    const saveRaw = studioManager.fromInpaintRaw
+    try {
+      studioManager.fromInpaintRaw = async () => { throw new Error('simulated diagnostic write failure') }
+      const failedRaw = await callApi(softRequest)
+      assert.equal(failedRaw.status, 200)
+      const partial = (await failedRaw.json()).data
+      assert.equal(partial.items.length, 1)
+      assert.equal(partial.rawItems.length, 0)
+      assert.match(partial.warning, /上游原始结果保存失败/)
+    } finally {
+      studioManager.fromInpaintRaw = saveRaw
+    }
     globalThis.fetch = (async (_input, init) =>
       studioApi.request('/providers/novelai/generate', init)) as typeof fetch
     const { generateNovelAIStudioImages } = await import('../src/client/pages/common/Studio/api')

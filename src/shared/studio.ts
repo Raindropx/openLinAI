@@ -14,6 +14,7 @@ export interface StudioProvenance {
   /** Original embedded generation fields, retained when Photopea rewrites pixels. */
   sourceMetadata?: Record<string, string>
   novelai?: NovelAIGenerationSnapshot
+  inpaintRaw?: boolean
 }
 
 export interface StudioItem {
@@ -43,6 +44,7 @@ export function studioSourceLabel(source: StudioProvenance) {
       ? `${origin} · Photopea 已编辑`
       : 'Photopea 已编辑'
   }
+  if (source.inpaintRaw) return `${origin} · 上游原始结果`
   return origin
 }
 

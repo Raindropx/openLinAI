@@ -5,7 +5,7 @@ import fs from 'fs-extra'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
-import { STUDIO_MAX_FILE_BYTES } from '../../shared/studio'
+import { STUDIO_MAX_FILE_BYTES, type StudioItem } from '../../shared/studio'
 import {
   NOVELAI_IMAGE_MODELS,
   NOVELAI_NOISE_SCHEDULES,
@@ -70,7 +70,9 @@ const novelaiGenerateSchema = z.object({
   maskImageUrl: inputImageUrlSchema.optional(),
   focusedInpaint: z.boolean().optional(),
   inpaintContextPixels: z.number().int().min(32).max(512).optional(),
+  inpaintBlendMode: z.enum(['strict', 'soft']).optional(),
   inpaintFeatherPixels: z.number().int().min(4).max(32).optional(),
+  saveInpaintRaw: z.boolean().optional(),
   preciseReference: z.object({
     imageUrl: inputImageUrlSchema,
     type: z.enum(['character', 'style', 'character-and-style']),
@@ -255,6 +257,8 @@ const studioApi = new Hono()
     async (c) => {
       const input = c.req.valid('json')
       const { apiKey } = await studioProviderSettings.novelai()
+      const rawItems: StudioItem[] = []
+      const rawWarnings: string[] = []
       const result = await handleNovelAIImageGeneration({
         apiKey,
         baseURL: NOVELAI_IMAGE_API_BASE_URL,
@@ -272,6 +276,13 @@ const studioApi = new Hono()
         },
         advanced: input,
         studioRequest: input,
+        onInpaintRawResult: async (buffer, snapshot) => {
+          try {
+            rawItems.push(await studioManager.fromInpaintRaw(buffer, snapshot))
+          } catch {
+            rawWarnings.push('上游原始结果保存失败，合成结果仍已保留')
+          }
+        },
       })
       if (!result.data.success) {
         if (!input.saveToTaskList && result.data.taskId) {
@@ -292,7 +303,8 @@ const studioApi = new Hono()
           // Shelf copies are durable now; removing the temporary task also removes its generated files.
           await taskManager.deleteTask(result.data.taskId)
         }
-        return c.json({ success: true as const, data: { items, warning: result.data.warning } })
+        const warning = [result.data.warning, ...new Set(rawWarnings)].filter(Boolean).join('；') || undefined
+        return c.json({ success: true as const, data: { items, rawItems, warning } })
       }
     },
   )

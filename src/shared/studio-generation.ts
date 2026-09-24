@@ -140,8 +140,12 @@ export interface NovelAIStudioGenerateRequest {
   focusedInpaint?: boolean
   /** 聚焦重绘时，遮罩外保留的上下文像素。 */
   inpaintContextPixels?: number
-  /** 聚焦结果贴回原图时，遮罩内侧的最大渐变宽度；小选区自动缩短。 */
+  /** 旧请求缺省为 strict；soft 允许在遮罩边界两侧融合。 */
+  inpaintBlendMode?: 'strict' | 'soft'
+  /** strict 为内侧最大过渡宽度；soft 为高斯过渡半径（原图像素）。 */
   inpaintFeatherPixels?: number
+  /** 将未经本地合成的上游结果单独保存到暂存台，默认关闭。 */
+  saveInpaintRaw?: boolean
   preciseReference?: NovelAIPreciseReference
   strength: number
   noise: number
@@ -157,6 +161,8 @@ export interface NovelAIGenerationSnapshot {
   requestedSeed: number
   batchSize: number
   imageIndex: number
+  /** 聚焦区域在原图中的位置；上游结果按此区域放大生成。 */
+  inpaintCrop?: { left: number; top: number; width: number; height: number }
 }
 
 export interface CivitaiModelVersionSummary {

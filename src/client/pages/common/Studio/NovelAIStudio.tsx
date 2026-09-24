@@ -80,6 +80,8 @@ const INITIAL_VALUES: NovelAIStudioGenerateRequest = {
   focusedInpaint: true,
   inpaintContextPixels: 128,
   inpaintFeatherPixels: 20,
+  inpaintBlendMode: 'soft',
+  saveInpaintRaw: false,
   strength: 0.7,
   noise: 0.1,
   characters: [],
@@ -162,6 +164,7 @@ export function NovelAIStudio({
   const model = Form.useWatch('model', form) || settings.model
   const action = Form.useWatch('action', form) || 'generate'
   const focusedInpaint = Form.useWatch('focusedInpaint', form) ?? true
+  const inpaintBlendMode = Form.useWatch('inpaintBlendMode', form) ?? INITIAL_VALUES.inpaintBlendMode
   const targetWidth = Form.useWatch('width', { form, preserve: true }) || 1024
   const targetHeight = Form.useWatch('height', { form, preserve: true }) || 1024
   const preciseImageUrl = Form.useWatch(['preciseReference', 'imageUrl'], form)
@@ -177,7 +180,7 @@ export function NovelAIStudio({
       const saved = window.localStorage.getItem('studio-novelai-draft-v1')
       if (!saved) return
       const draft = JSON.parse(saved) as NovelAIStudioGenerateRequest
-      form.setFieldsValue({ ...INITIAL_VALUES, ...draft })
+      form.setFieldsValue({ ...INITIAL_VALUES, ...draft, inpaintBlendMode: draft.inpaintBlendMode ?? 'strict' })
       setMaskDataUrl(draft.maskImageUrl)
       if (draft.referenceImageUrl) {
         void readImageSize(draft.referenceImageUrl).then((size) =>
@@ -194,7 +197,7 @@ export function NovelAIStudio({
   useEffect(() => {
     if (!incomingRequest) return
     const request = incomingRequest.request
-    form.setFieldsValue({ ...INITIAL_VALUES, ...request })
+    form.setFieldsValue({ ...INITIAL_VALUES, ...request, inpaintBlendMode: request.inpaintBlendMode ?? 'strict' })
     setPromptMode(/^\s*fur dataset\s*,/i.test(request.prompt) ? 'furry' : 'anime')
     setMaskDataUrl(request.maskImageUrl)
     try { window.localStorage.setItem('studio-novelai-draft-v1', JSON.stringify(request)) }
@@ -479,7 +482,7 @@ export function NovelAIStudio({
         saveToTaskList:
           gptImageSettings.autoSaveStudioTasksToTaskList ?? false,
       })
-      onItems(result.items)
+      onItems([...result.items, ...(result.rawItems || [])])
       if (result.warning) message.warning(result.warning)
       setRecentResults(result.items)
       setViewSource(false)
@@ -487,7 +490,7 @@ export function NovelAIStudio({
         onSelectItem(result.items[0].id)
         onMobilePanel('canvas')
       }
-      message.success(`NovelAI 已生成 ${result.items.length} 张图片`)
+      message.success(`NovelAI 已生成 ${result.items.length} 张图片${result.rawItems?.length ? `，另存 ${result.rawItems.length} 张上游原始结果` : ''}`)
     } catch (error) {
       message.error(error instanceof Error ? error.message : 'NovelAI 生成失败')
     } finally {
@@ -704,17 +707,30 @@ export function NovelAIStudio({
           />}
           {action === 'infill' && <>
             <Form.Item label="聚焦局部重绘" name="focusedInpaint" valuePropName="checked"
-              extra="放大遮罩附近的画面生成，再按柔和边缘贴回原图；小范围重绘推荐开启。">
+              extra="放大遮罩附近的画面生成，再按所选方式融合；范围过大时使用整图。">
               <Switch />
             </Form.Item>
             {focusedInpaint && <Form.Item label="蒙版外上下文像素" name="inpaintContextPixels"
               extra="保留在遮罩周围供模型参考的原图范围；过小可能失去结构信息。">
               <Slider min={32} max={512} step={32} />
             </Form.Item>}
-            {focusedInpaint && <Form.Item label="边缘过渡像素" name="inpaintFeatherPixels"
-              extra="在遮罩内侧平滑衔接，小选区会自动缩短过渡以保留重绘中心；自动参考周围原图校正轻微色偏，结构或光照差异仍需调整重绘参数。">
+            {focusedInpaint && <Form.Item label="边缘融合方式" name="inpaintBlendMode"
+              extra={inpaintBlendMode === 'soft'
+                ? '在蒙版边界两侧柔和融合，允许改变外侧过渡范围内的像素；小选区不会自动缩短半径，中心也可能混入原图。'
+                : '只在蒙版内侧过渡，蒙版外像素保持不变；小选区会自动缩短宽度，20 和 32 的实际效果可能接近。'}>
+              <Select options={[
+                { label: '柔和融合', value: 'soft' },
+                { label: '严格保留蒙版外', value: 'strict' },
+              ]} />
+            </Form.Item>}
+            {focusedInpaint && <Form.Item label={inpaintBlendMode === 'soft' ? '过渡半径（原图像素）' : '最大内侧过渡像素'} name="inpaintFeatherPixels"
+              extra="用于衔接边缘，不能保证修正生成内容内部的结构、纹理或光照差异。">
               <Slider min={4} max={32} step={4} />
             </Form.Item>}
+            <Form.Item label="另存上游原始结果" name="saveInpaintRaw" valuePropName="checked"
+              extra="额外保存到暂存台，供对照合成前后的变化；聚焦时保存的是放大的局部图。">
+              <Switch />
+            </Form.Item>
           </>}
         </div>}
         <Collapse ghost items={[{ key: 'precise', label: '精密参考（V4.5）', children: <>

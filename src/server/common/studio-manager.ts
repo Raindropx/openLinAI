@@ -13,6 +13,7 @@ import {
 } from '../module/gpt-image/generation-metadata'
 import { getDataDir } from './data-dir'
 import { SafeJsonStore } from './safe-json-store'
+import type { NovelAIGenerationSnapshot } from '../../shared/studio-generation'
 import { GENERATED_IMAGES_DIR, INPUT_IMAGES_DIR } from './static'
 import { GENERATED_IMAGES_API_PATH, INPUT_IMAGES_API_PATH } from './static/enum'
 import { taskManager, type Task } from './task-manager'
@@ -161,6 +162,21 @@ export class StudioManager {
         document?.provenance || { origin: 'import' },
       )
     })
+  }
+
+  fromInpaintRaw(buffer: Buffer, snapshot: NovelAIGenerationSnapshot) {
+    return this.run(async () => this.add(
+      await this.read(),
+      buffer,
+      `${snapshot.request.title || 'NovelAI'}-${snapshot.imageIndex + 1}-上游原始结果.png`,
+      {
+        origin: 'novelai',
+        model: snapshot.request.model,
+        novelai: snapshot,
+        inpaintRaw: true,
+        sourceMetadata: readPngGenerationText(buffer),
+      },
+    ))
   }
 
   fromTask(taskId: string, imageIndex: number) {

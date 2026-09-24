@@ -99,7 +99,7 @@ export const testStudioProvider = (provider: 'novelai' | 'civitai') =>
 export const generateNovelAIStudioImages = (
   data: NovelAIStudioGenerateRequest,
 ) =>
-  studioRequest<{ items: StudioItem[]; warning?: string }>(
+  studioRequest<{ items: StudioItem[]; rawItems?: StudioItem[]; warning?: string }>(
     '/providers/novelai/generate',
     studioJson('POST', data),
   )
