@@ -32,6 +32,10 @@ export const CIVITAI_SCHEDULES = [
   'lcm',
 ] as const
 
+export type CivitaiSite = 'com' | 'red'
+export const civitaiSiteBaseUrl = (site: CivitaiSite) =>
+  site === 'red' ? 'https://civitai.red' : 'https://civitai.com'
+
 export function civitaiEcosystem(
   baseModel: string,
 ): 'sd1' | 'sdxl' | undefined {
@@ -61,6 +65,8 @@ export interface CivitaiResource {
 }
 
 export interface CivitaiGenerateRequest {
+  /** Defaults to com for generation settings saved before site selection existed. */
+  site?: CivitaiSite
   model: CivitaiResource
   loras: Array<CivitaiResource & { strength: number }>
   prompt: string

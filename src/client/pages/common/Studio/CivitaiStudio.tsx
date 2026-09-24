@@ -13,6 +13,7 @@ import {
   Input,
   InputNumber,
   Progress,
+  Segmented,
   Select,
   Switch,
   Tag,
@@ -25,8 +26,10 @@ import {
   CIVITAI_SCHEDULES,
   CIVITAI_STATUS_LABELS,
   civitaiEcosystem,
+  civitaiSiteBaseUrl,
   type CivitaiGenerateRequest,
   type CivitaiResource,
+  type CivitaiSite,
   type CivitaiStudioJob,
 } from '../../../../shared/civitai-generation'
 import { studioFileUrl, type StudioItem } from '../../../../shared/studio'
@@ -89,6 +92,7 @@ export function CivitaiStudio({
   const [form] = Form.useForm<SearchValues>()
   const [generationForm] = Form.useForm<CivitaiGenerateRequest>()
   const { gptImageSettings } = useLocalSetting()
+  const [site, setSite] = useState<CivitaiSite>('com')
   const [model, setModel] = useState<CivitaiResource>()
   const [loras, setLoras] = useState<CivitaiGenerateRequest['loras']>([])
   const [busy, setBusy] = useState<'estimate' | 'submit'>()
@@ -108,9 +112,10 @@ export function CivitaiStudio({
   const [referenceItemId, setReferenceItemId] = useState<string>()
   const [result, setResult] = useState<CivitaiModelSearchResult>({ items: [] })
   const [loading, setLoading] = useState(false)
+  const searchSequence = useRef(0)
   const referenceItem = items.find((item) => item.id === referenceItemId)
   const activeJob = jobs.find((job) => !job.settled)
-  const estimateKey = JSON.stringify({ watched, model, loras, referenceItemId })
+  const estimateKey = JSON.stringify({ watched, site, model, loras, referenceItemId })
 
   const receiveJob = (job: CivitaiStudioJob) => {
     if (submission.current?.id === job.id) submission.current = undefined
@@ -194,6 +199,10 @@ export function CivitaiStudio({
     generationForm.resetFields()
     const { civitai, ...common } = incomingParameters.values
     if (civitai) {
+      setSite(civitai.site || 'com')
+      searchSequence.current++
+      setResult({ items: [] })
+      setLoading(false)
       generationForm.setFieldsValue(civitai)
       setModel(civitai.model)
       setLoras(civitai.loras)
@@ -229,6 +238,7 @@ export function CivitaiStudio({
       const request: CivitaiGenerateRequest = {
         ...INITIAL_GENERATION,
         ...values,
+        site,
         model,
         loras,
         referenceItemId,
@@ -283,27 +293,42 @@ export function CivitaiStudio({
     }
   }
 
+  function changeSite(next: CivitaiSite) {
+    if (next === site) return
+    searchSequence.current++
+    setSite(next)
+    setModel(undefined)
+    setLoras([])
+    setResult({ items: [] })
+    setEstimate(undefined)
+    setLoading(false)
+  }
+
   async function search(cursor?: string, append = false) {
     if (!settings.configured) {
       message.warning('请先保存 Civitai API Key')
       return
     }
     const values = await form.validateFields()
+    const sequence = ++searchSequence.current
     setLoading(true)
     try {
       const next = await searchCivitaiModels({
         ...values,
+        site,
         cursor,
         limit: 20,
       })
+      if (sequence !== searchSequence.current) return
       setResult((current) => ({
         items: append ? [...current.items, ...next.items] : next.items,
         nextCursor: next.nextCursor,
       }))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'Civitai 搜索失败')
+      if (sequence === searchSequence.current)
+        message.error(error instanceof Error ? error.message : 'Civitai 搜索失败')
     } finally {
-      setLoading(false)
+      if (sequence === searchSequence.current) setLoading(false)
     }
   }
 
@@ -315,6 +340,20 @@ export function CivitaiStudio({
           <span>GENERATION</span>
         </header>
         <div className="studio-novelai-parameters-scroll">
+          <div className="studio-civitai-site-picker">
+            <strong>模型站点</strong>
+            <Segmented
+              block
+              aria-label="Civitai 模型站点"
+              value={site}
+              options={[
+                { label: 'com 主站', value: 'com' },
+                { label: 'red 站', value: 'red' },
+              ]}
+              disabled={!!busy || !!submission.current}
+              onChange={(value) => changeSite(value as CivitaiSite)}
+            />
+          </div>
           <div className="studio-civitai-selected-model">
             <strong>主模型</strong>
             <span>{model?.name || '从模型目录选择 Checkpoint 版本'}</span>
@@ -655,7 +694,7 @@ export function CivitaiStudio({
           </div>
         </Form>
         {!result.items.length ? (
-          <Empty description="设置 Key 后搜索可在线生成的 Checkpoint 与 LoRA" />
+          <Empty description="设置 Key 后搜索可在线生成的 Checkpoint 与 LoRA；切换站点需重新选择模型" />
         ) : (
           <div className="studio-model-grid">
             {result.items.map((model) => (
@@ -676,7 +715,7 @@ export function CivitaiStudio({
                 actions={[
                   <a
                     key="open"
-                    href={`https://civitai.com/models/${model.id}`}
+                    href={`${civitaiSiteBaseUrl(site)}/models/${model.id}`}
                     target="_blank"
                     rel="noreferrer"
                   >

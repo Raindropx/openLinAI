@@ -6,6 +6,7 @@ import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 import { STUDIO_MAX_FILE_BYTES, type StudioItem } from '../../shared/studio'
+import { civitaiSiteBaseUrl } from '../../shared/civitai-generation'
 import {
   NOVELAI_IMAGE_MODELS,
   NOVELAI_NOISE_SCHEDULES,
@@ -327,6 +328,7 @@ const studioApi = new Hono()
     zValidator(
       'json',
       z.object({
+        site: z.enum(['com', 'red']).default('com'),
         query: z.string().trim().max(200).optional(),
         type: z
           .enum([
@@ -351,11 +353,12 @@ const studioApi = new Hono()
     async (c) => {
       const { apiKey } = await studioProviderSettings.civitai()
       const input = c.req.valid('json')
-      const url = new URL('https://civitai.com/api/v1/models')
+      const url = new URL(`${civitaiSiteBaseUrl(input.site)}/api/v1/models`)
       url.searchParams.set('limit', String(input.limit))
       url.searchParams.set('sort', input.sort)
       url.searchParams.set('supportsGeneration', 'true')
       url.searchParams.set('primaryFileOnly', 'true')
+      url.searchParams.set('nsfw', input.site === 'red' ? 'true' : 'false')
       if (input.query) url.searchParams.set('query', input.query)
       if (input.type) url.searchParams.set('types', input.type)
       if (input.baseModel) url.searchParams.set('baseModels', input.baseModel)

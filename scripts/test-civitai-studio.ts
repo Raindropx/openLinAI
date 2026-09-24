@@ -71,6 +71,8 @@ async function main() {
     let failSecondDownload = false
     let failSubmit = 0
     let resourceAvailable = true
+    const resourceHosts: string[] = []
+    const searchHosts: string[] = []
     let savedBody: any
     let workflowId = 'wf_test'
     const downloaded: string[] = []
@@ -119,17 +121,39 @@ async function main() {
         new Headers(init?.headers).get('Authorization'),
         'Bearer test-civitai-secret',
       )
-      if (url.hostname === 'civitai.com') {
+      if (url.hostname === 'civitai.com' || url.hostname === 'civitai.red') {
+        if (url.pathname === '/api/v1/models') {
+          searchHosts.push(url.hostname)
+          assert.equal(url.searchParams.get('supportsGeneration'), 'true')
+          assert.equal(
+            url.searchParams.get('nsfw'),
+            url.hostname === 'civitai.red' ? 'true' : 'false',
+          )
+          return json({
+            items: [{
+              id: 1,
+              name: 'Model',
+              type: 'Checkpoint',
+              supportsGeneration: true,
+              modelVersions: [{
+                id: 11,
+                name: 'v1',
+                baseModel: 'Illustrious',
+                supportsGeneration: true,
+              }],
+            }],
+            metadata: {},
+          })
+        }
+        assert.match(url.pathname, /^\/api\/v1\/model-versions\/mini\/(11|22)$/)
+        resourceHosts.push(url.hostname)
         const lora = url.pathname.endsWith('/22')
         return json({
-          modelId: lora ? 2 : 1,
-          name: 'v1',
+          air: `urn:air:sdxl:${lora ? 'lora' : 'checkpoint'}:civitai:${lora ? 2 : 1}@${lora ? 22 : 11}`,
+          modelName: lora ? 'LoRA' : 'Model',
+          versionName: 'v1',
           baseModel: 'Illustrious',
-          supportsGeneration: resourceAvailable,
-          model: {
-            name: lora ? 'LoRA' : 'Model',
-            type: lora ? 'LORA' : 'Checkpoint',
-          },
+          canGenerate: resourceAvailable,
         })
       }
       assert.equal(
@@ -154,7 +178,23 @@ async function main() {
 
     const manager = new CivitaiGenerationManager()
     assert.equal((await manager.estimate(input)).cost, 16)
-    assert.equal(estimates, 1)
+    assert.deepEqual(resourceHosts, ['civitai.com', 'civitai.com'])
+    resourceHosts.length = 0
+    assert.equal((await manager.estimate({ ...input, site: 'red' })).cost, 16)
+    assert.deepEqual(resourceHosts, ['civitai.red', 'civitai.red'])
+    resourceHosts.length = 0
+    const redSearch = await api.request('/providers/civitai/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ site: 'red' }),
+    })
+    assert.equal(redSearch.status, 200)
+    assert.deepEqual(searchHosts, ['civitai.red'])
+    assert.equal(
+      (await redSearch.json()).data.items[0].versions[0].supportsGeneration,
+      true,
+    )
+    assert.equal(estimates, 2)
     assert.equal(paidSubmissions, 0, 'whatif must not create paid jobs')
     assert.equal(savedBody.steps[0].input.engine, 'sdcpp')
     assert.equal(

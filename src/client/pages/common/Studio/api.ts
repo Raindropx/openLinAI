@@ -7,7 +7,7 @@ import type {
   NovelAIStudioGenerateRequest,
   StudioProviderSettings,
 } from '../../../../shared/studio-generation'
-import type { CivitaiGenerateRequest, CivitaiStudioJob } from '../../../../shared/civitai-generation'
+import type { CivitaiGenerateRequest, CivitaiSite, CivitaiStudioJob } from '../../../../shared/civitai-generation'
 
 export const estimateCivitaiGeneration = (data: CivitaiGenerateRequest) =>
   studioRequest<{ cost: number }>('/providers/civitai/estimate', studioJson('POST', data))
@@ -122,6 +122,7 @@ export async function uploadNovelAIMask(dataUrl: string) {
 }
 
 export const searchCivitaiModels = (data: {
+  site: CivitaiSite
   query?: string
   type?: string
   baseModel?: string

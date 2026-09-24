@@ -7,6 +7,7 @@ import {
   CIVITAI_SCHEDULES,
   civitaiEcosystem,
   civitaiJobFinished,
+  civitaiSiteBaseUrl,
   type CivitaiGenerateRequest,
   type CivitaiResource,
   type CivitaiStudioJob,
@@ -30,6 +31,7 @@ const resourceSchema = z.object({
 const dimension = z.number().int().min(64).max(2048).multipleOf(64)
 export const civitaiGenerateSchema = z
   .object({
+    site: z.enum(['com', 'red']).default('com'),
     model: resourceSchema,
     loras: z
       .array(resourceSchema.extend({ strength: z.number().min(-2).max(2) }))
@@ -137,6 +139,9 @@ class CivitaiHttpError extends Error {
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Civitai 请求失败'
 
+const resourceAir = (resource: CivitaiResource) =>
+  `urn:air:${civitaiEcosystem(resource.baseModel)}:${resource.type === 'Checkpoint' ? 'checkpoint' : resource.type === 'LoCon' ? 'locon' : 'lora'}:civitai:${resource.modelId}@${resource.versionId}`
+
 async function requestJson<T>(
   url: string,
   apiKey: string,
@@ -176,27 +181,26 @@ async function verifyResources(input: CivitaiGenerateRequest, apiKey: string) {
     resource: CivitaiResource,
   ): Promise<CivitaiResource> => {
     const version = await requestJson<{
-      modelId: number
-      name: string
+      air?: string
+      modelName?: string
+      versionName?: string
       baseModel: string
-      supportsGeneration: boolean
-      model: { name: string; type: string }
+      canGenerate?: boolean
     }>(
-      `https://civitai.com/api/v1/model-versions/${resource.versionId}`,
+      `${civitaiSiteBaseUrl(input.site || 'com')}/api/v1/model-versions/mini/${resource.versionId}`,
       apiKey,
     )
     if (
-      version.modelId !== resource.modelId ||
-      version.model?.type !== resource.type ||
+      version.air !== resourceAir(resource) ||
       version.baseModel !== resource.baseModel ||
-      !version.supportsGeneration
+      version.canGenerate !== true
     )
       throw new Error(
         `模型版本 ${resource.versionId} 不可在线生成或资料已变更，请重新搜索选择`,
       )
     return {
       ...resource,
-      name: `${version.model.name} · ${version.name}`.slice(0, 300),
+      name: `${version.modelName || resource.name} · ${version.versionName || resource.versionId}`.slice(0, 300),
     }
   }
   const model = await verify(input.model)
@@ -213,8 +217,6 @@ export function buildCivitaiWorkflow(
   tag?: string,
 ) {
   const ecosystem = civitaiEcosystem(input.model.baseModel)
-  const air = (resource: CivitaiResource) =>
-    `urn:air:${ecosystem}:${resource.type === 'Checkpoint' ? 'checkpoint' : resource.type === 'LoCon' ? 'locon' : 'lora'}:civitai:${resource.modelId}@${resource.versionId}`
   return {
     ...(tag ? { tags: [tag] } : {}),
     allowMatureContent: input.allowMatureContent,
@@ -226,9 +228,9 @@ export function buildCivitaiWorkflow(
         engine: 'sdcpp',
         ecosystem,
         operation: image ? 'createVariant' : 'createImage',
-        model: air(input.model),
+        model: resourceAir(input.model),
         loras: Object.fromEntries(
-          input.loras.map((lora) => [air(lora), lora.strength]),
+          input.loras.map((lora) => [resourceAir(lora), lora.strength]),
         ),
         prompt: input.prompt,
         negativePrompt: input.negativePrompt,
