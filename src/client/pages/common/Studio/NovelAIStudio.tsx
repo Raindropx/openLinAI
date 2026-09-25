@@ -147,7 +147,6 @@ export function NovelAIStudio({
   const [referenceImage, setReferenceImage] =
     useState<SelectedReferenceImage | null>(null)
   const [maskDataUrl, setMaskDataUrl] = useState<string>()
-  const [recentResults, setRecentResults] = useState<StudioItem[]>([])
   const [viewSource, setViewSource] = useState(false)
   const [preciseLoading, setPreciseLoading] = useState(false)
   const [promptMode, setPromptMode] = useState<'anime' | 'furry'>(() => {
@@ -485,7 +484,6 @@ export function NovelAIStudio({
       })
       onItems([...result.items, ...(result.rawItems || [])])
       if (result.warning) message.warning(result.warning)
-      setRecentResults(result.items)
       setViewSource(false)
       if (result.items[0]) {
         onSelectItem(result.items[0].id)
@@ -950,9 +948,6 @@ export function NovelAIStudio({
           </>}
           emptyActions={<Button onClick={() => onMobilePanel('parameters')}>设置生成参数</Button>}
         />
-        {recentResults.length > 1 && <div className="novelai-result-strip" aria-label="本次生成结果">
-          {recentResults.map((item) => <button key={item.id} className={selectedItemId === item.id ? 'is-selected' : ''} onClick={() => onSelectItem(item.id)} aria-label={`查看 ${item.name}`}><img src={studioFileUrl(item.id)} alt={item.name} /></button>)}
-        </div>}
       </div>
     </div>
   )

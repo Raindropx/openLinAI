@@ -8,16 +8,19 @@ import {
   Alert,
   Button,
   Card,
+  Collapse,
   Empty,
   Form,
   Input,
   InputNumber,
+  Modal,
   Progress,
   Segmented,
   Select,
   Switch,
   Tag,
   message,
+  theme,
 } from 'antd'
 import { useEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
@@ -48,6 +51,7 @@ import {
   updateCivitaiSettings,
 } from './api'
 import { ProviderKeyCard } from './ProviderKeyCard'
+import { NovelAICanvas } from './NovelAICanvas'
 import type { StudioGenerationParameters } from './studio-parameters'
 
 interface SearchValues {
@@ -56,6 +60,7 @@ interface SearchValues {
   baseModel?: string
   sort: string
   favorites: boolean
+  supportsGeneration: boolean
 }
 
 const INITIAL_GENERATION = {
@@ -81,6 +86,9 @@ export function CivitaiStudio({
   items,
   incomingParameters,
   incomingReference,
+  selectedItemId,
+  mobilePanel,
+  onMobilePanel,
 }: {
   settings: StudioProviderSettings['civitai']
   onSettings: (settings: StudioProviderSettings) => void
@@ -88,9 +96,13 @@ export function CivitaiStudio({
   items: StudioItem[]
   incomingParameters?: { id: number; values: StudioGenerationParameters }
   incomingReference?: { id: number; itemId: string }
+  selectedItemId?: string
+  mobilePanel: 'parameters' | 'canvas'
+  onMobilePanel: (panel: 'parameters' | 'canvas') => void
 }) {
   const [form] = Form.useForm<SearchValues>()
   const [generationForm] = Form.useForm<CivitaiGenerateRequest>()
+  const { token } = theme.useToken()
   const { gptImageSettings } = useLocalSetting()
   const [site, setSite] = useState<CivitaiSite>('com')
   const [model, setModel] = useState<CivitaiResource>()
@@ -110,10 +122,14 @@ export function CivitaiStudio({
   const busyRef = useRef(false)
   const watched = Form.useWatch([], generationForm)
   const [referenceItemId, setReferenceItemId] = useState<string>()
+  const [viewSource, setViewSource] = useState(false)
   const [result, setResult] = useState<CivitaiModelSearchResult>({ items: [] })
   const [loading, setLoading] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [resolvingLora, setResolvingLora] = useState(false)
   const searchSequence = useRef(0)
   const referenceItem = items.find((item) => item.id === referenceItemId)
+  const selectedItem = items.find((item) => item.id === selectedItemId && item.format !== 'psd')
   const activeJob = jobs.find((job) => !job.settled)
   const estimateKey = JSON.stringify({ watched, site, model, loras, referenceItemId })
 
@@ -128,6 +144,7 @@ export function CivitaiStudio({
     if (added.length) {
       added.forEach((item) => delivered.current.add(item.id))
       onItemsRef.current(added)
+      onMobilePanel('canvas')
     }
   }
 
@@ -207,6 +224,7 @@ export function CivitaiStudio({
       setModel(civitai.model)
       setLoras(civitai.loras)
       setReferenceItemId(civitai.referenceItemId)
+      setViewSource(!!civitai.referenceItemId)
     } else {
       const sampler = common.sampler
       generationForm.setFieldsValue({
@@ -222,8 +240,13 @@ export function CivitaiStudio({
   }, [generationForm, incomingParameters])
 
   useEffect(() => {
-    if (incomingReference) setReferenceItemId(incomingReference.itemId)
+    if (incomingReference) {
+      setReferenceItemId(incomingReference.itemId)
+      setViewSource(true)
+    }
   }, [incomingReference])
+
+  useEffect(() => setViewSource(false), [selectedItemId])
 
   async function generate(estimateOnly: boolean) {
     if (busyRef.current) return
@@ -231,7 +254,7 @@ export function CivitaiStudio({
     setBusy(estimateOnly ? 'estimate' : 'submit')
     try {
       if (!settings.configured) throw new Error('请先保存 Civitai API Key')
-      if (!model) throw new Error('请先从右侧选择一个 Checkpoint 版本')
+      if (!model) throw new Error('请先选择一个 Checkpoint 版本')
       if (referenceItemId && !referenceItem)
         throw new Error('参考图已不在暂存台，请重新选择或清除')
       const values = await generationForm.validateFields()
@@ -275,16 +298,65 @@ export function CivitaiStudio({
     }
   }
 
-  function selectVersion(resource: CivitaiResource) {
+  async function selectVersion(resource: CivitaiResource) {
     if (resource.type === 'Checkpoint') {
       setModel(resource)
       setLoras((current) =>
         current.filter((lora) => lora.baseModel === resource.baseModel),
       )
+      setPickerOpen(false)
     } else {
-      if (!model) return void message.warning('请先选择主模型')
-      if (resource.baseModel !== model.baseModel)
+      if (model && resource.baseModel !== model.baseModel)
         return void message.warning('LoRA 与主模型的基础模型必须一致')
+      if (!model) {
+        if (resolvingLora) return
+        const sequence = searchSequence.current
+        setResolvingLora(true)
+        try {
+          let cursor: string | undefined
+          let checkpoint: CivitaiResource | undefined
+          for (let page = 0; page < 3 && !checkpoint; page++) {
+            const matches = await searchCivitaiModels({
+              site,
+              type: 'Checkpoint',
+              baseModel: resource.baseModel,
+              sort: 'Highest Rated',
+              supportsGeneration: true,
+              cursor,
+              limit: 40,
+            })
+            if (sequence !== searchSequence.current) return
+            for (const candidate of matches.items) {
+              const version = candidate.versions.find(
+                (item) => item.supportsGeneration && item.baseModel === resource.baseModel,
+              )
+              if (version) {
+                checkpoint = {
+                  modelId: candidate.id,
+                  versionId: version.id,
+                  name: `${candidate.name} · ${version.name}`,
+                  baseModel: version.baseModel,
+                  type: 'Checkpoint',
+                }
+                break
+              }
+            }
+            cursor = matches.nextCursor
+            if (!cursor) break
+          }
+          if (!checkpoint) {
+            message.warning('未找到同基础模型的可在线生成主模型，请手动选择 Checkpoint')
+            return
+          }
+          setModel(checkpoint)
+          message.info(`已自动添加主模型：${checkpoint.name}`)
+        } catch (error) {
+          message.error(error instanceof Error ? error.message : '自动查找主模型失败')
+          return
+        } finally {
+          setResolvingLora(false)
+        }
+      }
       setLoras((current) =>
         current.some((lora) => lora.versionId === resource.versionId)
           ? current
@@ -302,6 +374,7 @@ export function CivitaiStudio({
     setResult({ items: [] })
     setEstimate(undefined)
     setLoading(false)
+    setPickerOpen(false)
   }
 
   async function search(cursor?: string, append = false) {
@@ -333,13 +406,28 @@ export function CivitaiStudio({
   }
 
   return (
-    <div className="studio-civitai-workbench">
+    <div className={`studio-civitai-workbench is-mobile-${mobilePanel}`}>
       <aside className="studio-civitai-parameters">
         <header className="studio-novelai-parameters-header">
           <strong>Civitai 生成参数</strong>
           <span>GENERATION</span>
         </header>
         <div className="studio-novelai-parameters-scroll">
+          <Collapse size="small" items={[{
+            key: 'key',
+            label: `Civitai 连接 · ${settings.configured ? '已设置' : '未设置'}`,
+            children: <ProviderKeyCard
+              provider="Civitai"
+              configured={settings.configured}
+              keyHint={settings.keyHint}
+              onSave={async (apiKey) => onSettings(await updateCivitaiSettings({ apiKey }))}
+              onClear={async () => onSettings(await updateCivitaiSettings({ clearApiKey: true }))}
+              onTest={async () => {
+                const result = await testStudioProvider('civitai')
+                return result.username
+              }}
+            />,
+          }]} />
           <div className="studio-civitai-site-picker">
             <strong>模型站点</strong>
             <Segmented
@@ -356,8 +444,11 @@ export function CivitaiStudio({
           </div>
           <div className="studio-civitai-selected-model">
             <strong>主模型</strong>
-            <span>{model?.name || '从模型目录选择 Checkpoint 版本'}</span>
+            <span>{model?.name || '尚未选择 Checkpoint'}</span>
             {model && <Tag>{model.baseModel}</Tag>}
+            <Button icon={<SearchOutlined />} onClick={() => setPickerOpen(true)}>
+              选择模型 / 添加 LoRA
+            </Button>
           </div>
           {loras.map((lora) => (
             <div className="studio-civitai-lora" key={lora.versionId}>
@@ -495,6 +586,7 @@ export function CivitaiStudio({
               if (!item || item.format === 'psd') return
               event.preventDefault()
               setReferenceItemId(item.id)
+              setViewSource(true)
             }}
           >
             <div className="studio-section-heading">
@@ -516,7 +608,10 @@ export function CivitaiStudio({
                 value: item.id,
                 disabled: item.format === 'psd',
               }))}
-              onChange={setReferenceItemId}
+              onChange={(id) => {
+                setReferenceItemId(id)
+                setViewSource(!!id)
+              }}
             />
             {referenceItem ? (
               <div className="studio-reference-preview">
@@ -620,22 +715,39 @@ export function CivitaiStudio({
           ))}
         </div>
       </aside>
-      <div className="studio-provider-panel studio-civitai-catalog">
-        <ProviderKeyCard
-          provider="Civitai"
-          configured={settings.configured}
-          keyHint={settings.keyHint}
-          onSave={async (apiKey) =>
-            onSettings(await updateCivitaiSettings({ apiKey }))
-          }
-          onClear={async () =>
-            onSettings(await updateCivitaiSettings({ clearApiKey: true }))
-          }
-          onTest={async () => {
-            const result = await testStudioProvider('civitai')
-            return result.username
-          }}
+      <div className="studio-novelai-stage">
+        <NovelAICanvas
+          imageUrl={viewSource && referenceItem ? studioFileUrl(referenceItem.id) : selectedItem ? studioFileUrl(selectedItem.id) : referenceItem ? studioFileUrl(referenceItem.id) : undefined}
+          name={viewSource && referenceItem ? referenceItem.name : selectedItem?.name || referenceItem?.name}
+          generating={!!activeJob && polling}
+          actions={<>
+            {referenceItem && selectedItem && referenceItem.id !== selectedItem.id &&
+              <Button size="small" onClick={() => setViewSource((current) => !current)}>
+                {viewSource ? '查看结果' : '查看参考图'}
+              </Button>}
+            {selectedItem && <Button size="small" onClick={() => {
+              setReferenceItemId(selectedItem.id)
+              setViewSource(true)
+              onMobilePanel('parameters')
+            }}>用作图生图</Button>}
+          </>}
+          emptyActions={<Button onClick={() => onMobilePanel('parameters')}>设置生成参数</Button>}
         />
+      </div>
+      <Modal
+        title="选择 Civitai 模型"
+        open={pickerOpen}
+        onCancel={() => setPickerOpen(false)}
+        footer={null}
+        width={1080}
+        style={{
+          '--studio-panel': token.colorBgContainer,
+          '--studio-border': token.colorBorder,
+          '--studio-muted': token.colorTextSecondary,
+        } as React.CSSProperties}
+        styles={{ body: { maxHeight: 'min(72vh, 850px)', overflowY: 'auto' } }}
+      >
+      <div className="studio-provider-panel studio-civitai-catalog">
         <Alert
           showIcon
           type="info"
@@ -645,7 +757,7 @@ export function CivitaiStudio({
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ sort: 'Highest Rated', favorites: false }}
+          initialValues={{ sort: 'Highest Rated', favorites: false, supportsGeneration: true }}
           className="studio-civitai-search"
         >
           <div className="studio-form-grid studio-form-grid-search">
@@ -682,6 +794,9 @@ export function CivitaiStudio({
             <Form.Item name="favorites" valuePropName="checked" noStyle>
               <Switch checkedChildren="仅收藏" unCheckedChildren="全部模型" />
             </Form.Item>
+            <Form.Item name="supportsGeneration" valuePropName="checked" noStyle>
+              <Switch checkedChildren="可在线生成" unCheckedChildren="全部模型" />
+            </Form.Item>
             <Button
               type="primary"
               icon={<SearchOutlined />}
@@ -694,7 +809,7 @@ export function CivitaiStudio({
           </div>
         </Form>
         {!result.items.length ? (
-          <Empty description="设置 Key 后搜索可在线生成的 Checkpoint 与 LoRA；切换站点需重新选择模型" />
+          <Empty description="搜索 Checkpoint 或 LoRA；切换站点需重新选择模型" />
         ) : (
           <div className="studio-model-grid">
             {result.items.map((model) => (
@@ -745,18 +860,17 @@ export function CivitaiStudio({
                         <Button
                           size="small"
                           disabled={
+                            resolvingLora ||
                             !version.supportsGeneration ||
                             !civitaiEcosystem(version.baseModel)
                           }
-                          onClick={() =>
-                            selectVersion({
+                          onClick={() => void selectVersion({
                               modelId: model.id,
                               versionId: version.id,
                               name: `${model.name} · ${version.name}`,
                               baseModel: version.baseModel,
                               type: model.type as CivitaiResource['type'],
-                            })
-                          }
+                            })}
                         >
                           {!version.supportsGeneration
                             ? '不可在线生成'
@@ -803,6 +917,7 @@ export function CivitaiStudio({
           </Button>
         )}
       </div>
+      </Modal>
     </div>
   )
 }

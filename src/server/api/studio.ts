@@ -347,6 +347,7 @@ const studioApi = new Hono()
           .enum(['Highest Rated', 'Most Downloaded', 'Newest'])
           .default('Highest Rated'),
         favorites: z.boolean().default(false),
+        supportsGeneration: z.boolean().default(true),
         cursor: z.string().max(1000).optional(),
         limit: z.number().int().min(1).max(40).default(20),
       }),
@@ -357,7 +358,8 @@ const studioApi = new Hono()
       const url = new URL(`${civitaiSiteBaseUrl(input.site)}/api/v1/models`)
       url.searchParams.set('limit', String(input.limit))
       url.searchParams.set('sort', input.sort)
-      url.searchParams.set('supportsGeneration', 'true')
+      if (input.supportsGeneration)
+        url.searchParams.set('supportsGeneration', 'true')
       url.searchParams.set('primaryFileOnly', 'true')
       url.searchParams.set('nsfw', input.site === 'red' ? 'true' : 'false')
       if (input.query) url.searchParams.set('query', input.query)

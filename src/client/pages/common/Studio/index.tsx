@@ -38,6 +38,7 @@ import {
 } from '../../../../shared/studio'
 import type { NovelAIStudioGenerateRequest, StudioProviderSettings } from '../../../../shared/studio-generation'
 import { useGlobalStore } from '../../../store/global'
+import { getComplementaryAccentColor, useAppTheme } from '../../../theme'
 import {
   getStudioProviderSettings,
   studioJson,
@@ -86,6 +87,7 @@ function StudioShelfImage({ item }: { item: StudioItem }) {
 
 export function StudioPage({ active = true }: { active?: boolean }) {
   const { token } = theme.useToken()
+  const { mode } = useAppTheme()
   const navigate = useNavigate()
   const location = useLocation()
   const [items, setItems] = useState<StudioItem[]>([])
@@ -95,6 +97,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const [error, setError] = useState('')
   const [tab, setTab] = useState('novelai')
   const [novelaiPanel, setNovelaiPanel] = useState<'parameters' | 'canvas'>('canvas')
+  const [civitaiPanel, setCivitaiPanel] = useState<'parameters' | 'canvas'>('canvas')
   const [selectedItemId, setSelectedItemId] = useState<string>()
   const [novelaiRequest, setNovelaiRequest] = useState<{ id: number; request: NovelAIStudioGenerateRequest }>()
   const [novelaiParameters, setNovelaiParameters] = useState<{ id: number; values: StudioGenerationParameters }>()
@@ -235,7 +238,8 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       setTab('novelai')
     }
     setSelectedItemId(item.id)
-    setNovelaiPanel('parameters')
+    if (tab === 'civitai') setCivitaiPanel('parameters')
+    else setNovelaiPanel('parameters')
     setMobileShelf(false)
     message.success('生成参数已填入左侧')
   }
@@ -276,7 +280,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const unpinned = items.filter((item) => !item.pinned)
   return (
     <div
-      className={`studio-layout ${tab === 'novelai' ? 'studio-layout-novelai' : ''}`}
+      className={`studio-layout ${tab === 'novelai' || tab === 'civitai' ? 'studio-layout-novelai' : ''}`}
       style={
         {
           color: token.colorText,
@@ -284,6 +288,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           '--studio-panel': token.colorBgContainer,
           '--studio-border': token.colorBorder,
           '--studio-muted': token.colorTextSecondary,
+          '--studio-pinned': getComplementaryAccentColor(token.colorPrimary, mode),
         } as React.CSSProperties
       }
     >
@@ -303,8 +308,8 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       <div className="studio-mobile-switch">
         <Segmented
           block
-          value={mobileShelf ? 'shelf' : tab === 'novelai' ? novelaiPanel : 'editor'}
-          options={tab === 'novelai' ? [
+          value={mobileShelf ? 'shelf' : tab === 'novelai' ? novelaiPanel : tab === 'civitai' ? civitaiPanel : 'editor'}
+          options={tab === 'novelai' || tab === 'civitai' ? [
             { label: '参数', value: 'parameters' },
             { label: '画布', value: 'canvas' },
             { label: `暂存台 (${items.length})`, value: 'shelf' },
@@ -314,7 +319,10 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           ]}
           onChange={(value) => {
             setMobileShelf(value === 'shelf')
-            if (value === 'parameters' || value === 'canvas') setNovelaiPanel(value)
+            if (value === 'parameters' || value === 'canvas') {
+              if (tab === 'novelai') setNovelaiPanel(value)
+              if (tab === 'civitai') setCivitaiPanel(value)
+            }
           }}
         />
       </div>
@@ -383,6 +391,9 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                 items={items}
                 incomingParameters={civitaiParameters}
                 incomingReference={civitaiReference}
+                selectedItemId={selectedItemId}
+                mobilePanel={civitaiPanel}
+                onMobilePanel={setCivitaiPanel}
               />
             ) : (
               <Spin />
@@ -592,7 +603,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                           disabled={working}
                           onClick={() => addItemAsLayer(item)} />
                       </Tooltip>
-                    ) : item.provenance.sourceTaskId && (
+                    ) : (item.provenance.sourceTaskId || item.provenance.civitai) && (
                       <Tooltip title="将生成参数填入左侧">
                         <Button size="small" icon={<ArrowUpOutlined />}
                           aria-label={`回填 ${item.name} 的生成参数`}

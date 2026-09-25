@@ -364,7 +364,7 @@
   margin-bottom: 12px;
 }
 .studio-item.is-pinned {
-  border-color: var(--app-accent);
+  border-color: var(--studio-pinned);
 }
 .studio-item-preview {
   display: flex;
@@ -537,13 +537,14 @@
 .studio-novelai-parameters .ant-form-item { margin-bottom: 12px; }
 .studio-novelai-generate { padding: 12px; border-top: 1px solid var(--studio-border); }
 .studio-novelai-generate .ant-btn { width: 100%; }
-.studio-civitai-workbench { display: grid; grid-template-columns: minmax(290px, 330px) minmax(0, 1fr); width: 100%; height: 100%; min-height: 0; }
+.studio-civitai-workbench { display: grid; grid-template-columns: minmax(290px, 330px) minmax(0, 1fr); width: 100%; min-width: 0; min-height: 0; }
 .studio-civitai-parameters { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid var(--studio-border); }
+.studio-civitai-parameters .ant-form-item { margin-bottom: 12px; }
 .studio-civitai-parameters .studio-generation-form { padding: 0; border: 0; }
 .studio-civitai-parameters .studio-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .studio-civitai-parameters .studio-reference-section { margin-top: 8px; }
 .studio-civitai-site-picker { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--studio-border); }
-.studio-civitai-catalog { min-width: 0; overflow-y: auto; padding: 12px; }
+.studio-civitai-catalog { min-width: 0; }
 .studio-civitai-selected-model, .studio-civitai-generate-actions, .studio-civitai-job { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; overflow-wrap: anywhere; }
 .studio-civitai-job { border-top: 1px solid var(--studio-border); }
 .studio-civitai-job > div:first-child { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
@@ -551,6 +552,7 @@
 .studio-civitai-lora > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .studio-civitai-lora .ant-input-number { width: 100%; }
 .studio-civitai-parameters .ant-alert { margin-bottom: 8px; }
+.studio-civitai-parameters .ant-collapse { margin-bottom: 12px; }
 .studio-novelai-stage { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .novelai-canvas { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .novelai-canvas-actions, .novelai-zoom-tools, .novelai-mask-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
@@ -565,21 +567,20 @@
 .novelai-canvas-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
 .novelai-canvas-footer { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 8px; min-height: 48px; padding: 8px 12px; border-top: 1px solid var(--studio-border); color: var(--studio-muted); font-size: 11px; }
 .novelai-mask-hint { white-space: nowrap; }
-.novelai-result-strip { display: flex; gap: 8px; overflow-x: auto; padding: 8px 12px; border-top: 1px solid var(--studio-border); }
-.novelai-result-strip button { flex: 0 0 72px; width: 72px; height: 72px; border: 2px solid transparent; border-radius: 7px; padding: 0; overflow: hidden; background: var(--task-list-card-media-bg); cursor: pointer; }
-.novelai-result-strip button.is-selected, .studio-item.is-selected { border-color: var(--app-accent); }
-.novelai-result-strip img { width: 100%; height: 100%; object-fit: contain; }
+.studio-item.is-selected { border-color: var(--app-accent); }
 .studio-item.is-pinned.is-selected {
+  border-color: var(--studio-pinned);
   outline: 2px solid var(--app-accent);
   outline-offset: -4px;
 }
 @media (max-width: 1023px) {
   .studio-novelai-panel { padding: 0; }
-  .studio-civitai-panel { overflow-y: auto; }
+  .studio-civitai-panel { padding: 0; }
   .studio-novelai-workbench { display: flex; flex-direction: column; }
-  .studio-civitai-workbench { display: flex; flex-direction: column; height: auto; overflow: visible; }
-  .studio-civitai-parameters { overflow: visible; border-right: 0; border-bottom: 1px solid var(--studio-border); }
-  .studio-civitai-parameters .studio-novelai-parameters-scroll, .studio-civitai-catalog { overflow: visible; }
+  .studio-civitai-workbench { display: flex; flex-direction: column; }
+  .studio-civitai-parameters, .studio-civitai-workbench .studio-novelai-stage { flex: 1; }
+  .studio-civitai-workbench.is-mobile-canvas .studio-civitai-parameters,
+  .studio-civitai-workbench.is-mobile-parameters .studio-novelai-stage { display: none; }
   .studio-novelai-parameters, .studio-novelai-stage { flex: 1; }
   .studio-novelai-workbench.is-mobile-canvas .studio-novelai-parameters,
   .studio-novelai-workbench.is-mobile-parameters .studio-novelai-stage { display: none; }

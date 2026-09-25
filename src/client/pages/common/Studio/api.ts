@@ -128,6 +128,7 @@ export const searchCivitaiModels = (data: {
   baseModel?: string
   sort?: string
   favorites?: boolean
+  supportsGeneration?: boolean
   cursor?: string
   limit?: number
 }) =>

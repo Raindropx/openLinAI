@@ -244,6 +244,30 @@ function ensureAccentContrast(
   return target
 }
 
+/** Opposite hue, kept visible against the current theme's panel background. */
+export function getComplementaryAccentColor(color: string, mode: AppThemeMode) {
+  const hue = ((getColorHue(color) ?? getColorHue(DEFAULT_ACCENT_COLOR) ?? 0) + 180) % 360
+  const saturation = 0.7
+  const lightness = mode === 'dark' ? 0.62 : 0.38
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation
+  const secondary = chroma * (1 - Math.abs((hue / 60) % 2 - 1))
+  const offset = lightness - chroma / 2
+  const channels = hue < 60 ? [chroma, secondary, 0]
+    : hue < 120 ? [secondary, chroma, 0]
+    : hue < 180 ? [0, chroma, secondary]
+    : hue < 240 ? [0, secondary, chroma]
+    : hue < 300 ? [secondary, 0, chroma]
+    : [chroma, 0, secondary]
+  const candidate = rgbToHex({
+    r: (channels[0] + offset) * 255,
+    g: (channels[1] + offset) * 255,
+    b: (channels[2] + offset) * 255,
+  })
+  return mode === 'dark'
+    ? ensureAccentContrast(candidate, '#1a1e24', '#ffffff')
+    : ensureAccentContrast(candidate, '#ffffff', '#000000')
+}
+
 function resolveAccentColor(mode: AppThemeMode, accentColor: string) {
   if (accentColor === DEFAULT_ACCENT_COLOR) {
     return mode === 'dark' ? DEFAULT_ACCENT_COLOR : '#a96812'
