@@ -141,6 +141,24 @@
 .studio-section-heading strong {
   font-weight: 600;
 }
+.studio-provider-balance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--studio-border);
+  font-size: 12px;
+}
+.studio-provider-balance-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-right: auto;
+  font-weight: 600;
+}
+.studio-balance-yellow { color: #ad7600; }
+.studio-balance-blue { color: #2782c7; }
+.studio-provider-balance-error { color: var(--studio-muted); }
 .studio-generation-form,
 .studio-civitai-search {
   border: 1px solid var(--studio-border);

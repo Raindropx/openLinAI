@@ -140,6 +140,8 @@ export function CivitaiStudio({
         .sort((a, b) => b.createdAt - a.createdAt)
         .slice(0, 20),
     )
+    if (job.settled)
+      window.dispatchEvent(new CustomEvent('studio-balance-changed', { detail: 'civitai' }))
     const added = job.items.filter((item) => !delivered.current.has(item.id))
     if (added.length) {
       added.forEach((item) => delivered.current.add(item.id))

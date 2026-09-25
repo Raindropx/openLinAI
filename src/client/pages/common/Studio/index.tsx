@@ -47,6 +47,7 @@ import {
 } from './api'
 import { CivitaiStudio } from './CivitaiStudio'
 import { NovelAIStudio } from './NovelAIStudio'
+import { ProviderBalance } from './ProviderBalance'
 import { studioGenerationParameters } from './studio-parameters'
 import type { StudioGenerationParameters } from './studio-parameters'
 import './studio.css'
@@ -354,6 +355,12 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             </button>
           ))}
         </div>
+        {active && providerSettings && tab === 'novelai' && (
+          <ProviderBalance provider="novelai" configured={providerSettings.novelai.configured} keyHint={providerSettings.novelai.keyHint} />
+        )}
+        {active && providerSettings && tab === 'civitai' && (
+          <ProviderBalance provider="civitai" configured={providerSettings.civitai.configured} keyHint={providerSettings.civitai.keyHint} />
+        )}
           <div
             className="studio-native-panel studio-novelai-panel"
             style={{ display: tab === 'novelai' ? 'flex' : 'none' }}

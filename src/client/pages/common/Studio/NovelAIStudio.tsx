@@ -494,6 +494,7 @@ export function NovelAIStudio({
         onMobilePanel('canvas')
       }
       message.success(`NovelAI 已生成 ${result.items.length} 张图片${result.rawItems?.length ? `，另存 ${result.rawItems.length} 张上游原始结果` : ''}`)
+      window.dispatchEvent(new CustomEvent('studio-balance-changed', { detail: 'novelai' }))
     } catch (error) {
       message.error(error instanceof Error ? error.message : 'NovelAI 生成失败')
     } finally {

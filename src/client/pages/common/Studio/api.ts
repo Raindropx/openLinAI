@@ -104,6 +104,11 @@ export const testStudioProvider = (provider: 'novelai' | 'civitai') =>
     { method: 'POST' },
   )
 
+export type StudioProviderBalance = { anlas: number } | { yellow: number; blue: number }
+
+export const getStudioProviderBalance = (provider: 'novelai' | 'civitai') =>
+  studioRequest<StudioProviderBalance>(`/providers/${provider}/balance`)
+
 export const generateNovelAIStudioImages = (
   data: NovelAIStudioGenerateRequest,
 ) =>

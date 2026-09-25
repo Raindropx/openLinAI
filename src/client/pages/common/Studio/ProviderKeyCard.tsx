@@ -53,6 +53,7 @@ export function ProviderKeyCard({
           if (apiKey.trim())
             void run('save', async () => {
               await onSave(apiKey.trim())
+              window.dispatchEvent(new CustomEvent('studio-balance-changed', { detail: provider.toLowerCase() }))
               setApiKey('')
               message.success(`${provider} API Key 已保存`)
             })
@@ -66,6 +67,7 @@ export function ProviderKeyCard({
           onClick={() =>
             void run('save', async () => {
               await onSave(apiKey.trim())
+              window.dispatchEvent(new CustomEvent('studio-balance-changed', { detail: provider.toLowerCase() }))
               setApiKey('')
               message.success(`${provider} API Key 已保存`)
             })

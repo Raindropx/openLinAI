@@ -235,6 +235,48 @@ const studioApi = new Hono()
       data: { connected: true, username: username || undefined },
     })
   })
+  .get('/providers/novelai/balance', async (c) => {
+    const { apiKey } = await studioProviderSettings.novelai()
+    const response = await fetchWithTimeout(
+      `${NOVELAI_IMAGE_API_BASE_URL}/user/subscription`,
+      { headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` } },
+      15000,
+    )
+    const data = await readJson(response)
+    if (!response.ok)
+      throw new Error(apiError(data, `NovelAI 余额读取失败 (${response.status})`))
+    const steps = data && typeof data === 'object'
+      ? (data as { trainingStepsLeft?: { fixedTrainingStepsLeft?: unknown; purchasedTrainingSteps?: unknown } }).trainingStepsLeft
+      : undefined
+    const fixed = steps?.fixedTrainingStepsLeft
+    const purchased = steps?.purchasedTrainingSteps
+    if (typeof fixed !== 'number' || typeof purchased !== 'number' ||
+      !Number.isFinite(fixed + purchased))
+      throw new Error('NovelAI 余额响应格式不正确')
+    return c.json({ success: true as const, data: { anlas: fixed + purchased } })
+  })
+  .get('/providers/civitai/balance', async (c) => {
+    const { apiKey } = await studioProviderSettings.civitai()
+    const response = await fetchWithTimeout(
+      'https://civitai.com/api/trpc/buzz.getBuzzAccount',
+      { headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` } },
+      15000,
+    )
+    if (response.status === 403)
+      throw new Error('Civitai API Key 缺少 BuzzRead 权限，无法读取余额')
+    const data = await readJson(response)
+    if (!response.ok)
+      throw new Error(apiError(data, `Civitai 余额读取失败 (${response.status})`))
+    const balance = data && typeof data === 'object'
+      ? (data as { result?: { data?: { json?: { yellow?: unknown; blue?: unknown } } } }).result?.data?.json
+      : undefined
+    const yellow = balance?.yellow
+    const blue = balance?.blue
+    if (typeof yellow !== 'number' || !Number.isFinite(yellow) ||
+      typeof blue !== 'number' || !Number.isFinite(blue))
+      throw new Error('Civitai 余额响应格式不正确')
+    return c.json({ success: true as const, data: { yellow, blue } })
+  })
   .post('/providers/novelai/mask', bodyLimit({
     maxSize: 16 * 1024 * 1024,
     onError: (c) => c.json({ success: false as const, error: '遮罩不能超过 16 MiB' }, 413),
