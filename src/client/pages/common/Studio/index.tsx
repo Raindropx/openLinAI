@@ -51,6 +51,39 @@ import type { StudioGenerationParameters } from './studio-parameters'
 import './studio.css'
 import { PHOTOPEA_URL, usePhotopea } from './usePhotopea'
 
+function StudioShelfImage({ item }: { item: StudioItem }) {
+  const imageRef = useRef<HTMLImageElement>(null)
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null)
+
+  const updateSize = (image: HTMLImageElement) => {
+    if (image.naturalWidth && image.naturalHeight) {
+      setSize({ width: image.naturalWidth, height: image.naturalHeight })
+    }
+  }
+
+  useEffect(() => {
+    if (imageRef.current?.complete) updateSize(imageRef.current)
+  }, [])
+
+  return (
+    <>
+      <img
+        ref={imageRef}
+        src={studioFileUrl(item.id)}
+        alt={item.name}
+        loading="lazy"
+        draggable={false}
+        onLoad={(event) => updateSize(event.currentTarget)}
+      />
+      {size && (
+        <span className="studio-item-resolution">
+          {size.width}×{size.height}
+        </span>
+      )}
+    </>
+  )
+}
+
 export function StudioPage({ active = true }: { active?: boolean }) {
   const { token } = theme.useToken()
   const navigate = useNavigate()
@@ -496,12 +529,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                   {item.format === 'psd' ? (
                     <span className="studio-psd">PSD</span>
                   ) : (
-                    <img
-                      src={studioFileUrl(item.id)}
-                      alt={item.name}
-                      loading="lazy"
-                      draggable={false}
-                    />
+                    <StudioShelfImage item={item} />
                   )}
                 </button>
                 <div className="studio-item-info">
