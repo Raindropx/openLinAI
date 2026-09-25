@@ -136,6 +136,8 @@ export interface NovelAIStudioGenerateRequest {
   referenceImageUrl?: string
   /** 黑色保留、白色重绘；尺寸须与参考图一致。 */
   maskImageUrl?: string
+  /** 仅改变发给 NovelAI 的遮罩内参考图；最终合成仍使用原图。 */
+  inpaintBase?: 'original' | 'blur'
   /** 将小范围遮罩连同周边画面放大后重绘，再贴回原图。 */
   focusedInpaint?: boolean
   /** 聚焦重绘时，遮罩外保留的上下文像素。 */

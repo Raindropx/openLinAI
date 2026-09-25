@@ -77,6 +77,7 @@ const INITIAL_VALUES: NovelAIStudioGenerateRequest = {
   qualityPreset: 'standard',
   ucPreset: 0,
   action: 'generate',
+  inpaintBase: 'original',
   focusedInpaint: true,
   inpaintContextPixels: 128,
   inpaintFeatherPixels: 20,
@@ -706,6 +707,13 @@ export function NovelAIStudio({
             description="小范围重绘建议开启聚焦，并让遮罩略宽于目标轮廓；提示词只描述要改的局部。"
           />}
           {action === 'infill' && <>
+            <Form.Item label="遮罩内参考图" name="inpaintBase"
+              extra="模糊仅用于发送给 NovelAI 的参考图；涂抹范围外与最终合成仍使用原图。可固定种子对比效果。">
+              <Select options={[
+                { label: '保留原图', value: 'original' },
+                { label: '模糊涂抹区域', value: 'blur' },
+              ]} />
+            </Form.Item>
             <Form.Item label="聚焦局部重绘" name="focusedInpaint" valuePropName="checked"
               extra="放大遮罩附近的画面生成，再按所选方式融合；范围过大时使用整图。">
               <Switch />

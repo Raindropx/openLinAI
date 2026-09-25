@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { PNG } from 'pngjs'
 import { compositeFocusedInpaint, prepareFocusedInpaint, type FocusedInpaint } from '../src/server/module/gpt-image/novelai-focused-inpaint'
+import { blurNovelAIInpaintInput } from '../src/server/module/gpt-image/novelai-inpaint-input'
 
 const size = 160
 const scale = 1024 / size
@@ -121,6 +122,25 @@ async function main() {
   assert.equal(rectOutput.data[0], 100)
   assert.ok(rectOutput.data[(30 * 256 + 45) * 4] > 70)
   assert.equal(rectOutput.data[(30 * 256 + 73) * 4], 70)
+
+  const blurSource = new PNG({ width: 64, height: 64 })
+  const blurMask = new PNG({ width: 64, height: 64 })
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+    const offset = (y * 64 + x) * 4
+    const color = (x + y) % 2 ? 255 : 0
+    blurSource.data.set([color, color, color, 255], offset)
+    const selected = x >= 16 && x < 48 && y >= 16 && y < 48 ? 255 : 0
+    blurMask.data.set([selected, selected, selected, 255], offset)
+  }
+  const blurred = PNG.sync.read(await blurNovelAIInpaintInput(PNG.sync.write(blurSource), PNG.sync.write(blurMask), 64, 64))
+  assert.ok(blurred.data[(32 * 64 + 32) * 4] > 110 && blurred.data[(32 * 64 + 32) * 4] < 145,
+    'blurred input must remove high-frequency detail inside the mask')
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+    if (x >= 16 && x < 48 && y >= 16 && y < 48) continue
+    const offset = (y * 64 + x) * 4
+    assert.deepEqual(blurred.data.subarray(offset, offset + 4), blurSource.data.subarray(offset, offset + 4),
+      'input blur must leave every unselected pixel unchanged')
+  }
   console.log('NovelAI blending: strict compatibility, soft halo/support, real 20/32 differences, rectangular fallback and alpha passed')
 }
 

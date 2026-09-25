@@ -18,6 +18,7 @@ import { persistImageBuffers } from './image-files'
 import { embedPngTextMetadata, readPngGenerationText } from './generation-metadata'
 import { makeNovelAIInpaintOpaque } from './novelai-inpaint-result'
 import { compositeFocusedInpaint, prepareFocusedInpaint } from './novelai-focused-inpaint'
+import { blurNovelAIInpaintInput } from './novelai-inpaint-input'
 import { buildPromptWithAspectRatio } from './index'
 
 interface NovelAIJsonImage {
@@ -380,6 +381,14 @@ export async function handleNovelAIImageGeneration(options: {
           advanced.inpaintBlendMode ?? 'strict', advanced.inpaintFeatherPixels ?? 20,
         )
       : null
+    const requestMask = focus?.mask ?? mask
+    const requestImage = focus?.image ?? image
+    const inpaintImage = action === 'infill' && advanced?.inpaintBase === 'blur' && requestImage && requestMask
+      ? (await blurNovelAIInpaintInput(
+          Buffer.from(requestImage, 'base64'), Buffer.from(requestMask, 'base64'),
+          focus?.targetWidth ?? width, focus?.targetHeight ?? height,
+        )).toString('base64')
+      : requestImage
     const focusedAdvanced = focus && advanced
       ? {
           ...advanced,
@@ -422,8 +431,8 @@ export async function handleNovelAIImageGeneration(options: {
             quality,
             n: 1,
             seed,
-            image: focus?.image ?? image,
-            mask: focus?.mask ?? mask,
+            image: inpaintImage,
+            mask: requestMask,
             // Focused mode composites against the original locally; the provider's
             // hard original-image overlay can leave a visible rectangular seam.
             addOriginalImage: !focus,
