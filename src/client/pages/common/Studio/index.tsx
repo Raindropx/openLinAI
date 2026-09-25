@@ -467,7 +467,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             items.map((item) => (
               <article
                 key={item.id}
-                className={`studio-item ${item.pinned ? 'is-pinned' : ''} ${tab === 'novelai' && selectedItemId === item.id ? 'is-selected' : ''}`}
+                className={`studio-item ${item.pinned ? 'is-pinned' : ''} ${selectedItemId === item.id ? 'is-selected' : ''}`}
                 draggable={!working}
                 onDragStart={(event) => {
                   event.dataTransfer.setData(
@@ -482,12 +482,9 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                 <button
                   className="studio-item-preview"
                   onClick={() => {
+                    setSelectedItemId(item.id)
                     if (item.format === 'psd') openItem(item)
-                    else if (tab === 'novelai') {
-                      setSelectedItemId(item.id)
-                      setNovelaiPanel('canvas')
-                      setMobileShelf(false)
-                    } else setPreview(item)
+                    else setPreview(item)
                   }}
                   aria-label={`预览 ${item.name}`}
                 >
@@ -606,7 +603,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           )}
         </div>
         <footer className="studio-shelf-footer">
-          {tab === 'novelai' ? '点击图片在画布查看 · 钉住项不会被倒掉' : '拖到编辑区打开 · 钉住项不会被倒掉'}
+          点击图片预览 · 钉住项不会被倒掉
           <br />
           文件会保留到你主动清理
         </footer>
