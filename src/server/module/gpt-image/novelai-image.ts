@@ -1,6 +1,7 @@
 import fs from 'fs-extra'
 import JSZip from 'jszip'
 import path from 'path'
+import { PNG } from 'pngjs'
 import type {
   NovelAICharacterPrompt,
   NovelAIGenerationSnapshot,
@@ -8,7 +9,7 @@ import type {
 } from '../../../shared/studio-generation'
 import { INPUT_IMAGES_DIR } from '../../common/static'
 import { GENERATED_IMAGES_API_PATH, INPUT_IMAGES_API_PATH } from '../../common/static/enum'
-import { padImageToExactDimensions, resizeImageToExactDimensions } from '../../common/static/imageProcessor'
+import { decodeImageRgba, padImageToExactDimensions, resizeImageToExactDimensions } from '../../common/static/imageProcessor'
 import { taskManager } from '../../common/task-manager'
 import { TaskTemplate } from '../../common/template-manager'
 import { fetchWithTimeout } from '../utils/fetch'
@@ -17,7 +18,7 @@ import { GptImageQuality, GptImageSize } from './enum'
 import { persistImageBuffers } from './image-files'
 import { embedPngTextMetadata, readPngGenerationText } from './generation-metadata'
 import { makeNovelAIInpaintOpaque } from './novelai-inpaint-result'
-import { compositeFocusedInpaint, prepareFocusedInpaint } from './novelai-focused-inpaint'
+import { compositeFocusedInpaint, manualFocusedInpaintLayer, prepareFocusedInpaint, type FocusedInpaint } from './novelai-focused-inpaint'
 import { blurNovelAIInpaintInput } from './novelai-inpaint-input'
 import { buildPromptWithAspectRatio } from './index'
 
@@ -313,6 +314,52 @@ async function getMask(url: string, width: number, height: number) {
   return buffer.toString('base64')
 }
 
+/** Rebuild the exact source canvas and aligned raw layer from a saved generation. */
+export async function manualNovelAIInpaintImage(
+  raw: Buffer,
+  snapshot: NovelAIGenerationSnapshot,
+  layer: 'base' | 'overlay',
+): Promise<Buffer> {
+  const request = snapshot.request
+  if (request.action !== 'infill' || !request.referenceImageUrl || !request.maskImageUrl)
+    throw new Error('这张上游原始结果缺少局部重绘的原图或蒙版记录')
+  const { width, height } = request
+  const original = await resizeImageToExactDimensions(await getInputImage(request.referenceImageUrl), width, height)
+  if (layer === 'base') {
+    const image = new PNG({ width, height })
+    const rgba = await decodeImageRgba(original, width, height)
+    rgba.copy(image.data)
+    return PNG.sync.write(image)
+  }
+  const mask = Buffer.from(await getMask(request.maskImageUrl, width, height), 'base64')
+  const actualFocus = snapshot.inpaintCrop
+    ? await prepareFocusedInpaint(
+        original, mask, width, height, request.inpaintContextPixels ?? 128,
+        request.inpaintBlendMode ?? 'strict', request.inpaintFeatherPixels ?? 20,
+      )
+    : null
+  if (snapshot.inpaintCrop && (!actualFocus ||
+    actualFocus.left !== snapshot.inpaintCrop.left || actualFocus.top !== snapshot.inpaintCrop.top ||
+    actualFocus.width !== snapshot.inpaintCrop.width || actualFocus.height !== snapshot.inpaintCrop.height))
+    throw new Error('当前聚焦裁切与原始结果记录不一致，无法安全对齐图层')
+  const parsed = PNG.sync.read(raw)
+  const crop = snapshot.inpaintCrop ?? { left: 0, top: 0, width, height }
+  const focus: FocusedInpaint = {
+    ...crop, targetWidth: parsed.width, targetHeight: parsed.height, image: '', mask: '',
+  }
+  if (actualFocus && (parsed.width !== actualFocus.targetWidth || parsed.height !== actualFocus.targetHeight))
+    throw new Error('上游原始结果尺寸与聚焦裁切记录不一致')
+  if (!actualFocus && (parsed.width !== width || parsed.height !== height))
+    throw new Error('上游原始结果尺寸与原图不一致')
+  const providerMask = actualFocus ? Buffer.from(actualFocus.mask, 'base64') : mask
+  const opaqueRaw = makeNovelAIInpaintOpaque(raw, providerMask, request.prompt)
+  return manualFocusedInpaintLayer(
+    opaqueRaw, mask, width, height, focus,
+    request.inpaintFeatherPixels ?? 20, request.inpaintBlendMode ?? 'strict',
+    request.inpaintEdgeFeatherPixels,
+  )
+}
+
 export async function handleNovelAIImageGeneration(options: {
   apiKey: string
   baseURL: string
@@ -478,6 +525,7 @@ export async function handleNovelAIImageGeneration(options: {
             /\b(?:transparent background|has alpha|alpha transparency)\b/i.test(prompt),
             advanced?.inpaintFeatherPixels ?? 20,
             advanced?.inpaintBlendMode ?? 'strict',
+            advanced?.inpaintEdgeFeatherPixels,
           )
         : mask
           ? makeNovelAIInpaintOpaque(buffers[0], originalMask!, prompt)

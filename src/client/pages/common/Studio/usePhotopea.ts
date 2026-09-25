@@ -162,6 +162,20 @@ export function usePhotopea(options: {
     })
   }
 
+  function waitForReady() {
+    if (readyRef.current) return Promise.resolve()
+    return new Promise<void>((resolve, reject) => {
+      const started = Date.now()
+      const check = () => {
+        if (readyRef.current) resolve()
+        else if (failedRef.current || Date.now() - started > 45000)
+          reject(new Error('Photopea 尚未连接，请重新加载编辑器后再试'))
+        else setTimeout(check, 100)
+      }
+      check()
+    })
+  }
+
   async function withBusy(work: () => Promise<void>) {
     if (busyRef.current) {
       message.info('正在处理上一次操作，请稍候')
@@ -223,6 +237,47 @@ export function usePhotopea(options: {
         `var source=app.documents[${documentCount}];var target=app.documents[${targetIndex}];if(app.documents.length!==${documentCount + 1}||!target||!source) throw new Error("图片未能载入为临时文档");try{app.activeDocument=source;source.selection.selectAll();source.selection.copy(true);app.activeDocument=target;var layer=target.paste();layer.name=${JSON.stringify(item.name.replace(/\.[^.]+$/, ''))};}finally{source.close(SaveOptions.DONOTSAVECHANGES);app.activeDocument=target;}`,
       )
       message.success('已作为新图层加入 Photopea')
+    })
+  }
+
+  async function openManualComposite(item: StudioItem) {
+    await withBusy(async () => {
+      await waitForReady()
+      const [base, overlay] = await Promise.all(
+        (['base', 'overlay'] as const).map((layer) =>
+          fetch(`/api/studio/items/${encodeURIComponent(item.id)}/manual-composite/${layer}`)),
+      )
+      for (const response of [base, overlay]) {
+        if (!response.ok) {
+          const body = await response.json().catch(() => null) as { error?: string } | null
+          throw new Error(body?.error || '手动合成图层准备失败')
+        }
+      }
+      const document = await studioRequest<{ id: string }>(
+        '/documents', studioJson('POST', { itemId: item.id }),
+      )
+      const baseBytes = await base.arrayBuffer()
+      const overlayBytes = await overlay.arrayBuffer()
+      await command(baseBytes)
+      await command(
+        `app.activeDocument.source=${JSON.stringify(`linai:${document.id}`)};app.activeDocument.name=${JSON.stringify(item.name.replace(/\.[^.]+$/, '').replace(/-上游原始结果$/, '') + '-手动合成')};`,
+      )
+      const targetInfo = await command(
+        'var docs=[];for(var i=0;i<app.documents.length;i++)docs.push({name:String(app.documents[i].name||""),source:String(app.documents[i].source||""),width:String(app.documents[i].width),height:String(app.documents[i].height)});app.echoToOE("LINAI:target:"+JSON.stringify({active:{name:String(app.activeDocument.name||""),source:String(app.activeDocument.source||""),width:String(app.activeDocument.width),height:String(app.activeDocument.height)},documents:docs}));',
+      )
+      const target = targetInfo.find((value) => typeof value === 'string' && value.startsWith('LINAI:target:'))
+      const snapshot = typeof target === 'string'
+        ? JSON.parse(target.slice('LINAI:target:'.length)) as PhotopeaDocumentSnapshot
+        : null
+      const targetIndex = snapshot ? findActivePhotopeaDocumentIndex(snapshot) : -1
+      if (targetIndex < 0) throw new Error('无法确定手动合成文档')
+      const documentCount = snapshot!.documents.length
+      await command(overlayBytes)
+      await command(
+        `var source=app.documents[${documentCount}];var target=app.documents[${targetIndex}];if(app.documents.length!==${documentCount + 1}||!target||!source) throw new Error("重绘图层未能载入");try{app.activeDocument=source;source.selection.selectAll();source.selection.copy(true);app.activeDocument=target;var layer=target.paste();layer.name="上游重绘（擦除边界）";}finally{source.close(SaveOptions.DONOTSAVECHANGES);app.activeDocument=target;}`,
+      )
+      setHasDocuments(true)
+      message.success('原图与重绘图层已对齐，可用橡皮擦修整边界')
     })
   }
 
@@ -308,6 +363,7 @@ export function usePhotopea(options: {
     recovery,
     open,
     addAsLayer,
+    openManualComposite,
     create,
     save,
     retrySave,

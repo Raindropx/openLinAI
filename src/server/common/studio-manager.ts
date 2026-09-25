@@ -275,7 +275,7 @@ export class StudioManager {
     return this.run(async () => {
       const state = await this.read()
       const provenance: StudioProvenance = itemId
-        ? { ...this.find(state, itemId).provenance, photopea: 'edited' }
+        ? { ...this.find(state, itemId).provenance, inpaintRaw: undefined, photopea: 'edited' }
         : external
           ? { origin: 'import', photopea: 'edited' }
           : { origin: 'photopea', photopea: 'created' }

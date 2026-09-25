@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { PNG } from 'pngjs'
-import { compositeFocusedInpaint, prepareFocusedInpaint, type FocusedInpaint } from '../src/server/module/gpt-image/novelai-focused-inpaint'
+import { compositeFocusedInpaint, manualFocusedInpaintLayer, prepareFocusedInpaint, type FocusedInpaint } from '../src/server/module/gpt-image/novelai-focused-inpaint'
 import { blurNovelAIInpaintInput } from '../src/server/module/gpt-image/novelai-inpaint-input'
 
 const size = 160
@@ -36,9 +36,9 @@ function fixture(rectangles: number[][], bias = [0, 0, 0], transparentContext = 
   return { original: PNG.sync.write(original), mask: PNG.sync.write(mask), generated: PNG.sync.write(generated), selection: selected }
 }
 
-async function run(input: ReturnType<typeof fixture>, feather: number, preserveTransparency = false, mode: 'strict' | 'soft' = 'strict') {
+async function run(input: ReturnType<typeof fixture>, feather: number, preserveTransparency = false, mode: 'strict' | 'soft' = 'strict', edgeFeather?: number) {
   const focus: FocusedInpaint = { left: 0, top: 0, width: size, height: size, targetWidth: 1024, targetHeight: 1024, image: '', mask: '' }
-  return PNG.sync.read(await compositeFocusedInpaint(input.original, input.generated, input.mask, size, size, focus, preserveTransparency, feather, mode))
+  return PNG.sync.read(await compositeFocusedInpaint(input.original, input.generated, input.mask, size, size, focus, preserveTransparency, feather, mode, edgeFeather))
 }
 
 const pixel = (image: PNG, x: number, y: number) => Array.from(image.data.subarray((y * size + x) * 4, (y * size + x) * 4 + 4))
@@ -90,6 +90,34 @@ async function main() {
   const softFull = await run(fixture([[0, 0, size, size]]), 32, false, 'soft')
   assert.deepEqual(pixel(softFull, 0, 0), [100, 90, 110, 255], 'Gaussian padding must not fade a fully selected canvas corner')
   assert.deepEqual((await run(fixture([]), 32, false, 'soft')).data, PNG.sync.read(fixture([]).original).data)
+
+  const controlledInput = softInput(20)
+  const controlled4 = await run(controlledInput, 20, false, 'soft', 4)
+  const controlled12 = await run(controlledInput, 20, false, 'soft', 12)
+  assert.deepEqual(pixel(controlled4, 80, 80), [100, 90, 110, 255], 'the selected core must stay fully generated')
+  assert.deepEqual(pixel(controlled12, 80, 80), [100, 90, 110, 255], 'a wider feather must not wash out the selected core')
+  assert.ok(pixel(controlled12, 54, 80)[0] < pixel(controlled4, 54, 80)[0], 'edge feather width must change only the outer band')
+  assert.deepEqual(pixel(controlled12, 50, 80), [70, 90, 110, 255], 'controlled blending must not exceed the transition radius')
+  const hardEdge = await run(controlledInput, 20, false, 'soft', 0)
+  assert.equal(pixel(hardEdge, 50, 80)[0], 70, 'the halo must stop at its requested radius')
+  assert.equal(pixel(hardEdge, 51, 80)[0], 100, 'zero feather must keep a hard edge inside the halo')
+
+  const focus: FocusedInpaint = { left: 0, top: 0, width: size, height: size, targetWidth: 1024, targetHeight: 1024, image: '', mask: '' }
+  const manual = PNG.sync.read(await manualFocusedInpaintLayer(controlledInput.generated, controlledInput.mask, size, size, focus, 20, 'soft', 8))
+  assert.equal(pixel(manual, 80, 80)[3], 255, 'the manual layer must retain an opaque generated core')
+  assert.ok(pixel(manual, 53, 80)[3] > 0 && pixel(manual, 53, 80)[3] < 255, 'the manual layer must include an editable feather')
+  assert.equal(pixel(manual, 50, 80)[3], 0, 'the manual layer must leave the original outside its halo visible')
+
+  const croppedInput = fixture([[60, 60, 70, 70]])
+  const croppedFocus: FocusedInpaint = { left: 40, top: 40, width: 64, height: 64, targetWidth: 1024, targetHeight: 1024, image: '', mask: '' }
+  const croppedGenerated = new PNG({ width: 1024, height: 1024 })
+  for (let i = 0; i < croppedGenerated.data.length; i += 4)
+    croppedGenerated.data.set([180, 40, 60, 255], i)
+  const croppedLayer = PNG.sync.read(await manualFocusedInpaintLayer(
+    PNG.sync.write(croppedGenerated), croppedInput.mask, size, size, croppedFocus, 8, 'strict',
+  ))
+  assert.deepEqual(pixel(croppedLayer, 65, 65), [180, 40, 60, 255], 'a focused result must align with its source-image crop')
+  assert.equal(pixel(croppedLayer, 20, 20)[3], 0, 'the generated crop must not cover unrelated image areas')
 
   const alphaInput = softInput(32)
   const alphaGenerated = PNG.sync.read(alphaInput.generated)

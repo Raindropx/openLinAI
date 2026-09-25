@@ -19,7 +19,7 @@ import { studioProviderSettings } from '../common/studio-provider-settings'
 import { taskManager } from '../common/task-manager'
 import { INPUT_IMAGES_DIR } from '../common/static'
 import { INPUT_IMAGES_API_PATH } from '../common/static/enum'
-import { handleNovelAIImageGeneration } from '../module/gpt-image/novelai-image'
+import { handleNovelAIImageGeneration, manualNovelAIInpaintImage } from '../module/gpt-image/novelai-image'
 import { fetchWithTimeout } from '../module/utils/fetch'
 import { civitaiGenerateSchema, civitaiGenerationManager } from '../module/civitai-generation'
 
@@ -75,6 +75,7 @@ const novelaiGenerateSchema = z.object({
   inpaintContextPixels: z.number().int().min(32).max(512).optional(),
   inpaintBlendMode: z.enum(['strict', 'soft']).optional(),
   inpaintFeatherPixels: z.number().int().min(4).max(32).optional(),
+  inpaintEdgeFeatherPixels: z.number().int().min(0).max(32).optional(),
   saveInpaintRaw: z.boolean().optional(),
   preciseReference: z.object({
     imageUrl: inputImageUrlSchema,
@@ -514,6 +515,17 @@ const studioApi = new Hono()
       },
     })
   })
+  .get('/items/:id/manual-composite/:layer',
+    zValidator('param', idSchema.extend({ layer: z.enum(['base', 'overlay']) })), async (c) => {
+      const { id, layer } = c.req.valid('param')
+      const { item, buffer } = await studioManager.file(id)
+      if (!item.provenance.inpaintRaw || !item.provenance.novelai)
+        throw new Error('只有 NovelAI 局部重绘的上游原始结果可以手动合成')
+      const image = await manualNovelAIInpaintImage(buffer, item.provenance.novelai, layer)
+      return new Response(new Uint8Array(image), {
+        headers: { 'Content-Type': 'image/png', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+      })
+    })
   .patch(
     '/items/:id',
     zValidator('param', idSchema),

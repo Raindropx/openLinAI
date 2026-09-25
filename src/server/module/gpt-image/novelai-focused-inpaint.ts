@@ -19,6 +19,28 @@ type BlendMode = 'strict' | 'soft'
 
 const featherRadius = (pixels: number) => Math.max(4, Math.min(32, Math.round(pixels)))
 
+/** Keep the painted selection opaque, then feather only the outer edge of its halo. */
+function controlledSoftBlendMask(selection: Uint8Array, width: number, height: number, reach: number, featherPixels: number) {
+  const distances = maskDistances(selection, width, height, false)
+  const feather = Math.max(0, Math.min(reach, Math.round(featherPixels)))
+  const weights = new Float32Array(selection.length)
+  for (let i = 0; i < selection.length; i++) {
+    if (selection[i]) {
+      weights[i] = 1
+      continue
+    }
+    const distance = distances[i]
+    if (distance > reach) continue
+    if (feather === 0 || distance <= reach - feather) {
+      weights[i] = 1
+      continue
+    }
+    const t = (reach - distance) / feather
+    weights[i] = t * t * (3 - 2 * t)
+  }
+  return weights
+}
+
 /** Finite Gaussian support on both sides of the boundary; radius is in source pixels.
  * Clamp to the canvas edge so selections touching it do not gain artificial seams.
  */
@@ -153,6 +175,31 @@ function contextColorOffset(source: Buffer, result: Buffer, outsideDistances: Fl
   })
 }
 
+function resampleFocusedResult(result: Buffer, focus: FocusedInpaint) {
+  const resultCrop = Buffer.alloc(focus.width * focus.height * 4)
+  for (let y = 0; y < focus.height; y++) {
+    for (let x = 0; x < focus.width; x++) {
+      const index = y * focus.width + x
+      const resultX = Math.min(focus.targetWidth - 1, Math.max(0, (x + 0.5) * focus.targetWidth / focus.width - 0.5))
+      const resultY = Math.min(focus.targetHeight - 1, Math.max(0, (y + 0.5) * focus.targetHeight / focus.height - 0.5))
+      const x0 = Math.floor(resultX)
+      const y0 = Math.floor(resultY)
+      const x1 = Math.min(focus.targetWidth - 1, x0 + 1)
+      const y1 = Math.min(focus.targetHeight - 1, y0 + 1)
+      const tx = resultX - x0
+      const ty = resultY - y0
+      for (let channel = 0; channel < 4; channel++) {
+        const a = result[(y0 * focus.targetWidth + x0) * 4 + channel]
+        const b = result[(y0 * focus.targetWidth + x1) * 4 + channel]
+        const c = result[(y1 * focus.targetWidth + x0) * 4 + channel]
+        const d = result[(y1 * focus.targetWidth + x1) * 4 + channel]
+        resultCrop[index * 4 + channel] = Math.round((a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty)
+      }
+    }
+  }
+  return resultCrop
+}
+
 /** Give a small mask more generation pixels while retaining the surrounding image. */
 export async function prepareFocusedInpaint(
   original: Buffer,
@@ -233,6 +280,7 @@ export async function compositeFocusedInpaint(
   preserveTransparency = false,
   featherPixels = DEFAULT_FEATHER_PIXELS,
   blendMode: BlendMode = 'strict',
+  edgeFeatherPixels?: number,
 ): Promise<Buffer> {
   const parsedMask = PNG.sync.read(mask)
   if (parsedMask.width !== width || parsedMask.height !== height)
@@ -242,7 +290,7 @@ export async function compositeFocusedInpaint(
   const featherWidth = featherRadius(featherPixels)
   const selection = cropSelection(parsedMask, focus.left, focus.top, focus.width, focus.height)
   const sourceCrop = Buffer.alloc(selection.length * 4)
-  const resultCrop = Buffer.alloc(selection.length * 4)
+  const resultCrop = resampleFocusedResult(result, focus)
   const output = new PNG({ width, height })
   source.copy(output.data)
   for (let y = focus.top; y < focus.top + focus.height; y++) {
@@ -250,25 +298,13 @@ export async function compositeFocusedInpaint(
       const index = (y - focus.top) * focus.width + x - focus.left
       const sourceOffset = (y * width + x) * 4
       source.copy(sourceCrop, index * 4, sourceOffset, sourceOffset + 4)
-      const resultX = Math.min(focus.targetWidth - 1, Math.max(0, (x - focus.left + 0.5) * focus.targetWidth / focus.width - 0.5))
-      const resultY = Math.min(focus.targetHeight - 1, Math.max(0, (y - focus.top + 0.5) * focus.targetHeight / focus.height - 0.5))
-      const x0 = Math.floor(resultX)
-      const y0 = Math.floor(resultY)
-      const x1 = Math.min(focus.targetWidth - 1, x0 + 1)
-      const y1 = Math.min(focus.targetHeight - 1, y0 + 1)
-      const tx = resultX - x0
-      const ty = resultY - y0
-      const sample = (channel: number) => {
-        const a = result[(y0 * focus.targetWidth + x0) * 4 + channel]
-        const b = result[(y0 * focus.targetWidth + x1) * 4 + channel]
-        const c = result[(y1 * focus.targetWidth + x0) * 4 + channel]
-        const d = result[(y1 * focus.targetWidth + x1) * 4 + channel]
-        return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty
-      }
-      for (let channel = 0; channel < 4; channel++) resultCrop[index * 4 + channel] = Math.round(sample(channel))
     }
   }
-  const weights = blendMode === 'soft' ? softBlendMask(selection, focus.width, focus.height, featherWidth) : null
+  const weights = blendMode === 'soft'
+    ? edgeFeatherPixels === undefined
+      ? softBlendMask(selection, focus.width, focus.height, featherWidth)
+      : controlledSoftBlendMask(selection, focus.width, focus.height, featherWidth, edgeFeatherPixels)
+    : null
   const distances = weights ? null : maskDistances(selection, focus.width, focus.height, true)
   const limits = distances ? featherLimits(selection, distances, focus.width, focus.height, featherWidth) : null
   // Expanded generation pixels are not unchanged context and must not calibrate colour.
@@ -299,4 +335,46 @@ export async function compositeFocusedInpaint(
     }
   }
   return PNG.sync.write(output)
+}
+
+/** A full-canvas transparent layer aligned with the source for manual edge cleanup. */
+export async function manualFocusedInpaintLayer(
+  generated: Buffer,
+  mask: Buffer,
+  width: number,
+  height: number,
+  focus: FocusedInpaint,
+  featherPixels = DEFAULT_FEATHER_PIXELS,
+  blendMode: BlendMode = 'strict',
+  edgeFeatherPixels?: number,
+): Promise<Buffer> {
+  const parsedMask = PNG.sync.read(mask)
+  if (parsedMask.width !== width || parsedMask.height !== height)
+    throw new Error('局部重绘遮罩尺寸与参考图不一致')
+  const selection = cropSelection(parsedMask, focus.left, focus.top, focus.width, focus.height)
+  const generatedRgba = await decodeImageRgba(generated, focus.targetWidth, focus.targetHeight)
+  const resultCrop = resampleFocusedResult(generatedRgba, focus)
+  const radius = featherRadius(featherPixels)
+  const weights = blendMode === 'soft'
+    ? edgeFeatherPixels === undefined
+      ? softBlendMask(selection, focus.width, focus.height, radius)
+      : controlledSoftBlendMask(selection, focus.width, focus.height, radius, edgeFeatherPixels)
+    : null
+  const distances = weights ? null : maskDistances(selection, focus.width, focus.height, true)
+  const limits = distances ? featherLimits(selection, distances, focus.width, focus.height, radius) : null
+  const layer = new PNG({ width, height })
+  layer.data.fill(0)
+  for (let y = 0; y < focus.height; y++) {
+    for (let x = 0; x < focus.width; x++) {
+      const index = y * focus.width + x
+      if (!selection[index] && !weights?.[index]) continue
+      const t = weights ? 0 : Math.min(1, distances![index] / limits![index])
+      const opacity = weights ? weights[index] : t * t * (3 - 2 * t)
+      const from = index * 4
+      const to = ((focus.top + y) * width + focus.left + x) * 4
+      for (let channel = 0; channel < 3; channel++) layer.data[to + channel] = resultCrop[from + channel]
+      layer.data[to + 3] = Math.round(opacity * resultCrop[from + 3])
+    }
+  }
+  return PNG.sync.write(layer)
 }

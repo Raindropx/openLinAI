@@ -215,6 +215,11 @@ export function StudioPage({ active = true }: { active?: boolean }) {
     setMobileShelf(false)
     void editorRef.current?.addAsLayer(item)
   }
+  const openManualComposite = (item: StudioItem) => {
+    setTab('photopea')
+    setMobileShelf(false)
+    void editorRef.current?.openManualComposite(item)
+  }
   const sendItemToPanel = (item: StudioItem) => {
     if (tab === 'photopea') return openItem(item)
     if (item.format === 'psd') return
@@ -590,6 +595,12 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                     {item.archivedTaskId ? ' · 已归档' : ''}
                   </span>
                   <div className="studio-item-actions">
+                    {item.provenance.inpaintRaw && item.provenance.novelai && (
+                      <Tooltip title="原图在下、上游重绘在上，擦除边界后保存到暂存台">
+                        <Button size="small" disabled={working}
+                          onClick={() => openManualComposite(item)}>手动合成</Button>
+                      </Tooltip>
+                    )}
                     <Tooltip title={tab === 'photopea' ? '在 Photopea 打开' : '放入图生图参考图'}>
                       <Button size="small" icon={<ArrowLeftOutlined />}
                         aria-label={tab === 'photopea' ? `在 Photopea 打开 ${item.name}` : `将 ${item.name} 放入图生图参考图`}
@@ -720,7 +731,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   )
 }
 
-type EditorHandle = Pick<ReturnType<typeof usePhotopea>, 'open' | 'addAsLayer' | 'create'>
+type EditorHandle = Pick<ReturnType<typeof usePhotopea>, 'open' | 'addAsLayer' | 'openManualComposite' | 'create'>
 function PhotopeaEditor({
   handleRef,
   onSaved,

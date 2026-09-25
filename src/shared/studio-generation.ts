@@ -144,8 +144,10 @@ export interface NovelAIStudioGenerateRequest {
   inpaintContextPixels?: number
   /** 旧请求缺省为 strict；soft 允许在遮罩边界两侧融合。 */
   inpaintBlendMode?: 'strict' | 'soft'
-  /** strict 为内侧最大过渡宽度；soft 为高斯过渡半径（原图像素）。 */
+  /** strict 为内侧过渡宽度；soft 为蒙版外最大延伸范围（原图像素）。 */
   inpaintFeatherPixels?: number
+  /** soft 模式中外侧过渡带的羽化宽度；缺省沿用旧版高斯融合。 */
+  inpaintEdgeFeatherPixels?: number
   /** 将未经本地合成的上游结果单独保存到暂存台，默认关闭。 */
   saveInpaintRaw?: boolean
   preciseReference?: NovelAIPreciseReference

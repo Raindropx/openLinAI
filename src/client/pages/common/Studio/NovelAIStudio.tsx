@@ -81,6 +81,7 @@ const INITIAL_VALUES: NovelAIStudioGenerateRequest = {
   focusedInpaint: true,
   inpaintContextPixels: 128,
   inpaintFeatherPixels: 20,
+  inpaintEdgeFeatherPixels: 8,
   inpaintBlendMode: 'soft',
   saveInpaintRaw: false,
   strength: 0.7,
@@ -165,6 +166,7 @@ export function NovelAIStudio({
   const action = Form.useWatch('action', form) || 'generate'
   const focusedInpaint = Form.useWatch('focusedInpaint', form) ?? true
   const inpaintBlendMode = Form.useWatch('inpaintBlendMode', form) ?? INITIAL_VALUES.inpaintBlendMode
+  const inpaintTransitionPixels = Form.useWatch('inpaintFeatherPixels', form) ?? INITIAL_VALUES.inpaintFeatherPixels
   const targetWidth = Form.useWatch('width', { form, preserve: true }) || 1024
   const targetHeight = Form.useWatch('height', { form, preserve: true }) || 1024
   const preciseImageUrl = Form.useWatch(['preciseReference', 'imageUrl'], form)
@@ -180,7 +182,8 @@ export function NovelAIStudio({
       const saved = window.localStorage.getItem('studio-novelai-draft-v1')
       if (!saved) return
       const draft = JSON.parse(saved) as NovelAIStudioGenerateRequest
-      form.setFieldsValue({ ...INITIAL_VALUES, ...draft, inpaintBlendMode: draft.inpaintBlendMode ?? 'strict' })
+      form.setFieldsValue({ ...INITIAL_VALUES, ...draft, inpaintBlendMode: draft.inpaintBlendMode ?? 'strict',
+        inpaintEdgeFeatherPixels: Math.min(draft.inpaintFeatherPixels ?? 20, draft.inpaintEdgeFeatherPixels ?? 8) })
       setMaskDataUrl(draft.maskImageUrl)
       if (draft.referenceImageUrl) {
         void readImageSize(draft.referenceImageUrl).then((size) =>
@@ -197,7 +200,8 @@ export function NovelAIStudio({
   useEffect(() => {
     if (!incomingRequest) return
     const request = incomingRequest.request
-    form.setFieldsValue({ ...INITIAL_VALUES, ...request, inpaintBlendMode: request.inpaintBlendMode ?? 'strict' })
+    form.setFieldsValue({ ...INITIAL_VALUES, ...request, inpaintBlendMode: request.inpaintBlendMode ?? 'strict',
+      inpaintEdgeFeatherPixels: Math.min(request.inpaintFeatherPixels ?? 20, request.inpaintEdgeFeatherPixels ?? 8) })
     setPromptMode(/^\s*fur dataset\s*,/i.test(request.prompt) ? 'furry' : 'anime')
     setMaskDataUrl(request.maskImageUrl)
     try { window.localStorage.setItem('studio-novelai-draft-v1', JSON.stringify(request)) }
@@ -523,7 +527,14 @@ export function NovelAIStudio({
         layout="vertical"
         initialValues={{ ...INITIAL_VALUES, model: settings.model }}
         className="studio-generation-form"
-        onValuesChange={() => saveDraft()}
+        onValuesChange={(changed: Partial<NovelAIStudioGenerateRequest>) => {
+          if (changed.inpaintFeatherPixels !== undefined) {
+            const edge = form.getFieldValue('inpaintEdgeFeatherPixels') as number | undefined
+            if (edge !== undefined && edge > changed.inpaintFeatherPixels)
+              form.setFieldValue('inpaintEdgeFeatherPixels', changed.inpaintFeatherPixels)
+          }
+          saveDraft()
+        }}
       >
         <Form.Item label="生成模式" name="action">
           <Segmented block options={[
@@ -722,7 +733,7 @@ export function NovelAIStudio({
             </Form.Item>}
             {focusedInpaint && <Form.Item label="边缘融合方式" name="inpaintBlendMode"
               extra={inpaintBlendMode === 'soft'
-                ? '在蒙版边界两侧柔和融合，允许改变外侧过渡范围内的像素；小选区不会自动缩短半径，中心也可能混入原图。'
+                ? '蒙版内保持重绘内容；过渡半径决定蒙版外的覆盖范围，羽化半径控制最外缘的柔和宽度。'
                 : '只在蒙版内侧过渡，蒙版外像素保持不变；小选区会自动缩短宽度，20 和 32 的实际效果可能接近。'}>
               <Select options={[
                 { label: '柔和融合', value: 'soft' },
@@ -730,8 +741,12 @@ export function NovelAIStudio({
               ]} />
             </Form.Item>}
             {focusedInpaint && <Form.Item label={inpaintBlendMode === 'soft' ? '过渡半径（原图像素）' : '最大内侧过渡像素'} name="inpaintFeatherPixels"
-              extra="用于衔接边缘，不能保证修正生成内容内部的结构、纹理或光照差异。">
+              extra={inpaintBlendMode === 'soft' ? '重绘内容最多延伸到蒙版外的范围；蒙版内保持不透明。' : '仅在蒙版内侧衔接边缘，不能修正生成内容内部的差异。'}>
               <Slider min={4} max={32} step={4} />
+            </Form.Item>}
+            {focusedInpaint && inpaintBlendMode === 'soft' && <Form.Item label="羽化半径（原图像素）" name="inpaintEdgeFeatherPixels"
+              extra="只柔化过渡范围的最外缘；0 为硬边。羽化宽度不超过过渡半径，蒙版内保持实心。">
+              <Slider min={0} max={inpaintTransitionPixels} step={1} />
             </Form.Item>}
             <Form.Item label="另存上游原始结果" name="saveInpaintRaw" valuePropName="checked"
               extra="额外保存到暂存台，供对照合成前后的变化；聚焦时保存的是放大的局部图。">
