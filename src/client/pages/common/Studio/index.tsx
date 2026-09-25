@@ -596,7 +596,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                   </span>
                   <div className="studio-item-actions">
                     {item.provenance.inpaintRaw && item.provenance.novelai && (
-                      <Tooltip title="原图在下、上游重绘在上，擦除边界后保存到暂存台">
+                      <Tooltip title="原图在下、完整上游结果在上，自行擦除周边后保存到暂存台">
                         <Button size="small" disabled={working}
                           onClick={() => openManualComposite(item)}>手动合成</Button>
                       </Tooltip>

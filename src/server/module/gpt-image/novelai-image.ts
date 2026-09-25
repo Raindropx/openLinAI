@@ -351,13 +351,7 @@ export async function manualNovelAIInpaintImage(
     throw new Error('上游原始结果尺寸与聚焦裁切记录不一致')
   if (!actualFocus && (parsed.width !== width || parsed.height !== height))
     throw new Error('上游原始结果尺寸与原图不一致')
-  const providerMask = actualFocus ? Buffer.from(actualFocus.mask, 'base64') : mask
-  const opaqueRaw = makeNovelAIInpaintOpaque(raw, providerMask, request.prompt)
-  return manualFocusedInpaintLayer(
-    opaqueRaw, mask, width, height, focus,
-    request.inpaintFeatherPixels ?? 20, request.inpaintBlendMode ?? 'strict',
-    request.inpaintEdgeFeatherPixels,
-  )
+  return manualFocusedInpaintLayer(raw, width, height, focus)
 }
 
 export async function handleNovelAIImageGeneration(options: {

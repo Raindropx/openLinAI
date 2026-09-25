@@ -259,25 +259,16 @@ export function usePhotopea(options: {
       const baseBytes = await base.arrayBuffer()
       const overlayBytes = await overlay.arrayBuffer()
       await command(baseBytes)
+      setHasDocuments(true)
+      const documentSource = `linai:${document.id}`
       await command(
-        `app.activeDocument.source=${JSON.stringify(`linai:${document.id}`)};app.activeDocument.name=${JSON.stringify(item.name.replace(/\.[^.]+$/, '').replace(/-上游原始结果$/, '') + '-手动合成')};`,
+        `app.activeDocument.source=${JSON.stringify(documentSource)};app.activeDocument.name=${JSON.stringify(item.name.replace(/\.[^.]+$/, '').replace(/-上游原始结果$/, '') + '-手动合成')};`,
       )
-      const targetInfo = await command(
-        'var docs=[];for(var i=0;i<app.documents.length;i++)docs.push({name:String(app.documents[i].name||""),source:String(app.documents[i].source||""),width:String(app.documents[i].width),height:String(app.documents[i].height)});app.echoToOE("LINAI:target:"+JSON.stringify({active:{name:String(app.activeDocument.name||""),source:String(app.activeDocument.source||""),width:String(app.activeDocument.width),height:String(app.activeDocument.height)},documents:docs}));',
-      )
-      const target = targetInfo.find((value) => typeof value === 'string' && value.startsWith('LINAI:target:'))
-      const snapshot = typeof target === 'string'
-        ? JSON.parse(target.slice('LINAI:target:'.length)) as PhotopeaDocumentSnapshot
-        : null
-      const targetIndex = snapshot ? findActivePhotopeaDocumentIndex(snapshot) : -1
-      if (targetIndex < 0) throw new Error('无法确定手动合成文档')
-      const documentCount = snapshot!.documents.length
       await command(overlayBytes)
       await command(
-        `var source=app.documents[${documentCount}];var target=app.documents[${targetIndex}];if(app.documents.length!==${documentCount + 1}||!target||!source) throw new Error("重绘图层未能载入");try{app.activeDocument=source;source.selection.selectAll();source.selection.copy(true);app.activeDocument=target;var layer=target.paste();layer.name="上游重绘（擦除边界）";}finally{source.close(SaveOptions.DONOTSAVECHANGES);app.activeDocument=target;}`,
+        `var source=app.activeDocument;var target=null;try{for(var i=0;i<app.documents.length;i++){if(String(app.documents[i].source||"")===${JSON.stringify(documentSource)}){target=app.documents[i];break;}}if(!target||target===source)throw new Error("无法找到原图文档");if(String(source.width)!==String(target.width)||String(source.height)!==String(target.height))throw new Error("重绘图层尺寸与原图不一致");source.selection.selectAll();source.selection.copy(true);app.activeDocument=target;var layer=target.paste();if(!layer)throw new Error("重绘图层粘贴失败");layer.name="完整上游结果（擦除周边）";}finally{if(source&&source!==target)source.close(SaveOptions.DONOTSAVECHANGES);if(target)app.activeDocument=target;}`,
       )
-      setHasDocuments(true)
-      message.success('原图与重绘图层已对齐，可用橡皮擦修整边界')
+      message.success('完整上游结果已盖在原图上，可擦除周边内容')
     })
   }
 

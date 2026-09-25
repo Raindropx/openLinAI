@@ -103,20 +103,20 @@ async function main() {
   assert.equal(pixel(hardEdge, 51, 80)[0], 100, 'zero feather must keep a hard edge inside the halo')
 
   const focus: FocusedInpaint = { left: 0, top: 0, width: size, height: size, targetWidth: 1024, targetHeight: 1024, image: '', mask: '' }
-  const manual = PNG.sync.read(await manualFocusedInpaintLayer(controlledInput.generated, controlledInput.mask, size, size, focus, 20, 'soft', 8))
-  assert.equal(pixel(manual, 80, 80)[3], 255, 'the manual layer must retain an opaque generated core')
-  assert.ok(pixel(manual, 53, 80)[3] > 0 && pixel(manual, 53, 80)[3] < 255, 'the manual layer must include an editable feather')
-  assert.equal(pixel(manual, 50, 80)[3], 0, 'the manual layer must leave the original outside its halo visible')
+  const manual = PNG.sync.read(await manualFocusedInpaintLayer(controlledInput.generated, size, size, focus))
+  assert.deepEqual(pixel(manual, 80, 80), [100, 90, 110, 255], 'the manual layer must retain the generated centre')
+  assert.deepEqual(pixel(manual, 10, 10), [70, 90, 110, 255], 'the complete upstream context must remain available to erase')
+  assert.equal(pixel(manual, 50, 80)[3], 255, 'the manual layer must not have an automatic feather')
 
-  const croppedInput = fixture([[60, 60, 70, 70]])
   const croppedFocus: FocusedInpaint = { left: 40, top: 40, width: 64, height: 64, targetWidth: 1024, targetHeight: 1024, image: '', mask: '' }
   const croppedGenerated = new PNG({ width: 1024, height: 1024 })
   for (let i = 0; i < croppedGenerated.data.length; i += 4)
     croppedGenerated.data.set([180, 40, 60, 255], i)
   const croppedLayer = PNG.sync.read(await manualFocusedInpaintLayer(
-    PNG.sync.write(croppedGenerated), croppedInput.mask, size, size, croppedFocus, 8, 'strict',
+    PNG.sync.write(croppedGenerated), size, size, croppedFocus,
   ))
   assert.deepEqual(pixel(croppedLayer, 65, 65), [180, 40, 60, 255], 'a focused result must align with its source-image crop')
+  assert.deepEqual(pixel(croppedLayer, 45, 45), [180, 40, 60, 255], 'the raw context must remain visible outside the painted mask')
   assert.equal(pixel(croppedLayer, 20, 20)[3], 0, 'the generated crop must not cover unrelated image areas')
 
   const alphaInput = softInput(32)

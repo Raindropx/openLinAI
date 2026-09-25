@@ -337,43 +337,23 @@ export async function compositeFocusedInpaint(
   return PNG.sync.write(output)
 }
 
-/** A full-canvas transparent layer aligned with the source for manual edge cleanup. */
+/** Place the complete upstream result at its source-image crop, without masking or feathering it. */
 export async function manualFocusedInpaintLayer(
   generated: Buffer,
-  mask: Buffer,
   width: number,
   height: number,
   focus: FocusedInpaint,
-  featherPixels = DEFAULT_FEATHER_PIXELS,
-  blendMode: BlendMode = 'strict',
-  edgeFeatherPixels?: number,
 ): Promise<Buffer> {
-  const parsedMask = PNG.sync.read(mask)
-  if (parsedMask.width !== width || parsedMask.height !== height)
-    throw new Error('局部重绘遮罩尺寸与参考图不一致')
-  const selection = cropSelection(parsedMask, focus.left, focus.top, focus.width, focus.height)
   const generatedRgba = await decodeImageRgba(generated, focus.targetWidth, focus.targetHeight)
   const resultCrop = resampleFocusedResult(generatedRgba, focus)
-  const radius = featherRadius(featherPixels)
-  const weights = blendMode === 'soft'
-    ? edgeFeatherPixels === undefined
-      ? softBlendMask(selection, focus.width, focus.height, radius)
-      : controlledSoftBlendMask(selection, focus.width, focus.height, radius, edgeFeatherPixels)
-    : null
-  const distances = weights ? null : maskDistances(selection, focus.width, focus.height, true)
-  const limits = distances ? featherLimits(selection, distances, focus.width, focus.height, radius) : null
   const layer = new PNG({ width, height })
   layer.data.fill(0)
   for (let y = 0; y < focus.height; y++) {
     for (let x = 0; x < focus.width; x++) {
       const index = y * focus.width + x
-      if (!selection[index] && !weights?.[index]) continue
-      const t = weights ? 0 : Math.min(1, distances![index] / limits![index])
-      const opacity = weights ? weights[index] : t * t * (3 - 2 * t)
       const from = index * 4
       const to = ((focus.top + y) * width + focus.left + x) * 4
-      for (let channel = 0; channel < 3; channel++) layer.data[to + channel] = resultCrop[from + channel]
-      layer.data[to + 3] = Math.round(opacity * resultCrop[from + 3])
+      resultCrop.copy(layer.data, to, from, from + 4)
     }
   }
   return PNG.sync.write(layer)
