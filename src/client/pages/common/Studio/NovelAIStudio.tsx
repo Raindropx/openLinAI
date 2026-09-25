@@ -553,7 +553,7 @@ export function NovelAIStudio({
           <Form.Item label="模型" name="model" rules={[{ required: true }]}>
             <Select
               options={NOVELAI_IMAGE_MODELS.map((model) => ({
-                label: model.name,
+                label: model.name.replace(/^NovelAI Diffusion /, ''),
                 value: model.id,
               }))}
               onChange={(model) => {
