@@ -194,6 +194,30 @@ export function usePhotopea(options: {
     })
   }
 
+  async function addAsLayer(item: StudioItem) {
+    await withBusy(async () => {
+      const targetInfo = await command(
+        'if(!app.documents.length) throw new Error("请先新建或打开 Photopea 文档");var index=-1;for(var i=0;i<app.documents.length;i++) if(app.documents[i]===app.activeDocument) index=i;app.echoToOE("LINAI:target:"+index+","+app.documents.length);',
+      )
+      const target = targetInfo.find(
+        (value) => typeof value === 'string' && value.startsWith('LINAI:target:'),
+      )
+      const [targetIndex, documentCount] = typeof target === 'string'
+        ? target.slice('LINAI:target:'.length).split(',').map(Number)
+        : [-1, -1]
+      if (!Number.isInteger(targetIndex) || targetIndex < 0 || !Number.isInteger(documentCount))
+        throw new Error('无法确定当前 Photopea 文档')
+
+      const response = await fetch(studioFileUrl(item.id))
+      if (!response.ok) throw new Error('素材读取失败，可能已被清理')
+      await command(await response.arrayBuffer())
+      await command(
+        `var source=app.activeDocument;var target=app.documents[${targetIndex}];if(app.documents.length!==${documentCount + 1}||!target||source===target) throw new Error("图片未能载入为临时文档");try{source.selection.selectAll();source.selection.copy(true);app.activeDocument=target;var layer=target.paste();layer.name=${JSON.stringify(item.name.replace(/\.[^.]+$/, ''))};}finally{source.close(SaveOptions.DONOTSAVECHANGES);app.activeDocument=target;}`,
+      )
+      message.success('已作为新图层加入 Photopea')
+    })
+  }
+
   async function create(width: number, height: number) {
     await withBusy(async () => {
       const canvas = document.createElement('canvas')
@@ -275,6 +299,7 @@ export function usePhotopea(options: {
     connectionError,
     recovery,
     open,
+    addAsLayer,
     create,
     save,
     retrySave,

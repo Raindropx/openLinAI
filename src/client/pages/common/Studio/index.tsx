@@ -174,6 +174,10 @@ export function StudioPage({ active = true }: { active?: boolean }) {
     setMobileShelf(false)
     void editorRef.current?.open(item)
   }
+  const addItemAsLayer = (item: StudioItem) => {
+    setMobileShelf(false)
+    void editorRef.current?.addAsLayer(item)
+  }
   const sendItemToPanel = (item: StudioItem) => {
     if (tab === 'photopea') return openItem(item)
     if (item.format === 'psd') return
@@ -547,12 +551,21 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                         disabled={working || (tab !== 'photopea' && item.format === 'psd')}
                         onClick={() => sendItemToPanel(item)} />
                     </Tooltip>
-                    {item.provenance.sourceTaskId && <Tooltip title="将生成参数填入左侧">
-                      <Button size="small" icon={<ArrowUpOutlined />}
-                        aria-label={`回填 ${item.name} 的生成参数`}
-                        disabled={working || !studioGenerationParameters(item)}
-                        onClick={() => refillFromItem(item)} />
-                    </Tooltip>}
+                    {tab === 'photopea' ? (
+                      <Tooltip title="作为图层加入">
+                        <Button size="small" icon={<ArrowUpOutlined />}
+                          aria-label={`将 ${item.name} 作为图层加入 Photopea`}
+                          disabled={working}
+                          onClick={() => addItemAsLayer(item)} />
+                      </Tooltip>
+                    ) : item.provenance.sourceTaskId && (
+                      <Tooltip title="将生成参数填入左侧">
+                        <Button size="small" icon={<ArrowUpOutlined />}
+                          aria-label={`回填 ${item.name} 的生成参数`}
+                          disabled={working || !studioGenerationParameters(item)}
+                          onClick={() => refillFromItem(item)} />
+                      </Tooltip>
+                    )}
                     <Dropdown
                       trigger={['click']}
                       menu={{
@@ -662,7 +675,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   )
 }
 
-type EditorHandle = Pick<ReturnType<typeof usePhotopea>, 'open' | 'create'>
+type EditorHandle = Pick<ReturnType<typeof usePhotopea>, 'open' | 'addAsLayer' | 'create'>
 function PhotopeaEditor({
   handleRef,
   onSaved,
