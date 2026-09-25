@@ -19,6 +19,30 @@ interface TaskItemTagsProps {
   showDuration?: boolean
 }
 
+function formatStudioAspectRatio(value: string): string {
+  const match = /^\s*(\d+)\s*:\s*(\d+)\s*$/.exec(value)
+  if (!match) return value
+
+  const width = Number(match[1])
+  const height = Number(match[2])
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0)
+    return value
+
+  let a = width
+  let b = height
+  while (b !== 0) {
+    const remainder = a % b
+    a = b
+    b = remainder
+  }
+
+  const ratioWidth = width / a
+  const ratioHeight = height / a
+  return ratioWidth <= 32 && ratioHeight <= 32
+    ? `${ratioWidth}:${ratioHeight}`
+    : `${width}×${height}`
+}
+
 export function TaskItemMetrics({
   task,
   className = '',
@@ -198,7 +222,11 @@ export function TaskItemTags({
         </Tag>
       )}
       {task.rawTemplate?.aspectRatio && (
-        <Tag color="blue">{task.rawTemplate.aspectRatio}</Tag>
+        <Tag color="blue">
+          {task.studioProvenance || task.endpointName?.endsWith(' Studio')
+            ? formatStudioAspectRatio(task.rawTemplate.aspectRatio)
+            : task.rawTemplate.aspectRatio}
+        </Tag>
       )}
       {task.size && (
         <Tooltip
