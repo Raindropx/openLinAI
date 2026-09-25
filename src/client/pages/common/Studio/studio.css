@@ -402,8 +402,14 @@
   white-space: nowrap;
   font-size: 12px;
 }
-.studio-item-info .ant-tag {
+.studio-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   margin: 4px 0;
+}
+.studio-item-tags .ant-tag {
+  margin: 0;
   white-space: normal;
 }
 .studio-item-size {

@@ -33,6 +33,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import {
   studioFileUrl,
   studioSourceLabel,
+  studioSourceTypeLabels,
   type StudioItem,
 } from '../../../../shared/studio'
 import type { NovelAIStudioGenerateRequest, StudioProviderSettings } from '../../../../shared/studio-generation'
@@ -528,17 +529,22 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                       />
                     </Tooltip>
                   </div>
-                  <Tag
-                    color={
-                      item.provenance.photopea === 'created'
-                        ? 'cyan'
-                        : item.provenance.photopea === 'edited'
-                          ? 'purple'
-                          : 'blue'
-                    }
-                  >
-                    {studioSourceLabel(item.provenance)}
-                  </Tag>
+                  <div className="studio-item-tags">
+                    <Tag
+                      color={
+                        item.provenance.photopea === 'created'
+                          ? 'cyan'
+                          : item.provenance.photopea === 'edited'
+                            ? 'purple'
+                            : 'blue'
+                      }
+                    >
+                      {studioSourceLabel(item.provenance)}
+                    </Tag>
+                    {studioSourceTypeLabels(item.provenance).map((label) => (
+                      <Tag key={label}>{label}</Tag>
+                    ))}
+                  </div>
                   <span className="studio-item-size">
                     {item.format.toUpperCase()} ·{' '}
                     {(item.bytes / 1024 / 1024).toFixed(2)} MiB

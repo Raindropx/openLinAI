@@ -193,7 +193,7 @@ export class StudioManager {
     ))
   }
 
-  fromTask(taskId: string, imageIndex: number) {
+  fromTask(taskId: string, imageIndex: number, addedFromTask = false) {
     return this.run(async () => {
       const task = (await taskManager.getTasks()).find(
         (entry) => entry.id === taskId,
@@ -223,6 +223,7 @@ export class StudioManager {
       )
       const provenance: StudioProvenance = task.studioProvenance ? {
         ...task.studioProvenance,
+        addedFromTask,
         novelai: task.novelaiSnapshots?.[imageIndex] || task.studioProvenance.novelai,
         sourceMetadata: readPngGenerationText(buffer),
         template: task.studioProvenance.template || {
@@ -244,6 +245,7 @@ export class StudioManager {
             ? 'civitai'
             : 'other',
         sourceTaskId: task.id,
+        addedFromTask,
         model: task.source,
         endpointName: task.endpointName,
         sourceMetadata: readPngGenerationText(buffer),

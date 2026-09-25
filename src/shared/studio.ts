@@ -7,6 +7,8 @@ export interface StudioProvenance {
   origin: 'photopea' | 'novelai' | 'civitai' | 'import' | 'other'
   photopea?: 'created' | 'edited'
   sourceTaskId?: string
+  /** Copied into the shelf from an image preview or task card. */
+  addedFromTask?: boolean
   model?: string
   endpointName?: string
   template?: TaskTemplate
@@ -48,6 +50,23 @@ export function studioSourceLabel(source: StudioProvenance) {
   }
   if (source.inpaintRaw) return `${origin} · 上游原始结果`
   return origin
+}
+
+export function studioSourceTypeLabels(source: StudioProvenance) {
+  const labels: string[] = []
+  if (source.novelai) {
+    switch (source.novelai.request.action) {
+      case 'infill': labels.push('局部重绘'); break
+      case 'img2img': labels.push('图生图'); break
+      default: labels.push('文生图')
+    }
+  } else if (source.civitai) {
+    labels.push(source.civitai.request.referenceItemId ? '图生图' : '文生图')
+  } else if (source.origin === 'import') labels.push('上传')
+  if (source.addedFromTask || (source.origin === 'other' && source.sourceTaskId)) {
+    labels.push('来自任务')
+  }
+  return labels
 }
 
 export function studioFileUrl(id: string) {

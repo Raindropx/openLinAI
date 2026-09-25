@@ -441,7 +441,7 @@ const studioApi = new Hono()
       const { taskId, imageIndex } = c.req.valid('json')
       return c.json({
         success: true as const,
-        data: await studioManager.fromTask(taskId, imageIndex),
+        data: await studioManager.fromTask(taskId, imageIndex, true),
       })
     },
   )
