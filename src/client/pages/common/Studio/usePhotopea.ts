@@ -3,6 +3,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { studioFileUrl, type StudioItem } from '../../../../shared/studio'
 import { studioJson, studioRequest, uploadStudioFile } from './api'
+import {
+  findActivePhotopeaDocumentIndex,
+  type PhotopeaDocumentSnapshot,
+} from './photopea-documents'
 
 const ORIGIN = 'https://www.photopea.com'
 const SIGNAL = 'LINAI:'
@@ -197,22 +201,26 @@ export function usePhotopea(options: {
   async function addAsLayer(item: StudioItem) {
     await withBusy(async () => {
       const targetInfo = await command(
-        'if(!app.documents.length) throw new Error("请先新建或打开 Photopea 文档");var index=-1;for(var i=0;i<app.documents.length;i++) if(app.documents[i]===app.activeDocument) index=i;app.echoToOE("LINAI:target:"+index+","+app.documents.length);',
+        'if(!app.documents.length) throw new Error("请先新建或打开 Photopea 文档");var identify=function(d){return {name:String(d.name||""),source:String(d.source||""),width:String(d.width),height:String(d.height)};};var docs=[];for(var i=0;i<app.documents.length;i++)docs.push(identify(app.documents[i]));app.echoToOE("LINAI:target:"+JSON.stringify({active:identify(app.activeDocument),documents:docs}));',
       )
       const target = targetInfo.find(
         (value) => typeof value === 'string' && value.startsWith('LINAI:target:'),
       )
-      const [targetIndex, documentCount] = typeof target === 'string'
-        ? target.slice('LINAI:target:'.length).split(',').map(Number)
-        : [-1, -1]
-      if (!Number.isInteger(targetIndex) || targetIndex < 0 || !Number.isInteger(documentCount))
+      const snapshot = typeof target === 'string'
+        ? JSON.parse(target.slice('LINAI:target:'.length)) as PhotopeaDocumentSnapshot
+        : null
+      const targetIndex = snapshot?.active && Array.isArray(snapshot.documents)
+        ? findActivePhotopeaDocumentIndex(snapshot)
+        : -1
+      if (targetIndex < 0)
         throw new Error('无法确定当前 Photopea 文档')
+      const documentCount = snapshot!.documents.length
 
       const response = await fetch(studioFileUrl(item.id))
       if (!response.ok) throw new Error('素材读取失败，可能已被清理')
       await command(await response.arrayBuffer())
       await command(
-        `var source=app.activeDocument;var target=app.documents[${targetIndex}];if(app.documents.length!==${documentCount + 1}||!target||source===target) throw new Error("图片未能载入为临时文档");try{source.selection.selectAll();source.selection.copy(true);app.activeDocument=target;var layer=target.paste();layer.name=${JSON.stringify(item.name.replace(/\.[^.]+$/, ''))};}finally{source.close(SaveOptions.DONOTSAVECHANGES);app.activeDocument=target;}`,
+        `var source=app.documents[${documentCount}];var target=app.documents[${targetIndex}];if(app.documents.length!==${documentCount + 1}||!target||!source) throw new Error("图片未能载入为临时文档");try{app.activeDocument=source;source.selection.selectAll();source.selection.copy(true);app.activeDocument=target;var layer=target.paste();layer.name=${JSON.stringify(item.name.replace(/\.[^.]+$/, ''))};}finally{source.close(SaveOptions.DONOTSAVECHANGES);app.activeDocument=target;}`,
       )
       message.success('已作为新图层加入 Photopea')
     })
