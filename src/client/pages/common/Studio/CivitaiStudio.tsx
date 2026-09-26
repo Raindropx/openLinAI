@@ -53,6 +53,7 @@ import {
 import { ProviderKeyCard } from './ProviderKeyCard'
 import { NovelAICanvas } from './NovelAICanvas'
 import type { StudioGenerationParameters } from './studio-parameters'
+import { PRESET_FIELDS, PresetSaveButton, type PresetField, type StudioPreset } from './studio-presets'
 
 interface SearchValues {
   query?: string
@@ -86,6 +87,8 @@ export function CivitaiStudio({
   items,
   incomingParameters,
   incomingReference,
+  incomingPreset,
+  onSavePreset,
   selectedItemId,
   mobilePanel,
   onMobilePanel,
@@ -96,12 +99,15 @@ export function CivitaiStudio({
   items: StudioItem[]
   incomingParameters?: { id: number; values: StudioGenerationParameters }
   incomingReference?: { id: number; itemId: string }
+  incomingPreset?: { id: number; preset: StudioPreset }
+  onSavePreset: (preset: StudioPreset) => boolean
   selectedItemId?: string
   mobilePanel: 'parameters' | 'canvas'
   onMobilePanel: (panel: 'parameters' | 'canvas') => void
 }) {
   const [form] = Form.useForm<SearchValues>()
   const [generationForm] = Form.useForm<CivitaiGenerateRequest>()
+  const touchedPresetFields = useRef(new Set<PresetField>())
   const { token } = theme.useToken()
   const { gptImageSettings } = useLocalSetting()
   const [site, setSite] = useState<CivitaiSite>('com')
@@ -240,6 +246,66 @@ export function CivitaiStudio({
     }
     setEstimate(undefined)
   }, [generationForm, incomingParameters])
+
+  useEffect(() => {
+    if (!incomingPreset) return
+    const { provider, mode, values } = incomingPreset.preset
+    const patch: Partial<CivitaiGenerateRequest> = {}
+    const skipped: string[] = []
+    if (mode === 'infill' && (values.prompt !== undefined || values.negativePrompt !== undefined)) {
+      message.warning('Civitai 不支持局部重绘，已跳过该预设的局部重绘提示词')
+      skipped.push('局部重绘提示词')
+    } else {
+      if (values.prompt !== undefined) patch.prompt = values.prompt
+      if (values.negativePrompt !== undefined) patch.negativePrompt = values.negativePrompt
+    }
+    if (provider === 'civitai' && values.model && typeof values.model !== 'string') {
+      setSite(values.site || 'com')
+      setModel(values.model)
+      setLoras([])
+      patch.model = values.model
+    } else if (values.model) skipped.push('模型')
+    const validSize = (value: number | undefined) => value !== undefined && value >= 64 && value <= 2048 && value % 64 === 0
+    if (validSize(values.width)) patch.width = values.width
+    else if (values.width !== undefined) skipped.push('宽度')
+    if (validSize(values.height)) patch.height = values.height
+    else if (values.height !== undefined) skipped.push('高度')
+    if (values.steps !== undefined && values.steps >= 1 && values.steps <= 150) patch.steps = values.steps
+    else if (values.steps !== undefined) skipped.push('步数')
+    if (values.seed !== undefined && values.seed >= -1 && values.seed <= 2147483647) patch.seed = values.seed
+    else if (values.seed !== undefined) skipped.push('种子')
+    if (values.sampler && CIVITAI_SAMPLERS.includes(values.sampler as CivitaiGenerateRequest['sampler'])) patch.sampler = values.sampler as CivitaiGenerateRequest['sampler']
+    else if (values.sampler) skipped.push('采样器')
+    if (values.schedule && CIVITAI_SCHEDULES.includes(values.schedule as CivitaiGenerateRequest['schedule'])) patch.schedule = values.schedule as CivitaiGenerateRequest['schedule']
+    else if (values.schedule) skipped.push('调度')
+    if (values.characters?.length) skipped.push('角色提示词')
+    if (values.qualityPreset !== undefined || values.qualityToggle !== undefined) skipped.push('画质标签')
+    if (values.scale !== undefined && values.scale >= 0 && values.scale <= 30) patch.scale = values.scale
+    else if (values.scale !== undefined) skipped.push('CFG')
+    generationForm.setFieldsValue(patch)
+    setEstimate(undefined)
+    const summary = `${Object.keys(patch).length ? '已套用' : '没有可套用参数'}预设「${incomingPreset.preset.name}」${skipped.length ? `；跳过 ${skipped.join('、')}` : ''}`
+    if (Object.keys(patch).length) message.success(summary)
+    else message.info(summary)
+  }, [generationForm, incomingPreset])
+
+  function capturePreset() {
+    const current = generationForm.getFieldsValue(true) as CivitaiGenerateRequest
+    const values = {
+      model, site: model ? site : undefined, prompt: current.prompt, negativePrompt: current.negativePrompt,
+      width: current.width, height: current.height, steps: current.steps,
+      seed: current.seed, sampler: current.sampler, schedule: current.schedule, scale: current.scale,
+    }
+    const suggested = PRESET_FIELDS.filter((field) => {
+      if (field.key === 'model') return !!model
+      return touchedPresetFields.current.has(field.key) || field.keys.some((key) => {
+      const actual = values[key as keyof typeof values]
+      const original = INITIAL_GENERATION[key as keyof typeof INITIAL_GENERATION]
+      return actual !== undefined && JSON.stringify(actual) !== JSON.stringify(original)
+      })
+    }).map((field) => field.key)
+    return { values, suggested }
+  }
 
   useEffect(() => {
     if (incomingReference) {
@@ -489,6 +555,9 @@ export function CivitaiStudio({
             layout="vertical"
             initialValues={INITIAL_GENERATION}
             className="studio-generation-form"
+            onValuesChange={(changed: Partial<CivitaiGenerateRequest>) => {
+              for (const field of PRESET_FIELDS) if (field.keys.some((key) => changed[key as keyof CivitaiGenerateRequest] !== undefined)) touchedPresetFields.current.add(field.key)
+            }}
           >
             <Form.Item
               label="提示词"
@@ -633,6 +702,7 @@ export function CivitaiStudio({
             )}
           </div>
           <div className="studio-civitai-generate-actions">
+            <PresetSaveButton provider="civitai" mode={referenceItemId ? 'img2img' : 'generate'} capture={capturePreset} onSave={onSavePreset} />
             <Button
               block
               loading={busy === 'estimate'}

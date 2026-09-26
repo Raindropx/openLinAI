@@ -50,6 +50,7 @@ import { NovelAIStudio } from './NovelAIStudio'
 import { ProviderBalance } from './ProviderBalance'
 import { studioGenerationParameters } from './studio-parameters'
 import type { StudioGenerationParameters } from './studio-parameters'
+import { readStudioPresets, StudioPresetShelf, type StudioPreset } from './studio-presets'
 import './studio.css'
 import { PHOTOPEA_URL, usePhotopea } from './usePhotopea'
 
@@ -97,6 +98,10 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [tab, setTab] = useState('novelai')
+  const [shelfTab, setShelfTab] = useState<'files' | 'presets'>('files')
+  const [presets, setPresets] = useState(readStudioPresets)
+  const [novelaiPreset, setNovelaiPreset] = useState<{ id: number; preset: StudioPreset }>()
+  const [civitaiPreset, setCivitaiPreset] = useState<{ id: number; preset: StudioPreset }>()
   const [novelaiPanel, setNovelaiPanel] = useState<'parameters' | 'canvas'>('canvas')
   const [civitaiPanel, setCivitaiPanel] = useState<'parameters' | 'canvas'>('canvas')
   const [selectedItemId, setSelectedItemId] = useState<string>()
@@ -284,6 +289,28 @@ export function StudioPage({ active = true }: { active?: boolean }) {
     })
   }
   const unpinned = items.filter((item) => !item.pinned)
+  const changePresets = (next: StudioPreset[]) => {
+    try {
+      window.localStorage.setItem('studio-presets-v1', JSON.stringify(next))
+      setPresets(next)
+      return true
+    } catch { message.error('预设保存失败：浏览器本地存储不可用或空间不足'); return false }
+  }
+  const savePreset = (preset: StudioPreset) => {
+    if (changePresets([...presets, preset])) {
+      setShelfTab('presets')
+      message.success('预设已保存')
+      return true
+    }
+    return false
+  }
+  const applyPreset = (preset: StudioPreset) => {
+    if (tab === 'civitai') setCivitaiPreset({ id: Date.now(), preset })
+    else setNovelaiPreset({ id: Date.now(), preset })
+    setMobileShelf(false)
+    if (tab === 'civitai') setCivitaiPanel('parameters')
+    else setNovelaiPanel('parameters')
+  }
   return (
     <div
       className={`studio-layout ${tab === 'novelai' || tab === 'civitai' ? 'studio-layout-novelai' : ''}`}
@@ -381,6 +408,8 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                 incomingRequest={novelaiRequest}
                 incomingParameters={novelaiParameters}
                 incomingReference={novelaiReference}
+                incomingPreset={novelaiPreset}
+                onSavePreset={savePreset}
                 onOpenPhotopea={openItem}
               />
             ) : (
@@ -403,6 +432,8 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                 items={items}
                 incomingParameters={civitaiParameters}
                 incomingReference={civitaiReference}
+                incomingPreset={civitaiPreset}
+                onSavePreset={savePreset}
                 selectedItemId={selectedItemId}
                 mobilePanel={civitaiPanel}
                 onMobilePanel={setCivitaiPanel}
@@ -461,6 +492,11 @@ export function StudioPage({ active = true }: { active?: boolean }) {
         className={`studio-shelf ${mobileShelf ? '' : 'studio-mobile-hidden'}`}
         aria-label="暂存台"
       >
+        {(tab === 'novelai' || tab === 'civitai') && <div className="studio-shelf-tabs" role="tablist" aria-label="右侧工作区">
+          <button role="tab" aria-selected={shelfTab === 'files'} className={shelfTab === 'files' ? 'is-active' : ''} onClick={() => setShelfTab('files')}>暂存台</button>
+          <button role="tab" aria-selected={shelfTab === 'presets'} className={shelfTab === 'presets' ? 'is-active' : ''} onClick={() => setShelfTab('presets')}>预设 ({presets.length})</button>
+        </div>}
+        {shelfTab === 'presets' && (tab === 'novelai' || tab === 'civitai') ? <StudioPresetShelf presets={presets} currentProvider={tab} onChange={changePresets} onApply={applyPreset} /> : <>
         <header className="studio-shelf-header">
           <div>
             <strong>
@@ -683,6 +719,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           <br />
           文件会保留到你主动清理
         </footer>
+        </>}
       </aside>
       <Modal
         title="新建 Photopea 文档"

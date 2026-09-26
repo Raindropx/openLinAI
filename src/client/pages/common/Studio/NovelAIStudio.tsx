@@ -58,6 +58,7 @@ import { NovelAICanvas } from './NovelAICanvas'
 import { NovelAICharacterImagePrompt } from './NovelAICharacterImagePrompt'
 import type { StudioGenerationParameters } from './studio-parameters'
 import { parseNovelAIOptimizedPrompt } from './novelai-prompt'
+import { PRESET_FIELDS, PresetSaveButton, type PresetField, type PresetValues, type StudioPreset } from './studio-presets'
 
 const INITIAL_VALUES: NovelAIStudioGenerateRequest = {
   title: 'NovelAI Studio',
@@ -127,6 +128,8 @@ export function NovelAIStudio({
   incomingRequest,
   incomingParameters,
   incomingReference,
+  incomingPreset,
+  onSavePreset,
   onOpenPhotopea,
 }: {
   settings: StudioProviderSettings['novelai']
@@ -140,6 +143,8 @@ export function NovelAIStudio({
   incomingRequest?: { id: number; request: NovelAIStudioGenerateRequest }
   incomingParameters?: { id: number; values: StudioGenerationParameters }
   incomingReference?: { id: number; itemId: string }
+  incomingPreset?: { id: number; preset: StudioPreset }
+  onSavePreset: (preset: StudioPreset) => boolean
   onOpenPhotopea: (item: StudioItem) => void
 }) {
   const [form] = Form.useForm<NovelAIStudioGenerateRequest>()
@@ -160,6 +165,7 @@ export function NovelAIStudio({
   const [optimizeLoading, setOptimizeLoading] = useState(false)
   const optimizeRequestId = useRef(0)
   const optimizeImageId = useRef(0)
+  const touchedPresetFields = useRef(new Set<PresetField>())
   const { gptImageSettings, optimizeEndpointId, setOptimizeEndpointId } = useLocalSetting()
   const { llmEndpoints, llmPrompts } = useGlobalStore()
   const model = Form.useWatch('model', form) || settings.model
@@ -243,6 +249,62 @@ export function NovelAIStudio({
     saveDraft()
     if (unsupported) message.info('部分来源参数不受 NovelAI 支持，已保留当前值')
   }, [form, incomingParameters])
+
+  useEffect(() => {
+    if (!incomingPreset) return
+    const { provider, values } = incomingPreset.preset
+    const patch: Partial<NovelAIStudioGenerateRequest> = {}
+    const skipped: string[] = []
+    if (values.prompt !== undefined) patch.prompt = values.prompt
+    if (values.negativePrompt !== undefined) patch.negativePrompt = values.negativePrompt
+    if (provider === 'novelai') {
+      if (typeof values.model === 'string' && NOVELAI_IMAGE_MODELS.some((entry) => entry.id === values.model)) patch.model = values.model
+      if (values.characters) patch.characters = values.characters
+      if (values.qualityPreset === 'none' || values.qualityPreset === 'light' || values.qualityPreset === 'standard') patch.qualityPreset = values.qualityPreset
+      if (values.qualityToggle !== undefined) patch.qualityToggle = values.qualityToggle
+      if (values.cfgRescale !== undefined && values.cfgRescale >= 0 && values.cfgRescale <= 1) patch.cfgRescale = values.cfgRescale
+    } else if (values.model) skipped.push('模型')
+    const validSize = (value: number | undefined) => value !== undefined && value >= 64 && value <= 2048 && value % 64 === 0
+    if (validSize(values.width)) patch.width = values.width
+    else if (values.width !== undefined) skipped.push('宽度')
+    if (validSize(values.height)) patch.height = values.height
+    else if (values.height !== undefined) skipped.push('高度')
+    if (values.steps !== undefined && values.steps >= 1 && values.steps <= 50) patch.steps = values.steps
+    else if (values.steps !== undefined) skipped.push('步数')
+    if (values.seed !== undefined && values.seed >= -1 && values.seed <= 2147483647) patch.seed = values.seed
+    else if (values.seed !== undefined) skipped.push('种子')
+    if (values.sampler && NOVELAI_SAMPLERS.includes(values.sampler as NovelAIStudioGenerateRequest['sampler'])) patch.sampler = values.sampler as NovelAIStudioGenerateRequest['sampler']
+    else if (values.sampler) skipped.push('采样器')
+    if (values.schedule && NOVELAI_NOISE_SCHEDULES.includes(values.schedule as NovelAIStudioGenerateRequest['noiseSchedule'])) patch.noiseSchedule = values.schedule as NovelAIStudioGenerateRequest['noiseSchedule']
+    else if (values.schedule) skipped.push('调度')
+    if (provider === 'civitai' && values.characters?.length) skipped.push('角色提示词')
+    if (values.scale !== undefined && values.scale >= 0 && values.scale <= 10) patch.scale = values.scale
+    else if (values.scale !== undefined) skipped.push('CFG')
+    form.setFieldsValue(patch)
+    if (patch.prompt !== undefined) setPromptMode(/^\s*fur dataset\s*,/i.test(patch.prompt) ? 'furry' : 'anime')
+    saveDraft()
+    const summary = `${Object.keys(patch).length ? '已套用' : '没有可套用参数'}预设「${incomingPreset.preset.name}」${skipped.length ? `；跳过 ${skipped.join('、')}` : ''}`
+    if (Object.keys(patch).length) message.success(summary)
+    else message.info(summary)
+  }, [form, incomingPreset])
+
+  function capturePreset() {
+    const current = form.getFieldsValue(true) as NovelAIStudioGenerateRequest
+    const values: PresetValues = {
+      model: current.model, prompt: current.prompt, negativePrompt: current.negativePrompt,
+      characters: current.characters, width: current.width, height: current.height,
+      steps: current.steps, seed: current.seed, sampler: current.sampler,
+      schedule: current.noiseSchedule, scale: current.scale, cfgRescale: current.cfgRescale,
+      qualityPreset: current.qualityPreset, qualityToggle: current.qualityToggle,
+    }
+    const defaults = { ...INITIAL_VALUES, model: settings.model }
+    const suggested = PRESET_FIELDS.filter((field) => touchedPresetFields.current.has(field.key) || field.keys.some((key) => {
+      const actual = values[key]
+      const original = key === 'schedule' ? defaults.noiseSchedule : defaults[key as keyof NovelAIStudioGenerateRequest]
+      return actual !== undefined && JSON.stringify(actual) !== JSON.stringify(original)
+    })).map((field) => field.key)
+    return { values, suggested }
+  }
 
   useEffect(() => {
     if (incomingReference) selectStudioReference(incomingReference.itemId)
@@ -529,6 +591,7 @@ export function NovelAIStudio({
         initialValues={{ ...INITIAL_VALUES, model: settings.model }}
         className="studio-generation-form"
         onValuesChange={(changed: Partial<NovelAIStudioGenerateRequest>) => {
+          for (const field of PRESET_FIELDS) if (field.keys.some((key) => key === 'schedule' ? changed.noiseSchedule !== undefined : changed[key as keyof NovelAIStudioGenerateRequest] !== undefined)) touchedPresetFields.current.add(field.key)
           if (changed.inpaintFeatherPixels !== undefined) {
             const edge = form.getFieldValue('inpaintEdgeFeatherPixels') as number | undefined
             if (edge !== undefined && edge > changed.inpaintFeatherPixels)
@@ -803,6 +866,7 @@ export function NovelAIStudio({
                     <strong>角色 {index + 1}</strong>
                     <Space size={4}>
                       <NovelAICharacterImagePrompt mode={promptMode} onAdopt={(prompt, uc) => {
+                        touchedPresetFields.current.add('characters')
                         const characters = form.getFieldValue('characters') || []
                         form.setFieldValue(['characters', field.name], {
                           ...characters[field.name], prompt, negativePrompt: uc,
@@ -939,6 +1003,7 @@ export function NovelAIStudio({
     </div>
         </div>
         <div className="studio-novelai-generate">
+          <PresetSaveButton provider="novelai" mode={action} capture={capturePreset} onSave={onSavePreset} />
           <Button type="primary" size="large" icon={<ThunderboltOutlined />}
             loading={generating} disabled={!settings.configured}
             onClick={() => void generate()}>生成到暂存台</Button>
