@@ -698,6 +698,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                     </button>
                     <div
                       className="studio-item-info"
+                      onClick={() => setSelectedItemId(item.id)}
                     >
                       <div className="studio-item-title">
                         <strong title={item.name}>{item.name}</strong>
