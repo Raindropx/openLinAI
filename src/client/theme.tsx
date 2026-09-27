@@ -244,10 +244,10 @@ function ensureAccentContrast(
   return target
 }
 
-/** Opposite hue, kept visible against the current theme's panel background. */
-export function getComplementaryAccentColor(color: string, mode: AppThemeMode) {
-  const hue = ((getColorHue(color) ?? getColorHue(DEFAULT_ACCENT_COLOR) ?? 0) + 180) % 360
-  const saturation = 0.7
+/** A coordinated secondary accent, kept visible against the panel background. */
+export function getSecondaryAccentColor(color: string, mode: AppThemeMode) {
+  const hue = ((getColorHue(color) ?? getColorHue(DEFAULT_ACCENT_COLOR) ?? 0) + 90) % 360
+  const saturation = 0.55
   const lightness = mode === 'dark' ? 0.62 : 0.38
   const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation
   const secondary = chroma * (1 - Math.abs((hue / 60) % 2 - 1))

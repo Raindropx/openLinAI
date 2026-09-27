@@ -38,7 +38,7 @@ import {
 } from '../../../../shared/studio'
 import type { NovelAIStudioGenerateRequest, StudioProviderSettings } from '../../../../shared/studio-generation'
 import { useGlobalStore } from '../../../store/global'
-import { getComplementaryAccentColor, useAppTheme } from '../../../theme'
+import { getSecondaryAccentColor, useAppTheme } from '../../../theme'
 import {
   getStudioProviderSettings,
   studioJson,
@@ -321,7 +321,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           '--studio-panel': token.colorBgContainer,
           '--studio-border': token.colorBorder,
           '--studio-muted': token.colorTextSecondary,
-          '--studio-pinned': getComplementaryAccentColor(token.colorPrimary, mode),
+          '--studio-pinned': getSecondaryAccentColor(token.colorPrimary, mode),
         } as React.CSSProperties
       }
     >
