@@ -84,7 +84,7 @@ const INITIAL_VALUES: NovelAIStudioGenerateRequest = {
   inpaintFeatherPixels: 20,
   inpaintEdgeFeatherPixels: 8,
   inpaintBlendMode: 'soft',
-  saveInpaintRaw: false,
+  saveInpaintRaw: true,
   strength: 0.7,
   noise: 0.1,
   characters: [],
