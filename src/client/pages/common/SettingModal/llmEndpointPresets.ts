@@ -1,4 +1,5 @@
 import type { LlmEndpoint } from '../../../../server/common/config'
+import { t } from '../../../i18n'
 
 export interface LlmEndpointPreset {
   id: string
@@ -18,10 +19,12 @@ export const LLM_ENDPOINT_PRESETS: LlmEndpointPreset[] = [
     baseURL: 'https://api.venice.ai/api/v1',
     model: 'openai-gpt-56-luna',
     website: 'https://venice.ai',
-    notes: [
-      '使用 Venice OpenAI-compatible Chat Completions 接口',
-      '输入 Key 后读取 Venice 实时文本模型目录',
-    ],
+    get notes() {
+      return [
+        t('使用 Venice OpenAI-compatible Chat Completions 接口'),
+        t('输入 Key 后读取 Venice 实时文本模型目录'),
+      ]
+    },
   },
   {
     id: 'openlux-gpt-5.6-luna',
@@ -30,10 +33,12 @@ export const LLM_ENDPOINT_PRESETS: LlmEndpointPreset[] = [
     baseURL: 'https://api.openlux.ai/v1',
     model: 'gpt-5.6-luna',
     website: 'https://openlux.ai',
-    notes: [
-      '使用 OpenAI-compatible Chat Completions 接口',
-      '模型可用性与计费以当前 Key 所属分组为准',
-    ],
+    get notes() {
+      return [
+        t('使用 OpenAI-compatible Chat Completions 接口'),
+        t('模型可用性与计费以当前 Key 所属分组为准'),
+      ]
+    },
   },
   {
     id: 'openrouter-gpt-5.6-luna',
@@ -42,10 +47,12 @@ export const LLM_ENDPOINT_PRESETS: LlmEndpointPreset[] = [
     baseURL: 'https://openrouter.ai/api/v1',
     model: 'openai/gpt-5.6-luna',
     website: 'https://openrouter.ai',
-    notes: [
-      '使用 OpenRouter OpenAI-compatible Chat Completions 接口',
-      '输入 Key 后读取默认输出为文本的模型目录',
-    ],
+    get notes() {
+      return [
+        t('使用 OpenRouter OpenAI-compatible Chat Completions 接口'),
+        t('输入 Key 后读取默认输出为文本的模型目录'),
+      ]
+    },
   },
   {
     id: 'dragon-gpt-5.6-luna',
@@ -54,10 +61,12 @@ export const LLM_ENDPOINT_PRESETS: LlmEndpointPreset[] = [
     baseURL: 'https://newapi.dragon3api.com/v1',
     model: 'gpt-5.6-luna',
     website: 'https://dragon3api.com',
-    notes: [
-      '使用 DragonAPI 当前官方 OpenAI-compatible API Base',
-      '模型按账号和分组开放，输入 Key 后以实际目录为准',
-    ],
+    get notes() {
+      return [
+        t('使用 DragonAPI 当前官方 OpenAI-compatible API Base'),
+        t('模型按账号和分组开放，输入 Key 后以实际目录为准'),
+      ]
+    },
   },
 ]
 

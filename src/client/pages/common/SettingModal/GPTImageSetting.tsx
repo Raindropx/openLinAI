@@ -24,6 +24,7 @@ import {
 } from '../../../hooks/useEndpointModels'
 import { useGPTImageQuota } from '../../../hooks/useGPTImageQuota'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import {
   findGptImageEndpointPreset,
@@ -102,6 +103,8 @@ const isCompleteEndpoint = (endpoint: GptImageEndpoint) =>
   )
 
 export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
+  useAppLanguage()
+
   const [form] = Form.useForm()
   const { endpoints, saveEndpoints } = useGlobalStore()
   const { gptImageSettings, setGptImageSettings } = useLocalSetting()
@@ -224,7 +227,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
 
     const endpoint = createPresetEndpoint(preset)
     setPendingPresetEndpoint(endpoint)
-    message.info(`已载入“${preset.label}”预设，请填写 API Key 后更新或保存`)
+    message.info(
+      t('已载入“{0}”预设，请填写 API Key 后更新或保存', [preset.label]),
+    )
   }
 
   const handleDeleteEndpoint = (id: string) => {
@@ -255,7 +260,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
 
   const handleSetDefaultEndpoint = (id: string) => {
     setGptImageSettings((prev) => ({ ...prev, defaultEndpointId: id }))
-    message.success('已设为默认端点')
+    message.success(t('已设为默认端点'))
   }
 
   const handleUpdateEndpoint = async () => {
@@ -263,7 +268,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
 
     const cleanedEndpoint = cleanEndpoint(activeEndpoint)
     if (!isCompleteEndpoint(cleanedEndpoint)) {
-      message.warning('请完整配置当前端点（名称/地址/模型/Key）')
+      message.warning(t('请完整配置当前端点（名称/地址/模型/Key）'))
       return
     }
 
@@ -279,7 +284,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
       const saved = await saveEndpoints(nextEndpoints)
       if (!saved) {
         skipNextEndpointSyncRef.current = false
-        message.error('当前端点更新失败')
+        message.error(t('当前端点更新失败'))
         return
       }
       setDraftEndpoints((list) =>
@@ -289,7 +294,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
       )
       setPendingPresetEndpoint(null)
       setActiveId(cleanedEndpoint.id)
-      message.success('当前端点已更新')
+      message.success(t('当前端点已更新'))
     } finally {
       setUpdatingEndpoint(false)
     }
@@ -305,12 +310,12 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         .map(cleanEndpoint)
         .filter(isCompleteEndpoint)
       if (cleaned.length === 0) {
-        message.warning('请至少完整配置一个端点（名称/地址/模型/Key）')
+        message.warning(t('请至少完整配置一个端点（名称/地址/模型/Key）'))
         throw new Error('No endpoint')
       }
       const saved = await saveEndpoints(cleaned)
       if (!saved) {
-        message.error('端点配置保存失败')
+        message.error(t('端点配置保存失败'))
         throw new Error('Failed to save endpoints')
       }
       setDraftEndpoints(cleaned)
@@ -345,7 +350,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
           selectedEndpointId,
         }
       })
-      message.success('配置保存成功')
+      message.success(t('配置保存成功'))
       return cleaned[0]?.apiKey
     },
   }))
@@ -356,37 +361,39 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         <ExclamationCircleOutlined className="mt-0.5 shrink-0 text-amber-400" />
         <div className="min-w-0">
           <div className="text-sm font-medium text-amber-200">
-            警惕第三方中转站风险
+            {t('警惕第三方中转站风险')}
           </div>
           <div className="mt-1 text-xs leading-5 text-amber-100/75">
-            请勿填写真实密码等无关敏感信息；充值前请核实平台口碑与运营方，建议小额试用、随用随充。预设仅用于填写公开参数，不代表对服务商的背书。
+            {t(
+              '请勿填写真实密码等无关敏感信息；充值前请核实平台口碑与运营方，建议小额试用、随用随充。预设仅用于填写公开参数，不代表对服务商的背书。',
+            )}
           </div>
         </div>
       </div>
       <Form form={form} layout="vertical">
         {/* —— 端点列表管理 —— */}
-        <div className="mb-2 text-sm text-slate-400">图片生成端点</div>
+        <div className="mb-2 text-sm text-slate-400">{t('图片生成端点')}</div>
         <div className="flex flex-wrap gap-2">
           <Select
             value={pendingPresetEndpoint ? undefined : activeEndpoint?.id}
             placeholder={
               pendingPresetEndpoint
-                ? `预设草稿：${pendingPresetEndpoint.name}`
-                : '选择端点'
+                ? t('预设草稿：{0}', [pendingPresetEndpoint.name])
+                : t('选择端点')
             }
             onChange={handleSelectEndpoint}
             className="min-w-40 flex-1"
             options={draftEndpoints.map((e) => ({
               value: e.id,
-              label: e.name || '未命名端点',
+              label: e.name || t('未命名端点'),
             }))}
           />
           <Button icon={<PlusOutlined />} onClick={handleAddEndpoint}>
-            新增
+            {t('新增')}
           </Button>
           <Select
             value={undefined}
-            placeholder="从预设新增"
+            placeholder={t('从预设新增')}
             className="min-w-44"
             onChange={handleAddPresetEndpoint}
             options={GPT_IMAGE_ENDPOINT_PRESETS.map((preset) => ({
@@ -395,14 +402,14 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
             }))}
           />
           <Button loading={updatingEndpoint} onClick={handleUpdateEndpoint}>
-            更新
+            {t('更新')}
           </Button>
           {!pendingPresetEndpoint && draftEndpoints.length > 1 && (
             <Button
               danger
               onClick={() => handleDeleteEndpoint(activeEndpoint.id)}
             >
-              删除
+              {t('删除')}
             </Button>
           )}
         </div>
@@ -415,7 +422,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   {activePreset.label}
                 </div>
                 <div>
-                  官网：{' '}
+                  {t('官网：')}{' '}
                   <a
                     href={activePreset.website}
                     target="_blank"
@@ -432,14 +439,14 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 ))}
               </div>
             )}
-            <Form.Item label="名称" required>
+            <Form.Item label={t('名称')} required>
               <Input
                 value={activeEndpoint.name}
                 onChange={(e) => updateActiveEndpoint({ name: e.target.value })}
-                placeholder="如 OpenLux、OpenAI 官方"
+                placeholder={t('如 OpenLux、OpenAI 官方')}
               />
             </Form.Item>
-            <Form.Item label="API 地址 (baseURL)" required>
+            <Form.Item label={t('API 地址 (baseURL)')} required>
               <Input
                 value={activeEndpoint.baseURL}
                 onChange={(e) =>
@@ -452,12 +459,12 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                       ? DEFAULT_NOVELAI_BASE_URL
                       : activeEndpoint.engine === 'chat-completions' ||
                           activeEndpoint.engine === 'openrouter-images'
-                        ? '如 https://openrouter.ai/api/v1'
-                        : '如 https://api.openlux.ai/v1'
+                        ? t('如 https://openrouter.ai/api/v1')
+                        : t('如 https://api.openlux.ai/v1')
                 }
               />
             </Form.Item>
-            <Form.Item label="模型 ID" required>
+            <Form.Item label={t('模型 ID')} required>
               <ModelIdInput
                 value={activeEndpoint.model}
                 onChange={(model) => updateActiveEndpoint({ model })}
@@ -467,32 +474,34 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 onRefresh={refreshImageModels}
                 directoryLabel={
                   imageModelCatalog === 'openrouter-images'
-                    ? 'OpenRouter Images 模型目录'
+                    ? t('OpenRouter Images 模型目录')
                     : isNovelAIEndpoint
-                      ? 'NovelAI 图片模型目录'
+                      ? t('NovelAI 图片模型目录')
                       : isVeniceEndpoint
-                        ? 'Venice 生成模型目录'
-                        : '图片生成/编辑模型目录'
+                        ? t('Venice 生成模型目录')
+                        : t('图片生成/编辑模型目录')
                 }
                 waitingForKey={!activeEndpoint.apiKey.trim()}
                 placeholder={
                   activeEndpoint.engine === 'chat-completions'
-                    ? '搜索或输入模型 ID，如 google/gemini-2.5-flash-image'
+                    ? t('搜索或输入模型 ID，如 google/gemini-2.5-flash-image')
                     : activeEndpoint.engine === 'openrouter-images'
-                      ? '搜索或输入模型 ID，如 google/gemini-3.1-flash-image'
+                      ? t('搜索或输入模型 ID，如 google/gemini-3.1-flash-image')
                       : isVeniceEndpoint
-                        ? '搜索或输入 Venice 生成模型 ID'
+                        ? t('搜索或输入 Venice 生成模型 ID')
                         : isNovelAIEndpoint
-                          ? '选择或输入 NovelAI 图片模型 ID'
-                          : '搜索或输入模型 ID，如 gpt-image-2'
+                          ? t('选择或输入 NovelAI 图片模型 ID')
+                          : t('搜索或输入模型 ID，如 gpt-image-2')
                 }
               />
               <div className="mt-1 text-xs text-slate-500">
-                候选列表只显示支持图片生成的模型；目录未收录的模型仍可手动输入。
+                {t(
+                  '候选列表只显示支持图片生成的模型；目录未收录的模型仍可手动输入。',
+                )}
               </div>
             </Form.Item>
             {(isVeniceEndpoint || isOpenAIImagesEndpoint) && (
-              <Form.Item label="参考图编辑模型 ID">
+              <Form.Item label={t('参考图编辑模型 ID')}>
                 <ModelIdInput
                   value={activeEndpoint.editModel}
                   onChange={(editModel) =>
@@ -504,14 +513,16 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   onRefresh={refreshEditModels}
                   directoryLabel={
                     isVeniceEndpoint
-                      ? 'Venice 编辑模型目录'
-                      : 'OpenAI Images 编辑模型目录'
+                      ? t('Venice 编辑模型目录')
+                      : t('OpenAI Images 编辑模型目录')
                   }
                   waitingForKey={!activeEndpoint.apiKey.trim()}
                   placeholder={
                     isVeniceEndpoint
-                      ? '搜索或输入编辑模型 ID；使用参考图时必填'
-                      : '搜索或输入支持 /images/edits 的模型；留空则沿用生成模型'
+                      ? t('搜索或输入编辑模型 ID；使用参考图时必填')
+                      : t(
+                          '搜索或输入支持 /images/edits 的模型；留空则沿用生成模型',
+                        )
                   }
                   allowClear
                 />
@@ -523,10 +534,10 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 onChange={(e) =>
                   updateActiveEndpoint({ apiKey: e.target.value })
                 }
-                placeholder="输入该端点的 API Key"
+                placeholder={t('输入该端点的 API Key')}
               />
             </Form.Item>
-            <Form.Item label="生成引擎" required>
+            <Form.Item label={t('生成引擎')} required>
               <Radio.Group
                 value={activeEndpoint.engine || 'openai-images'}
                 onChange={(e) => {
@@ -620,18 +631,16 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 <Radio.Button value="venice-images">Venice Images</Radio.Button>
                 <Radio.Button value="novelai-images">NovelAI</Radio.Button>
                 <Radio.Button value="chat-completions">
-                  聊天式（Nano Banana 等）
+                  {t('聊天式（Nano Banana 等）')}
                 </Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-slate-500">
-                GPT Image / DALL·E 使用 OpenAI 兼容接口；OpenRouter Images
-                使用专用 /images；Venice Images
-                使用原生生成/编辑接口并按实时模型能力传参；NovelAI 使用原生
-                /ai/generate-image；聊天式使用 chat/completions，并通过
-                image_config 传递图片参数。
+                {t(
+                  'GPT Image / DALL·E 使用 OpenAI 兼容接口；OpenRouter Images 使用专用 /images；Venice Images 使用原生生成/编辑接口并按实时模型能力传参；NovelAI 使用原生 /ai/generate-image；聊天式使用 chat/completions，并通过 image_config 传递图片参数。',
+                )}
               </div>
             </Form.Item>
-            <Form.Item label="端点类型" required>
+            <Form.Item label={t('端点类型')} required>
               <Radio.Group
                 value={activeEndpoint.type}
                 onChange={(e) => {
@@ -662,15 +671,16 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 <Radio.Button value="yunwu">New API</Radio.Button>
                 <Radio.Button value="openrouter">OpenRouter</Radio.Button>
                 <Radio.Button value="venice">Venice</Radio.Button>
-                <Radio.Button value="custom">自定义</Radio.Button>
+                <Radio.Button value="custom">{t('自定义')}</Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-slate-500">
-                New API 使用当前站点的 /api/usage/token/；OpenRouter
-                使用官方余额接口；Venice 同时读取 USD 与 DIEM；其他端点可在“自定义”中配置余额路径。
+                {t(
+                  'New API 使用当前站点的 /api/usage/token/；OpenRouter 使用官方余额接口；Venice 同时读取 USD 与 DIEM；其他端点可在“自定义”中配置余额路径。',
+                )}
               </div>
             </Form.Item>
             {activeEndpoint.type === 'yunwu' && (
-              <Form.Item label="估算分组倍率">
+              <Form.Item label={t('估算分组倍率')}>
                 <InputNumber
                   className="w-full"
                   min={0}
@@ -681,10 +691,12 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                       groupRatio: groupRatio ?? undefined,
                     })
                   }
-                  placeholder="留空按 1 倍估算"
+                  placeholder={t('留空按 1 倍估算')}
                 />
                 <div className="mt-1 text-xs text-slate-500">
-                  填写这把 Key 在 New API 中使用的分组倍率。仅在未取得实际消费日志时参与估算；实际扣费仍以日志为准。
+                  {t(
+                    '填写这把 Key 在 New API 中使用的分组倍率。仅在未取得实际消费日志时参与估算；实际扣费仍以日志为准。',
+                  )}
                 </div>
               </Form.Item>
             )}
@@ -693,10 +705,12 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-medium text-slate-200">
-                      获取账户余额
+                      {t('获取账户余额')}
                     </div>
                     <div className="mt-1 text-xs text-slate-500">
-                      使用当前 API Key 发起 GET 请求，并从响应 JSON 中读取余额。
+                      {t(
+                        '使用当前 API Key 发起 GET 请求，并从响应 JSON 中读取余额。',
+                      )}
                     </div>
                   </div>
                   <Switch
@@ -716,7 +730,11 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 </div>
                 {activeEndpoint.balanceEnabled && (
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <Form.Item label="余额API路径" className="mb-0" required>
+                    <Form.Item
+                      label={t('余额API路径')}
+                      className="mb-0"
+                      required
+                    >
                       <Input
                         value={
                           activeEndpoint.balanceApiPath ??
@@ -730,7 +748,11 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                         placeholder={DEFAULT_BALANCE_API_PATH}
                       />
                     </Form.Item>
-                    <Form.Item label="结果JSON键" className="mb-0" required>
+                    <Form.Item
+                      label={t('结果JSON键')}
+                      className="mb-0"
+                      required
+                    >
                       <Input
                         value={
                           activeEndpoint.balanceResultJsonKey ??
@@ -760,13 +782,13 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 onClick={() => handleSetDefaultEndpoint(activeEndpoint.id)}
               >
                 {gptImageSettings.defaultEndpointId === activeEndpoint.id
-                  ? '当前默认端点'
-                  : '设为默认端点'}
+                  ? t('当前默认端点')
+                  : t('设为默认端点')}
               </Button>
               <span className="text-xs text-slate-500">
                 {pendingPresetEndpoint
-                  ? '请先更新或保存预设端点，再设为默认端点'
-                  : '刷新网页后图片生成会默认使用此端点'}
+                  ? t('请先更新或保存预设端点，再设为默认端点')
+                  : t('刷新网页后图片生成会默认使用此端点')}
               </span>
             </div>
           </div>
@@ -776,7 +798,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
 
         {/* —— 生成参数（与端点无关，本地设置） —— */}
         <Form.Item>
-          <div className="mb-2 text-sm text-slate-400">生成尺寸</div>
+          <div className="mb-2 text-sm text-slate-400">{t('生成尺寸')}</div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-lg">
               <span>1K</span>
@@ -801,20 +823,20 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
             <ExclamationCircleOutlined className="mt-1" />
             <div>
               {isPublic ? (
-                <div>公用 API Key 无法使用 4K 画质</div>
+                <div>{t('公用 API Key 无法使用 4K 画质')}</div>
               ) : (
                 <>
-                  <div>开启 4K 后，Token 消耗是 2K 的 2~4 倍</div>
-                  <div>单张图片可能产生 0.2 元以上的费用</div>
-                  <div>图片将按比例缩放到总像素不超过 8294400</div>
-                  <div>更容易失败或命中高倍率的分组</div>
+                  <div>{t('开启 4K 后，Token 消耗是 2K 的 2~4 倍')}</div>
+                  <div>{t('单张图片可能产生 0.2 元以上的费用')}</div>
+                  <div>{t('图片将按比例缩放到总像素不超过 8294400')}</div>
+                  <div>{t('更容易失败或命中高倍率的分组')}</div>
                 </>
               )}
             </div>
           </div>
         </Form.Item>
         <Form.Item>
-          <div className="mb-2 text-sm text-slate-400">画质设置</div>
+          <div className="mb-2 text-sm text-slate-400">{t('画质设置')}</div>
           <Form.Item name="quality" noStyle>
             <Radio.Group>
               <Radio.Button value="medium">Medium</Radio.Button>
@@ -827,14 +849,16 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
             <ExclamationCircleOutlined className="mt-1" />
             <div>
               {isPublic ? (
-                <div>公用 API Key 无法使用 High 画质</div>
+                <div>{t('公用 API Key 无法使用 High 画质')}</div>
               ) : (
                 <>
-                  <div>High 画质处理小字扭曲等细节效果更好 </div>
+                  <div>{t('High 画质处理小字扭曲等细节效果更好')} </div>
                   <div>
-                    但 Token 消耗大约变为 4倍，整体性价比远不如提升画面尺寸
+                    {t(
+                      '但 Token 消耗大约变为 4倍，整体性价比远不如提升画面尺寸',
+                    )}
                   </div>
-                  <div>更容易失败或命中高倍率的分组</div>
+                  <div>{t('更容易失败或命中高倍率的分组')}</div>
                 </>
               )}
             </div>
@@ -843,7 +867,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         <Form.Item>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-lg">
-              <span className="text-sm text-slate-400">生成多张</span>
+              <span className="text-sm text-slate-400">{t('生成多张')}</span>
               <Form.Item name="enableMultiple" valuePropName="checked" noStyle>
                 <Switch disabled={isPublic} />
               </Form.Item>
@@ -852,11 +876,11 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
           <div className="mt-1 flex items-start gap-1 text-xs text-red-500">
             <ExclamationCircleOutlined className="mt-1" />
             {isPublic ? (
-              <div>公用 API Key 无法一次生成多张</div>
+              <div>{t('公用 API Key 无法一次生成多张')}</div>
             ) : (
               <div>
-                <div>生成多张与提交多次相同任务的效果和开销完全等价</div>
-                <div>不会节省输入费用，不同张数之间也没有前后关联</div>
+                <div>{t('生成多张与提交多次相同任务的效果和开销完全等价')}</div>
+                <div>{t('不会节省输入费用，不同张数之间也没有前后关联')}</div>
               </div>
             )}
           </div>

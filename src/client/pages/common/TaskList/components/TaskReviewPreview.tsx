@@ -5,6 +5,7 @@ import {
 } from '@ant-design/icons'
 import { Button, Image, Tooltip } from 'antd'
 import { useEffect, useRef, type ReactNode } from 'react'
+import { t, useAppLanguage } from '../../../../i18n'
 
 export interface ReviewImage {
   taskId: string
@@ -27,6 +28,8 @@ function ReviewSwipeActions({
   scale: number
   onActive: (offset: number) => void
 }) {
+  useAppLanguage()
+
   const gesture = useRef<{ x: number; y: number; id: number } | null>(null)
 
   useEffect(() => {
@@ -132,6 +135,8 @@ export function TaskReviewPreview({
   onAddToTemplate: () => void
   onToggleSelection: () => void
 }) {
+  useAppLanguage()
+
   const open = current >= 0
   const lastIndexRef = useRef(0)
 
@@ -205,17 +210,17 @@ export function TaskReviewPreview({
             <div className="task-review-preview-toolbar">
               {node}
               <div className="task-review-preview-toolbar-progress">
-                {index + 1} / {images.length} · ← → 切图 · Enter 选中 ·
-                窄屏可左右滑动
+                {index + 1} / {images.length}{' '}
+                {t('· ← → 切图 · Enter 选中 · 窄屏可左右滑动')}
               </div>
               <div className="task-review-preview-task-actions">
                 <Tooltip
                   title={
                     selectionMode
-                      ? '多选模式下不可删除'
+                      ? t('多选模式下不可删除')
                       : canDelete
-                        ? '删除'
-                        : '当前任务已删除'
+                        ? t('删除')
+                        : t('当前任务已删除')
                   }
                 >
                   <Button
@@ -226,16 +231,16 @@ export function TaskReviewPreview({
                     loading={deleting}
                     onClick={onDelete}
                   >
-                    删除
+                    {t('删除')}
                   </Button>
                 </Tooltip>
                 <Tooltip
                   title={
                     selectionMode
-                      ? '多选模式下不可添加模板'
+                      ? t('多选模式下不可添加模板')
                       : canAddToTemplate
-                        ? '添加到模板'
-                        : '当前任务没有可添加的模板信息'
+                        ? t('添加到模板')
+                        : t('当前任务没有可添加的模板信息')
                   }
                 >
                   <Button
@@ -244,10 +249,10 @@ export function TaskReviewPreview({
                     disabled={selectionMode || !canAddToTemplate || deleting}
                     onClick={onAddToTemplate}
                   >
-                    添加到模板
+                    {t('添加到模板')}
                   </Button>
                 </Tooltip>
-                <Tooltip title="按 Enter 可执行相同行为">
+                <Tooltip title={t('按 Enter 可执行相同行为')}>
                   <Button
                     type={selected ? 'primary' : 'default'}
                     size="small"
@@ -255,7 +260,7 @@ export function TaskReviewPreview({
                     disabled={!canSelect || deleting}
                     onClick={onToggleSelection}
                   >
-                    {selected ? '取消选中' : '选中'}
+                    {selected ? t('取消选中') : t('选中')}
                   </Button>
                 </Tooltip>
               </div>

@@ -24,6 +24,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AppType } from '../../../../../../server'
 import { requestChatCompletion } from '../../../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../../../hooks/useLocalSetting'
+import { t, useAppLanguage } from '../../../../../i18n'
 import { useGlobalStore } from '../../../../../store/global'
 import { imageBlobToUploadDataUrl } from '../../../../../utils/image'
 import {
@@ -54,22 +55,114 @@ const DIMENSIONS: Array<{
   label: string
   hint: string
 }> = [
-  { key: 'media_style', label: '媒介与风格', hint: '媒介、艺术风格、载体形式' },
-  { key: 'camera_lens', label: '镜头与视角', hint: '视角、镜头类型、取景方式' },
-  { key: 'composition', label: '构图', hint: '布局、主体位置、画幅关系' },
-  { key: 'color_palette', label: '色彩与色调', hint: '主色、饱和度、冷暖倾向' },
-  { key: 'lighting', label: '光影', hint: '光源方向、光质、阴影' },
-  { key: 'texture_effects', label: '质感与特效', hint: '颗粒、材质、后期效果' },
+  {
+    key: 'media_style',
+    get label() {
+      return t('媒介与风格')
+    },
+    get hint() {
+      return t('媒介、艺术风格、载体形式')
+    },
+  },
+  {
+    key: 'camera_lens',
+    get label() {
+      return t('镜头与视角')
+    },
+    get hint() {
+      return t('视角、镜头类型、取景方式')
+    },
+  },
+  {
+    key: 'composition',
+    get label() {
+      return t('构图')
+    },
+    get hint() {
+      return t('布局、主体位置、画幅关系')
+    },
+  },
+  {
+    key: 'color_palette',
+    get label() {
+      return t('色彩与色调')
+    },
+    get hint() {
+      return t('主色、饱和度、冷暖倾向')
+    },
+  },
+  {
+    key: 'lighting',
+    get label() {
+      return t('光影')
+    },
+    get hint() {
+      return t('光源方向、光质、阴影')
+    },
+  },
+  {
+    key: 'texture_effects',
+    get label() {
+      return t('质感与特效')
+    },
+    get hint() {
+      return t('颗粒、材质、后期效果')
+    },
+  },
   {
     key: 'subject_main',
-    label: '主体描述',
-    hint: '核心主体、形态、动作、表情',
+    get label() {
+      return t('主体描述')
+    },
+    get hint() {
+      return t('核心主体、形态、动作、表情')
+    },
   },
-  { key: 'subject_detail', label: '主体细节', hint: '穿戴、材质、妆容等细节' },
-  { key: 'environment', label: '环境与背景', hint: '场景、地点、物件、天气' },
-  { key: 'ui_text', label: '文字与 UI', hint: '文字、字幕、界面元素' },
-  { key: 'atmosphere', label: '氛围与情绪', hint: '心理感受、情绪关键词' },
-  { key: 'art_reference', label: '艺术参考', hint: '艺术家、作品、文化符号' },
+  {
+    key: 'subject_detail',
+    get label() {
+      return t('主体细节')
+    },
+    get hint() {
+      return t('穿戴、材质、妆容等细节')
+    },
+  },
+  {
+    key: 'environment',
+    get label() {
+      return t('环境与背景')
+    },
+    get hint() {
+      return t('场景、地点、物件、天气')
+    },
+  },
+  {
+    key: 'ui_text',
+    get label() {
+      return t('文字与 UI')
+    },
+    get hint() {
+      return t('文字、字幕、界面元素')
+    },
+  },
+  {
+    key: 'atmosphere',
+    get label() {
+      return t('氛围与情绪')
+    },
+    get hint() {
+      return t('心理感受、情绪关键词')
+    },
+  },
+  {
+    key: 'art_reference',
+    get label() {
+      return t('艺术参考')
+    },
+    get hint() {
+      return t('艺术家、作品、文化符号')
+    },
+  },
 ]
 
 const EMPTY_ANALYSIS = Object.fromEntries(
@@ -87,14 +180,14 @@ function parseAnalysis(content: string): StyleAnalysis {
   try {
     value = JSON.parse(candidate.trim())
   } catch {
-    throw new Error('无法解析模型返回的风格数据，请重试或更换端点')
+    throw new Error(t('无法解析模型返回的风格数据，请重试或更换端点'))
   }
   if (!value || typeof value !== 'object') {
-    throw new Error('模型返回的风格数据格式不正确')
+    throw new Error(t('模型返回的风格数据格式不正确'))
   }
   const record = value as Record<string, unknown>
   if (!DIMENSIONS.every(({ key }) => typeof record[key] === 'string')) {
-    throw new Error('模型返回的风格数据缺少必要字段')
+    throw new Error(t('模型返回的风格数据缺少必要字段'))
   }
   return record as unknown as StyleAnalysis
 }
@@ -103,7 +196,7 @@ async function uploadDataUrl(image: string) {
   const res = await client.api.static.images.upload.$post({ json: { image } })
   const data = await res.json()
   if (!data.success || !('url' in data)) {
-    throw new Error('error' in data ? String(data.error) : '图片上传失败')
+    throw new Error('error' in data ? String(data.error) : t('图片上传失败'))
   }
   return data.url
 }
@@ -111,7 +204,7 @@ async function uploadDataUrl(image: string) {
 async function normalizeGalleryImage(image: GalleryImageSelection) {
   if (image.type === 'input') return image.url
   const response = await fetch(image.url)
-  if (!response.ok) throw new Error('图库图片读取失败')
+  if (!response.ok) throw new Error(t('图库图片读取失败'))
   return uploadDataUrl(await imageBlobToUploadDataUrl(await response.blob()))
 }
 
@@ -136,6 +229,8 @@ export function StyleExtractModal({
   onClose: () => void
   onApply: (prompt: string) => void
 }) {
+  useAppLanguage()
+
   const llmEndpoints = useGlobalStore((state) => state.llmEndpoints)
   const styleOptimizePrompt = useGlobalStore(
     (state) => state.llmPrompts.styleOptimizePrompt,
@@ -208,7 +303,9 @@ export function StyleExtractModal({
       setImageUrl(normalizedUrl)
     } catch (error) {
       if (imageOperationIdRef.current !== operationId) return
-      message.error(error instanceof Error ? error.message : '图片处理失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('图片处理失败'),
+      )
       setImageUrl('')
       setPreviewUrl('')
     } finally {
@@ -235,7 +332,9 @@ export function StyleExtractModal({
       setImageUrl(uploadedUrl)
     } catch (error) {
       if (imageOperationIdRef.current !== operationId) return false
-      message.error(error instanceof Error ? error.message : '图片上传失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('图片上传失败'),
+      )
       setImageUrl('')
       setPreviewUrl('')
     } finally {
@@ -245,8 +344,8 @@ export function StyleExtractModal({
   }
 
   const analyze = async () => {
-    if (!imageUrl) return message.warning('请先选择图片')
-    if (!endpointId) return message.warning('请先在设置中配置 LLM 端点')
+    if (!imageUrl) return message.warning(t('请先选择图片'))
+    if (!endpointId) return message.warning(t('请先在设置中配置 LLM 端点'))
     setBusy(true)
     try {
       setStyleExtractEndpointId(endpointId)
@@ -266,7 +365,9 @@ export function StyleExtractModal({
       setSelected(new Set(DIMENSIONS.map(({ key }) => key)))
       setManualResult(false)
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '风格分析失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('风格分析失败'),
+      )
     } finally {
       setBusy(false)
     }
@@ -275,8 +376,8 @@ export function StyleExtractModal({
   const saveAsPreset = async () => {
     const name = presetName.trim()
     const prompt = result.trim()
-    if (!name) return message.warning('请输入风格预设名称')
-    if (!prompt) return message.warning('没有可保存的组合提示词')
+    if (!name) return message.warning(t('请输入风格预设名称'))
+    if (!prompt) return message.warning(t('没有可保存的组合提示词'))
     setPresetSaving(true)
     try {
       const template = prompt.includes('{prompt}')
@@ -286,12 +387,14 @@ export function StyleExtractModal({
         json: { name, prompt: template, origin: 'style-extract' },
       })
       const data = await response.json()
-      if (!data.success) throw new Error('风格预设保存失败')
+      if (!data.success) throw new Error(t('风格预设保存失败'))
       setPresetNameOpen(false)
       setPresetName('')
-      message.success('已加入风格预设')
+      message.success(t('已加入风格预设'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '风格预设保存失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('风格预设保存失败'),
+      )
     } finally {
       setPresetSaving(false)
     }
@@ -299,11 +402,11 @@ export function StyleExtractModal({
 
   const optimizeResult = async () => {
     const source = result.trim()
-    if (!source) return message.warning('没有可优化的组合提示词')
+    if (!source) return message.warning(t('没有可优化的组合提示词'))
     const optimizeId = optimizeEndpointId || llmEndpoints[0]?.id
-    if (!optimizeId) return message.warning('请先在设置中配置 LLM 端点')
+    if (!optimizeId) return message.warning(t('请先在设置中配置 LLM 端点'))
     if (!styleOptimizePrompt.trim()) {
-      return message.warning('请先在设置中配置风格优化系统提示词')
+      return message.warning(t('请先在设置中配置风格优化系统提示词'))
     }
     if (!optimizeEndpointId) setOptimizeEndpointId(optimizeId)
     setStyleOptimizing(true)
@@ -315,9 +418,11 @@ export function StyleExtractModal({
       })
       setManualResult(true)
       setResult(optimized)
-      message.success('风格模板优化完成')
+      message.success(t('风格模板优化完成'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '风格模板优化失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('风格模板优化失败'),
+      )
     } finally {
       setStyleOptimizing(false)
     }
@@ -326,14 +431,14 @@ export function StyleExtractModal({
   return (
     <>
       <Modal
-        title="图片风格提取"
+        title={t('图片风格提取')}
         open={open}
         onCancel={close}
         width={780}
         destroyOnHidden
         footer={[
           <Button key="cancel" onClick={close} disabled={busy}>
-            取消
+            {t('取消')}
           </Button>,
           <Button
             key="copy"
@@ -342,10 +447,10 @@ export function StyleExtractModal({
             onClick={() =>
               navigator.clipboard
                 .writeText(result)
-                .then(() => message.success('已复制'))
+                .then(() => message.success(t('已复制')))
             }
           >
-            复制
+            {t('复制')}
           </Button>,
           <Button
             key="apply"
@@ -353,7 +458,7 @@ export function StyleExtractModal({
             disabled={!result}
             onClick={() => onApply(resolveStylePrompt(result, currentPrompt))}
           >
-            应用到提示词
+            {t('应用到提示词')}
           </Button>,
         ]}
       >
@@ -373,7 +478,7 @@ export function StyleExtractModal({
                     <>
                       <AntImage
                         src={previewUrl}
-                        alt="待分析图片"
+                        alt={t('待分析图片')}
                         styles={{
                           root: {
                             display: 'block',
@@ -387,13 +492,13 @@ export function StyleExtractModal({
                             objectFit: 'contain',
                           },
                         }}
-                        preview={{ mask: '预览图片' }}
+                        preview={{ mask: t('预览图片') }}
                       />
                       <Button
                         type="text"
                         shape="circle"
                         icon={<CloseOutlined />}
-                        aria-label="清除图片"
+                        aria-label={t('清除图片')}
                         disabled={busy}
                         className="border! border-white/10! bg-black/65! text-slate-200! shadow-sm backdrop-blur"
                         style={{
@@ -411,7 +516,7 @@ export function StyleExtractModal({
                   ) : (
                     <div className="text-center text-slate-400">
                       <InboxOutlined className="mb-2 text-3xl" />
-                      <div>拖入或选择本地图片</div>
+                      <div>{t('拖入或选择本地图片')}</div>
                     </div>
                   )}
                 </div>
@@ -429,23 +534,25 @@ export function StyleExtractModal({
                     })
                   }
                 >
-                  从图库选择
+                  {t('从图库选择')}
                 </Button>
                 <div>
-                  <div className="mb-1 text-sm text-slate-400">LLM 端点</div>
+                  <div className="mb-1 text-sm text-slate-400">
+                    {t('LLM 端点')}
+                  </div>
                   <Select
                     className="w-full"
                     value={endpointId}
-                    placeholder="请选择支持视觉识别的端点"
-                    notFoundContent="请先在设置中配置 LLM 端点"
+                    placeholder={t('请选择支持视觉识别的端点')}
+                    notFoundContent={t('请先在设置中配置 LLM 端点')}
                     options={llmEndpoints.map((endpoint) => ({
                       value: endpoint.id,
-                      label: endpoint.name || '未命名端点',
+                      label: endpoint.name || t('未命名端点'),
                     }))}
                     onChange={setStyleExtractEndpointId}
                   />
                   <div className="mt-1 text-xs text-slate-500">
-                    所选模型需支持图片输入
+                    {t('所选模型需支持图片输入')}
                   </div>
                 </div>
                 <Button
@@ -454,7 +561,7 @@ export function StyleExtractModal({
                   onClick={analyze}
                   disabled={!imageUrl || !endpointId}
                 >
-                  分析图片风格
+                  {t('分析图片风格')}
                 </Button>
               </div>
             </div>
@@ -497,7 +604,7 @@ export function StyleExtractModal({
 
             <div>
               <div className="mb-1 flex items-center justify-between text-sm text-slate-400">
-                <span>组合提示词</span>
+                <span>{t('组合提示词')}</span>
                 <span className="flex flex-wrap justify-end gap-1">
                   <Button
                     type="link"
@@ -507,7 +614,7 @@ export function StyleExtractModal({
                     disabled={!result.trim()}
                     onClick={() => void optimizeResult()}
                   >
-                    AI 优化
+                    {t('AI 优化')}
                   </Button>
                   <Button
                     type="link"
@@ -516,7 +623,7 @@ export function StyleExtractModal({
                     disabled={!result.trim()}
                     onClick={() => setPresetNameOpen(true)}
                   >
-                    加入风格预设
+                    {t('加入风格预设')}
                   </Button>
                   <Button
                     type="link"
@@ -528,14 +635,14 @@ export function StyleExtractModal({
                       setResult(composed)
                     }}
                   >
-                    重新组合
+                    {t('重新组合')}
                   </Button>
                 </span>
               </div>
               <Input.TextArea
                 value={result}
                 rows={4}
-                placeholder="分析完成后，可在此编辑最终提示词"
+                placeholder={t('分析完成后，可在此编辑最终提示词')}
                 onChange={(event) => {
                   setManualResult(true)
                   setResult(event.target.value)
@@ -546,12 +653,12 @@ export function StyleExtractModal({
         </Spin>
       </Modal>
       <Modal
-        title="加入风格预设"
+        title={t('加入风格预设')}
         open={presetNameOpen}
         width="min(480px, calc(100vw - 24px))"
         centered
-        okText="保存"
-        cancelText="取消"
+        okText={t('保存')}
+        cancelText={t('取消')}
         confirmLoading={presetSaving}
         onOk={() => void saveAsPreset()}
         onCancel={() => {
@@ -562,18 +669,19 @@ export function StyleExtractModal({
         destroyOnHidden
       >
         <div className="space-y-2">
-          <div className="text-sm text-slate-400">预设名称</div>
+          <div className="text-sm text-slate-400">{t('预设名称')}</div>
           <Input
             autoFocus
             value={presetName}
             maxLength={80}
             showCount
-            placeholder="例如：柔和复古胶片"
+            placeholder={t('例如：柔和复古胶片')}
             onChange={(event) => setPresetName(event.target.value)}
             onPressEnter={() => void saveAsPreset()}
           />
           <div className="text-xs text-slate-500">
-            保存时会自动加入 {'{prompt}'} 占位符，之后可在风格预设中继续编辑。
+            {t('保存时会自动加入')} {'{prompt}'}{' '}
+            {t('占位符，之后可在风格预设中继续编辑。')}
           </div>
         </div>
       </Modal>

@@ -21,16 +21,37 @@ import {
 import dayjs from 'dayjs'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { StoredCharacterCard } from '../../../../server/common/character-card-manager'
+import { t, useAppLanguage } from '../../../i18n'
 
 type SortField = 'updatedAt' | 'createdAt' | 'name' | 'format'
 
 const PAGE_SIZE = 24
 
 const SORT_OPTIONS: { value: SortField; label: string }[] = [
-  { value: 'updatedAt', label: '更新时间' },
-  { value: 'createdAt', label: '创建时间' },
-  { value: 'name', label: '名称' },
-  { value: 'format', label: '格式' },
+  {
+    value: 'updatedAt',
+    get label() {
+      return t('更新时间')
+    },
+  },
+  {
+    value: 'createdAt',
+    get label() {
+      return t('创建时间')
+    },
+  },
+  {
+    value: 'name',
+    get label() {
+      return t('名称')
+    },
+  },
+  {
+    value: 'format',
+    get label() {
+      return t('格式')
+    },
+  },
 ]
 
 interface CharacterCardLibraryProps {
@@ -50,6 +71,8 @@ export function CharacterCardLibrary({
   onDelete,
   onExport,
 }: CharacterCardLibraryProps) {
+  useAppLanguage()
+
   const [keyword, setKeyword] = useState('')
   const [sortField, setSortField] = useState<SortField>('updatedAt')
   const [sortDesc, setSortDesc] = useState(true)
@@ -116,17 +139,17 @@ export function CharacterCardLibrary({
           prefix={<SearchOutlined />}
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
-          placeholder="搜索角色名或格式"
+          placeholder={t('搜索角色名或格式')}
         />
         <div className="flex items-center gap-2">
           <Select
             size="small"
             value={sortField}
             onChange={setSortField}
-            options={SORT_OPTIONS}
+            options={SORT_OPTIONS.map((option) => ({ ...option }))}
             className="flex-1"
           />
-          <Tooltip title={sortDesc ? '降序' : '升序'}>
+          <Tooltip title={sortDesc ? t('降序') : t('升序')}>
             <Button
               size="small"
               icon={
@@ -151,7 +174,9 @@ export function CharacterCardLibrary({
           <div className="flex min-h-64 items-center justify-center">
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={keyword ? '没有匹配的角色卡' : '暂无已保存角色卡'}
+              description={
+                keyword ? t('没有匹配的角色卡') : t('暂无已保存角色卡')
+              }
             />
           </div>
         ) : (
@@ -186,7 +211,7 @@ export function CharacterCardLibrary({
                       )}
 
                       <div className="absolute top-2 left-2 z-10">
-                        <Tooltip title="载入到角色卡工作区">
+                        <Tooltip title={t('载入到角色卡工作区')}>
                           <Button
                             type="primary"
                             shape="circle"
@@ -197,7 +222,7 @@ export function CharacterCardLibrary({
                         </Tooltip>
                       </div>
                       <div className="absolute top-2 right-2 z-10 flex gap-1">
-                        <Tooltip title="导出角色卡">
+                        <Tooltip title={t('导出角色卡')}>
                           <Button
                             shape="circle"
                             size="small"
@@ -207,10 +232,10 @@ export function CharacterCardLibrary({
                           />
                         </Tooltip>
                         <Popconfirm
-                          title={`删除“${item.name}”？`}
-                          description="仅删除角色卡库中的副本。"
-                          okText="删除"
-                          cancelText="取消"
+                          title={t('删除“{0}”？', [item.name])}
+                          description={t('仅删除角色卡库中的副本。')}
+                          okText={t('删除')}
+                          cancelText={t('取消')}
                           okButtonProps={{ danger: true }}
                           onConfirm={() => onDelete(item)}
                         >
@@ -227,7 +252,7 @@ export function CharacterCardLibrary({
 
                     <div className="p-2.5">
                       <div className="truncate text-sm font-medium text-slate-100">
-                        {item.name || '未命名角色'}
+                        {item.name || t('未命名角色')}
                       </div>
                       <div className="mt-1 flex items-center justify-between gap-2">
                         <Tag
@@ -251,12 +276,13 @@ export function CharacterCardLibrary({
                 className="flex items-center justify-center py-4 text-xs text-slate-500"
               >
                 <Spin size="small" />
-                <span className="ml-2">加载更多…</span>
+                <span className="ml-2">{t('加载更多…')}</span>
               </div>
             )}
             {!hasMore && sortedCards.length > PAGE_SIZE && (
               <div className="py-3 text-center text-[11px] text-slate-600">
-                已全部加载（{sortedCards.length} 张）
+                {t('已全部加载（')}
+                {sortedCards.length} {t('张）')}
               </div>
             )}
           </>

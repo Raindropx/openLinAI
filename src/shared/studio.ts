@@ -1,7 +1,7 @@
 import type { TaskTemplate } from '../server/common/template-manager'
 import type { GenerationMetadataInput } from '../server/module/gpt-image/generation-metadata'
-import type { NovelAIGenerationSnapshot } from './studio-generation'
 import type { CivitaiGenerationSnapshot } from './civitai-generation'
+import type { NovelAIGenerationSnapshot } from './studio-generation'
 
 export interface StudioProvenance {
   origin: 'photopea' | 'novelai' | 'civitai' | 'import' | 'other'
@@ -34,7 +34,10 @@ export interface StudioItem {
 
 export const STUDIO_MAX_FILE_BYTES = 64 * 1024 * 1024
 
-export function studioSourceLabel(source: StudioProvenance) {
+export function studioSourceLabel(
+  source: StudioProvenance,
+  translate = (text: string) => text,
+) {
   const origin = {
     novelai: 'NovelAI',
     civitai: 'Civitai',
@@ -42,28 +45,37 @@ export function studioSourceLabel(source: StudioProvenance) {
     import: '导入素材',
     other: '生成图片',
   }[source.origin]
-  if (source.photopea === 'created') return 'Photopea 创建'
+  if (source.photopea === 'created') return translate('Photopea 创建')
   if (source.photopea === 'edited') {
     return source.origin === 'novelai' || source.origin === 'civitai'
-      ? `${origin} · Photopea 已编辑`
-      : 'Photopea 已编辑'
+      ? `${origin} · ${translate('Photopea 已编辑')}`
+      : translate('Photopea 已编辑')
   }
-  if (source.inpaintRaw) return `${origin} · 上游原始结果`
-  return origin
+  if (source.inpaintRaw)
+    return `${translate(origin)} · ${translate('上游原始结果')}`
+  return translate(origin)
 }
 
 export function studioSourceTypeLabels(source: StudioProvenance) {
   const labels: string[] = []
   if (source.novelai) {
     switch (source.novelai.request.action) {
-      case 'infill': labels.push('局部重绘'); break
-      case 'img2img': labels.push('图生图'); break
-      default: labels.push('文生图')
+      case 'infill':
+        labels.push('局部重绘')
+        break
+      case 'img2img':
+        labels.push('图生图')
+        break
+      default:
+        labels.push('文生图')
     }
   } else if (source.civitai) {
     labels.push(source.civitai.request.referenceItemId ? '图生图' : '文生图')
   } else if (source.origin === 'import') labels.push('上传')
-  if (source.addedFromTask || (source.origin === 'other' && source.sourceTaskId)) {
+  if (
+    source.addedFromTask ||
+    (source.origin === 'other' && source.sourceTaskId)
+  ) {
     labels.push('来自任务')
   }
   return labels

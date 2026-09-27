@@ -1,3 +1,4 @@
+import { t } from '../../../../../i18n'
 export interface DrawPoint {
   x: number
   y: number
@@ -88,14 +89,11 @@ function createCanvas(width: number, height: number) {
 
 function getContext(canvas: HTMLCanvasElement) {
   const context = canvas.getContext('2d')
-  if (!context) throw new Error('无法创建图片编辑画布')
+  if (!context) throw new Error(t('无法创建图片编辑画布'))
   return context
 }
 
-function applyRotate(
-  source: HTMLCanvasElement,
-  direction: 'left' | 'right',
-) {
+function applyRotate(source: HTMLCanvasElement, direction: 'left' | 'right') {
   const result = createCanvas(source.height, source.width)
   const context = getContext(result)
   context.save()
@@ -111,10 +109,7 @@ function applyRotate(
   return result
 }
 
-function applyFlip(
-  source: HTMLCanvasElement,
-  axis: 'horizontal' | 'vertical',
-) {
+function applyFlip(source: HTMLCanvasElement, axis: 'horizontal' | 'vertical') {
   const result = createCanvas(source.width, source.height)
   const context = getContext(result)
   context.save()
@@ -213,12 +208,12 @@ function canvasToDataUrl(canvas: HTMLCanvasElement) {
   return new Promise<string>((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (!blob) {
-        reject(new Error('图片编辑导出失败'))
+        reject(new Error(t('图片编辑导出失败')))
         return
       }
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result as string)
-      reader.onerror = () => reject(new Error('编辑结果读取失败'))
+      reader.onerror = () => reject(new Error(t('编辑结果读取失败')))
       reader.readAsDataURL(blob)
     }, 'image/png')
   })

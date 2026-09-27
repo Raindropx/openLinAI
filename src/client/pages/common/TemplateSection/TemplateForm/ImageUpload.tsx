@@ -1,10 +1,8 @@
-import {
-  PictureOutlined,
-  UploadOutlined,
-} from '@ant-design/icons'
+import { PictureOutlined, UploadOutlined } from '@ant-design/icons'
 import { Button, message, Upload } from 'antd'
 import { useEffect, useRef } from 'react'
 import { useRecentImages } from '../../../../hooks/useRecentImages'
+import { t, useAppLanguage } from '../../../../i18n'
 import { imageBlobToUploadDataUrl } from '../../../../utils/image'
 import {
   uploadInputImageBase64,
@@ -60,6 +58,8 @@ export function ImageUpload({
   onUploadingChange,
   onFirstImageRatio,
 }: ImageUploadProps) {
+  useAppLanguage()
+
   const uploadingCountRef = useRef(0)
   const { addRecentImages } = useRecentImages()
 
@@ -104,9 +104,11 @@ export function ImageUpload({
       latestValueRef.current = newUrls
       onChange?.(newUrls)
       addRecentImages(url)
-      message.success('图片上传成功')
+      message.success(t('图片上传成功'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '图片上传请求失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('图片上传请求失败'),
+      )
     } finally {
       handleUploadCountChange(-1)
     }
@@ -186,7 +188,7 @@ export function ImageUpload({
             icon={<UploadOutlined />}
             className="h-auto! min-h-8 w-full py-1! text-xs! whitespace-nowrap"
           >
-            拖入/选择本地图片
+            {t('拖入/选择本地图片')}
           </Button>
         </Upload>
         <Button
@@ -221,7 +223,9 @@ export function ImageUpload({
                   addRecentImages(processedUrls)
                 } catch (error) {
                   message.error(
-                    error instanceof Error ? error.message : '图库图片处理失败',
+                    error instanceof Error
+                      ? t(error.message)
+                      : t('图库图片处理失败'),
                   )
                 } finally {
                   handleUploadCountChange(-images.length)
@@ -230,7 +234,7 @@ export function ImageUpload({
             })
           }}
         >
-          图库
+          {t('图库')}
         </Button>
       </div>
       {value.length > 0 && (

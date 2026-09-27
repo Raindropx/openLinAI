@@ -1,4 +1,5 @@
 import { requestChatCompletion } from '../../../../hooks/useChatCompletion'
+import { t } from '../../../../i18n'
 
 function cleanModelOutput(content: string) {
   const fenced = content.match(/```(?:text)?\s*([\s\S]*?)```/i)?.[1]
@@ -32,8 +33,8 @@ export async function optimizeStyleTemplate({
   if (placeholders !== 1) {
     throw new Error(
       placeholders === 0
-        ? '优化结果缺少 {prompt} 占位符，请重试'
-        : '优化结果包含多个 {prompt} 占位符，请重试',
+        ? t('优化结果缺少 {prompt} 占位符，请重试')
+        : t('优化结果包含多个 {prompt} 占位符，请重试'),
     )
   }
   return result

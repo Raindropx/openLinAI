@@ -2,6 +2,7 @@ import { ClockCircleOutlined } from '@ant-design/icons'
 import { Tag, Tooltip } from 'antd'
 import type { Task } from '../../../../../server/common/task-manager'
 import { studioSourceLabel } from '../../../../../shared/studio'
+import { t, useAppLanguage } from '../../../../i18n'
 import {
   estimateImageCost,
   formatImageCost,
@@ -25,7 +26,12 @@ function formatStudioAspectRatio(value: string): string {
 
   const width = Number(match[1])
   const height = Number(match[2])
-  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0)
+  if (
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height) ||
+    width <= 0 ||
+    height <= 0
+  )
     return value
 
   let a = width
@@ -54,6 +60,8 @@ export function TaskItemMetrics({
   showCost?: boolean
   showDuration?: boolean
 }) {
+  useAppLanguage()
+
   const renderCost = (record: Task) => {
     const bill = record.imageBilling
     if (
@@ -66,28 +74,33 @@ export function TaskItemMetrics({
         <Tooltip
           title={
             <div>
-              <div>实际费用: {formatImageCost(bill.cost, bill.currency)}</div>
+              <div>
+                {t('实际费用:')} {formatImageCost(bill.cost, bill.currency)}
+              </div>
               {bill.quota !== undefined && (
-                <div>扣费点数: {bill.quota.toLocaleString()}</div>
+                <div>
+                  {t('扣费点数:')} {bill.quota.toLocaleString()}
+                </div>
               )}
               {bill.entries?.map((entry) => (
                 <div key={entry.requestId}>
-                  分组: {entry.group || '未提供'}
+                  {t('分组:')} {entry.group || t('未提供')}
                   {entry.groupRatio !== undefined
-                    ? ` · 倍率 ${entry.groupRatio}`
+                    ? t(' · 倍率 {0}', [entry.groupRatio])
                     : ''}
                 </div>
               ))}
               <div>
                 {bill.source === 'provider-response'
-                  ? '来自本次请求的服务商响应，已包含服务商计费调整'
-                  : '来自本次请求的消费日志，已包含分组倍率及上游计费调整'}
+                  ? t('来自本次请求的服务商响应，已包含服务商计费调整')
+                  : t('来自本次请求的消费日志，已包含分组倍率及上游计费调整')}
               </div>
             </div>
           }
         >
           <Tag color="gold" style={{ cursor: 'help' }}>
-            实际{formatImageCost(bill.cost, bill.currency, true)}
+            {t('实际')}
+            {formatImageCost(bill.cost, bill.currency, true)}
           </Tag>
         </Tooltip>
       )
@@ -102,14 +115,17 @@ export function TaskItemMetrics({
         <Tooltip
           title={
             <div>
-              <div>预估费用: {formatImageCost(bill.cost, bill.currency)}</div>
+              <div>
+                {t('预估费用:')} {formatImageCost(bill.cost, bill.currency)}
+              </div>
               {bill.note && <div>{bill.note}</div>}
-              <div>实际费用以服务商账单为准</div>
+              <div>{t('实际费用以服务商账单为准')}</div>
             </div>
           }
         >
           <Tag color="gold" style={{ cursor: 'help' }}>
-            约{formatImageCost(bill.cost, bill.currency, true)}
+            {t('约')}
+            {formatImageCost(bill.cost, bill.currency, true)}
           </Tag>
         </Tooltip>
       )
@@ -135,38 +151,49 @@ export function TaskItemMetrics({
       const cost2str = formatImageUsd
       const tooltipContent = (
         <div>
-          <div>输入 tokens: {inputTokens}</div>
-          <div>输入预估费用: {cost2str(inputCost)}</div>
-          <div>输出 tokens: {outputTokens}</div>
-          <div>输出预估费用: {cost2str(outputCost)}</div>
+          <div>
+            {t('输入 tokens:')} {inputTokens}
+          </div>
+          <div>
+            {t('输入预估费用:')} {cost2str(inputCost)}
+          </div>
+          <div>
+            {t('输出 tokens:')} {outputTokens}
+          </div>
+          <div>
+            {t('输出预估费用:')} {cost2str(outputCost)}
+          </div>
           <div>
             {bill?.status === 'pending'
-              ? '正在查询实际账单'
-              : '未取得可匹配的实际账单'}
+              ? t('正在查询实际账单')
+              : t('未取得可匹配的实际账单')}
           </div>
           {bill?.estimatedGroupRatio !== undefined ? (
             <div>
-              已包含配置的分组倍率 {bill.estimatedGroupRatio}
-              ，未包含图片输入差价及其他计费调整
+              {t('已包含配置的分组倍率')} {bill.estimatedGroupRatio}
+              {t('，未包含图片输入差价及其他计费调整')}
             </div>
           ) : (
             <div>
-              美元基准估算，分组倍率按 1 计算，未包含图片输入差价及其他计费调整
+              {t(
+                '美元基准估算，分组倍率按 1 计算，未包含图片输入差价及其他计费调整',
+              )}
             </div>
           )}
-          <div>实际费用以服务商账单为准</div>
+          <div>{t('实际费用以服务商账单为准')}</div>
         </div>
       )
 
       return (
         <Tooltip title={tooltipContent}>
           <Tag color="gold" style={{ cursor: 'help' }}>
-            约{formatImageUsdLabel(totalCost)}
+            {t('约')}
+            {formatImageUsdLabel(totalCost)}
           </Tag>
         </Tooltip>
       )
     }
-    return bill?.status === 'pending' ? <Tag>费用查询中</Tag> : null
+    return bill?.status === 'pending' ? <Tag>{t('费用查询中')}</Tag> : null
   }
 
   const cost = showCost ? renderCost(task) : null
@@ -184,7 +211,7 @@ export function TaskItemMetrics({
     >
       {cost}
       {hasDuration && (
-        <Tooltip title="生成耗时">
+        <Tooltip title={t('生成耗时')}>
           <Tag color="lime">
             <ClockCircleOutlined className="mr-1" />
             {(task.duration! / 1000).toFixed(1)}s
@@ -204,6 +231,8 @@ export function TaskItemTags({
   showMetrics = true,
   showDuration = false,
 }: TaskItemTagsProps) {
+  useAppLanguage()
+
   return (
     <div
       className={`${compact ? 'mb-1' : 'mb-2'} flex min-w-0 flex-1 flex-wrap ${
@@ -218,7 +247,7 @@ export function TaskItemTags({
             task.studioProvenance.photopea === 'created' ? 'cyan' : 'purple'
           }
         >
-          {studioSourceLabel(task.studioProvenance)}
+          {studioSourceLabel(task.studioProvenance, t)}
         </Tag>
       )}
       {task.rawTemplate?.aspectRatio && (
@@ -230,7 +259,9 @@ export function TaskItemTags({
       )}
       {task.size && (
         <Tooltip
-          title="该尺寸仅为输入时设置的尺寸，实际会受到模型最大像素限制、比例调整和分组分辨率可用性，以实际图片比例为准"
+          title={t(
+            '该尺寸仅为输入时设置的尺寸，实际会受到模型最大像素限制、比例调整和分组分辨率可用性，以实际图片比例为准',
+          )}
           className="cursor-pointer"
         >
           <Tag color="magenta">{task.size}</Tag>
@@ -242,9 +273,9 @@ export function TaskItemTags({
         </Tag>
       )}
       {downloadedIds?.includes(task.id) ? (
-        <Tag color="cyan">已下载</Tag>
+        <Tag color="cyan">{t('已下载')}</Tag>
       ) : (
-        <Tag color="geekblue">未下载</Tag>
+        <Tag color="geekblue">{t('未下载')}</Tag>
       )}
       {(showMetrics || showDuration) && (
         <TaskItemMetrics
@@ -254,9 +285,9 @@ export function TaskItemTags({
         />
       )}
       {showEndpoint && !task.studioProvenance && (
-        <Tooltip title={task.endpointName || '未记录端点'}>
+        <Tooltip title={task.endpointName || t('未记录端点')}>
           <Tag color="purple" className="max-w-full truncate">
-            {task.endpointName || '未知端点'}
+            {task.endpointName || t('未知端点')}
           </Tag>
         </Tooltip>
       )}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '../i18n'
 
 export type EndpointModelCatalog =
   | 'openai'
@@ -59,10 +60,11 @@ export function useEndpointModels(options: {
           const data = await response.json().catch(() => ({}))
           if (!response.ok || !data.success) {
             if (response.status === 404 || response.status === 405) {
-              throw new Error('当前后端未加载通用模型目录路由，请重启后端')
+              throw new Error(t('当前后端未加载通用模型目录路由，请重启后端'))
             }
             throw new Error(
-              data.error || `模型目录请求失败 (${response.status})`,
+              t(data.error || '') ||
+                t('模型目录请求失败 ({0})', [response.status]),
             )
           }
           setModels(Array.isArray(data.data) ? data.data : [])

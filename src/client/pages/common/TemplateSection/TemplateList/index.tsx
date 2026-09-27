@@ -16,6 +16,7 @@ import type { AppType } from '../../../../../server'
 import type { TaskTemplate } from '../../../../../server/common/template-manager'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { useTemplates } from '../../../../hooks/useTemplates'
+import { t, useAppLanguage } from '../../../../i18n'
 import {
   ListToolbar,
   sortListItems,
@@ -59,6 +60,8 @@ function TemplateListComponent(
   }: TemplateListProps,
   ref: ForwardedRef<TemplateListRef>,
 ) {
+  useAppLanguage()
+
   const managementMode = variant === 'management'
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false)
@@ -141,14 +144,16 @@ function TemplateListComponent(
 
   const handleBatchDelete = () => {
     if (!selectedIds.length) {
-      message.info('请先选择要删除的模板')
+      message.info(t('请先选择要删除的模板'))
       return
     }
 
     Modal.confirm({
-      title: `确认删除选中的 ${selectedIds.length} 个模板？`,
-      content: '删除后无法恢复，模板引用的本地图片不会因此从任务列表中删除。',
-      okText: '批量删除',
+      title: t('确认删除选中的 {0} 个模板？', [selectedIds.length]),
+      content: t(
+        '删除后无法恢复，模板引用的本地图片不会因此从任务列表中删除。',
+      ),
+      okText: t('批量删除'),
       okType: 'danger',
       onOk: async () => {
         setBatchBusy(true)
@@ -168,10 +173,13 @@ function TemplateListComponent(
         exitSelectionMode()
         refresh()
         if (successCount === selectedIds.length) {
-          message.success(`已删除 ${successCount} 个模板`)
+          message.success(t('已删除 {0} 个模板', [successCount]))
         } else {
           message.warning(
-            `已删除 ${successCount} 个模板，${selectedIds.length - successCount} 个删除失败`,
+            t('已删除 {0} 个模板，{1} 个删除失败', [
+              successCount,
+              selectedIds.length - successCount,
+            ]),
           )
         }
       },
@@ -187,7 +195,7 @@ function TemplateListComponent(
           : targetFolder
 
     if (targetFolder === '__new__' && !folder) {
-      message.warning('请输入新文件夹名称')
+      message.warning(t('请输入新文件夹名称'))
       return
     }
 
@@ -211,10 +219,13 @@ function TemplateListComponent(
     exitSelectionMode()
     refresh()
     if (successCount === selectedIds.length) {
-      message.success(`已移动 ${successCount} 个模板`)
+      message.success(t('已移动 {0} 个模板', [successCount]))
     } else {
       message.warning(
-        `已移动 ${successCount} 个模板，${selectedIds.length - successCount} 个移动失败`,
+        t('已移动 {0} 个模板，{1} 个移动失败', [
+          successCount,
+          selectedIds.length - successCount,
+        ]),
       )
     }
   }
@@ -223,7 +234,7 @@ function TemplateListComponent(
     selectionMode ? (
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
         <span className="text-xs whitespace-nowrap text-slate-400">
-          已选 {selectedIds.length}
+          {t('已选')} {selectedIds.length}
         </span>
         <Button
           size="small"
@@ -232,7 +243,7 @@ function TemplateListComponent(
           }
           disabled={!selectableTemplates.length}
         >
-          全选
+          {t('全选')}
         </Button>
         <Button
           size="small"
@@ -240,7 +251,7 @@ function TemplateListComponent(
           disabled={!selectedIds.length}
           onClick={() => setMoveModalOpen(true)}
         >
-          移动
+          {t('移动')}
         </Button>
         <Button
           size="small"
@@ -250,10 +261,10 @@ function TemplateListComponent(
           disabled={!selectedIds.length}
           onClick={handleBatchDelete}
         >
-          删除
+          {t('删除')}
         </Button>
         <Button size="small" onClick={exitSelectionMode}>
-          退出
+          {t('退出')}
         </Button>
       </div>
     ) : (
@@ -262,7 +273,7 @@ function TemplateListComponent(
         icon={<CheckSquareOutlined />}
         onClick={() => setSelectionMode(true)}
       >
-        多选
+        {t('多选')}
       </Button>
     )
   ) : undefined
@@ -285,18 +296,22 @@ function TemplateListComponent(
                   className="app-accent-hover cursor-pointer truncate border-0 bg-transparent p-0 text-slate-400 transition-colors"
                   onClick={() => setSelectedFolder(null)}
                 >
-                  模板列表 ({filteredTemplates.length})
+                  {t('模板列表 (')}
+                  {filteredTemplates.length})
                 </button>
                 <span className="mx-2 font-normal text-slate-600">/</span>
                 <span className="truncate">{selectedFolder}</span>
               </>
             ) : (
-              <span>模板列表 ({filteredTemplates.length})</span>
+              <span>
+                {t('模板列表 (')}
+                {filteredTemplates.length})
+              </span>
             )}
           </h3>
           {selectedFolder && !selectionMode && (
             <Button type="link" onClick={() => setIsRenameModalOpen(true)}>
-              重命名文件夹
+              {t('重命名文件夹')}
             </Button>
           )}
         </div>
@@ -309,7 +324,7 @@ function TemplateListComponent(
             onSearchChange={setSearchText}
             sortMode={sortMode}
             onSortChange={setSortMode}
-            searchPlaceholder="搜索模板标题、提示词或文件夹"
+            searchPlaceholder={t('搜索模板标题、提示词或文件夹')}
             actions={managementActions}
           />
         </div>
@@ -359,11 +374,11 @@ function TemplateListComponent(
       )}
 
       <Modal
-        title={`移动 ${selectedIds.length} 个模板`}
+        title={t('移动 {0} 个模板', [selectedIds.length])}
         open={moveModalOpen}
         onCancel={() => setMoveModalOpen(false)}
         onOk={handleMoveTemplates}
-        okText="移动"
+        okText={t('移动')}
         confirmLoading={batchBusy}
       >
         <div className="flex flex-col gap-3 pt-2">
@@ -371,16 +386,16 @@ function TemplateListComponent(
             value={targetFolder}
             onChange={setTargetFolder}
             options={[
-              { value: '__root__', label: '不放入文件夹' },
+              { value: '__root__', label: t('不放入文件夹') },
               ...folders.map((folder) => ({ value: folder, label: folder })),
-              { value: '__new__', label: '新建文件夹…' },
+              { value: '__new__', label: t('新建文件夹…') },
             ]}
           />
           {targetFolder === '__new__' && (
             <Input
               value={newFolder}
               onChange={(event) => setNewFolder(event.target.value)}
-              placeholder="输入新文件夹名称"
+              placeholder={t('输入新文件夹名称')}
               onPressEnter={handleMoveTemplates}
             />
           )}

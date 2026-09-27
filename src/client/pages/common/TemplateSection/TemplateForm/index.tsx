@@ -16,6 +16,7 @@ import {
   type ChatMessage,
 } from '../../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
+import { t, useAppLanguage } from '../../../../i18n'
 import { useGlobalStore } from '../../../../store/global'
 import { openSettingModal } from '../../SettingModal'
 import { PromptOptimizeModal } from './PromptOptimizeModal'
@@ -40,6 +41,8 @@ export function TemplateForm({
   onTemplateLoaded,
   onEditingTemplateChange,
 }: TemplateFormProps) {
+  useAppLanguage()
+
   const formRef = useRef<HTMLDivElement>(null)
   const [form] = Form.useForm()
   const [submitting, setSubmitting] = useState(false)
@@ -149,7 +152,7 @@ export function TemplateForm({
     const prompt = form.getFieldValue('prompt')
     const n = form.getFieldValue('n') || 1
     if (!prompt) {
-      message.warning('请先填写提示词')
+      message.warning(t('请先填写提示词'))
       return
     }
     const aspectRatio = form.getFieldValue('aspectRatio') || '1:1'
@@ -162,7 +165,7 @@ export function TemplateForm({
     const originalPrompt = pendingOriginalPromptRef.current
     pendingOriginalPromptRef.current = undefined
 
-    message.success('任务提交成功')
+    message.success(t('任务提交成功'))
     // 提交即让任务列表与画布自动聚焦到最新任务，无需等待生成成功
     setFocusNewestTask()
     try {
@@ -185,20 +188,20 @@ export function TemplateForm({
       const data = await res.json()
 
       if (!data.success) {
-        message.error(data.error || '生成失败')
+        message.error(t(data.error || '') || t('生成失败'))
       } else {
         // 提交成功后让任务列表与画布自动聚焦到最新任务
         setFocusNewestTask()
       }
     } catch (error) {
-      message.error('请求失败')
+      message.error(t('请求失败'))
     }
   }
 
   const handleTrial = (size: GptImageSize) => {
     const prompt = form.getFieldValue('prompt')
     if (!prompt) {
-      message.warning('请先填写提示词')
+      message.warning(t('请先填写提示词'))
       return
     }
 
@@ -219,7 +222,7 @@ export function TemplateForm({
   const handlePromptOptimize = async () => {
     const prompt = form.getFieldValue('prompt') as string | undefined
     if (!prompt && imageUrls.length === 0) {
-      message.warning('请先填写提示词或上传图片')
+      message.warning(t('请先填写提示词或上传图片'))
       return
     }
 
@@ -251,9 +254,9 @@ export function TemplateForm({
         messages.push({ role: 'user', content: content as any })
       }
       const result = await requestChatCompletion({ endpointId, messages })
-      setOptimizeText(result || '（优化结果为空）')
+      setOptimizeText(result || t('（优化结果为空）'))
     } catch (error: any) {
-      message.error(error.message || '提示词优化失败')
+      message.error(t(error.message) || t('提示词优化失败'))
       setOptimizeOpen(false)
     } finally {
       setOptimizeLoading(false)
@@ -265,7 +268,7 @@ export function TemplateForm({
     pendingOriginalPromptRef.current = optimizeSourcePrompt
     setDirty(true)
     setOptimizeOpen(false)
-    message.success('已采纳优化后的提示词')
+    message.success(t('已采纳优化后的提示词'))
   }
 
   const handleFinish = async (values: any) => {
@@ -297,7 +300,7 @@ export function TemplateForm({
       const json = await res.json()
 
       if (json.success) {
-        message.success(shouldUpdate ? '模板已更新' : '已另存为新模板')
+        message.success(shouldUpdate ? t('模板已更新') : t('已另存为新模板'))
         setDirty(false)
         pendingOriginalPromptRef.current = undefined
         if (editorMode) {
@@ -312,10 +315,10 @@ export function TemplateForm({
         }
         onSuccess()
       } else {
-        message.error(json.error || '保存失败')
+        message.error(t(json.error || '') || t('保存失败'))
       }
     } catch (error) {
-      message.error('请求失败')
+      message.error(t('请求失败'))
     } finally {
       setSubmitting(false)
     }
@@ -334,7 +337,7 @@ export function TemplateForm({
     setDirty(false)
     pendingOriginalPromptRef.current = undefined
     onEditingTemplateChange?.(null)
-    message.success('已新建空白模板草稿')
+    message.success(t('已新建空白模板草稿'))
   }
 
   const promptValue = Form.useWatch('prompt', form) || ''
@@ -343,7 +346,7 @@ export function TemplateForm({
     <>
       {showHeading && (
         <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <PlusOutlined className="app-accent-text" /> 新增模板
+          <PlusOutlined className="app-accent-text" /> {t('新增模板')}
         </h3>
       )}
       <Form
@@ -381,7 +384,7 @@ export function TemplateForm({
               className="h-auto! px-0!"
               onClick={handlePromptOptimize}
             >
-              提示词优化
+              {t('提示词优化')}
             </Button>
           }
         />
@@ -391,14 +394,14 @@ export function TemplateForm({
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                 <span>
-                  {activeTemplateId ? '正在编辑已保存模板' : '新模板草稿'}
+                  {activeTemplateId ? t('正在编辑已保存模板') : t('新模板草稿')}
                   <span className="mx-2 text-slate-700">·</span>
-                  提示词 {String(promptValue).length} 字
+                  {t('提示词')} {String(promptValue).length} {t('字')}
                   <span className="mx-2 text-slate-700">·</span>
-                  参考图 {imageUrls.length} 张
+                  {t('参考图')} {imageUrls.length} {t('张')}
                 </span>
                 <span className={dirty ? 'text-amber-300' : 'text-emerald-400'}>
-                  {dirty ? '有未保存修改' : '已保存'}
+                  {dirty ? t('有未保存修改') : t('已保存')}
                 </span>
               </div>
               <div className="grid gap-2 sm:grid-cols-[auto_1fr_1fr]">
@@ -407,7 +410,7 @@ export function TemplateForm({
                   onClick={handleNewTemplate}
                   disabled={submitting}
                 >
-                  新建空白
+                  {t('新建空白')}
                 </Button>
                 <Button
                   icon={<SaveOutlined />}
@@ -418,7 +421,7 @@ export function TemplateForm({
                     saveIntentRef.current = 'save'
                   }}
                 >
-                  保存当前模板
+                  {t('保存当前模板')}
                 </Button>
                 <Button
                   type="primary"
@@ -430,7 +433,7 @@ export function TemplateForm({
                     saveIntentRef.current = 'save-as'
                   }}
                 >
-                  另存为新模板
+                  {t('另存为新模板')}
                 </Button>
               </div>
             </div>
@@ -443,7 +446,7 @@ export function TemplateForm({
                   size="large"
                   className="app-accent-outline grow"
                 >
-                  生成1K图
+                  {t('生成1K图')}
                 </Button>
               )}
               {gptImageSettings.enable2K && (
@@ -453,7 +456,7 @@ export function TemplateForm({
                   size="large"
                   className="grow"
                 >
-                  生成2K图
+                  {t('生成2K图')}
                 </Button>
               )}
               {gptImageSettings.enable4K && (
@@ -463,7 +466,7 @@ export function TemplateForm({
                   size="large"
                   className="grow"
                 >
-                  生成4K图
+                  {t('生成4K图')}
                 </Button>
               )}
               <Button
@@ -474,7 +477,7 @@ export function TemplateForm({
                 className="col-span-2 grow"
                 size="large"
               >
-                保存模板
+                {t('保存模板')}
               </Button>
             </div>
           )}

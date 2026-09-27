@@ -19,13 +19,13 @@ import {
   Form,
   Image,
   InputNumber,
+  message,
   Modal,
   Segmented,
   Spin,
   Tag,
-  Tooltip,
-  message,
   theme,
+  Tooltip,
 } from 'antd'
 import { saveAs } from 'file-saver'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -36,7 +36,11 @@ import {
   studioSourceTypeLabels,
   type StudioItem,
 } from '../../../../shared/studio'
-import type { NovelAIStudioGenerateRequest, StudioProviderSettings } from '../../../../shared/studio-generation'
+import type {
+  NovelAIStudioGenerateRequest,
+  StudioProviderSettings,
+} from '../../../../shared/studio-generation'
+import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { getSecondaryAccentColor, useAppTheme } from '../../../theme'
 import {
@@ -48,15 +52,23 @@ import {
 import { CivitaiStudio } from './CivitaiStudio'
 import { NovelAIStudio } from './NovelAIStudio'
 import { ProviderBalance } from './ProviderBalance'
-import { studioGenerationParameters } from './studio-parameters'
 import type { StudioGenerationParameters } from './studio-parameters'
-import { readStudioPresets, StudioPresetShelf, type StudioPreset } from './studio-presets'
+import { studioGenerationParameters } from './studio-parameters'
+import {
+  readStudioPresets,
+  StudioPresetShelf,
+  type StudioPreset,
+} from './studio-presets'
 import './studio.css'
 import { PHOTOPEA_URL, usePhotopea } from './usePhotopea'
 
 function StudioShelfImage({ item }: { item: StudioItem }) {
+  useAppLanguage()
+
   const imageRef = useRef<HTMLImageElement>(null)
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null)
+  const [size, setSize] = useState<{ width: number; height: number } | null>(
+    null,
+  )
 
   const updateSize = (image: HTMLImageElement) => {
     if (image.naturalWidth && image.naturalHeight) {
@@ -88,6 +100,8 @@ function StudioShelfImage({ item }: { item: StudioItem }) {
 }
 
 export function StudioPage({ active = true }: { active?: boolean }) {
+  useAppLanguage()
+
   const { token } = theme.useToken()
   const { mode } = useAppTheme()
   const navigate = useNavigate()
@@ -100,16 +114,41 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const [tab, setTab] = useState('novelai')
   const [shelfTab, setShelfTab] = useState<'files' | 'presets'>('files')
   const [presets, setPresets] = useState(readStudioPresets)
-  const [novelaiPreset, setNovelaiPreset] = useState<{ id: number; preset: StudioPreset }>()
-  const [civitaiPreset, setCivitaiPreset] = useState<{ id: number; preset: StudioPreset }>()
-  const [novelaiPanel, setNovelaiPanel] = useState<'parameters' | 'canvas'>('canvas')
-  const [civitaiPanel, setCivitaiPanel] = useState<'parameters' | 'canvas'>('canvas')
+  const [novelaiPreset, setNovelaiPreset] = useState<{
+    id: number
+    preset: StudioPreset
+  }>()
+  const [civitaiPreset, setCivitaiPreset] = useState<{
+    id: number
+    preset: StudioPreset
+  }>()
+  const [novelaiPanel, setNovelaiPanel] = useState<'parameters' | 'canvas'>(
+    'canvas',
+  )
+  const [civitaiPanel, setCivitaiPanel] = useState<'parameters' | 'canvas'>(
+    'canvas',
+  )
   const [selectedItemId, setSelectedItemId] = useState<string>()
-  const [novelaiRequest, setNovelaiRequest] = useState<{ id: number; request: NovelAIStudioGenerateRequest }>()
-  const [novelaiParameters, setNovelaiParameters] = useState<{ id: number; values: StudioGenerationParameters }>()
-  const [civitaiParameters, setCivitaiParameters] = useState<{ id: number; values: StudioGenerationParameters }>()
-  const [novelaiReference, setNovelaiReference] = useState<{ id: number; itemId: string }>()
-  const [civitaiReference, setCivitaiReference] = useState<{ id: number; itemId: string }>()
+  const [novelaiRequest, setNovelaiRequest] = useState<{
+    id: number
+    request: NovelAIStudioGenerateRequest
+  }>()
+  const [novelaiParameters, setNovelaiParameters] = useState<{
+    id: number
+    values: StudioGenerationParameters
+  }>()
+  const [civitaiParameters, setCivitaiParameters] = useState<{
+    id: number
+    values: StudioGenerationParameters
+  }>()
+  const [novelaiReference, setNovelaiReference] = useState<{
+    id: number
+    itemId: string
+  }>()
+  const [civitaiReference, setCivitaiReference] = useState<{
+    id: number
+    itemId: string
+  }>()
   const signal = useRef(0)
   const [mobileShelf, setMobileShelf] = useState(false)
   const [working, setWorking] = useState(false)
@@ -135,7 +174,9 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       }
     } catch (failure) {
       if (sequence === fetchSequence.current)
-        setError(failure instanceof Error ? failure.message : '暂存台读取失败')
+        setError(
+          failure instanceof Error ? failure.message : t('暂存台读取失败'),
+        )
     } finally {
       if (sequence === fetchSequence.current) setLoading(false)
     }
@@ -159,7 +200,9 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const editorRef = useRef<EditorHandle | null>(null)
 
   useEffect(() => {
-    const state = location.state as { novelaiRequest?: NovelAIStudioGenerateRequest } | null
+    const state = location.state as {
+      novelaiRequest?: NovelAIStudioGenerateRequest
+    } | null
     if (!active || !state?.novelaiRequest) return
     setNovelaiRequest({ id: Date.now(), request: state.novelaiRequest })
     setTab('novelai')
@@ -176,7 +219,9 @@ export function StudioPage({ active = true }: { active?: boolean }) {
         .then(setProviderSettings)
         .catch((failure) =>
           message.error(
-            failure instanceof Error ? failure.message : '工作室配置读取失败',
+            failure instanceof Error
+              ? failure.message
+              : t('工作室配置读取失败'),
           ),
         )
     }
@@ -192,7 +237,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       await work()
       await refresh()
     } catch (failure) {
-      message.error(failure instanceof Error ? failure.message : '操作失败')
+      message.error(failure instanceof Error ? failure.message : t('操作失败'))
     } finally {
       workingRef.current = false
       setWorking(false)
@@ -209,7 +254,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           await editorRef.current?.open(item)
         }
       }
-      message.success(`已添加 ${files.length} 个文件到暂存台`)
+      message.success(t('已添加 {0} 个文件到暂存台', [files.length]))
     })
   }
   const openItem = (item: StudioItem) => {
@@ -238,7 +283,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   }
   const refillFromItem = (item: StudioItem) => {
     const values = studioGenerationParameters(item)
-    if (!values) return message.warning('这张图片没有可回填的生成参数')
+    if (!values) return message.warning(t('这张图片没有可回填的生成参数'))
     const id = ++signal.current
     if (tab === 'civitai') setCivitaiParameters({ id, values })
     else if (item.provenance.novelai) {
@@ -252,15 +297,15 @@ export function StudioPage({ active = true }: { active?: boolean }) {
     if (tab === 'civitai') setCivitaiPanel('parameters')
     else setNovelaiPanel('parameters')
     setMobileShelf(false)
-    message.success('生成参数已填入左侧')
+    message.success(t('生成参数已填入左侧'))
   }
   const removeItem = (item: StudioItem) =>
     modal.confirm({
-      title: item.pinned ? '删除这份已钉住的素材？' : '删除这份素材？',
-      content: '只删除暂存台文件，不影响已归档的作品和已送出的参考图。',
-      okText: '删除',
+      title: item.pinned ? t('删除这份已钉住的素材？') : t('删除这份素材？'),
+      content: t('只删除暂存台文件，不影响已归档的作品和已送出的参考图。'),
+      okText: t('删除'),
       okButtonProps: { danger: true },
-      cancelText: '取消',
+      cancelText: t('取消'),
       onOk: () =>
         action(async () => {
           await studioRequest(`/items/${item.id}`, { method: 'DELETE' })
@@ -272,11 +317,11 @@ export function StudioPage({ active = true }: { active?: boolean }) {
     void action(async () => {
       if (key === 'download') {
         const response = await fetch(studioFileUrl(item.id))
-        if (!response.ok) throw new Error('文件下载失败')
+        if (!response.ok) throw new Error(t('文件下载失败'))
         saveAs(await response.blob(), item.name)
       } else if (key === 'archive') {
         await studioRequest(`/items/${item.id}/archive`, { method: 'POST' })
-        message.success('已存入任务列表')
+        message.success(t('已存入任务列表'))
       } else if (key === 'reference') {
         const { url } = await studioRequest<{ url: string }>(
           `/items/${item.id}/reference`,
@@ -284,7 +329,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
         )
         useGlobalStore.getState().addReferenceImage(url)
         navigate('/', { state: { mobilePanel: 'parameters' } })
-        message.success('已复制到图片生成参考图')
+        message.success(t('已复制到图片生成参考图'))
       }
     })
   }
@@ -294,12 +339,15 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       window.localStorage.setItem('studio-presets-v1', JSON.stringify(next))
       setPresets(next)
       return true
-    } catch { message.error('预设保存失败：浏览器本地存储不可用或空间不足'); return false }
+    } catch {
+      message.error(t('预设保存失败：浏览器本地存储不可用或空间不足'))
+      return false
+    }
   }
   const savePreset = (preset: StudioPreset) => {
     if (changePresets([...presets, preset])) {
       setShelfTab('presets')
-      message.success('预设已保存')
+      message.success(t('预设已保存'))
       return true
     }
     return false
@@ -341,15 +389,27 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       <div className="studio-mobile-switch">
         <Segmented
           block
-          value={mobileShelf ? 'shelf' : tab === 'novelai' ? novelaiPanel : tab === 'civitai' ? civitaiPanel : 'editor'}
-          options={tab === 'novelai' || tab === 'civitai' ? [
-            { label: '参数', value: 'parameters' },
-            { label: '画布', value: 'canvas' },
-            { label: `暂存台 (${items.length})`, value: 'shelf' },
-          ] : [
-            { label: '工作室', value: 'editor' },
-            { label: `暂存台 (${items.length})`, value: 'shelf' },
-          ]}
+          value={
+            mobileShelf
+              ? 'shelf'
+              : tab === 'novelai'
+                ? novelaiPanel
+                : tab === 'civitai'
+                  ? civitaiPanel
+                  : 'editor'
+          }
+          options={
+            tab === 'novelai' || tab === 'civitai'
+              ? [
+                  { label: t('参数'), value: 'parameters' },
+                  { label: t('画布'), value: 'canvas' },
+                  { label: t('暂存台 ({0})', [items.length]), value: 'shelf' },
+                ]
+              : [
+                  { label: t('工作室'), value: 'editor' },
+                  { label: t('暂存台 ({0})', [items.length]), value: 'shelf' },
+                ]
+          }
           onChange={(value) => {
             setMobileShelf(value === 'shelf')
             if (value === 'parameters' || value === 'canvas') {
@@ -361,9 +421,13 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       </div>
       <section
         className={`studio-workspace ${mobileShelf ? 'studio-mobile-hidden' : ''}`}
-        aria-label="工作室工具"
+        aria-label={t('工作室工具')}
       >
-        <div className="studio-tabs" role="tablist" aria-label="工作室工具标签">
+        <div
+          className="studio-tabs"
+          role="tablist"
+          aria-label={t('工作室工具标签')}
+        >
           {[
             ['novelai', 'NovelAI Image'],
             ['civitai', 'Civitai Image'],
@@ -383,40 +447,48 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           ))}
         </div>
         {active && providerSettings && tab === 'novelai' && (
-          <ProviderBalance provider="novelai" configured={providerSettings.novelai.configured} keyHint={providerSettings.novelai.keyHint} />
+          <ProviderBalance
+            provider="novelai"
+            configured={providerSettings.novelai.configured}
+            keyHint={providerSettings.novelai.keyHint}
+          />
         )}
         {active && providerSettings && tab === 'civitai' && (
-          <ProviderBalance provider="civitai" configured={providerSettings.civitai.configured} keyHint={providerSettings.civitai.keyHint} />
+          <ProviderBalance
+            provider="civitai"
+            configured={providerSettings.civitai.configured}
+            keyHint={providerSettings.civitai.keyHint}
+          />
         )}
-          <div
-            className="studio-native-panel studio-novelai-panel"
-            style={{ display: tab === 'novelai' ? 'flex' : 'none' }}
-            role="tabpanel"
-            id="studio-panel-novelai"
-            aria-labelledby="studio-tab-novelai"
-          >
-            {providerSettings ? (
-              <NovelAIStudio
-                settings={providerSettings.novelai}
-                items={items}
-                onSettings={setProviderSettings}
-                onItems={addItems}
-                selectedItemId={selectedItemId}
-                onSelectItem={setSelectedItemId}
-                mobilePanel={novelaiPanel}
-                onMobilePanel={setNovelaiPanel}
-                incomingRequest={novelaiRequest}
-                incomingParameters={novelaiParameters}
-                incomingReference={novelaiReference}
-                incomingPreset={novelaiPreset}
-                onSavePreset={savePreset}
-                onOpenPhotopea={openItem}
-              />
-            ) : (
-              <Spin />
-            )}
-          </div>
-        {(
+        <div
+          className="studio-native-panel studio-novelai-panel"
+          style={{ display: tab === 'novelai' ? 'flex' : 'none' }}
+          role="tabpanel"
+          id="studio-panel-novelai"
+          aria-labelledby="studio-tab-novelai"
+        >
+          {providerSettings ? (
+            <NovelAIStudio
+              settings={providerSettings.novelai}
+              items={items}
+              onSettings={setProviderSettings}
+              onItems={addItems}
+              selectedItemId={selectedItemId}
+              onSelectItem={setSelectedItemId}
+              mobilePanel={novelaiPanel}
+              onMobilePanel={setNovelaiPanel}
+              incomingRequest={novelaiRequest}
+              incomingParameters={novelaiParameters}
+              incomingReference={novelaiReference}
+              incomingPreset={novelaiPreset}
+              onSavePreset={savePreset}
+              onOpenPhotopea={openItem}
+            />
+          ) : (
+            <Spin />
+          )}
+        </div>
+        {
           <div
             className="studio-native-panel studio-civitai-panel"
             style={{ display: tab === 'civitai' ? 'flex' : 'none' }}
@@ -442,7 +514,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
               <Spin />
             )}
           </div>
-        )}
+        }
         <div
           className="studio-editor-panel"
           style={{ display: tab === 'photopea' ? 'flex' : 'none' }}
@@ -458,11 +530,12 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             onOpen={() => pick(true)}
             onReload={() =>
               modal.confirm({
-                title: '重新加载 Photopea？',
-                content:
+                title: t('重新加载 Photopea？'),
+                content: t(
                   '编辑器内尚未保存的修改会丢失。暂存台上的文件不受影响。',
-                okText: '重新加载',
-                cancelText: '取消',
+                ),
+                okText: t('重新加载'),
+                cancelText: t('取消'),
                 onOk: () => setFrameKey((key) => key + 1),
               })
             }
@@ -490,246 +563,330 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       </section>
       <aside
         className={`studio-shelf ${mobileShelf ? '' : 'studio-mobile-hidden'}`}
-        aria-label="暂存台"
+        aria-label={t('暂存台')}
       >
-        {(tab === 'novelai' || tab === 'civitai') && <div className="studio-shelf-tabs" role="tablist" aria-label="右侧工作区">
-          <button role="tab" aria-selected={shelfTab === 'files'} className={shelfTab === 'files' ? 'is-active' : ''} onClick={() => setShelfTab('files')}>暂存台</button>
-          <button role="tab" aria-selected={shelfTab === 'presets'} className={shelfTab === 'presets' ? 'is-active' : ''} onClick={() => setShelfTab('presets')}>预设 ({presets.length})</button>
-        </div>}
-        {shelfTab === 'presets' && (tab === 'novelai' || tab === 'civitai') ? <StudioPresetShelf presets={presets} currentProvider={tab} onChange={changePresets} onApply={applyPreset} /> : <>
-        <header className="studio-shelf-header">
-          <div>
-            <strong>
-              <InboxOutlined /> 暂存台
-            </strong>
-            <span>
-              {items.length} 个文件 ·{' '}
-              {items.filter((item) => item.pinned).length} 个钉住
-            </span>
-          </div>
-          <Tooltip title="清理所有未钉住的文件">
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              disabled={working || !unpinned.length}
-              onClick={() =>
-                void action(async () => {
-                  const result = await studioRequest<{ removed: number }>(
-                    '/empty',
-                    studioJson('POST', {
-                      ids: unpinned.map((item) => item.id),
-                    }),
-                  )
-                  message.success(
-                    `已倒掉 ${result.removed} 个文件，钉住项已保留`,
-                  )
-                })
-              }
-            >
-              倒掉
-            </Button>
-          </Tooltip>
-        </header>
-        <div className="studio-shelf-tools">
-          <Button
-            icon={<UploadOutlined />}
-            onClick={() => pick(false)}
-            disabled={working}
+        {(tab === 'novelai' || tab === 'civitai') && (
+          <div
+            className="studio-shelf-tabs"
+            role="tablist"
+            aria-label={t('右侧工作区')}
           >
-            添加文件
-          </Button>
-          <Button
-            type="text"
-            icon={<ReloadOutlined />}
-            onClick={() => void refresh()}
-            aria-label="刷新暂存台"
+            <button
+              role="tab"
+              aria-selected={shelfTab === 'files'}
+              className={shelfTab === 'files' ? 'is-active' : ''}
+              onClick={() => setShelfTab('files')}
+            >
+              {t('暂存台')}
+            </button>
+            <button
+              role="tab"
+              aria-selected={shelfTab === 'presets'}
+              className={shelfTab === 'presets' ? 'is-active' : ''}
+              onClick={() => setShelfTab('presets')}
+            >
+              {t('预设 (')}
+              {presets.length})
+            </button>
+          </div>
+        )}
+        {shelfTab === 'presets' && (tab === 'novelai' || tab === 'civitai') ? (
+          <StudioPresetShelf
+            presets={presets}
+            currentProvider={tab}
+            onChange={changePresets}
+            onApply={applyPreset}
           />
-          <span>PNG / JPG / WebP / GIF / PSD</span>
-        </div>
-        {error && <Alert type="error" title={error} showIcon />}
-        <div className="studio-shelf-list">
-          {loading ? (
-            <Spin />
-          ) : !items.length ? (
-            <div className="studio-shelf-empty">
-              <InboxOutlined />
-              <strong>把素材放在手边</strong>
-              <p>
-                添加文件，或将图片生成结果复制到这里。Photopea
-                保存的作品也会出现在这里。
-              </p>
-              <Button onClick={() => pick(false)}>添加第一份素材</Button>
-            </div>
-          ) : (
-            items.map((item) => (
-              <article
-                key={item.id}
-                className={`studio-item ${item.pinned ? 'is-pinned' : ''} ${selectedItemId === item.id ? 'is-selected' : ''}`}
-                draggable={!working}
-                onDragStart={(event) => {
-                  event.dataTransfer.setData(
-                    'application/x-linai-studio',
-                    item.id,
-                  )
-                  event.dataTransfer.effectAllowed = 'copy'
-                  setDragged(item.id)
-                }}
-                onDragEnd={() => setDragged(null)}
-              >
-                <button
-                  className="studio-item-preview"
-                  onClick={() => {
-                    setSelectedItemId(item.id)
-                    if (item.format === 'psd') openItem(item)
-                    else setPreview(item)
-                  }}
-                  aria-label={`预览 ${item.name}`}
+        ) : (
+          <>
+            <header className="studio-shelf-header">
+              <div>
+                <strong>
+                  <InboxOutlined /> {t('暂存台')}
+                </strong>
+                <span>
+                  {items.length} {t('个文件 ·')}{' '}
+                  {items.filter((item) => item.pinned).length} {t('个钉住')}
+                </span>
+              </div>
+              <Tooltip title={t('清理所有未钉住的文件')}>
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  disabled={working || !unpinned.length}
+                  onClick={() =>
+                    void action(async () => {
+                      const result = await studioRequest<{ removed: number }>(
+                        '/empty',
+                        studioJson('POST', {
+                          ids: unpinned.map((item) => item.id),
+                        }),
+                      )
+                      message.success(
+                        t('已倒掉 {0} 个文件，钉住项已保留', [result.removed]),
+                      )
+                    })
+                  }
                 >
-                  {item.format === 'psd' ? (
-                    <span className="studio-psd">PSD</span>
-                  ) : (
-                    <StudioShelfImage item={item} />
-                  )}
-                </button>
-                <div className="studio-item-info">
-                  <div className="studio-item-title">
-                    <strong title={item.name}>{item.name}</strong>
-                    <Tooltip
-                      title={item.pinned ? '取消钉住' : '钉住，倒掉时保留'}
-                    >
-                      <Button
-                        type="text"
-                        size="small"
-                        aria-label={item.pinned ? '取消钉住' : '钉住'}
-                        icon={
-                          item.pinned ? <PushpinFilled /> : <PushpinOutlined />
-                        }
-                        disabled={working}
-                        onClick={() =>
-                          void action(async () => {
-                            await studioRequest(
-                              `/items/${item.id}`,
-                              studioJson('PATCH', { pinned: !item.pinned }),
-                            )
-                          })
-                        }
-                      />
-                    </Tooltip>
-                  </div>
-                  <div className="studio-item-tags">
-                    <Tag
-                      color={
-                        item.provenance.photopea === 'created'
-                          ? 'cyan'
-                          : item.provenance.photopea === 'edited'
-                            ? 'purple'
-                            : 'blue'
-                      }
-                    >
-                      {studioSourceLabel(item.provenance)}
-                    </Tag>
-                    {studioSourceTypeLabels(item.provenance).map((label) => (
-                      <Tag key={label}>{label}</Tag>
-                    ))}
-                  </div>
-                  <span className="studio-item-size">
-                    {item.format.toUpperCase()} ·{' '}
-                    {(item.bytes / 1024 / 1024).toFixed(2)} MiB
-                    {item.archivedTaskId ? ' · 已归档' : ''}
-                  </span>
-                  <div className="studio-item-actions">
-                    {item.provenance.inpaintRaw && item.provenance.novelai && (
-                      <Tooltip title="原图在下、完整上游结果在上，自行擦除周边后保存到暂存台">
-                        <Button size="small" disabled={working}
-                          onClick={() => openManualComposite(item)}>手动合成</Button>
-                      </Tooltip>
+                  {t('倒掉')}
+                </Button>
+              </Tooltip>
+            </header>
+            <div className="studio-shelf-tools">
+              <Button
+                icon={<UploadOutlined />}
+                onClick={() => pick(false)}
+                disabled={working}
+              >
+                {t('添加文件')}
+              </Button>
+              <Button
+                type="text"
+                icon={<ReloadOutlined />}
+                onClick={() => void refresh()}
+                aria-label={t('刷新暂存台')}
+              />
+              <span>PNG / JPG / WebP / GIF / PSD</span>
+            </div>
+            {error && <Alert type="error" title={error} showIcon />}
+            <div className="studio-shelf-list">
+              {loading ? (
+                <Spin />
+              ) : !items.length ? (
+                <div className="studio-shelf-empty">
+                  <InboxOutlined />
+                  <strong>{t('把素材放在手边')}</strong>
+                  <p>
+                    {t(
+                      '添加文件，或将图片生成结果复制到这里。Photopea 保存的作品也会出现在这里。',
                     )}
-                    <Tooltip title={tab === 'photopea' ? '在 Photopea 打开' : '放入图生图参考图'}>
-                      <Button size="small" icon={<ArrowLeftOutlined />}
-                        aria-label={tab === 'photopea' ? `在 Photopea 打开 ${item.name}` : `将 ${item.name} 放入图生图参考图`}
-                        disabled={working || (tab !== 'photopea' && item.format === 'psd')}
-                        onClick={() => sendItemToPanel(item)} />
-                    </Tooltip>
-                    {tab === 'photopea' ? (
-                      <Tooltip title="作为图层加入">
-                        <Button size="small" icon={<ArrowUpOutlined />}
-                          aria-label={`将 ${item.name} 作为图层加入 Photopea`}
-                          disabled={working}
-                          onClick={() => addItemAsLayer(item)} />
-                      </Tooltip>
-                    ) : (item.provenance.sourceTaskId || item.provenance.civitai) && (
-                      <Tooltip title="将生成参数填入左侧">
-                        <Button size="small" icon={<ArrowUpOutlined />}
-                          aria-label={`回填 ${item.name} 的生成参数`}
-                          disabled={working || !studioGenerationParameters(item)}
-                          onClick={() => refillFromItem(item)} />
-                      </Tooltip>
-                    )}
-                    <Dropdown
-                      trigger={['click']}
-                      menu={{
-                        items: [
-                          {
-                            key: 'download',
-                            label: '下载文件',
-                            icon: <DownloadOutlined />,
-                          },
-                          {
-                            key: 'archive',
-                            label:
-                              item.format === 'psd'
-                                ? '归档需先保存 PNG'
-                                : '存入任务列表',
-                            disabled: item.format === 'psd',
-                            icon: <SaveOutlined />,
-                          },
-                          {
-                            key: 'reference',
-                            label: '送到图片生成作参考图',
-                            disabled: item.format === 'psd',
-                          },
-                          { type: 'divider' },
-                          {
-                            key: 'delete',
-                            label: '删除',
-                            danger: true,
-                            icon: <DeleteOutlined />,
-                          },
-                        ],
-                        onClick: ({ key }) => {
-                          itemAction(key, item)
-                        },
-                      }}
-                    >
-                      <Button
-                        size="small"
-                        icon={<MoreOutlined />}
-                        disabled={working}
-                        aria-label={`${item.name} 的操作`}
-                      />
-                    </Dropdown>
-                  </div>
+                  </p>
+                  <Button onClick={() => pick(false)}>
+                    {t('添加第一份素材')}
+                  </Button>
                 </div>
-              </article>
-            ))
-          )}
-        </div>
-        <footer className="studio-shelf-footer">
-          点击图片预览 · 钉住项不会被倒掉
-          <br />
-          文件会保留到你主动清理
-        </footer>
-        </>}
+              ) : (
+                items.map((item) => (
+                  <article
+                    key={item.id}
+                    className={`studio-item ${item.pinned ? 'is-pinned' : ''} ${selectedItemId === item.id ? 'is-selected' : ''}`}
+                    draggable={!working}
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData(
+                        'application/x-linai-studio',
+                        item.id,
+                      )
+                      event.dataTransfer.effectAllowed = 'copy'
+                      setDragged(item.id)
+                    }}
+                    onDragEnd={() => setDragged(null)}
+                  >
+                    <button
+                      className="studio-item-preview"
+                      onClick={() => {
+                        setSelectedItemId(item.id)
+                        if (item.format === 'psd') openItem(item)
+                        else setPreview(item)
+                      }}
+                      aria-label={t('预览 {0}', [item.name])}
+                    >
+                      {item.format === 'psd' ? (
+                        <span className="studio-psd">PSD</span>
+                      ) : (
+                        <StudioShelfImage item={item} />
+                      )}
+                    </button>
+                    <div
+                      className="studio-item-info"
+                    >
+                      <div className="studio-item-title">
+                        <strong title={item.name}>{item.name}</strong>
+                        <Tooltip
+                          title={
+                            item.pinned ? t('取消钉住') : t('钉住，倒掉时保留')
+                          }
+                        >
+                          <Button
+                            type="text"
+                            size="small"
+                            aria-label={item.pinned ? t('取消钉住') : t('钉住')}
+                            icon={
+                              item.pinned ? (
+                                <PushpinFilled />
+                              ) : (
+                                <PushpinOutlined />
+                              )
+                            }
+                            disabled={working}
+                            onClick={() =>
+                              void action(async () => {
+                                await studioRequest(
+                                  `/items/${item.id}`,
+                                  studioJson('PATCH', { pinned: !item.pinned }),
+                                )
+                              })
+                            }
+                          />
+                        </Tooltip>
+                      </div>
+                      <div className="studio-item-tags">
+                        <Tag
+                          color={
+                            item.provenance.photopea === 'created'
+                              ? 'cyan'
+                              : item.provenance.photopea === 'edited'
+                                ? 'purple'
+                                : 'blue'
+                          }
+                        >
+                          {studioSourceLabel(item.provenance, t)}
+                        </Tag>
+                        {studioSourceTypeLabels(item.provenance).map(
+                          (label) => (
+                            <Tag key={label}>{t(label)}</Tag>
+                          ),
+                        )}
+                      </div>
+                      <span className="studio-item-size">
+                        {item.format.toUpperCase()} ·{' '}
+                        {(item.bytes / 1024 / 1024).toFixed(2)} MiB
+                        {item.archivedTaskId ? t(' · 已归档') : ''}
+                      </span>
+                      <div className="studio-item-actions">
+                        {item.provenance.inpaintRaw &&
+                          item.provenance.novelai && (
+                            <Tooltip
+                              title={t(
+                                '原图在下、完整上游结果在上，自行擦除周边后保存到暂存台',
+                              )}
+                            >
+                              <Button
+                                size="small"
+                                disabled={working}
+                                onClick={() => openManualComposite(item)}
+                              >
+                                {t('手动合成')}
+                              </Button>
+                            </Tooltip>
+                          )}
+                        <Tooltip
+                          title={
+                            tab === 'photopea'
+                              ? t('在 Photopea 打开')
+                              : t('放入图生图参考图')
+                          }
+                        >
+                          <Button
+                            size="small"
+                            icon={<ArrowLeftOutlined />}
+                            aria-label={
+                              tab === 'photopea'
+                                ? t('在 Photopea 打开 {0}', [item.name])
+                                : t('将 {0} 放入图生图参考图', [item.name])
+                            }
+                            disabled={
+                              working ||
+                              (tab !== 'photopea' && item.format === 'psd')
+                            }
+                            onClick={() => sendItemToPanel(item)}
+                          />
+                        </Tooltip>
+                        {tab === 'photopea' ? (
+                          <Tooltip title={t('作为图层加入')}>
+                            <Button
+                              size="small"
+                              icon={<ArrowUpOutlined />}
+                              aria-label={t('将 {0} 作为图层加入 Photopea', [
+                                item.name,
+                              ])}
+                              disabled={working}
+                              onClick={() => addItemAsLayer(item)}
+                            />
+                          </Tooltip>
+                        ) : (
+                          (item.provenance.sourceTaskId ||
+                            item.provenance.civitai) && (
+                            <Tooltip title={t('将生成参数填入左侧')}>
+                              <Button
+                                size="small"
+                                icon={<ArrowUpOutlined />}
+                                aria-label={t('回填 {0} 的生成参数', [
+                                  item.name,
+                                ])}
+                                disabled={
+                                  working || !studioGenerationParameters(item)
+                                }
+                                onClick={() => refillFromItem(item)}
+                              />
+                            </Tooltip>
+                          )
+                        )}
+                        <Dropdown
+                          trigger={['click']}
+                          menu={{
+                            items: [
+                              {
+                                key: 'download',
+                                label: t('下载文件'),
+                                icon: <DownloadOutlined />,
+                              },
+                              {
+                                key: 'archive',
+                                label:
+                                  item.format === 'psd'
+                                    ? t('归档需先保存 PNG')
+                                    : t('存入任务列表'),
+                                disabled: item.format === 'psd',
+                                icon: <SaveOutlined />,
+                              },
+                              {
+                                key: 'reference',
+                                label: t('送到图片生成作参考图'),
+                                disabled: item.format === 'psd',
+                              },
+                              { type: 'divider' },
+                              {
+                                key: 'delete',
+                                label: t('删除'),
+                                danger: true,
+                                icon: <DeleteOutlined />,
+                              },
+                            ],
+                            onClick: ({ key }) => {
+                              itemAction(key, item)
+                            },
+                          }}
+                        >
+                          <Button
+                            size="small"
+                            icon={<MoreOutlined />}
+                            disabled={working}
+                            aria-label={t('{0} 的操作', [item.name])}
+                          />
+                        </Dropdown>
+                      </div>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+            <footer className="studio-shelf-footer">
+              {t('点击图片预览 · 钉住项不会被倒掉')}
+              <br />
+              {t('文件会保留到你主动清理')}
+            </footer>
+          </>
+        )}
       </aside>
       <Modal
-        title="新建 Photopea 文档"
+        title={t('新建 Photopea 文档')}
         open={newOpen}
-        okText="创建"
-        cancelText="取消"
+        okText={t('创建')}
+        cancelText={t('取消')}
         onCancel={() => setNewOpen(false)}
         onOk={() => {
           if (width * height > 16777216) {
-            message.error('画布总像素不能超过 1600 万')
+            message.error(t('画布总像素不能超过 1600 万'))
             return
           }
           setNewOpen(false)
@@ -738,7 +895,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
         }}
       >
         <Form layout="vertical">
-          <Form.Item label="宽度（像素）">
+          <Form.Item label={t('宽度（像素）')}>
             <InputNumber
               min={1}
               max={8192}
@@ -747,7 +904,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
               onChange={(value) => setWidth(value || 1024)}
             />
           </Form.Item>
-          <Form.Item label="高度（像素）">
+          <Form.Item label={t('高度（像素）')}>
             <InputNumber
               min={1}
               max={8192}
@@ -775,7 +932,10 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   )
 }
 
-type EditorHandle = Pick<ReturnType<typeof usePhotopea>, 'open' | 'addAsLayer' | 'openManualComposite' | 'create'>
+type EditorHandle = Pick<
+  ReturnType<typeof usePhotopea>,
+  'open' | 'addAsLayer' | 'openManualComposite' | 'create'
+>
 function PhotopeaEditor({
   handleRef,
   onSaved,
@@ -799,6 +959,8 @@ function PhotopeaEditor({
   onDrop: React.DragEventHandler
   onDragLeave: () => void
 }) {
+  useAppLanguage()
+
   const editor = usePhotopea({ onSaved, onNew, onOpen })
   handleRef.current = editor
   return (
@@ -809,14 +971,14 @@ function PhotopeaEditor({
           disabled={!editor.ready || editor.busy}
           onClick={onNew}
         >
-          新建
+          {t('新建')}
         </Button>
         <Button
           icon={<UploadOutlined />}
           disabled={!editor.ready || editor.busy}
           onClick={onOpen}
         >
-          打开文件
+          {t('打开文件')}
         </Button>
         <Button
           type="primary"
@@ -825,27 +987,27 @@ function PhotopeaEditor({
           disabled={!editor.ready || editor.busy}
           onClick={() => void editor.save('png')}
         >
-          保存 PNG 到暂存台
+          {t('保存 PNG 到暂存台')}
         </Button>
         <Button
           disabled={!editor.ready || editor.busy}
           onClick={() => void editor.save('psd')}
         >
-          保存 PSD
+          {t('保存 PSD')}
         </Button>
         <Button
           type="text"
           icon={<ReloadOutlined />}
-          aria-label="重新加载 Photopea"
+          aria-label={t('重新加载 Photopea')}
           onClick={onReload}
           disabled={editor.busy}
         />
         <span>
           {editor.busy
-            ? '正在处理…'
+            ? t('正在处理…')
             : editor.ready
-              ? '保存 / Ctrl+S 返回暂存台'
-              : '正在连接 Photopea…'}
+              ? t('保存 / Ctrl+S 返回暂存台')
+              : t('正在连接 Photopea…')}
         </span>
       </div>
       {editor.connectionError && (
@@ -854,14 +1016,14 @@ function PhotopeaEditor({
       {editor.recovery && (
         <Alert
           type="error"
-          title="文件尚未写入暂存台，编辑结果已暂时保留"
+          title={t('文件尚未写入暂存台，编辑结果已暂时保留')}
           action={
             <div className="flex gap-2">
               <Button
                 onClick={() => void editor.retrySave()}
                 loading={editor.busy}
               >
-                重试保存
+                {t('重试保存')}
               </Button>
               <Button
                 onClick={() => {
@@ -869,9 +1031,9 @@ function PhotopeaEditor({
                     saveAs(editor.recovery.file, editor.recovery.file.name)
                 }}
               >
-                下载备份
+                {t('下载备份')}
               </Button>
-              <Button onClick={editor.dismissRecovery}>已处理</Button>
+              <Button onClick={editor.dismissRecovery}>{t('已处理')}</Button>
             </div>
           }
         />
@@ -880,7 +1042,7 @@ function PhotopeaEditor({
         <iframe
           src={PHOTOPEA_URL}
           ref={editor.iframeRef}
-          title="Photopea 图片编辑器"
+          title={t('Photopea 图片编辑器')}
           className="studio-frame"
           width="100%"
           height="100%"
@@ -897,8 +1059,8 @@ function PhotopeaEditor({
             onDragLeave={onDragLeave}
           >
             <InboxOutlined />
-            <strong>松开以在 Photopea 打开</strong>
-            <span>原文件会保留在暂存台</span>
+            <strong>{t('松开以在 Photopea 打开')}</strong>
+            <span>{t('原文件会保留在暂存台')}</span>
           </div>
         )}
       </div>

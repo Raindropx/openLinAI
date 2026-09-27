@@ -23,7 +23,7 @@ import {
   Upload,
 } from 'antd'
 import { hc } from 'hono/client'
-import { type ChangeEvent, useRef, useState } from 'react'
+import { useRef, useState, type ChangeEvent } from 'react'
 import type { AppType } from '../../../../server'
 import type {
   CharacterCardFormat,
@@ -35,6 +35,7 @@ import {
   type ChatMessage,
 } from '../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import {
   emptyCharacterCard,
@@ -70,12 +71,14 @@ function arrayBufferToDataUrl(buffer: ArrayBuffer) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('PNG 编码失败'))
+    reader.onerror = () => reject(new Error(t('PNG 编码失败')))
     reader.readAsDataURL(new Blob([buffer], { type: 'image/png' }))
   })
 }
 
 export function CharacterCardPage() {
+  useAppLanguage()
+
   const { llmEndpoints, llmPrompts } = useGlobalStore()
   const { charCardEndpointId, setCharCardEndpointId } = useLocalSetting()
   const {
@@ -125,7 +128,7 @@ export function CharacterCardPage() {
 
   const ensureEndpoint = (): string | null => {
     if (!endpointId) {
-      message.warning('请先在设置中配置 LLM 端点')
+      message.warning(t('请先在设置中配置 LLM 端点'))
       openSettingModal({ initialTab: 'llm-endpoints' })
       return null
     }
@@ -144,7 +147,7 @@ export function CharacterCardPage() {
 
   const openGenerateModal = () => {
     if (imageUrls.length === 0) {
-      message.warning('请先上传或选择一张图片')
+      message.warning(t('请先上传或选择一张图片'))
       return
     }
     if (loading) return
@@ -183,16 +186,18 @@ export function CharacterCardPage() {
       setRawData(reply)
       const raw = extractJsonFromText(reply)
       if (!raw) {
-        message.error('未能从 LLM 返回中解析出角色卡 JSON，请检查原始数据')
+        message.error(t('未能从 LLM 返回中解析出角色卡 JSON，请检查原始数据'))
         return
       }
       applyRawJson(raw)
       setActiveAssetId(null)
       setActiveFormat('png')
       setDirty(true)
-      message.success('角色卡生成成功，可保存到右侧角色卡库')
+      message.success(t('角色卡生成成功，可保存到右侧角色卡库'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '生成角色卡失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('生成角色卡失败'),
+      )
     } finally {
       setLoading(false)
     }
@@ -200,7 +205,7 @@ export function CharacterCardPage() {
 
   const openAiEditModal = () => {
     if (!hasCard) {
-      message.warning('请先生成、导入或载入一张角色卡')
+      message.warning(t('请先生成、导入或载入一张角色卡'))
       return
     }
     if (!ensureEndpoint()) return
@@ -234,16 +239,18 @@ export function CharacterCardPage() {
       })
       const raw = extractJsonFromText(reply)
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-        message.error('未能从 LLM 返回中解析出角色卡 JSON，请重新尝试')
+        message.error(t('未能从 LLM 返回中解析出角色卡 JSON，请重新尝试'))
         return
       }
 
       const normalized = normalizeCharacterCard(raw)
       const proposed = toV2Format(normalized, extractExtraFields(raw))
       setAiEditCandidate(proposed)
-      message.success('AI 修改已生成，请审查差异')
+      message.success(t('AI 修改已生成，请审查差异'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'AI 修改失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('AI 修改失败'),
+      )
     } finally {
       setAiEditLoading(false)
     }
@@ -255,7 +262,7 @@ export function CharacterCardPage() {
     setDirty(true)
     setAiEditOpen(false)
     setAiEditCandidate(null)
-    message.success('AI 修改已应用到当前角色卡')
+    message.success(t('AI 修改已应用到当前角色卡'))
   }
 
   const handleDiscardAiEdit = () => {
@@ -285,9 +292,9 @@ export function CharacterCardPage() {
         setActiveAssetId(null)
         setActiveFormat('json')
         setDirty(true)
-        message.success('JSON 角色卡已载入工作区')
+        message.success(t('JSON 角色卡已载入工作区'))
       } catch {
-        message.error('JSON 解析失败，请检查文件格式')
+        message.error(t('JSON 解析失败，请检查文件格式'))
       }
     }
     reader.readAsText(file)
@@ -301,7 +308,7 @@ export function CharacterCardPage() {
       try {
         const raw = parsePngCharacterCardRaw(buffer)
         if (!raw) {
-          message.error('未在 PNG 中找到角色卡数据')
+          message.error(t('未在 PNG 中找到角色卡数据'))
           return
         }
         applyRawJson(raw)
@@ -311,9 +318,11 @@ export function CharacterCardPage() {
         setActiveAssetId(null)
         setActiveFormat('png')
         setDirty(true)
-        message.success('PNG 角色卡已载入工作区')
+        message.success(t('PNG 角色卡已载入工作区'))
       } catch (error) {
-        message.error(error instanceof Error ? error.message : 'PNG 解析失败')
+        message.error(
+          error instanceof Error ? t(error.message) : t('PNG 解析失败'),
+        )
       }
     }
     reader.readAsArrayBuffer(file)
@@ -347,7 +356,7 @@ export function CharacterCardPage() {
         multiple: false,
         types: [
           {
-            description: 'PNG 角色卡',
+            description: t('PNG 角色卡'),
             accept: { 'image/png': ['.png'] },
           },
         ],
@@ -355,7 +364,7 @@ export function CharacterCardPage() {
       if (handle) handleImportPng(await handle.getFile())
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        message.error('无法打开文件选择器')
+        message.error(t('无法打开文件选择器'))
       }
     }
   }
@@ -363,65 +372,70 @@ export function CharacterCardPage() {
   const handleSubmitRawData = () => {
     const raw = extractJsonFromText(rawData)
     if (!raw) {
-      message.error('JSON 格式不正确，请检查原始数据')
+      message.error(t('JSON 格式不正确，请检查原始数据'))
       return
     }
     applyRawJson(raw)
     setDirty(true)
-    message.success('原始数据已提交到编辑区域')
+    message.success(t('原始数据已提交到编辑区域'))
   }
 
   const handleExportJson = () => {
-    if (!hasCard) return message.warning('请先生成或导入角色卡')
+    if (!hasCard) return message.warning(t('请先生成或导入角色卡'))
     exportCardAsJson(card, extraFields)
-    message.success('JSON 导出成功')
+    message.success(t('JSON 导出成功'))
   }
 
   const handleExportPng = async () => {
-    if (!hasCard) return message.warning('请先生成或导入角色卡')
+    if (!hasCard) return message.warning(t('请先生成或导入角色卡'))
     if (imageUrls.length === 0) {
-      return message.warning('导出 PNG 需要一张角色图片')
+      return message.warning(t('导出 PNG 需要一张角色图片'))
     }
-    const hide = message.loading('正在生成 PNG 角色卡...', 0)
+    const hide = message.loading(t('正在生成 PNG 角色卡...'), 0)
     try {
       await exportCardAsPng(card, imageUrls[0], extraFields)
-      message.success('PNG 导出成功')
+      message.success(t('PNG 导出成功'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'PNG 导出失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('PNG 导出失败'),
+      )
     } finally {
       hide()
     }
   }
 
   const buildPngData = async () => {
-    if (!imageUrls[0]) throw new Error('保存 PNG 角色卡需要一张角色图片')
+    if (!imageUrls[0]) throw new Error(t('保存 PNG 角色卡需要一张角色图片'))
     const png = await imageUrlToPngBuffer(imageUrls[0])
     return arrayBufferToDataUrl(writePngCharacterCard(png, card, extraFields))
   }
 
   const buildLibraryPayload = async (format: CharacterCardFormat) => ({
-    name: card.name || '未命名角色',
+    name: card.name || t('未命名角色'),
     format,
     card: toV2Format(card, extraFields),
     ...(format === 'png' ? { pngData: await buildPngData() } : {}),
   })
 
   const handleSaveAs = async (format: CharacterCardFormat) => {
-    if (!hasCard) return message.warning('请先生成或导入角色卡')
+    if (!hasCard) return message.warning(t('请先生成或导入角色卡'))
     setSaving(true)
     try {
       const response = await client.api['character-card'].$post({
         json: await buildLibraryPayload(format),
       })
       const result = await response.json()
-      if (!result.success) throw new Error(result.error || '保存角色卡失败')
+      if (!result.success)
+        throw new Error(t(result.error || '') || t('保存角色卡失败'))
       setActiveAssetId(result.data.id)
       setActiveFormat(result.data.format)
       setDirty(false)
       refreshLibrary()
-      message.success(`已另存为 ${format.toUpperCase()} 角色卡`)
+      message.success(t('已另存为 {0} 角色卡', [format.toUpperCase()]))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '保存角色卡失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('保存角色卡失败'),
+      )
     } finally {
       setSaving(false)
     }
@@ -429,7 +443,7 @@ export function CharacterCardPage() {
 
   const handleSaveCurrent = async () => {
     if (!activeAssetId) {
-      message.warning('当前是新草稿，请先选择“另存 JSON”或“另存 PNG”')
+      message.warning(t('当前是新草稿，请先选择“另存 JSON”或“另存 PNG”'))
       return
     }
     setSaving(true)
@@ -439,12 +453,15 @@ export function CharacterCardPage() {
         json: await buildLibraryPayload(activeFormat),
       })
       const result = await response.json()
-      if (!result.success) throw new Error(result.error || '更新角色卡失败')
+      if (!result.success)
+        throw new Error(t(result.error || '') || t('更新角色卡失败'))
       setDirty(false)
       refreshLibrary()
-      message.success('当前角色卡已更新')
+      message.success(t('当前角色卡已更新'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '更新角色卡失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('更新角色卡失败'),
+      )
     } finally {
       setSaving(false)
     }
@@ -458,7 +475,7 @@ export function CharacterCardPage() {
     setActiveAssetId(stored.id)
     setActiveFormat(stored.format)
     setDirty(false)
-    message.success(`已载入“${stored.name}”`)
+    message.success(t('已载入“{0}”', [stored.name]))
   }
 
   const handleDeleteStoredCard = async (stored: StoredCharacterCard) => {
@@ -467,12 +484,15 @@ export function CharacterCardPage() {
         param: { id: stored.id },
       })
       const result = await response.json()
-      if (!result.success) throw new Error(result.error || '删除角色卡失败')
+      if (!result.success)
+        throw new Error(t(result.error || '') || t('删除角色卡失败'))
       if (activeAssetId === stored.id) setActiveAssetId(null)
       refreshLibrary()
-      message.success('角色卡已删除')
+      message.success(t('角色卡已删除'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '删除角色卡失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('删除角色卡失败'),
+      )
     }
   }
 
@@ -484,7 +504,7 @@ export function CharacterCardPage() {
     } else {
       exportCardAsJson(storedCard, storedExtra)
     }
-    message.success(`${stored.format.toUpperCase()} 导出成功`)
+    message.success(t('{0} 导出成功', [stored.format.toUpperCase()]))
   }
 
   return (
@@ -496,10 +516,10 @@ export function CharacterCardPage() {
           </div>
           <div>
             <h1 className="m-0 text-lg font-semibold text-slate-100">
-              角色卡工作区
+              {t('角色卡工作区')}
             </h1>
             <p className="m-0 mt-0.5 text-xs text-slate-500">
-              生成、编辑并管理 SillyTavern JSON / PNG 角色卡
+              {t('生成、编辑并管理 SillyTavern JSON / PNG 角色卡')}
             </p>
           </div>
         </div>
@@ -509,14 +529,14 @@ export function CharacterCardPage() {
               value={endpointId}
               onChange={setCharCardEndpointId}
               className="min-w-0 flex-1 sm:min-w-[180px]"
-              placeholder="选择 LLM 端点"
+              placeholder={t('选择 LLM 端点')}
               options={llmEndpoints.map((endpoint) => ({
                 value: endpoint.id,
-                label: endpoint.name || '未命名端点',
+                label: endpoint.name || t('未命名端点'),
               }))}
             />
           )}
-          <Tooltip title="LLM 设置">
+          <Tooltip title={t('LLM 设置')}>
             <Button
               type="text"
               icon={<SettingOutlined />}
@@ -532,9 +552,13 @@ export function CharacterCardPage() {
           value={mobilePanel}
           onChange={setMobilePanel}
           options={[
-            { label: '生成', value: 'generate', icon: <ThunderboltOutlined /> },
-            { label: '编辑', value: 'editor', icon: <FileTextOutlined /> },
-            { label: '角色库', value: 'library', icon: <IdcardOutlined /> },
+            {
+              label: t('生成'),
+              value: 'generate',
+              icon: <ThunderboltOutlined />,
+            },
+            { label: t('编辑'), value: 'editor', icon: <FileTextOutlined /> },
+            { label: t('角色库'), value: 'library', icon: <IdcardOutlined /> },
           ]}
         />
       </div>
@@ -545,7 +569,7 @@ export function CharacterCardPage() {
         >
           <section className="workbench-panel p-3">
             <div className="mb-2 text-sm font-medium text-slate-300">
-              参考图片与生成
+              {t('参考图片与生成')}
             </div>
             <ImageUpload
               value={imageUrls}
@@ -566,13 +590,13 @@ export function CharacterCardPage() {
               className="mt-3 w-full"
               size="large"
             >
-              生成角色卡
+              {t('生成角色卡')}
             </Button>
           </section>
 
           <section className="workbench-panel p-3">
             <div className="mb-2 text-sm font-medium text-slate-300">
-              导入文件
+              {t('导入文件')}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Upload
@@ -581,7 +605,7 @@ export function CharacterCardPage() {
                 beforeUpload={handleImportJson}
               >
                 <Button icon={<FileTextOutlined />} className="w-full">
-                  导入 JSON
+                  {t('导入 JSON')}
                 </Button>
               </Upload>
               {isAndroid ? (
@@ -593,12 +617,12 @@ export function CharacterCardPage() {
                         {
                           key: 'file',
                           icon: <FolderOpenOutlined />,
-                          label: '打开文件选择器',
+                          label: t('打开文件选择器'),
                         },
                         {
                           key: 'photo',
                           icon: <PictureOutlined />,
-                          label: '打开照片选择器',
+                          label: t('打开照片选择器'),
                         },
                       ],
                       onClick: ({ key }) => {
@@ -611,7 +635,7 @@ export function CharacterCardPage() {
                     }}
                   >
                     <Button icon={<FileImageOutlined />} className="w-full">
-                      导入 PNG
+                      {t('导入 PNG')}
                     </Button>
                   </Dropdown>
                   <input
@@ -635,7 +659,7 @@ export function CharacterCardPage() {
                   beforeUpload={handleImportPng}
                 >
                   <Button icon={<FileImageOutlined />} className="w-full">
-                    导入 PNG
+                    {t('导入 PNG')}
                   </Button>
                 </Upload>
               )}
@@ -645,7 +669,7 @@ export function CharacterCardPage() {
           <section className="workbench-panel p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-slate-300">
-                原始数据
+                {t('原始数据')}
               </span>
               <Button
                 size="small"
@@ -653,7 +677,7 @@ export function CharacterCardPage() {
                 onClick={handleSubmitRawData}
                 disabled={!rawData}
               >
-                应用 JSON
+                {t('应用 JSON')}
               </Button>
             </div>
             <Input.TextArea
@@ -663,7 +687,7 @@ export function CharacterCardPage() {
                 setDirty(true)
               }}
               autoSize={{ minRows: 5, maxRows: 18 }}
-              placeholder="LLM 原始输出或角色卡 JSON"
+              placeholder={t('LLM 原始输出或角色卡 JSON')}
             />
           </section>
         </aside>
@@ -674,14 +698,16 @@ export function CharacterCardPage() {
           <div className="workbench-panel-header h-auto! flex-wrap gap-3 py-3">
             <div className="min-w-0">
               <div className="truncate font-medium text-slate-100">
-                {hasCard ? card.name || '未命名角色' : '角色卡编辑器'}
+                {hasCard ? card.name || t('未命名角色') : t('角色卡编辑器')}
               </div>
               <div className="mt-0.5 text-[11px] text-slate-500">
                 {activeAssetId
-                  ? `当前库文件：${activeFormat.toUpperCase()}`
-                  : '新角色卡草稿'}
+                  ? t('当前库文件：{0}', [activeFormat.toUpperCase()])
+                  : t('新角色卡草稿')}
                 {dirty && (
-                  <span className="ml-2 text-amber-300">有未保存修改</span>
+                  <span className="ml-2 text-amber-300">
+                    {t('有未保存修改')}
+                  </span>
                 )}
               </div>
             </div>
@@ -691,7 +717,7 @@ export function CharacterCardPage() {
                 disabled={!hasCard}
                 onClick={openAiEditModal}
               >
-                AI 修改
+                {t('AI 修改')}
               </Button>
               <Button
                 icon={<SaveOutlined />}
@@ -699,7 +725,7 @@ export function CharacterCardPage() {
                 loading={saving}
                 onClick={handleSaveCurrent}
               >
-                保存更新
+                {t('保存更新')}
               </Button>
               <Button
                 icon={<FileTextOutlined />}
@@ -707,7 +733,7 @@ export function CharacterCardPage() {
                 loading={saving}
                 onClick={() => handleSaveAs('json')}
               >
-                另存 JSON
+                {t('另存 JSON')}
               </Button>
               <Button
                 type="primary"
@@ -716,7 +742,7 @@ export function CharacterCardPage() {
                 loading={saving}
                 onClick={() => handleSaveAs('png')}
               >
-                另存 PNG
+                {t('另存 PNG')}
               </Button>
             </div>
           </div>
@@ -726,10 +752,12 @@ export function CharacterCardPage() {
               <div className="flex h-full min-h-[420px] flex-col items-center justify-center text-center text-slate-500">
                 <ThunderboltOutlined className="mb-3 text-5xl text-slate-600" />
                 <div className="text-base text-slate-300">
-                  角色卡编辑器等待内容
+                  {t('角色卡编辑器等待内容')}
                 </div>
                 <div className="mt-1 max-w-sm text-sm leading-6">
-                  生成或导入角色卡，也可以从右侧角色卡库载入已有 JSON / PNG。
+                  {t(
+                    '生成或导入角色卡，也可以从右侧角色卡库载入已有 JSON / PNG。',
+                  )}
                 </div>
               </div>
             ) : (
@@ -748,14 +776,14 @@ export function CharacterCardPage() {
                 onClick={handleExportJson}
                 disabled={!hasCard}
               >
-                导出 JSON 文件
+                {t('导出 JSON 文件')}
               </Button>
               <Button
                 icon={<DownloadOutlined />}
                 onClick={handleExportPng}
                 disabled={!hasCard || imageUrls.length === 0}
               >
-                导出 PNG 文件
+                {t('导出 PNG 文件')}
               </Button>
             </div>
             {hasCard && (
@@ -765,7 +793,7 @@ export function CharacterCardPage() {
                 icon={<PlusOutlined />}
                 onClick={handleClear}
               >
-                新建空白角色卡
+                {t('新建空白角色卡')}
               </Button>
             )}
           </div>
@@ -775,9 +803,9 @@ export function CharacterCardPage() {
           className={`workbench-panel min-h-[calc(100dvh-16rem)] flex-col lg:flex lg:min-h-0 ${mobilePanel === 'library' ? 'flex' : 'hidden'}`}
         >
           <div className="workbench-panel-header h-auto! gap-3 py-3">
-            <span>角色卡库</span>
+            <span>{t('角色卡库')}</span>
             <span className="text-xs font-normal text-slate-500">
-              {storedCards.length} 张
+              {storedCards.length} {t('张', [], 'character-card')}
             </span>
           </div>
           <div className="min-h-0 flex-1">
@@ -794,22 +822,26 @@ export function CharacterCardPage() {
       </div>
 
       <Modal
-        title="生成角色卡"
+        title={t('生成角色卡')}
         open={generateModalOpen}
         centered
         width="min(640px, calc(100vw - 24px))"
-        okText="开始生成"
-        cancelText="取消"
+        okText={t('开始生成')}
+        cancelText={t('取消')}
         onOk={() => void handleGenerate()}
         onCancel={() => setGenerateModalOpen(false)}
       >
         <div className="pb-5">
-          <div className="mb-2 text-sm text-slate-400">补充信息（可选）</div>
+          <div className="mb-2 text-sm text-slate-400">
+            {t('补充信息（可选）')}
+          </div>
           <Input.TextArea
             value={generateInstructions}
             onChange={(event) => setGenerateInstructions(event.target.value)}
             autoSize={{ minRows: 5, maxRows: 12 }}
-            placeholder="例如：角色为女性，姓名叫小云；也可以补充身份、性格或背景设定。留空将仅根据图片生成。"
+            placeholder={t(
+              '例如：角色为女性，姓名叫小云；也可以补充身份、性格或背景设定。留空将仅根据图片生成。',
+            )}
             maxLength={2000}
             showCount
             autoFocus

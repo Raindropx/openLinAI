@@ -24,6 +24,7 @@ import { useEffect, useMemo, useState } from 'react'
 import builtinData from '../../../../../../../styles_zh.json'
 import type { AppType } from '../../../../../../server'
 import { useLocalSetting } from '../../../../../hooks/useLocalSetting'
+import { t, useAppLanguage } from '../../../../../i18n'
 import { useGlobalStore } from '../../../../../store/global'
 import { optimizeStyleTemplate, resolveStylePrompt } from '../styleOptimize'
 
@@ -45,6 +46,9 @@ interface PresetFormValue {
 const client = hc<AppType>('/')
 const builtins: StylePreset[] = builtinData.map((item, index) => ({
   ...item,
+  get name() {
+    return t(item.name)
+  },
   id: `builtin-${index}`,
   source: 'builtin',
 }))
@@ -68,6 +72,8 @@ export function StylePresetModal({
   onClose: () => void
   onApply: (prompt: string) => void
 }) {
+  const { language } = useAppLanguage()
+
   const [customPresets, setCustomPresets] = useState<StylePreset[]>([])
   const [selectedId, setSelectedId] = useState(builtins[0]?.id ?? '')
   const [keyword, setKeyword] = useState('')
@@ -105,14 +111,14 @@ export function StylePresetModal({
           preset.name.toLowerCase().includes(normalized) ||
           preset.prompt.toLowerCase().includes(normalized)),
     )
-  }, [allPresets, customOnly, keyword, styleExtractOnly])
+  }, [allPresets, customOnly, keyword, language, styleExtractOnly])
 
   const loadCustomPresets = async () => {
     setLoading(true)
     try {
       const response = await client.api['style-preset'].$get()
       const result = await response.json()
-      if (!result.success) throw new Error('自定义预设加载失败')
+      if (!result.success) throw new Error(t('自定义预设加载失败'))
       setCustomPresets(
         result.data.map((item) => ({
           ...item,
@@ -122,7 +128,7 @@ export function StylePresetModal({
       )
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : '自定义预设加载失败',
+        error instanceof Error ? t(error.message) : t('自定义预设加载失败'),
       )
     } finally {
       setLoading(false)
@@ -137,7 +143,11 @@ export function StylePresetModal({
     const isEditing = preset?.source === 'custom' && !copy
     setEditingPreset(isEditing ? preset : null)
     form.setFieldsValue({
-      name: preset ? (isEditing ? preset.name : `${preset.name} - 自定义`) : '',
+      name: preset
+        ? isEditing
+          ? preset.name
+          : t('{0} - 自定义', [preset.name])
+        : '',
       prompt: preset?.prompt ?? '{prompt}',
     })
     setEditorOpen(true)
@@ -161,7 +171,7 @@ export function StylePresetModal({
           json: values,
         })
         const result = await response.json()
-        if (!result.success) throw new Error('预设保存失败')
+        if (!result.success) throw new Error(t('预设保存失败'))
         saved = { ...result.data, source: 'custom' }
       }
       setCustomPresets((items) =>
@@ -171,9 +181,11 @@ export function StylePresetModal({
       )
       setSelectedId(saved.id)
       setEditorOpen(false)
-      message.success(editingPreset ? '预设已更新' : '预设已创建')
+      message.success(editingPreset ? t('预设已更新') : t('预设已创建'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '预设保存失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('预设保存失败'),
+      )
     } finally {
       setLoading(false)
     }
@@ -181,11 +193,11 @@ export function StylePresetModal({
 
   const optimizePresetPrompt = async () => {
     const source = form.getFieldValue('prompt')?.trim()
-    if (!source) return message.warning('请先输入提示词模板或风格标签')
+    if (!source) return message.warning(t('请先输入提示词模板或风格标签'))
     const endpointId = optimizeEndpointId || llmEndpoints[0]?.id
-    if (!endpointId) return message.warning('请先在设置中配置 LLM 端点')
+    if (!endpointId) return message.warning(t('请先在设置中配置 LLM 端点'))
     if (!llmPrompts.styleOptimizePrompt.trim()) {
-      return message.warning('请先在设置中配置风格优化系统提示词')
+      return message.warning(t('请先在设置中配置风格优化系统提示词'))
     }
     if (!optimizeEndpointId) setOptimizeEndpointId(endpointId)
     setOptimizing(true)
@@ -196,9 +208,11 @@ export function StylePresetModal({
         source,
       })
       form.setFieldValue('prompt', result)
-      message.success('风格模板优化完成')
+      message.success(t('风格模板优化完成'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '风格模板优化失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('风格模板优化失败'),
+      )
     } finally {
       setOptimizing(false)
     }
@@ -214,9 +228,11 @@ export function StylePresetModal({
       if (!result.success) throw new Error(result.error)
       setCustomPresets((items) => items.filter((item) => item.id !== preset.id))
       if (selectedId === preset.id) setSelectedId(builtins[0]?.id ?? '')
-      message.success('预设已删除')
+      message.success(t('预设已删除'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '预设删除失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('预设删除失败'),
+      )
     } finally {
       setLoading(false)
     }
@@ -225,7 +241,7 @@ export function StylePresetModal({
   return (
     <>
       <Modal
-        title="风格预设"
+        title={t('风格预设')}
         open={open}
         onCancel={onClose}
         width="min(1100px, calc(100vw - 16px))"
@@ -234,7 +250,7 @@ export function StylePresetModal({
         destroyOnHidden
         footer={[
           <Button key="cancel" onClick={onClose}>
-            取消
+            {t('取消')}
           </Button>,
           <Button
             key="apply"
@@ -242,7 +258,7 @@ export function StylePresetModal({
             disabled={!selected || !preview}
             onClick={() => onApply(preview)}
           >
-            应用到提示词
+            {t('应用到提示词')}
           </Button>,
         ]}
       >
@@ -252,7 +268,7 @@ export function StylePresetModal({
               <Input
                 allowClear
                 prefix={<SearchOutlined />}
-                placeholder="搜索预设名称或内容"
+                placeholder={t('搜索预设名称或内容')}
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
               />
@@ -262,7 +278,7 @@ export function StylePresetModal({
                     checked={customOnly}
                     onChange={(event) => setCustomOnly(event.target.checked)}
                   >
-                    仅显示自定义预设
+                    {t('仅显示自定义预设')}
                   </Checkbox>
                   <Checkbox
                     checked={styleExtractOnly}
@@ -270,7 +286,7 @@ export function StylePresetModal({
                       setStyleExtractOnly(event.target.checked)
                     }
                   >
-                    仅显示风格提取预设
+                    {t('仅显示风格提取预设')}
                   </Checkbox>
                 </div>
                 <Button
@@ -279,7 +295,7 @@ export function StylePresetModal({
                   icon={<PlusOutlined />}
                   onClick={() => openEditor()}
                 >
-                  新建
+                  {t('新建')}
                 </Button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -306,9 +322,9 @@ export function StylePresetModal({
                               {preset.name}
                             </span>
                             {preset.origin === 'style-extract' ? (
-                              <Tag color="purple">风格提取</Tag>
+                              <Tag color="purple">{t('风格提取')}</Tag>
                             ) : preset.source === 'custom' ? (
-                              <Tag color="blue">自定义</Tag>
+                              <Tag color="blue">{t('自定义')}</Tag>
                             ) : null}
                           </div>
                           <div className="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">
@@ -321,7 +337,7 @@ export function StylePresetModal({
                 ) : (
                   <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="没有匹配的预设"
+                    description={t('没有匹配的预设')}
                   />
                 )}
               </div>
@@ -334,10 +350,10 @@ export function StylePresetModal({
                     <div className="text-lg font-semibold">{selected.name}</div>
                     <div className="text-xs text-slate-400">
                       {selected.source === 'builtin'
-                        ? '内置预设（只读）'
+                        ? t('内置预设（只读）')
                         : selected.origin === 'style-extract'
-                          ? '来自图片风格提取'
-                          : '用户自定义预设'}
+                          ? t('来自图片风格提取')
+                          : t('用户自定义预设')}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -345,7 +361,9 @@ export function StylePresetModal({
                       icon={<CopyOutlined />}
                       onClick={() => openEditor(selected, true)}
                     >
-                      {selected.source === 'builtin' ? '复制为自定义' : '复制'}
+                      {selected.source === 'builtin'
+                        ? t('复制为自定义')
+                        : t('复制')}
                     </Button>
                     {selected.source === 'custom' && (
                       <>
@@ -353,13 +371,13 @@ export function StylePresetModal({
                           icon={<EditOutlined />}
                           onClick={() => openEditor(selected)}
                         >
-                          编辑
+                          {t('编辑')}
                         </Button>
                         <Popconfirm
-                          title="删除这个自定义预设？"
-                          description="删除后无法恢复。"
-                          okText="删除"
-                          cancelText="取消"
+                          title={t('删除这个自定义预设？')}
+                          description={t('删除后无法恢复。')}
+                          okText={t('删除')}
+                          cancelText={t('取消')}
                           okButtonProps={{ danger: true }}
                           onConfirm={() => deletePreset(selected)}
                         >
@@ -370,7 +388,9 @@ export function StylePresetModal({
                   </div>
                 </div>
                 <div className="shrink-0">
-                  <div className="mb-1 text-sm text-slate-400">预设模板</div>
+                  <div className="mb-1 text-sm text-slate-400">
+                    {t('预设模板')}
+                  </div>
                   <Input.TextArea
                     value={selected.prompt}
                     readOnly
@@ -379,7 +399,7 @@ export function StylePresetModal({
                 </div>
                 <div className="min-h-0 flex-1">
                   <div className="mb-1 text-sm text-slate-400">
-                    注入结果预览
+                    {t('注入结果预览')}
                   </div>
                   <Input.TextArea
                     value={preview}
@@ -387,20 +407,22 @@ export function StylePresetModal({
                     className="h-32! md:h-64!"
                   />
                   <div className="mt-1 text-xs leading-5 text-slate-500">
-                    模板中的 {'{prompt}'}{' '}
-                    会替换为当前提示词，当前提示词为空时使用“此画面”；没有占位符时会追加到当前提示词之后。
+                    {t('模板中的')} {'{prompt}'}{' '}
+                    {t(
+                      '会替换为当前提示词，当前提示词为空时使用“此画面”；没有占位符时会追加到当前提示词之后。',
+                    )}
                   </div>
                 </div>
               </div>
             ) : (
-              <Empty description="请选择一个预设" />
+              <Empty description={t('请选择一个预设')} />
             )}
           </div>
         </Spin>
       </Modal>
 
       <Modal
-        title={editingPreset ? '编辑自定义预设' : '新建自定义预设'}
+        title={editingPreset ? t('编辑自定义预设') : t('新建自定义预设')}
         open={editorOpen}
         width="min(620px, calc(100vw - 16px))"
         centered
@@ -408,25 +430,33 @@ export function StylePresetModal({
         onCancel={() => setEditorOpen(false)}
         onOk={() => void savePreset()}
         confirmLoading={loading}
-        okText="保存"
-        cancelText="取消"
+        okText={t('保存')}
+        cancelText={t('取消')}
         destroyOnHidden
       >
         <Form form={form} layout="vertical" preserve={false}>
           <Form.Item
             name="name"
-            label="预设名称"
+            label={t('预设名称')}
             rules={[
-              { required: true, whitespace: true, message: '请输入预设名称' },
+              {
+                required: true,
+                whitespace: true,
+                message: t('请输入预设名称'),
+              },
             ]}
           >
-            <Input maxLength={80} showCount placeholder="例如：柔和日系摄影" />
+            <Input
+              maxLength={80}
+              showCount
+              placeholder={t('例如：柔和日系摄影')}
+            />
           </Form.Item>
           <Form.Item
             name="prompt"
             label={
               <div className="flex w-full items-center justify-between gap-2">
-                <span>提示词模板</span>
+                <span>{t('提示词模板')}</span>
                 <Button
                   type="link"
                   size="small"
@@ -434,14 +464,20 @@ export function StylePresetModal({
                   loading={optimizing}
                   onClick={() => void optimizePresetPrompt()}
                 >
-                  AI 优化
+                  {t('AI 优化')}
                 </Button>
               </div>
             }
             className="[&_.ant-form-item-label>label]:h-auto! [&_.ant-form-item-label>label]:w-full"
-            extra="使用 {prompt} 表示原提示词；不使用占位符时，模板会追加到原提示词后。"
+            extra={t(
+              '使用 {prompt} 表示原提示词；不使用占位符时，模板会追加到原提示词后。',
+            )}
             rules={[
-              { required: true, whitespace: true, message: '请输入提示词模板' },
+              {
+                required: true,
+                whitespace: true,
+                message: t('请输入提示词模板'),
+              },
             ]}
           >
             <Input.TextArea

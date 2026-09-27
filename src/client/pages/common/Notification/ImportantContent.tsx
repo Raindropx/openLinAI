@@ -1,9 +1,12 @@
 import { Image, message } from 'antd'
 import copy from 'copy-to-clipboard'
 import QRCodeImg from '../../../assets/image/qrcode.jpg'
+import { t, useAppLanguage } from '../../../i18n'
 import { MessageList } from './MessageList'
 
 const ImportantContent = () => {
+  useAppLanguage()
+
   return (
     <div className="text-sm">
       <MessageList
@@ -12,7 +15,7 @@ const ImportantContent = () => {
             icon: '✨',
             content: (
               <>
-                本项目基于
+                {t('本项目基于')}
                 <a
                   className="mx-1 font-medium text-blue-500 underline hover:text-blue-600"
                   href="https://github.com/libudu/LinAI"
@@ -21,7 +24,7 @@ const ImportantContent = () => {
                 >
                   LinAI
                 </a>
-                二次开发。
+                {t('二次开发。')}
               </>
             ),
           },
@@ -29,7 +32,7 @@ const ImportantContent = () => {
             icon: '👤',
             content: (
               <span className="font-bold text-slate-100">
-                原开发者信息：
+                {t('原开发者信息：')}
               </span>
             ),
           },
@@ -37,12 +40,14 @@ const ImportantContent = () => {
             icon: '💬',
             content: (
               <>
-                <span className="font-bold text-slate-100">工具交流群：</span>
+                <span className="font-bold text-slate-100">
+                  {t('工具交流群：')}
+                </span>
                 <span
                   className="cursor-pointer font-medium text-blue-500 underline hover:text-blue-600"
                   onClick={() => {
                     copy('1098503823')
-                    message.success('群号已复制')
+                    message.success(t('群号已复制'))
                   }}
                 >
                   1098503823
@@ -55,10 +60,10 @@ const ImportantContent = () => {
       />
       <div className="flex flex-col items-center">
         <div className="mb-1 text-lg text-slate-300">
-          ☕ 感谢赞助支持，可以备注你的昵称
+          {t('☕ 感谢赞助支持，可以备注你的昵称')}
         </div>
         <div className="flex items-center justify-center rounded-md bg-white/10 p-2">
-          <Image src={QRCodeImg} alt="赞助二维码" width={180} />
+          <Image src={QRCodeImg} alt={t('赞助二维码')} width={180} />
         </div>
       </div>
     </div>

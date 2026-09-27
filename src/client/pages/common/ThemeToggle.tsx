@@ -1,4 +1,5 @@
 import { MoonOutlined, SunOutlined } from '@ant-design/icons'
+import { useAppLanguage } from '../../i18n'
 import { useAppTheme } from '../../theme'
 
 interface ThemeToggleProps {
@@ -6,11 +7,15 @@ interface ThemeToggleProps {
   showLabel?: boolean
 }
 
-export function ThemeToggle({ className, showLabel = false }: ThemeToggleProps) {
+export function ThemeToggle({
+  className,
+  showLabel = false,
+}: ThemeToggleProps) {
+  const { t } = useAppLanguage()
   const { mode, toggleTheme } = useAppTheme()
   const isDark = mode === 'dark'
-  const actionLabel = isDark ? '开灯' : '关灯'
-  const accessibleLabel = isDark ? '切换到明亮模式' : '切换到黑暗模式'
+  const actionLabel = t(isDark ? t('开灯') : t('关灯'))
+  const accessibleLabel = t(isDark ? t('切换到明亮模式') : t('切换到黑暗模式'))
 
   return (
     <button

@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import { saveAs } from 'file-saver'
+import { t } from '../i18n'
 
 /** SillyTavern 角色卡数据（扁平结构，用于编辑） */
 export interface CharacterCard {
@@ -67,7 +68,7 @@ function parsePngChunks(buffer: ArrayBuffer): PngChunk[] {
   const bytes = new Uint8Array(buffer)
   for (let i = 0; i < PNG_SIGNATURE.length; i++) {
     if (bytes[i] !== PNG_SIGNATURE[i]) {
-      throw new Error('不是有效的 PNG 文件')
+      throw new Error(t('不是有效的 PNG 文件'))
     }
   }
   const chunks: PngChunk[] = []
@@ -174,7 +175,7 @@ export function writePngCharacterCard(
 
   const iendIndex = filteredChunks.findIndex((c) => c.type === 'IEND')
   if (iendIndex === -1) {
-    throw new Error('PNG 缺少 IEND chunk')
+    throw new Error(t('PNG 缺少 IEND chunk'))
   }
 
   const beforeIend = filteredChunks.slice(0, iendIndex)
@@ -387,7 +388,7 @@ export async function imageUrlToPngBuffer(url: string): Promise<ArrayBuffer> {
   const pngBlob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (blob) resolve(blob)
-      else reject(new Error('Canvas 转 PNG 失败'))
+      else reject(new Error(t('Canvas 转 PNG 失败')))
     }, 'image/png')
   })
 

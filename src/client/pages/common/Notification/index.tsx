@@ -1,5 +1,6 @@
 import { Modal, Tabs } from 'antd'
 import { createRoot } from 'react-dom/client'
+import { t, useAppLanguage } from '../../../i18n'
 import { AppThemeProvider } from '../../../theme'
 import ErrorContent from './ErrorContent'
 import ImportantContent from './ImportantContent'
@@ -19,25 +20,27 @@ export function openNotificationModal() {
   }
 
   function ModalComponent() {
+    useAppLanguage()
+
     const items = [
       {
         key: 'important',
-        label: '📢 重要说明',
+        label: t('📢 重要说明'),
         children: <ImportantContent />,
       },
       {
         key: 'tip',
-        label: '💡 高级技巧',
+        label: t('💡 高级技巧'),
         children: <TipContent />,
       },
       {
         key: 'error',
-        label: '🚨 错误提示',
+        label: t('🚨 错误提示'),
         children: <ErrorContent />,
       },
       {
         key: 'upgrade',
-        label: '💅 更新日志',
+        label: t('💅 更新日志'),
         children: <UpgradeContent />,
       },
     ]
@@ -46,7 +49,7 @@ export function openNotificationModal() {
       <Modal
         title={
           <span className="flex items-center gap-2 text-xl font-semibold">
-            <span>🔔</span> 通知与说明
+            <span>🔔</span> {t('通知与说明')}
           </span>
         }
         classNames={{

@@ -10,6 +10,7 @@ import {
 import { useRecentImages } from '../../../../hooks/useRecentImages'
 import { useTasks } from '../../../../hooks/useTasks'
 import { useTemplates } from '../../../../hooks/useTemplates'
+import { t, useAppLanguage } from '../../../../i18n'
 import { AppThemeProvider } from '../../../../theme'
 import type { GalleryDeleteSuccessPayload } from './Footer'
 import { GalleryFooter } from './Footer'
@@ -53,6 +54,8 @@ function GalleryModal({
   onSelect,
   maxCount,
 }: GalleryModalProps) {
+  useAppLanguage()
+
   const [activeKey, setActiveKey] = useState('recent')
   const [images, setImages] = useState<ImageItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -173,9 +176,7 @@ function GalleryModal({
 
     removeRecentImages(invalidRecentImages)
     const invalidUrlSet = new Set(invalidRecentImages)
-    setSelectedUrls((prev) =>
-      prev.filter((url) => !invalidUrlSet.has(url)),
-    )
+    setSelectedUrls((prev) => prev.filter((url) => !invalidUrlSet.has(url)))
   }, [invalidRecentImages, removeRecentImages])
 
   const resolveIsReferenced = (
@@ -273,7 +274,9 @@ function GalleryModal({
 
   const renderImageGrid = (urls: string[]) => {
     if (urls.length === 0) {
-      return <div className="p-8 text-center text-slate-400">暂无图片</div>
+      return (
+        <div className="p-8 text-center text-slate-400">{t('暂无图片')}</div>
+      )
     }
     return (
       <div className="grid max-h-[60vh] grid-cols-3 gap-4 overflow-y-auto p-2 md:grid-cols-4 lg:grid-cols-5">
@@ -301,7 +304,7 @@ function GalleryModal({
                 {referencesReady &&
                   imageByUrl.get(url)?.isReferenced === false && (
                     <div className="absolute top-1 left-1 z-10 rounded bg-red-500 px-2 py-0.5 text-xs text-white shadow-sm">
-                      无引用
+                      {t('无引用')}
                     </div>
                   )}
                 <div
@@ -325,7 +328,7 @@ function GalleryModal({
 
   return (
     <Modal
-      title="选择图片"
+      title={t('选择图片')}
       open={visible}
       onCancel={onClose}
       footer={
@@ -349,12 +352,12 @@ function GalleryModal({
         items={[
           {
             key: 'recent',
-            label: '最近使用',
+            label: t('最近使用'),
             children: renderImageGrid(visibleRecentImages),
           },
           {
             key: 'input',
-            label: '输入图片',
+            label: t('输入图片'),
             children:
               loading || !referencesReady ? (
                 <div className="p-8 text-center">
@@ -370,7 +373,7 @@ function GalleryModal({
           },
           {
             key: 'generated',
-            label: '生成图片',
+            label: t('生成图片'),
             children:
               loading || !referencesReady ? (
                 <div className="p-8 text-center">

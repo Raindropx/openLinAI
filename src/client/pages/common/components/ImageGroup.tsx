@@ -1,4 +1,5 @@
 import { Image } from 'antd'
+import { t, useAppLanguage } from '../../../i18n'
 
 interface ImageGroupProps {
   images: string[]
@@ -18,6 +19,8 @@ export function ImageGroup({
   preview = true,
   onPreview,
 }: ImageGroupProps) {
+  useAppLanguage()
+
   if (!images || images.length === 0) return null
 
   const visibleImages = images.slice(0, MAX_VISIBLE_IMAGES)
@@ -116,7 +119,8 @@ export function ImageGroup({
         )}
       </Image.PreviewGroup>
       <div className="absolute right-1 bottom-0 z-20 rounded bg-black/50 px-1 text-[10px] text-white">
-        {images.length}张
+        {images.length}
+        {t('张')}
       </div>
     </div>
   )

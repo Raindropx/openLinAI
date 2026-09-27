@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 import type { LlmEndpoint, LlmPrompts } from '../../../../server/common/config'
 import { useEndpointModels } from '../../../hooks/useEndpointModels'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import {
   findLlmEndpointPreset,
@@ -56,6 +57,8 @@ const isCompleteEndpoint = (endpoint: LlmEndpoint) =>
   )
 
 export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
+  useAppLanguage()
+
   const { llmEndpoints, llmPrompts, saveLlmEndpoints, saveLlmPrompts } =
     useGlobalStore()
   const {
@@ -108,9 +111,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
     error: textModelsError,
     refresh: refreshTextModels,
   } = useEndpointModels({
-    catalog: isVeniceEndpoint
-      ? 'venice-vision-text'
-      : 'openai-vision-text',
+    catalog: isVeniceEndpoint ? 'venice-vision-text' : 'openai-vision-text',
     baseURL: activeEndpoint?.baseURL,
     apiKey: activeEndpoint?.apiKey,
     enabled: Boolean(activeEndpoint),
@@ -145,7 +146,9 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
     if (!preset) return
 
     setPendingPresetEndpoint(createPresetEndpoint(preset))
-    message.info(`已载入“${preset.label}”预设，请填写 API Key 后更新或保存`)
+    message.info(
+      t('已载入“{0}”预设，请填写 API Key 后更新或保存', [preset.label]),
+    )
   }
 
   const handleDeleteEndpoint = (id: string) => {
@@ -175,7 +178,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
 
     const cleanedEndpoint = cleanEndpoint(activeEndpoint)
     if (!isCompleteEndpoint(cleanedEndpoint)) {
-      message.warning('请完整配置当前 LLM 端点（名称/地址/模型/Key）')
+      message.warning(t('请完整配置当前 LLM 端点（名称/地址/模型/Key）'))
       return
     }
 
@@ -193,7 +196,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
       const saved = await saveLlmEndpoints(nextEndpoints)
       if (!saved) {
         skipNextEndpointSyncRef.current = false
-        message.error('当前 LLM 端点更新失败')
+        message.error(t('当前 LLM 端点更新失败'))
         return
       }
       setDraftEndpoints((list) =>
@@ -205,7 +208,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
       )
       setPendingPresetEndpoint(null)
       setActiveId(cleanedEndpoint.id)
-      message.success('当前 LLM 端点已更新')
+      message.success(t('当前 LLM 端点已更新'))
     } finally {
       setUpdatingEndpoint(false)
     }
@@ -220,12 +223,12 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         .map(cleanEndpoint)
         .filter(isCompleteEndpoint)
       if (cleaned.length === 0) {
-        message.warning('请至少完整配置一个 LLM 端点（名称/地址/模型/Key）')
+        message.warning(t('请至少完整配置一个 LLM 端点（名称/地址/模型/Key）'))
         throw new Error('No LLM endpoint')
       }
       const saved = await saveLlmEndpoints(cleaned)
       if (!saved) {
-        message.error('LLM 端点配置保存失败')
+        message.error(t('LLM 端点配置保存失败'))
         throw new Error('Failed to save LLM endpoints')
       }
       setDraftEndpoints(cleaned)
@@ -247,7 +250,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
       ) {
         setCharCardEndpointId(cleaned[0].id)
       }
-      message.success('LLM 配置保存成功')
+      message.success(t('LLM 配置保存成功'))
     },
   }))
 
@@ -256,29 +259,29 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
       <Form layout="vertical">
         {/* —— LLM 端点列表管理 —— */}
         <div className="mb-2 text-sm text-slate-400">
-          LLM 端点（提示词优化 / 角色卡生成）
+          {t('LLM 端点（提示词优化 / 角色卡生成）')}
         </div>
         <div className="flex flex-wrap gap-2">
           <Select
             value={pendingPresetEndpoint ? undefined : activeEndpoint?.id}
             placeholder={
               pendingPresetEndpoint
-                ? `预设草稿：${pendingPresetEndpoint.name}`
-                : '选择端点'
+                ? t('预设草稿：{0}', [pendingPresetEndpoint.name])
+                : t('选择端点')
             }
             onChange={handleSelectEndpoint}
             className="min-w-[120px] flex-1"
             options={draftEndpoints.map((e) => ({
               value: e.id,
-              label: e.name || '未命名端点',
+              label: e.name || t('未命名端点'),
             }))}
           />
           <Button icon={<PlusOutlined />} onClick={handleAddEndpoint}>
-            新增
+            {t('新增')}
           </Button>
           <Select
             value={undefined}
-            placeholder="从预设新增"
+            placeholder={t('从预设新增')}
             className="min-w-44"
             onChange={handleAddPresetEndpoint}
             options={LLM_ENDPOINT_PRESETS.map((preset) => ({
@@ -287,14 +290,14 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
             }))}
           />
           <Button loading={updatingEndpoint} onClick={handleUpdateEndpoint}>
-            更新
+            {t('更新')}
           </Button>
           {!pendingPresetEndpoint && draftEndpoints.length > 1 && (
             <Button
               danger
               onClick={() => handleDeleteEndpoint(activeEndpoint.id)}
             >
-              删除
+              {t('删除')}
             </Button>
           )}
         </div>
@@ -307,7 +310,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
                   {activePreset.label}
                 </div>
                 <div>
-                  官网：{' '}
+                  {t('官网：')}{' '}
                   <a
                     href={activePreset.website}
                     target="_blank"
@@ -324,23 +327,23 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
                 ))}
               </div>
             )}
-            <Form.Item label="名称" required>
+            <Form.Item label={t('名称')} required>
               <Input
                 value={activeEndpoint.name}
                 onChange={(e) => updateActiveEndpoint({ name: e.target.value })}
-                placeholder="如 OpenRouter Gemini、GPT-5"
+                placeholder={t('如 OpenRouter Gemini、GPT-5')}
               />
             </Form.Item>
-            <Form.Item label="API 地址 (baseURL)" required>
+            <Form.Item label={t('API 地址 (baseURL)')} required>
               <Input
                 value={activeEndpoint.baseURL}
                 onChange={(e) =>
                   updateActiveEndpoint({ baseURL: e.target.value })
                 }
-                placeholder="如 https://openrouter.ai/api/v1"
+                placeholder={t('如 https://openrouter.ai/api/v1')}
               />
             </Form.Item>
-            <Form.Item label="模型 ID" required>
+            <Form.Item label={t('模型 ID')} required>
               <ModelIdInput
                 value={activeEndpoint.model}
                 onChange={(model) => updateActiveEndpoint({ model })}
@@ -350,18 +353,20 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
                 onRefresh={refreshTextModels}
                 directoryLabel={
                   isVeniceEndpoint
-                    ? 'Venice 视觉文本模型目录'
-                    : '视觉文本模型目录'
+                    ? t('Venice 视觉文本模型目录')
+                    : t('视觉文本模型目录')
                 }
                 waitingForKey={!activeEndpoint.apiKey.trim()}
                 placeholder={
                   isVeniceEndpoint
-                    ? '搜索或输入 Venice 文本模型 ID'
-                    : '搜索或输入模型 ID，如 openai/gpt-5.6-luna'
+                    ? t('搜索或输入 Venice 文本模型 ID')
+                    : t('搜索或输入模型 ID，如 openai/gpt-5.6-luna')
                 }
               />
               <div className="mt-1 text-xs text-slate-500">
-                候选列表优先显示同时支持文本、图片输入并输出文本的模型；无能力元数据的自定义模型仍可手动输入。
+                {t(
+                  '候选列表优先显示同时支持文本、图片输入并输出文本的模型；无能力元数据的自定义模型仍可手动输入。',
+                )}
               </div>
             </Form.Item>
             <Form.Item label="API Key" required>
@@ -370,7 +375,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
                 onChange={(e) =>
                   updateActiveEndpoint({ apiKey: e.target.value })
                 }
-                placeholder="输入该端点的 API Key"
+                placeholder={t('输入该端点的 API Key')}
               />
             </Form.Item>
             <div className="flex flex-wrap items-center gap-2">
@@ -385,8 +390,8 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
                 onClick={() => setOptimizeEndpointId(activeEndpoint.id)}
               >
                 {optimizeEndpointId === activeEndpoint.id
-                  ? '当前提示词优化端点'
-                  : '设为提示词优化端点'}
+                  ? t('当前提示词优化端点')
+                  : t('设为提示词优化端点')}
               </Button>
               <Button
                 size="small"
@@ -399,8 +404,8 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
                 onClick={() => setCharCardEndpointId(activeEndpoint.id)}
               >
                 {charCardEndpointId === activeEndpoint.id
-                  ? '当前角色卡生成端点'
-                  : '设为角色卡生成端点'}
+                  ? t('当前角色卡生成端点')
+                  : t('设为角色卡生成端点')}
               </Button>
             </div>
           </div>
@@ -409,8 +414,8 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         <div className="my-3 border-t border-[#343a44]" />
 
         {/* —— 系统提示词 —— */}
-        <div className="mb-2 text-sm text-slate-400">系统提示词</div>
-        <Form.Item label="提示词优化提示词">
+        <div className="mb-2 text-sm text-slate-400">{t('系统提示词')}</div>
+        <Form.Item label={t('提示词优化提示词')}>
           <Input.TextArea
             value={draftPrompts.optimizePrompt}
             onChange={(e) =>
@@ -420,43 +425,55 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
             style={{ resize: 'none' }}
           />
         </Form.Item>
-        <Form.Item label="NovelAI Furry 文生图/图生图提示词优化">
+        <Form.Item label={t('NovelAI Furry 文生图/图生图提示词优化')}>
           <Input.TextArea
             value={draftPrompts.novelaiFurryPrompt}
             onChange={(e) =>
-              setDraftPrompts((p) => ({ ...p, novelaiFurryPrompt: e.target.value }))
+              setDraftPrompts((p) => ({
+                ...p,
+                novelaiFurryPrompt: e.target.value,
+              }))
             }
             autoSize={{ minRows: 6, maxRows: 20 }}
           />
         </Form.Item>
-        <Form.Item label="NovelAI Anime 文生图/图生图提示词优化">
+        <Form.Item label={t('NovelAI Anime 文生图/图生图提示词优化')}>
           <Input.TextArea
             value={draftPrompts.novelaiAnimePrompt}
             onChange={(e) =>
-              setDraftPrompts((p) => ({ ...p, novelaiAnimePrompt: e.target.value }))
+              setDraftPrompts((p) => ({
+                ...p,
+                novelaiAnimePrompt: e.target.value,
+              }))
             }
             autoSize={{ minRows: 6, maxRows: 20 }}
           />
         </Form.Item>
-        <Form.Item label="NovelAI Furry 局部重绘提示词优化">
+        <Form.Item label={t('NovelAI Furry 局部重绘提示词优化')}>
           <Input.TextArea
             value={draftPrompts.novelaiInpaintFurryPrompt}
             onChange={(e) =>
-              setDraftPrompts((p) => ({ ...p, novelaiInpaintFurryPrompt: e.target.value }))
+              setDraftPrompts((p) => ({
+                ...p,
+                novelaiInpaintFurryPrompt: e.target.value,
+              }))
             }
             autoSize={{ minRows: 6, maxRows: 20 }}
           />
         </Form.Item>
-        <Form.Item label="NovelAI Anime 局部重绘提示词优化">
+        <Form.Item label={t('NovelAI Anime 局部重绘提示词优化')}>
           <Input.TextArea
             value={draftPrompts.novelaiInpaintAnimePrompt}
             onChange={(e) =>
-              setDraftPrompts((p) => ({ ...p, novelaiInpaintAnimePrompt: e.target.value }))
+              setDraftPrompts((p) => ({
+                ...p,
+                novelaiInpaintAnimePrompt: e.target.value,
+              }))
             }
             autoSize={{ minRows: 6, maxRows: 20 }}
           />
         </Form.Item>
-        <Form.Item label="角色卡生成提示词">
+        <Form.Item label={t('角色卡生成提示词')}>
           <Input.TextArea
             value={draftPrompts.charCardPrompt}
             onChange={(e) =>
@@ -467,8 +484,8 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
           />
         </Form.Item>
         <Form.Item
-          label="风格优化系统提示词"
-          extra="与提示词优化共用同一个 LLM 端点。"
+          label={t('风格优化系统提示词')}
+          extra={t('与提示词优化共用同一个 LLM 端点。')}
         >
           <Input.TextArea
             value={draftPrompts.styleOptimizePrompt}

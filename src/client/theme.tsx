@@ -1,4 +1,5 @@
 import { ConfigProvider, theme, type ThemeConfig } from 'antd'
+import enUS from 'antd/locale/en_US'
 import zhCN from 'antd/locale/zh_CN'
 import {
   createContext,
@@ -8,6 +9,7 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react'
+import { readStoredLanguage, useAppLanguage, type AppLanguage } from './i18n'
 
 export type AppThemeMode = 'light' | 'dark'
 
@@ -246,18 +248,25 @@ function ensureAccentContrast(
 
 /** A coordinated secondary accent, kept visible against the panel background. */
 export function getSecondaryAccentColor(color: string, mode: AppThemeMode) {
-  const hue = ((getColorHue(color) ?? getColorHue(DEFAULT_ACCENT_COLOR) ?? 0) + 90) % 360
+  const hue =
+    ((getColorHue(color) ?? getColorHue(DEFAULT_ACCENT_COLOR) ?? 0) + 90) % 360
   const saturation = 0.55
   const lightness = mode === 'dark' ? 0.62 : 0.38
   const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation
-  const secondary = chroma * (1 - Math.abs((hue / 60) % 2 - 1))
+  const secondary = chroma * (1 - Math.abs(((hue / 60) % 2) - 1))
   const offset = lightness - chroma / 2
-  const channels = hue < 60 ? [chroma, secondary, 0]
-    : hue < 120 ? [secondary, chroma, 0]
-    : hue < 180 ? [0, chroma, secondary]
-    : hue < 240 ? [0, secondary, chroma]
-    : hue < 300 ? [secondary, 0, chroma]
-    : [chroma, 0, secondary]
+  const channels =
+    hue < 60
+      ? [chroma, secondary, 0]
+      : hue < 120
+        ? [secondary, chroma, 0]
+        : hue < 180
+          ? [0, chroma, secondary]
+          : hue < 240
+            ? [0, secondary, chroma]
+            : hue < 300
+              ? [secondary, 0, chroma]
+              : [chroma, 0, secondary]
   const candidate = rgbToHex({
     r: (channels[0] + offset) * 255,
     g: (channels[1] + offset) * 255,
@@ -329,13 +338,17 @@ function configureStaticTheme(
   mode: AppThemeMode,
   accentColor: string,
   squareCorners: boolean,
+  language: AppLanguage = readStoredLanguage(),
 ) {
   const themeConfig = getThemeConfig(mode, accentColor, squareCorners)
 
   ConfigProvider.config({
     theme: themeConfig,
     holderRender: (children) => (
-      <ConfigProvider locale={zhCN} theme={themeConfig}>
+      <ConfigProvider
+        locale={language === 'en-US' ? enUS : zhCN}
+        theme={themeConfig}
+      >
         {children}
       </ConfigProvider>
     ),
@@ -355,6 +368,8 @@ applyDocumentTheme(
 configureStaticTheme(initialTheme, initialAccentColor, initialSquareCorners)
 
 export function AppThemeProvider({ children }: PropsWithChildren) {
+  const { language } = useAppLanguage()
+
   const [mode, setMode] = useState<AppThemeMode>(readStoredTheme)
   const [accentColor, setAccentColorState] = useState(readStoredAccentColor)
   const [logoFollowsAccent, setLogoFollowsAccentState] = useState(
@@ -465,7 +480,7 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     applyDocumentTheme(mode, accentColor, logoFollowsAccent, squareCorners)
-    configureStaticTheme(mode, accentColor, squareCorners)
+    configureStaticTheme(mode, accentColor, squareCorners, language)
 
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, mode)
@@ -481,11 +496,14 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
     } catch {
       // 存储不可用时仍允许当前页面切换主题。
     }
-  }, [accentColor, logoFollowsAccent, mode, squareCorners])
+  }, [accentColor, language, logoFollowsAccent, mode, squareCorners])
 
   return (
     <AppThemeContext.Provider value={contextValue}>
-      <ConfigProvider locale={zhCN} theme={themeConfig}>
+      <ConfigProvider
+        locale={language === 'en-US' ? enUS : zhCN}
+        theme={themeConfig}
+      >
         {children}
       </ConfigProvider>
     </AppThemeContext.Provider>

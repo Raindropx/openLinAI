@@ -1,5 +1,6 @@
 import { AutoComplete, Button } from 'antd'
 import type { EndpointModelOption } from '../../../hooks/useEndpointModels'
+import { t, useAppLanguage } from '../../../i18n'
 
 interface ModelIdInputProps {
   value?: string
@@ -22,10 +23,12 @@ export function ModelIdInput({
   error,
   onRefresh,
   placeholder,
-  directoryLabel = '模型目录',
+  directoryLabel = t('模型目录'),
   waitingForKey = false,
   allowClear = false,
 }: ModelIdInputProps) {
+  useAppLanguage()
+
   return (
     <>
       <AutoComplete
@@ -42,9 +45,9 @@ export function ModelIdInput({
           const query = inputValue.toLowerCase()
           return Boolean(
             option?.value.toLowerCase().includes(query) ||
-              String(option?.label || '')
-                .toLowerCase()
-                .includes(query),
+            String(option?.label || '')
+              .toLowerCase()
+              .includes(query),
           )
         }}
         placeholder={placeholder}
@@ -53,7 +56,9 @@ export function ModelIdInput({
       />
       {loading && (
         <div className="mt-1 text-xs text-slate-500">
-          正在刷新{directoryLabel}…输入内容仍会保留为模型 ID。
+          {t('正在刷新')}
+          {directoryLabel}
+          {t('…输入内容仍会保留为模型 ID。')}
         </div>
       )}
       {error && (
@@ -67,18 +72,18 @@ export function ModelIdInput({
             className="h-auto p-0"
             onClick={onRefresh}
           >
-            重试
+            {t('重试')}
           </Button>
         </div>
       )}
       {waitingForKey && !loading && !error && (
         <div className="mt-1 text-xs text-slate-500">
-          可直接输入模型 ID；填写 API Key 后会自动载入可搜索目录。
+          {t('可直接输入模型 ID；填写 API Key 后会自动载入可搜索目录。')}
         </div>
       )}
       {!waitingForKey && !loading && !error && models.length > 0 && (
         <div className="mt-1 text-xs text-slate-500">
-          可选择目录项；无匹配项时，当前输入文本会直接作为模型 ID。
+          {t('可选择目录项；无匹配项时，当前输入文本会直接作为模型 ID。')}
         </div>
       )}
     </>

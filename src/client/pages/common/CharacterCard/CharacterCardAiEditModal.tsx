@@ -1,5 +1,6 @@
 import { Input, Modal } from 'antd'
 import { useMemo } from 'react'
+import { t, useAppLanguage } from '../../../i18n'
 
 type ChangeKind = 'changed' | 'added' | 'removed'
 type TextSegmentKind = 'equal' | 'removed' | 'added'
@@ -58,7 +59,7 @@ function compactEqualSegments(segments: TextSegment[]): TextSegment[] {
       { kind: 'equal' as const, text: segment.text.slice(0, contextLength) },
       {
         kind: 'equal' as const,
-        text: `\n… 已折叠 ${hiddenLength} 个未修改字符 …\n`,
+        text: t('\n… 已折叠 {0} 个未修改字符 …\n', [hiddenLength]),
         collapsed: true,
       },
       { kind: 'equal' as const, text: segment.text.slice(-contextLength) },
@@ -201,7 +202,7 @@ function collectJsonChanges(
 }
 
 function formatJsonValue(value: unknown): string {
-  if (typeof value === 'string') return value || '（空字符串）'
+  if (typeof value === 'string') return value || t('（空字符串）')
   return JSON.stringify(value, null, 2) ?? String(value)
 }
 
@@ -212,6 +213,8 @@ const segmentStyles: Record<TextSegmentKind, string> = {
 }
 
 function DiffValue({ segments }: { segments: TextSegment[] }) {
+  useAppLanguage()
+
   return (
     <div className="min-h-16 break-words whitespace-pre-wrap">
       {segments.map((segment, index) => (
@@ -231,9 +234,15 @@ function DiffValue({ segments }: { segments: TextSegment[] }) {
 }
 
 const changeLabels: Record<ChangeKind, string> = {
-  changed: '修改',
-  added: '新增字段',
-  removed: '删除字段',
+  get changed() {
+    return t('修改')
+  },
+  get added() {
+    return t('新增字段')
+  },
+  get removed() {
+    return t('删除字段')
+  },
 }
 
 const changeLabelStyles: Record<ChangeKind, string> = {
@@ -243,10 +252,12 @@ const changeLabelStyles: Record<ChangeKind, string> = {
 }
 
 function JsonFieldDiff({ change }: { change: JsonFieldChange }) {
+  useAppLanguage()
+
   const beforeText =
-    change.kind === 'added' ? '（不存在）' : formatJsonValue(change.before)
+    change.kind === 'added' ? t('（不存在）') : formatJsonValue(change.before)
   const afterText =
-    change.kind === 'removed' ? '（不存在）' : formatJsonValue(change.after)
+    change.kind === 'removed' ? t('（不存在）') : formatJsonValue(change.after)
   const { beforeSegments, afterSegments } = useMemo(
     () => buildTextDiff(beforeText, afterText),
     [afterText, beforeText],
@@ -267,13 +278,13 @@ function JsonFieldDiff({ change }: { change: JsonFieldChange }) {
       <div className="grid md:grid-cols-2">
         <div className="border-b border-[#343a44] p-3 font-mono text-xs leading-5 text-slate-300 md:border-r md:border-b-0">
           <div className="character-card-diff-removed-text mb-2 font-sans text-[11px]">
-            修改前
+            {t('修改前')}
           </div>
           <DiffValue segments={beforeSegments} />
         </div>
         <div className="p-3 font-mono text-xs leading-5 text-slate-300">
           <div className="character-card-diff-added-text mb-2 font-sans text-[11px]">
-            修改后
+            {t('修改后')}
           </div>
           <DiffValue segments={afterSegments} />
         </div>
@@ -293,6 +304,8 @@ export function CharacterCardAiEditModal({
   onAccept,
   onDiscard,
 }: CharacterCardAiEditModalProps) {
+  useAppLanguage()
+
   const changes = useMemo(() => {
     if (!proposedJson) return []
     try {
@@ -315,12 +328,12 @@ export function CharacterCardAiEditModal({
 
   return (
     <Modal
-      title={reviewing ? '审查 AI 修改' : 'AI 修改角色卡'}
+      title={reviewing ? t('审查 AI 修改') : t('AI 修改角色卡')}
       open={open}
       centered
       width="min(1000px, calc(100vw - 24px))"
-      okText={reviewing ? '保留更改' : '生成修改'}
-      cancelText={reviewing ? '丢弃更改' : '取消'}
+      okText={reviewing ? t('保留更改') : t('生成修改')}
+      cancelText={reviewing ? t('丢弃更改') : t('取消')}
       confirmLoading={loading}
       okButtonProps={{
         disabled: loading || (!reviewing && !instructions.trim()),
@@ -337,21 +350,21 @@ export function CharacterCardAiEditModal({
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
             <span className="character-card-diff-summary rounded px-2 py-1">
-              JSON Diff · {changes.length} 个字段
+              JSON Diff · {changes.length} {t('个字段')}
             </span>
             {modifiedCount > 0 && (
               <span className="character-card-diff-changed rounded px-2 py-1">
-                修改 {modifiedCount}
+                {t('修改')} {modifiedCount}
               </span>
             )}
             {addedCount > 0 && (
               <span className="character-card-diff-added rounded px-2 py-1">
-                新增 {addedCount}
+                {t('新增')} {addedCount}
               </span>
             )}
             {removedCount > 0 && (
               <span className="character-card-diff-removed rounded px-2 py-1">
-                删除 {removedCount}
+                {t('删除')} {removedCount}
               </span>
             )}
           </div>
@@ -363,29 +376,34 @@ export function CharacterCardAiEditModal({
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-[#343a44] py-10 text-center text-sm text-slate-500">
-              AI 返回的角色卡与当前内容没有可见差异
+              {t('AI 返回的角色卡与当前内容没有可见差异')}
             </div>
           )}
           <div className="mt-2 text-xs text-slate-500">
-            按字段拆分显示；红色和绿色标出字段内部的实际变化，过长的未修改内容会自动折叠。
+            {t(
+              '按字段拆分显示；红色和绿色标出字段内部的实际变化，过长的未修改内容会自动折叠。',
+            )}
           </div>
         </div>
       ) : (
         <div className="pb-5">
-          <div className="mb-2 text-sm text-slate-400">修改要求</div>
+          <div className="mb-2 text-sm text-slate-400">{t('修改要求')}</div>
           <Input.TextArea
             value={instructions}
             onChange={(event) => onInstructionsChange(event.target.value)}
             autoSize={{ minRows: 4, maxRows: 10 }}
-            placeholder="例如：把名字改成小云；或调整角色的性取向，并自然更新相关设定。"
+            placeholder={t(
+              '例如：把名字改成小云；或调整角色的性取向，并自然更新相关设定。',
+            )}
             maxLength={2000}
             showCount
             autoFocus
             disabled={loading}
           />
           <div className="mt-7 text-xs leading-5 text-slate-500">
-            AI 会读取当前完整角色卡，只修改要求涉及的内容，并在下一步展示 JSON
-            差异供你确认。
+            {t(
+              'AI 会读取当前完整角色卡，只修改要求涉及的内容，并在下一步展示 JSON 差异供你确认。',
+            )}
           </div>
         </div>
       )}

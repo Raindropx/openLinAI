@@ -3,6 +3,7 @@ import { useLocalStorageState } from 'ahooks'
 import { Switch } from 'antd'
 import { useEffect, useRef } from 'react'
 import type { Task } from '../../../../../server/common/task-manager'
+import { t, useAppLanguage } from '../../../../i18n'
 
 interface TaskListFinishedAlertButtonProps {
   tasks: Task[]
@@ -11,6 +12,8 @@ interface TaskListFinishedAlertButtonProps {
 export function TaskListFinishedAlertButton({
   tasks,
 }: TaskListFinishedAlertButtonProps) {
+  useAppLanguage()
+
   const [notifyEnabled, setNotifyEnabled] = useLocalStorageState(
     'taskCompletionNotification',
     { defaultValue: false },
@@ -51,8 +54,8 @@ export function TaskListFinishedAlertButton({
         hasNewlyFinishedTask &&
         Notification.permission === 'granted'
       ) {
-        new Notification('LinAI 所有任务已完成', {
-          body: '请在任务列表查看详情',
+        new Notification(t('LinAI 所有任务已完成'), {
+          body: t('请在任务列表查看详情'),
         })
       }
     }
@@ -63,7 +66,7 @@ export function TaskListFinishedAlertButton({
   return (
     <div className="hidden items-center gap-2 sm:flex">
       <span className="text-sm text-slate-400">
-        <BellOutlined /> 完成提醒
+        <BellOutlined /> {t('完成提醒')}
       </span>
       <Switch
         checked={notifyEnabled}

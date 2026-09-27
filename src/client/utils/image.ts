@@ -1,8 +1,9 @@
+import { t } from '../i18n'
 function imageBlobToDataUrl(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('图片读取失败'))
+    reader.onerror = () => reject(new Error(t('图片读取失败')))
     reader.readAsDataURL(blob)
   })
 }
@@ -11,7 +12,7 @@ const MAX_RASTER_DIMENSION = 4096
 const MAX_RASTER_PIXELS = 40_000_000
 
 function calculateRasterSize(width: number, height: number) {
-  if (!width || !height) throw new Error('无法识别图片尺寸')
+  if (!width || !height) throw new Error(t('无法识别图片尺寸'))
   const scale = Math.min(
     1,
     MAX_RASTER_DIMENSION / width,
@@ -31,12 +32,15 @@ function imageBlobToRasterDataUrl(blob: Blob, mimeType = 'image/png') {
 
     image.onload = () => {
       try {
-        const size = calculateRasterSize(image.naturalWidth, image.naturalHeight)
+        const size = calculateRasterSize(
+          image.naturalWidth,
+          image.naturalHeight,
+        )
         const canvas = document.createElement('canvas')
         canvas.width = size.width
         canvas.height = size.height
         const context = canvas.getContext('2d')
-        if (!context) throw new Error('浏览器无法转换图片')
+        if (!context) throw new Error(t('浏览器无法转换图片'))
 
         if (mimeType === 'image/jpeg') {
           // JPEG 不支持透明通道，使用白色背景避免透明区域变黑。
@@ -54,7 +58,7 @@ function imageBlobToRasterDataUrl(blob: Blob, mimeType = 'image/png') {
 
     image.onerror = () => {
       URL.revokeObjectURL(objectUrl)
-      reject(new Error('浏览器无法读取该图片'))
+      reject(new Error(t('浏览器无法读取该图片')))
     }
 
     image.src = objectUrl

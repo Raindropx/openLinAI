@@ -34,6 +34,7 @@ import { TRIAL_TEMPLATE_TITLE } from '../../../../server/common/template-manager
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { usePlatform } from '../../../hooks/usePlatform'
 import { useTasks } from '../../../hooks/useTasks'
+import { t, useAppLanguage } from '../../../i18n'
 import { ImageGroup } from '../../../pages/common/components/ImageGroup'
 import { useGlobalStore } from '../../../store/global'
 import { InfiniteScrollSentinel } from '../components/InfiniteScrollSentinel'
@@ -42,8 +43,8 @@ import {
   sortListItems,
   type ListSortMode,
 } from '../components/ListToolbar'
-import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
 import { generateNovelAIStudioImages } from '../Studio/api'
+import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
 import { TaskItemDeleteButton } from './components/TaskItemDeleteButton'
 import { TaskItemDownloadButton } from './components/TaskItemDownloadButton'
 import { TaskItemMetrics, TaskItemTags } from './components/TaskItemTags'
@@ -82,6 +83,8 @@ function TaskImage({
   preview?: boolean
   onPreview?: () => void
 }) {
+  useAppLanguage()
+
   const [size, setSize] = useState<{ width: number; height: number } | null>(
     null,
   )
@@ -163,6 +166,8 @@ export function TaskList({
   selectedTaskId,
   onSelectTask,
 }: TaskListProps) {
+  useAppLanguage()
+
   const panelMode = variant === 'panel'
   const managementMode = variant === 'management'
   const { isMobile } = usePlatform()
@@ -213,14 +218,14 @@ export function TaskList({
     if (!task.rawTemplate) return
     useGlobalStore.getState().setFillTemplateData(task.rawTemplate)
     navigate('/template-editor')
-    message.success('任务生成信息已填入模板编辑器')
+    message.success(t('任务生成信息已填入模板编辑器'))
   }
 
   const handleRefill = (task: Task) => {
     const novelai = task.novelaiSnapshots?.[0] || task.studioProvenance?.novelai
     if (novelai) {
       navigate('/studio', { state: { novelaiRequest: novelai.request } })
-      message.success('已回填 NovelAI 工作室参数')
+      message.success(t('已回填 NovelAI 工作室参数'))
       return
     }
     if (!task.rawTemplate) return
@@ -228,7 +233,7 @@ export function TaskList({
     if (managementMode) {
       navigate('/', { state: { mobilePanel: 'parameters' } })
     }
-    message.success('已重新填入表单')
+    message.success(t('已重新填入表单'))
   }
 
   const handleRetry = async (task: Task) => {
@@ -236,11 +241,16 @@ export function TaskList({
     if (novelai) {
       setRetryingTaskId(task.id)
       try {
-        const result = await generateNovelAIStudioImages({ ...novelai.request, saveToTaskList: true })
+        const result = await generateNovelAIStudioImages({
+          ...novelai.request,
+          saveToTaskList: true,
+        })
         window.dispatchEvent(new Event('studio-changed'))
-        message.success(`已重新生成 ${result.items.length} 张图片`)
+        message.success(t('已重新生成 {0} 张图片', [result.items.length]))
       } catch (error) {
-        message.error(error instanceof Error ? error.message : 'NovelAI 重试失败')
+        message.error(
+          error instanceof Error ? t(error.message) : t('NovelAI 重试失败'),
+        )
       } finally {
         setRetryingTaskId(undefined)
       }
@@ -257,7 +267,7 @@ export function TaskList({
         writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
       },
     })
-    message.success('已创建重试任务')
+    message.success(t('已创建重试任务'))
   }
 
   const gptImageTasks = useMemo(
@@ -487,7 +497,7 @@ export function TaskList({
     async (target: ReviewImage) => {
       const task = gptImageTasks.find((item) => item.id === target.taskId)
       if (!task) {
-        message.error('当前任务已不存在')
+        message.error(t('当前任务已不存在'))
         return false
       }
 
@@ -504,18 +514,18 @@ export function TaskList({
         })
         const result = await response.json()
         if (!result.success) {
-          throw new Error(result.error || '删除失败')
+          throw new Error(t(result.error || '') || t('删除失败'))
         }
         setDownloadedIds(
           (downloadedIds || []).filter((id) => id !== target.taskId),
         )
-        message.success('任务已删除')
+        message.success(t('任务已删除'))
         return true
       } catch (error: any) {
         setReviewOrphaned(false)
         setReviewImage(target)
         setReviewedTaskId(target.taskId)
-        message.error(error.message || '删除失败')
+        message.error(t(error.message) || t('删除失败'))
         return false
       } finally {
         setReviewDeleting(false)
@@ -538,7 +548,7 @@ export function TaskList({
           ? target.imageIndex
           : task?.outputUrls.findIndex((url) => url === target.src)
       if (!task || currentImageIndex === undefined || currentImageIndex < 0) {
-        message.error('当前图片已不存在')
+        message.error(t('当前图片已不存在'))
         return false
       }
 
@@ -555,18 +565,18 @@ export function TaskList({
         })
         const result = await response.json()
         if (!result.success) {
-          throw new Error(result.error || '删除图片失败')
+          throw new Error(t(result.error || '') || t('删除图片失败'))
         }
         setDownloadedIds(
           (downloadedIds || []).filter((id) => id !== target.taskId),
         )
-        message.success('图片已删除')
+        message.success(t('图片已删除'))
         return true
       } catch (error: any) {
         setReviewOrphaned(false)
         setReviewImage(target)
         setReviewedTaskId(target.taskId)
-        message.error(error.message || '删除图片失败')
+        message.error(t(error.message) || t('删除图片失败'))
         return false
       } finally {
         setReviewDeleting(false)
@@ -584,7 +594,7 @@ export function TaskList({
     (target: ReviewImage) => {
       const task = gptImageTasks.find((item) => item.id === target.taskId)
       if (!task) {
-        message.error('当前任务已不存在')
+        message.error(t('当前任务已不存在'))
         return
       }
 
@@ -602,24 +612,24 @@ export function TaskList({
 
       let skipNext = false
       Modal.confirm({
-        title: '确认删除任务？',
+        title: t('确认删除任务？'),
         content: (
           <div>
             <p>
               {gptImageSettings.keepImageWhenDeleteTask
-                ? '删除任务不会删除其生成的图片文件。'
-                : '删除任务将同时删除其生成的图片文件，且不可恢复。'}
+                ? t('删除任务不会删除其生成的图片文件。')
+                : t('删除任务将同时删除其生成的图片文件，且不可恢复。')}
             </p>
             <Checkbox
               onChange={(event) => {
                 skipNext = event.target.checked
               }}
             >
-              下次不再提醒
+              {t('下次不再提醒')}
             </Checkbox>
           </div>
         ),
-        okText: '确认删除',
+        okText: t('确认删除'),
         okType: 'danger',
         onOk: async () => {
           if (skipNext) setSkipDeleteConfirm(true)
@@ -646,7 +656,7 @@ export function TaskList({
 
   const handleBatchDelete = () => {
     if (!selectedIds.length) {
-      message.info('请先选择要删除的任务')
+      message.info(t('请先选择要删除的任务'))
       return
     }
 
@@ -656,11 +666,11 @@ export function TaskList({
     )
 
     Modal.confirm({
-      title: `确认删除选中的 ${tasksToDelete.length} 个任务？`,
+      title: t('确认删除选中的 {0} 个任务？', [tasksToDelete.length]),
       content: gptImageSettings.keepImageWhenDeleteTask
-        ? '任务记录会被删除，生成的图片文件将保留。'
-        : '任务记录和生成的图片文件都会被永久删除，无法恢复。',
-      okText: '批量删除',
+        ? t('任务记录会被删除，生成的图片文件将保留。')
+        : t('任务记录和生成的图片文件都会被永久删除，无法恢复。'),
+      okText: t('批量删除'),
       okType: 'danger',
       onOk: async () => {
         setBatchDeleting(true)
@@ -691,10 +701,13 @@ export function TaskList({
         )
         exitSelectionMode()
         if (successCount === tasksToDelete.length) {
-          message.success(`已删除 ${successCount} 个任务`)
+          message.success(t('已删除 {0} 个任务', [successCount]))
         } else {
           message.warning(
-            `已删除 ${successCount} 个任务，${tasksToDelete.length - successCount} 个删除失败`,
+            t('已删除 {0} 个任务，{1} 个删除失败', [
+              successCount,
+              tasksToDelete.length - successCount,
+            ]),
           )
         }
       },
@@ -705,14 +718,14 @@ export function TaskList({
     selectionMode ? (
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
         <span className="text-xs whitespace-nowrap text-slate-400">
-          已选 {selectedIds.length}
+          {t('已选')} {selectedIds.length}
         </span>
         <Button
           size="small"
           onClick={() => setSelectedIds(filteredTasks.map((task) => task.id))}
           disabled={!filteredTasks.length}
         >
-          全选
+          {t('全选')}
         </Button>
         <Button
           size="small"
@@ -722,10 +735,10 @@ export function TaskList({
           disabled={!selectedIds.length}
           onClick={handleBatchDelete}
         >
-          删除
+          {t('删除')}
         </Button>
         <Button size="small" onClick={exitSelectionMode}>
-          退出
+          {t('退出')}
         </Button>
       </div>
     ) : (
@@ -734,7 +747,7 @@ export function TaskList({
         icon={<CheckSquareOutlined />}
         onClick={() => setSelectionMode(true)}
       >
-        多选
+        {t('多选')}
       </Button>
     )
   ) : undefined
@@ -759,7 +772,7 @@ export function TaskList({
           onSearchChange={setSearchText}
           sortMode={sortMode}
           onSortChange={setSortMode}
-          searchPlaceholder="搜索任务标题、提示词或端点"
+          searchPlaceholder={t('搜索任务标题、提示词或端点')}
           actions={managementActions}
         />
       </div>
@@ -778,7 +791,7 @@ export function TaskList({
           <div className="flex min-h-64 items-center justify-center">
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={searchText ? '没有匹配的任务' : '暂无生成任务'}
+              description={searchText ? t('没有匹配的任务') : t('暂无生成任务')}
             />
           </div>
         ) : (
@@ -830,13 +843,13 @@ export function TaskList({
                               checked={selected}
                               onChange={() => toggleTaskSelection(task.id)}
                             />
-                            选择任务
+                            {t('选择任务')}
                           </>
                         )}
                         {reviewing && (
                           <span className="task-list-review-badge ml-auto">
                             <EyeOutlined />
-                            当前审阅
+                            {t('当前审阅')}
                           </span>
                         )}
                       </div>
@@ -866,7 +879,7 @@ export function TaskList({
                               strong
                               className="mb-1"
                             >
-                              生成失败
+                              {t('生成失败')}
                             </Typography.Text>
                             <Typography.Text
                               type="danger"
@@ -875,7 +888,7 @@ export function TaskList({
                               onClick={() => {
                                 if (task.error) {
                                   copy(task.error)
-                                  message.success('错误信息已复制')
+                                  message.success(t('错误信息已复制'))
                                 }
                               }}
                             >
@@ -888,7 +901,7 @@ export function TaskList({
                               strong
                               className="mb-1 text-amber-400!"
                             >
-                              运行中
+                              {t('运行中')}
                               <SyncOutlined className="ml-1" spin />
                             </Typography.Text>
                           </div>
@@ -991,7 +1004,7 @@ export function TaskList({
                               onClick={() => {
                                 if (task.rawTemplate?.prompt) {
                                   copy(task.rawTemplate.prompt)
-                                  message.success('提示词已复制')
+                                  message.success(t('提示词已复制'))
                                 }
                               }}
                             >
@@ -1016,12 +1029,12 @@ export function TaskList({
                             )}
                             {panelMode && (
                               <Tooltip
-                                title={task.endpointName || '未记录端点'}
+                                title={task.endpointName || t('未记录端点')}
                               >
                                 <div className="task-list-card-endpoint flex min-w-0 items-center gap-1 text-[11px] text-violet-300/80">
                                   <GlobalOutlined className="shrink-0" />
                                   <span className="truncate">
-                                    {task.endpointName || '未知端点'}
+                                    {task.endpointName || t('未知端点')}
                                   </span>
                                 </div>
                               </Tooltip>
@@ -1035,7 +1048,7 @@ export function TaskList({
                                   />
                                 )}
                                 {task.originalPrompt !== undefined && (
-                                  <Tooltip title="查看优化前的提示词">
+                                  <Tooltip title={t('查看优化前的提示词')}>
                                     <Button
                                       type="text"
                                       icon={<BulbOutlined />}
@@ -1044,7 +1057,7 @@ export function TaskList({
                                           text: task.originalPrompt || '',
                                         })
                                       }
-                                      aria-label="查看优化前的提示词"
+                                      aria-label={t('查看优化前的提示词')}
                                       className="text-amber-300!"
                                     />
                                   </Tooltip>
@@ -1053,7 +1066,7 @@ export function TaskList({
                                   task.rawTemplate &&
                                   (!task.studioProvenance ||
                                     task.studioProvenance.template) && (
-                                    <Tooltip title="添加到模板">
+                                    <Tooltip title={t('添加到模板')}>
                                       <Button
                                         type="primary"
                                         size="small"
@@ -1061,11 +1074,11 @@ export function TaskList({
                                         onClick={() =>
                                           handleAddToTemplate(task)
                                         }
-                                        aria-label="添加到模板"
+                                        aria-label={t('添加到模板')}
                                         className="px-2! sm:px-3!"
                                       >
                                         <span className="hidden sm:inline">
-                                          添加到模板
+                                          {t('添加到模板')}
                                         </span>
                                       </Button>
                                     </Tooltip>
@@ -1074,12 +1087,12 @@ export function TaskList({
                                   (!task.studioProvenance ||
                                     task.studioProvenance.template ||
                                     task.studioProvenance.novelai) && (
-                                    <Tooltip title="重新填入">
+                                    <Tooltip title={t('重新填入')}>
                                       <Button
                                         type="text"
                                         icon={<VerticalAlignTopOutlined />}
                                         onClick={() => handleRefill(task)}
-                                        aria-label="重新填入"
+                                        aria-label={t('重新填入')}
                                       />
                                     </Tooltip>
                                   )}
@@ -1103,10 +1116,14 @@ export function TaskList({
                                     }}
                                   />
                                 )}
-                                {(!task.studioProvenance || task.studioProvenance.novelai) &&
-                                  (task.endpointName !== 'NovelAI Studio' || task.novelaiSnapshots?.length || task.studioProvenance?.novelai) &&
-                                  task.rawTemplate?.title !== TRIAL_TEMPLATE_TITLE && (
-                                    <Tooltip title="重试">
+                                {(!task.studioProvenance ||
+                                  task.studioProvenance.novelai) &&
+                                  (task.endpointName !== 'NovelAI Studio' ||
+                                    task.novelaiSnapshots?.length ||
+                                    task.studioProvenance?.novelai) &&
+                                  task.rawTemplate?.title !==
+                                    TRIAL_TEMPLATE_TITLE && (
+                                    <Tooltip title={t('重试')}>
                                       <Button
                                         type="text"
                                         icon={<RedoOutlined />}
@@ -1154,7 +1171,7 @@ export function TaskList({
         )}
       </div>
       <Modal
-        title="删除图片还是整个任务？"
+        title={t('删除图片还是整个任务？')}
         open={reviewDeleteChoice !== null}
         closable={!reviewDeleting}
         maskClosable={!reviewDeleting}
@@ -1168,7 +1185,7 @@ export function TaskList({
             disabled={reviewDeleting}
             onClick={() => setReviewDeleteChoice(null)}
           >
-            取消
+            {t('取消')}
           </Button>,
           <Button
             key="image"
@@ -1184,7 +1201,7 @@ export function TaskList({
               }
             }}
           >
-            只删除这张图片
+            {t('只删除这张图片')}
           </Button>,
           <Button
             key="task"
@@ -1201,21 +1218,23 @@ export function TaskList({
               }
             }}
           >
-            删除整个任务
+            {t('删除整个任务')}
           </Button>,
         ]}
       >
         <p className="mb-2">
-          这个任务包含多张图片。你可以只移除当前图片，或删除整个任务。
+          {t('这个任务包含多张图片。你可以只移除当前图片，或删除整个任务。')}
         </p>
         <p className="mb-0 text-sm text-slate-400">
           {gptImageSettings.keepImageWhenDeleteTask
-            ? '当前设置：删除整个任务时保留图片文件；只删除当前图片仍会删除该图片文件。'
-            : '当前设置：删除整个任务时会同时删除其中所有图片文件。'}
+            ? t(
+                '当前设置：删除整个任务时保留图片文件；只删除当前图片仍会删除该图片文件。',
+              )
+            : t('当前设置：删除整个任务时会同时删除其中所有图片文件。')}
         </p>
       </Modal>
       <Modal
-        title="优化前的提示词"
+        title={t('优化前的提示词')}
         open={originalPromptView !== null}
         onCancel={() => setOriginalPromptView(null)}
         width={620}
@@ -1227,22 +1246,22 @@ export function TaskList({
             onClick={() => {
               if (!originalPromptView?.text) return
               copy(originalPromptView.text)
-              message.success('优化前的提示词已复制')
+              message.success(t('优化前的提示词已复制'))
             }}
           >
-            复制
+            {t('复制')}
           </Button>,
           <Button
             key="close"
             type="primary"
             onClick={() => setOriginalPromptView(null)}
           >
-            关闭
+            {t('关闭')}
           </Button>,
         ]}
       >
         <div className="max-h-[60vh] overflow-y-auto rounded-md border border-slate-700 bg-slate-950/40 p-3 text-sm break-words whitespace-pre-wrap text-slate-200">
-          {originalPromptView?.text || '（优化前未填写文字提示词）'}
+          {originalPromptView?.text || t('（优化前未填写文字提示词）')}
         </div>
       </Modal>
     </>

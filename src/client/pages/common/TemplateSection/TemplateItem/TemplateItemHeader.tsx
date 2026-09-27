@@ -8,6 +8,7 @@ import { hc } from 'hono/client'
 import type { AppType } from '../../../../../server'
 import { TaskTemplate } from '../../../../../server/common/template-manager'
 import { useTemplates } from '../../../../hooks/useTemplates'
+import { t, useAppLanguage } from '../../../../i18n'
 import { TemplateEditButton } from './TemplateItemEditButton'
 
 const client = hc<AppType>('/')
@@ -23,6 +24,8 @@ export const TemplateItemHeader = ({
   onLoad: (template: TaskTemplate) => void
   clickToLoad?: boolean
 }) => {
+  useAppLanguage()
+
   const { refresh: refreshTemplates } = useTemplates()
 
   const handleDelete = async (id: string) => {
@@ -30,13 +33,13 @@ export const TemplateItemHeader = ({
       const res = await client.api.template[':id'].$delete({ param: { id } })
       const json = await res.json()
       if (json.success) {
-        message.success('删除成功')
+        message.success(t('删除成功'))
         refreshTemplates()
       } else {
-        message.error(json.error || '删除失败')
+        message.error(t(json.error || '') || t('删除失败'))
       }
     } catch (error) {
-      message.error('请求失败')
+      message.error(t('请求失败'))
     }
   }
 
@@ -51,7 +54,8 @@ export const TemplateItemHeader = ({
           )}
           {template.n && template.n > 1 && (
             <Tag color="cyan" className="m-0">
-              {template.n}张
+              {template.n}
+              {t('张')}
             </Tag>
           )}
         </Space>
@@ -60,12 +64,12 @@ export const TemplateItemHeader = ({
           onClick={(event) => event.stopPropagation()}
         >
           {!clickToLoad && (
-            <Tooltip title="载入到工作区">
+            <Tooltip title={t('载入到工作区')}>
               <Button
                 type="text"
                 icon={<ImportOutlined />}
                 onClick={() => {
-                  message.success('已载入到工作区')
+                  message.success(t('已载入到工作区'))
                   onLoad(template)
                 }}
                 className="app-accent-hover"
@@ -74,12 +78,12 @@ export const TemplateItemHeader = ({
           )}
           {!clickToLoad && <TemplateEditButton template={template} />}
           <Popconfirm
-            title="确定要删除该模板吗？"
+            title={t('确定要删除该模板吗？')}
             onConfirm={() => handleDelete(template.id)}
             okButtonProps={{ danger: true }}
             placement="bottom"
           >
-            <Tooltip title="删除模板">
+            <Tooltip title={t('删除模板')}>
               <Button type="text" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>

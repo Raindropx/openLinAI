@@ -1,5 +1,6 @@
 import { hc } from 'hono/client'
 import type { AppType } from '../../server'
+import { t } from '../i18n'
 
 const client = hc<AppType>('/')
 
@@ -42,7 +43,7 @@ export async function requestChatCompletion({
       data?.error?.message ||
         data?.error ||
         data?.message ||
-        `请求失败 (${res.status})`,
+        t('请求失败 ({0})', [res.status]),
     )
   }
 
@@ -56,5 +57,5 @@ export async function requestChatCompletion({
   if (typeof content === 'string') {
     return content
   }
-  throw new Error('模型未返回有效文本')
+  throw new Error(t('模型未返回有效文本'))
 }

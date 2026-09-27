@@ -2,6 +2,7 @@ import { Modal, Tabs } from 'antd'
 import { useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { usePlatform } from '../../../hooks/usePlatform'
+import { t, useAppLanguage } from '../../../i18n'
 import { AppThemeProvider } from '../../../theme'
 import { AdminSetting, AdminSettingRef } from './AdminSetting'
 import { FeatureSetting } from './FeatureSetting'
@@ -31,6 +32,8 @@ export function openSettingModal(options?: {
   }
 
   function ModalComponent() {
+    useAppLanguage()
+
     const [activeTab, setActiveTab] = useState(
       options?.initialTab || 'gpt-image',
     )
@@ -60,22 +63,22 @@ export function openSettingModal(options?: {
     const items = [
       {
         key: 'gpt-image',
-        label: '图片端点',
+        label: t('图片端点'),
         children: <GPTImageSetting ref={gptImageRef} />,
       },
       {
         key: 'llm-endpoints',
-        label: 'LLM 端点',
+        label: t('LLM 端点'),
         children: <LlmSetting ref={llmRef} />,
       },
       {
         key: 'features',
-        label: '功能设置',
+        label: t('功能设置'),
         children: <FeatureSetting />,
       },
       {
         key: 'interface',
-        label: '界面设置',
+        label: t('界面设置'),
         children: <InterfaceSetting />,
       },
     ]
@@ -83,19 +86,19 @@ export function openSettingModal(options?: {
     if (isAdmin()) {
       items.push({
         key: 'admin',
-        label: '管理员设置',
+        label: t('管理员设置'),
         children: <AdminSetting ref={adminRef} />,
       })
     }
 
     return (
       <Modal
-        title="设置"
+        title={t('设置')}
         open={true}
         onCancel={destroy}
         onOk={handleSave}
-        okText={options?.onSuccess ? '保存并继续' : '保存'}
-        cancelText="取消"
+        okText={options?.onSuccess ? t('保存并继续') : t('保存')}
+        cancelText={t('取消')}
         footer={activeTab === 'admin' ? null : undefined}
         destroyOnHidden
         width={isMobile ? '92vw' : 920}

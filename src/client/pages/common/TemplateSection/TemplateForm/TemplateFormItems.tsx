@@ -7,6 +7,7 @@ import { Button, Checkbox, Form, Input, InputNumber, Select } from 'antd'
 import classnames from 'classnames'
 import React, { useState } from 'react'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
+import { t, useAppLanguage } from '../../../../i18n'
 import { useGlobalStore } from '../../../../store/global'
 import { FolderFormItem } from './FolderSelectInput'
 import { ImageUpload } from './ImageUpload'
@@ -20,15 +21,17 @@ function EndpointSelectFormItem({
   className?: string
   syncSelectedEndpoint: boolean
 }) {
+  useAppLanguage()
+
   const endpoints = useGlobalStore((state) => state.endpoints)
   const { setGptImageSettings } = useLocalSetting()
 
   return (
     <Form.Item
       name="endpointId"
-      label="生成端点"
+      label={t('生成端点')}
       className={className}
-      rules={[{ required: true, message: '请先在设置中添加端点' }]}
+      rules={[{ required: true, message: t('请先在设置中添加端点') }]}
     >
       <Select
         onChange={(id) => {
@@ -39,28 +42,32 @@ function EndpointSelectFormItem({
             }))
           }
         }}
-        placeholder="请先在设置中添加端点"
+        placeholder={t('请先在设置中添加端点')}
         options={endpoints.map((e) => ({
           value: e.id,
-          label: e.name || '未命名端点',
+          label: e.name || t('未命名端点'),
         }))}
-        notFoundContent="未配置端点，请到设置中添加"
+        notFoundContent={t('未配置端点，请到设置中添加')}
       />
     </Form.Item>
   )
 }
 function TitleFormItem({ className }: { className?: string }) {
+  useAppLanguage()
+
   return (
-    <Form.Item name="title" label="标题" className={className}>
-      <Input placeholder="请输入模板标题..." />
+    <Form.Item name="title" label={t('标题')} className={className}>
+      <Input placeholder={t('请输入模板标题...')} />
     </Form.Item>
   )
 }
 
 function AspectRatioFormItem({ className }: { className?: string }) {
+  useAppLanguage()
+
   return (
     <Form.Item
-      label="比例"
+      label={t('比例')}
       className={className}
       // 仅用于展示 label 与容纳下拉框 + 复选框，本身不绑定字段
       required
@@ -68,7 +75,7 @@ function AspectRatioFormItem({ className }: { className?: string }) {
       <div>
         <Form.Item
           name="aspectRatio"
-          rules={[{ required: true, message: '请选择比例' }]}
+          rules={[{ required: true, message: t('请选择比例') }]}
           noStyle
         >
           <Select
@@ -89,7 +96,9 @@ function AspectRatioFormItem({ className }: { className?: string }) {
           />
         </Form.Item>
         <Form.Item name="injectAspectRatio" valuePropName="checked" noStyle>
-          <Checkbox className="mt-1 whitespace-nowrap">注入提示</Checkbox>
+          <Checkbox className="mt-1 whitespace-nowrap">
+            {t('注入提示')}
+          </Checkbox>
         </Form.Item>
       </div>
     </Form.Item>
@@ -97,10 +106,12 @@ function AspectRatioFormItem({ className }: { className?: string }) {
 }
 
 function CountFormItem({ className }: { className?: string }) {
+  useAppLanguage()
+
   return (
     <Form.Item
       name="n"
-      label="张数"
+      label={t('张数')}
       className={classnames(className, '[&_.ant-input-number]:w-full!')}
     >
       <InputNumber min={1} max={8} className="" />
@@ -110,7 +121,7 @@ function CountFormItem({ className }: { className?: string }) {
 
 function PromptFormItem({
   className,
-  label = '提示词',
+  label = t('提示词'),
   optimizeButton,
   form,
 }: {
@@ -119,6 +130,8 @@ function PromptFormItem({
   optimizeButton?: React.ReactNode
   form: any
 }) {
+  useAppLanguage()
+
   const [styleExtractOpen, setStyleExtractOpen] = useState(false)
   const [stylePresetOpen, setStylePresetOpen] = useState(false)
 
@@ -137,7 +150,7 @@ function PromptFormItem({
                 className="px-0!"
                 onClick={() => setStylePresetOpen(true)}
               >
-                风格预设
+                {t('风格预设')}
               </Button>
               <Button
                 type="link"
@@ -146,7 +159,7 @@ function PromptFormItem({
                 className="px-0!"
                 onClick={() => setStyleExtractOpen(true)}
               >
-                图片风格提取
+                {t('图片风格提取')}
               </Button>
               {optimizeButton}
               <Button
@@ -156,7 +169,7 @@ function PromptFormItem({
                 className="px-0!"
                 onClick={() => form.setFieldsValue({ prompt: '' })}
               >
-                清空
+                {t('清空')}
               </Button>
             </span>
           </div>
@@ -167,11 +180,11 @@ function PromptFormItem({
           '[&_.ant-form-item-label>label]:max-w-full',
           '[&_.ant-form-item-label>label]:h-auto!',
         )}
-        rules={[{ required: true, message: '请填写提示词' }]}
+        rules={[{ required: true, message: t('请填写提示词') }]}
       >
         <Input.TextArea
           autoSize={{ minRows: 5, maxRows: 10 }}
-          placeholder="请输入生成内容的提示词..."
+          placeholder={t('请输入生成内容的提示词...')}
           style={{ resize: 'none' }}
         />
       </Form.Item>
@@ -212,6 +225,8 @@ export function TemplateFormFields({
   optimizeButton?: React.ReactNode
   syncSelectedEndpoint?: boolean
 }) {
+  useAppLanguage()
+
   const { gptImageSettings } = useLocalSetting()
 
   return (
@@ -228,7 +243,7 @@ export function TemplateFormFields({
       </div>
 
       <div className="flex min-w-0 flex-col gap-3">
-        <Form.Item label="上传图片" className="min-w-0 flex-1">
+        <Form.Item label={t('上传图片')} className="min-w-0 flex-1">
           <ImageUpload
             value={imageUrls}
             onChange={setImageUrls}

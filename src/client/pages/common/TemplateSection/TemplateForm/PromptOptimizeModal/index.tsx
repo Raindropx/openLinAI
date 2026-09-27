@@ -1,5 +1,6 @@
 import { Input, Modal } from 'antd'
 import { useEffect, useState } from 'react'
+import { t, useAppLanguage } from '../../../../../i18n'
 
 interface PromptOptimizeModalProps {
   open: boolean
@@ -20,6 +21,8 @@ export function PromptOptimizeModal({
   onCancel,
   onAdopt,
 }: PromptOptimizeModalProps) {
+  useAppLanguage()
+
   const [text, setText] = useState(initialText)
 
   useEffect(() => {
@@ -28,19 +31,19 @@ export function PromptOptimizeModal({
 
   return (
     <Modal
-      title="提示词优化结果"
+      title={t('提示词优化结果')}
       open={open}
       onCancel={onCancel}
       onOk={() => onAdopt(text)}
-      okText="采纳"
-      cancelText="取消"
+      okText={t('采纳')}
+      cancelText={t('取消')}
       okButtonProps={{ disabled: loading || !text.trim() }}
       width={620}
       destroyOnHidden
     >
       {loading ? (
         <div className="flex items-center justify-center py-12 text-slate-400">
-          正在优化提示词...
+          {t('正在优化提示词...')}
         </div>
       ) : (
         <Input.TextArea
@@ -48,7 +51,7 @@ export function PromptOptimizeModal({
           onChange={(e) => setText(e.target.value)}
           autoSize={{ minRows: 8, maxRows: 20 }}
           style={{ resize: 'none' }}
-          placeholder="优化后的提示词将显示在这里，可编辑后采纳"
+          placeholder={t('优化后的提示词将显示在这里，可编辑后采纳')}
         />
       )}
     </Modal>

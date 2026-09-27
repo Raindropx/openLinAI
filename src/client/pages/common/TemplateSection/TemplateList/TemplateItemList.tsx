@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { AppType } from '../../../../../server'
 import type { TaskTemplate } from '../../../../../server/common/template-manager'
 import { useTemplates } from '../../../../hooks/useTemplates'
+import { t, useAppLanguage } from '../../../../i18n'
 import { InfiniteScrollSentinel } from '../../components/InfiniteScrollSentinel'
 import { TemplateFolder } from '../TemplateItem/TemplateFolder'
 import {
@@ -47,6 +48,8 @@ export function TemplateItemList({
   clickToLoad = false,
   pageScrollOnMobile = false,
 }: TemplateItemListProps) {
+  useAppLanguage()
+
   const { refresh: refreshTemplates } = useTemplates()
   const [page, setPage] = useState(0)
   const [visibleCount, setVisibleCount] = useState(pageSize)
@@ -59,14 +62,16 @@ export function TemplateItemList({
       })
       const json = await res.json()
       if (json.success) {
-        message.success(folder ? '已移动到文件夹' : '已移出文件夹')
+        message.success(folder ? t('已移动到文件夹') : t('已移出文件夹'))
         refreshTemplates()
       } else {
-        message.error(json.error || '移动失败')
+        message.error(t(json.error || '') || t('移动失败'))
       }
     } catch (error) {
       const msg =
-        error instanceof Error ? `[网络] ${error.message}` : '请求失败'
+        error instanceof Error
+          ? t('[网络] {0}', [t(error.message)])
+          : t('请求失败')
       message.error(msg)
     }
   }
@@ -102,14 +107,16 @@ export function TemplateItemList({
       })
       const json = await res.json()
       if (json.success) {
-        message.success('模板顺序已保存')
+        message.success(t('模板顺序已保存'))
         refreshTemplates()
       } else {
-        message.error(json.error || '调整顺序失败')
+        message.error(t(json.error || '') || t('调整顺序失败'))
       }
     } catch (error) {
       const msg =
-        error instanceof Error ? `[网络] ${error.message}` : '请求失败'
+        error instanceof Error
+          ? t('[网络] {0}', [t(error.message)])
+          : t('请求失败')
       message.error(msg)
     }
   }
@@ -158,7 +165,7 @@ export function TemplateItemList({
         {!showFolderArea && displayTemplates.length === 0 ? (
           <div className="flex flex-col items-center justify-center space-y-4 rounded-xl border border-dashed border-[#343a44] bg-[#15181d] py-12 text-slate-500">
             <InboxOutlined className="text-5xl text-slate-600" />
-            <p className="text-sm font-medium">该分类下暂无模板内容</p>
+            <p className="text-sm font-medium">{t('该分类下暂无模板内容')}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">

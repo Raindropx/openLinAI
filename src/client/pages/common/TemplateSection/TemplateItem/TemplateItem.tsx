@@ -4,6 +4,7 @@ import copy from 'copy-to-clipboard'
 import dayjs from 'dayjs'
 import { useState, type DragEvent } from 'react'
 import { TaskTemplate } from '../../../../../server/common/template-manager'
+import { t, useAppLanguage } from '../../../../i18n'
 import { ImageGroup } from '../../../../pages/common/components/ImageGroup'
 import { TemplateItemHeader } from './TemplateItemHeader'
 
@@ -38,6 +39,8 @@ export function TemplateItem({
   active = false,
   clickToLoad = false,
 }: TemplateItemProps) {
+  useAppLanguage()
+
   const [dropPosition, setDropPosition] = useState<TemplateDropPosition | null>(
     null,
   )
@@ -111,7 +114,7 @@ export function TemplateItem({
             {template.images?.[0] ? (
               <Image
                 src={template.images[0]}
-                alt={template.title || '模板预览'}
+                alt={template.title || t('模板预览')}
                 preview={!selectionMode}
                 classNames={{
                   root: 'w-full h-full',
@@ -121,12 +124,12 @@ export function TemplateItem({
             ) : (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-600">
                 <PictureOutlined className="text-3xl" />
-                <span className="text-xs">暂无参考图</span>
+                <span className="text-xs">{t('暂无参考图')}</span>
               </div>
             )}
             {template.images && template.images.length > 1 && (
               <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
-                {template.images.length} 张
+                {template.images.length} {t('张')}
               </span>
             )}
             {selectionMode && (
@@ -155,7 +158,7 @@ export function TemplateItem({
                 className="min-w-0 flex-1 truncate font-bold text-slate-100"
                 title={template.title}
               >
-                {template.title || '未命名模板'}
+                {template.title || t('未命名模板')}
               </div>
               <div className="shrink-0 text-[11px] text-slate-500">
                 {dayjs(template.createdAt).format('YY/MM/DD')}
@@ -168,11 +171,11 @@ export function TemplateItem({
                   event.stopPropagation()
                   if (!selectionMode && template.prompt) {
                     copy(template.prompt)
-                    message.success('提示词已复制')
+                    message.success(t('提示词已复制'))
                   }
                 }}
               >
-                {template.prompt || '暂无提示词'}
+                {template.prompt || t('暂无提示词')}
               </p>
             </Tooltip>
           </div>
@@ -215,7 +218,7 @@ export function TemplateItem({
                 onClick={() => {
                   if (template.prompt) {
                     copy(template.prompt)
-                    message.success('提示词已复制')
+                    message.success(t('提示词已复制'))
                   }
                 }}
               >

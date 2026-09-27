@@ -7,7 +7,15 @@ import {
   UndoOutlined,
 } from '@ant-design/icons'
 import { Button, Empty, Slider, Tooltip } from 'antd'
-import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+  type ReactNode,
+} from 'react'
+import { t, useAppLanguage } from '../../../i18n'
 
 interface Props {
   imageUrl?: string
@@ -35,6 +43,8 @@ export function NovelAICanvas({
   actions,
   emptyActions,
 }: Props) {
+  useAppLanguage()
+
   const viewport = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const [imageSize, setImageSize] = useState({ width: 1024, height: 1024 })
@@ -46,7 +56,9 @@ export function NovelAICanvas({
   const [, setRevision] = useState(0)
   const history = useRef<ImageData[]>([])
   const future = useRef<ImageData[]>([])
-  const pointer = useRef<{ id: number; x: number; y: number; drawing: boolean } | undefined>(undefined)
+  const pointer = useRef<
+    { id: number; x: number; y: number; drawing: boolean } | undefined
+  >(undefined)
   const strokes = useRef(false)
   const lastSource = useRef('')
   const locallyExported = useRef<string | undefined>(undefined)
@@ -56,7 +68,13 @@ export function NovelAICanvas({
   const fit = useCallback(() => {
     const rect = viewport.current?.getBoundingClientRect()
     if (!rect || !pixelWidth || !pixelHeight) return
-    setScale(Math.min(8, (rect.width - 32) / pixelWidth, (rect.height - 32) / pixelHeight))
+    setScale(
+      Math.min(
+        8,
+        (rect.width - 32) / pixelWidth,
+        (rect.height - 32) / pixelHeight,
+      ),
+    )
     setPan({ x: 0, y: 0 })
   }, [pixelHeight, pixelWidth])
 
@@ -71,7 +89,11 @@ export function NovelAICanvas({
     const layer = canvas.current
     if (!layer) return
     const sourceKey = `${imageUrl}|${pixelWidth}|${pixelHeight}`
-    if (lastSource.current === sourceKey && locallyExported.current === maskDataUrl) return
+    if (
+      lastSource.current === sourceKey &&
+      locallyExported.current === maskDataUrl
+    )
+      return
     lastSource.current = sourceKey
     locallyExported.current = undefined
     layer.width = pixelWidth
@@ -96,7 +118,11 @@ export function NovelAICanvas({
       const painted = context.createImageData(pixelWidth, pixelHeight)
       let any = false
       for (let i = 0; i < pixels.data.length; i += 4) {
-        const selected = pixels.data[i] > 127 && pixels.data[i + 1] > 127 && pixels.data[i + 2] > 127 && pixels.data[i + 3] > 127
+        const selected =
+          pixels.data[i] > 127 &&
+          pixels.data[i + 1] > 127 &&
+          pixels.data[i + 2] > 127 &&
+          pixels.data[i + 3] > 127
         painted.data[i] = 255
         painted.data[i + 1] = 104
         painted.data[i + 2] = 92
@@ -155,7 +181,9 @@ export function NovelAICanvas({
     if (!layer || !context || !from.length) return
     to.push(context.getImageData(0, 0, layer.width, layer.height))
     context.putImageData(from.pop()!, 0, 0)
-    strokes.current = context.getImageData(0, 0, layer.width, layer.height).data.some((value, i) => i % 4 === 3 && value > 0)
+    strokes.current = context
+      .getImageData(0, 0, layer.width, layer.height)
+      .data.some((value, i) => i % 4 === 3 && value > 0)
     setRevision((value) => value + 1)
     exportMask()
   }
@@ -171,7 +199,9 @@ export function NovelAICanvas({
   function paint(x: number, y: number, previous?: { x: number; y: number }) {
     const context = canvas.current?.getContext('2d')
     if (!context) return
-    context.globalCompositeOperation = eraser ? 'destination-out' : 'source-over'
+    context.globalCompositeOperation = eraser
+      ? 'destination-out'
+      : 'source-over'
     context.strokeStyle = '#ff685c'
     context.fillStyle = '#ff685c'
     context.lineWidth = brush
@@ -193,7 +223,7 @@ export function NovelAICanvas({
   return (
     <section className="novelai-canvas">
       <header className="novelai-canvas-toolbar">
-        <strong>{name || '创作画布'}</strong>
+        <strong>{name || t('创作画布')}</strong>
         <div className="novelai-canvas-actions">{actions}</div>
       </header>
       {imageUrl ? (
@@ -209,22 +239,33 @@ export function NovelAICanvas({
             >
               <img
                 src={imageUrl}
-                alt={name || '生成图片'}
+                alt={name || t('生成图片')}
                 draggable={false}
                 style={{ objectFit: mode === 'mask' ? 'cover' : 'fill' }}
                 onLoad={(event) => {
                   const image = event.currentTarget
-                  setImageSize({ width: image.naturalWidth, height: image.naturalHeight })
+                  setImageSize({
+                    width: image.naturalWidth,
+                    height: image.naturalHeight,
+                  })
                 }}
               />
               <canvas
                 ref={canvas}
                 className={mode === 'mask' && !hand ? 'is-painting' : ''}
-                style={{ opacity: mode === 'mask' ? 0.55 : 0, touchAction: 'none' }}
+                style={{
+                  opacity: mode === 'mask' ? 0.55 : 0,
+                  touchAction: 'none',
+                }}
                 onPointerDown={(event) => {
                   event.currentTarget.setPointerCapture(event.pointerId)
                   const position = point(event)
-                  pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY, drawing: mode === 'mask' && !hand }
+                  pointer.current = {
+                    id: event.pointerId,
+                    x: event.clientX,
+                    y: event.clientY,
+                    drawing: mode === 'mask' && !hand,
+                  }
                   if (pointer.current.drawing) {
                     saveHistory()
                     paint(position.x, position.y)
@@ -236,12 +277,28 @@ export function NovelAICanvas({
                   if (previous.drawing) {
                     const position = point(event)
                     const prior = {
-                      x: ((previous.x - event.currentTarget.getBoundingClientRect().left) / event.currentTarget.getBoundingClientRect().width) * pixelWidth,
-                      y: ((previous.y - event.currentTarget.getBoundingClientRect().top) / event.currentTarget.getBoundingClientRect().height) * pixelHeight,
+                      x:
+                        ((previous.x -
+                          event.currentTarget.getBoundingClientRect().left) /
+                          event.currentTarget.getBoundingClientRect().width) *
+                        pixelWidth,
+                      y:
+                        ((previous.y -
+                          event.currentTarget.getBoundingClientRect().top) /
+                          event.currentTarget.getBoundingClientRect().height) *
+                        pixelHeight,
                     }
                     paint(position.x, position.y, prior)
-                  } else setPan((value) => ({ x: value.x + event.clientX - previous.x, y: value.y + event.clientY - previous.y }))
-                  pointer.current = { ...previous, x: event.clientX, y: event.clientY }
+                  } else
+                    setPan((value) => ({
+                      x: value.x + event.clientX - previous.x,
+                      y: value.y + event.clientY - previous.y,
+                    }))
+                  pointer.current = {
+                    ...previous,
+                    x: event.clientX,
+                    y: event.clientY,
+                  }
                 }}
                 onPointerUp={(event) => {
                   if (pointer.current?.id === event.pointerId) {
@@ -251,35 +308,113 @@ export function NovelAICanvas({
                 }}
               />
             </div>
-            {generating && <div className="novelai-canvas-generating">正在生成…</div>}
+            {generating && (
+              <div className="novelai-canvas-generating">{t('正在生成…')}</div>
+            )}
           </div>
           <footer className="novelai-canvas-footer">
-            <span>{pixelWidth} × {pixelHeight}</span>
+            <span>
+              {pixelWidth} × {pixelHeight}
+            </span>
             {mode === 'mask' && (
               <div className="novelai-mask-tools">
-                <Tooltip title="移动画布"><Button size="small" type={hand ? 'primary' : 'default'} icon={<DragOutlined />} onClick={() => setHand(!hand)} /></Tooltip>
-                <Button size="small" type={!eraser && !hand ? 'primary' : 'default'} onClick={() => { setEraser(false); setHand(false) }}>画笔</Button>
-                <Button size="small" type={eraser && !hand ? 'primary' : 'default'} onClick={() => { setEraser(true); setHand(false) }}>橡皮</Button>
-                <Slider min={4} max={240} value={brush} onChange={setBrush} style={{ width: 86 }} aria-label="遮罩画笔大小" />
-                <Button size="small" icon={<UndoOutlined />} disabled={!history.current.length} onClick={() => restore(true)} aria-label="撤销遮罩" />
-                <Button size="small" icon={<RedoOutlined />} disabled={!future.current.length} onClick={() => restore(false)} aria-label="重做遮罩" />
-                <Button size="small" icon={<ClearOutlined />} onClick={() => { saveHistory(); canvas.current?.getContext('2d')?.clearRect(0, 0, pixelWidth, pixelHeight); strokes.current = false; locallyExported.current = undefined; onMaskChange?.(undefined) }}>清空遮罩</Button>
-                <span className="novelai-mask-hint">红色区域将重绘</span>
+                <Tooltip title={t('移动画布')}>
+                  <Button
+                    size="small"
+                    type={hand ? 'primary' : 'default'}
+                    icon={<DragOutlined />}
+                    onClick={() => setHand(!hand)}
+                  />
+                </Tooltip>
+                <Button
+                  size="small"
+                  type={!eraser && !hand ? 'primary' : 'default'}
+                  onClick={() => {
+                    setEraser(false)
+                    setHand(false)
+                  }}
+                >
+                  {t('画笔')}
+                </Button>
+                <Button
+                  size="small"
+                  type={eraser && !hand ? 'primary' : 'default'}
+                  onClick={() => {
+                    setEraser(true)
+                    setHand(false)
+                  }}
+                >
+                  {t('橡皮')}
+                </Button>
+                <Slider
+                  min={4}
+                  max={240}
+                  value={brush}
+                  onChange={setBrush}
+                  style={{ width: 86 }}
+                  aria-label={t('遮罩画笔大小')}
+                />
+                <Button
+                  size="small"
+                  icon={<UndoOutlined />}
+                  disabled={!history.current.length}
+                  onClick={() => restore(true)}
+                  aria-label={t('撤销遮罩')}
+                />
+                <Button
+                  size="small"
+                  icon={<RedoOutlined />}
+                  disabled={!future.current.length}
+                  onClick={() => restore(false)}
+                  aria-label={t('重做遮罩')}
+                />
+                <Button
+                  size="small"
+                  icon={<ClearOutlined />}
+                  onClick={() => {
+                    saveHistory()
+                    canvas.current
+                      ?.getContext('2d')
+                      ?.clearRect(0, 0, pixelWidth, pixelHeight)
+                    strokes.current = false
+                    locallyExported.current = undefined
+                    onMaskChange?.(undefined)
+                  }}
+                >
+                  {t('清空遮罩')}
+                </Button>
+                <span className="novelai-mask-hint">{t('红色区域将重绘')}</span>
               </div>
             )}
             <div className="novelai-zoom-tools">
-              <Button size="small" icon={<MinusOutlined />} onClick={() => setScale((value) => Math.max(0.05, value / 1.2))} aria-label="缩小" />
-              <Button size="small" onClick={fit}>适应</Button>
+              <Button
+                size="small"
+                icon={<MinusOutlined />}
+                onClick={() => setScale((value) => Math.max(0.05, value / 1.2))}
+                aria-label={t('缩小')}
+              />
+              <Button size="small" onClick={fit}>
+                {t('适应')}
+              </Button>
               <span>{Math.round(scale * 100)}%</span>
-              <Button size="small" icon={<PlusOutlined />} onClick={() => setScale((value) => Math.min(16, value * 1.2))} aria-label="放大" />
+              <Button
+                size="small"
+                icon={<PlusOutlined />}
+                onClick={() => setScale((value) => Math.min(16, value * 1.2))}
+                aria-label={t('放大')}
+              />
             </div>
           </footer>
         </>
       ) : (
         <div className="novelai-canvas-empty" ref={viewport}>
-          <Empty description="生成结果会在这里显示，也可以从右侧暂存台选图" />
+          <Empty
+            description={t('生成结果会在这里显示，也可以从右侧暂存台选图')}
+          />
           {emptyActions}
-          {generating && <div className="novelai-canvas-generating">正在生成…</div>}
+          {generating && (
+            <div className="novelai-canvas-generating">{t('正在生成…')}</div>
+          )}
         </div>
       )}
     </section>

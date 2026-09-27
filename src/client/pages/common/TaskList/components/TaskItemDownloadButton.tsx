@@ -1,5 +1,6 @@
 import { DownloadOutlined } from '@ant-design/icons'
 import { Button, message, Tooltip } from 'antd'
+import { t, useAppLanguage } from '../../../../i18n'
 import {
   DOWNLOAD_ZIP_MAX_FILES,
   downloadFile,
@@ -20,15 +21,17 @@ export const TaskItemDownloadButton = ({
   createdAt: number
   onDownloaded: () => void
 }) => {
+  useAppLanguage()
+
   const handleDownload = async () => {
     if (!outputUrls || outputUrls.length === 0) {
-      message.info('没有需要下载的文件')
+      message.info(t('没有需要下载的文件'))
       return
     }
 
     try {
       if (outputUrls.length > DOWNLOAD_ZIP_MAX_FILES) {
-        message.loading({ content: '正在打包压缩...', key: 'download' })
+        message.loading({ content: t('正在打包压缩...'), key: 'download' })
         const filesToDownload = outputUrls.map((url, index) => ({
           url,
           fileName:
@@ -41,9 +44,9 @@ export const TaskItemDownloadButton = ({
           filesToDownload,
           getTaskDownloadName(fileName, endpointName, createdAt),
         )
-        message.success({ content: '打包下载完成', key: 'download' })
+        message.success({ content: t('打包下载完成'), key: 'download' })
       } else {
-        message.loading({ content: '正在下载...', key: 'download' })
+        message.loading({ content: t('正在下载...'), key: 'download' })
         await Promise.all(
           outputUrls.map((url, index) => {
             const downloadFileName =
@@ -57,16 +60,16 @@ export const TaskItemDownloadButton = ({
             })
           }),
         )
-        message.success({ content: '下载完成', key: 'download' })
+        message.success({ content: t('下载完成'), key: 'download' })
       }
       onDownloaded()
     } catch (err) {
-      message.error({ content: '下载失败', key: 'download' })
+      message.error({ content: t('下载失败'), key: 'download' })
     }
   }
 
   return (
-    <Tooltip title="下载">
+    <Tooltip title={t('下载')}>
       <Button
         type="text"
         icon={<DownloadOutlined />}

@@ -1,4 +1,5 @@
 import { Button, Modal } from 'antd'
+import { t, useAppLanguage } from '../../../../../i18n'
 import { ImageDrawToolbar } from './ImageDrawToolbar'
 import { ImageEditorViewport } from './ImageEditorViewport'
 import { ImageTransformToolbar } from './ImageTransformToolbar'
@@ -19,6 +20,8 @@ export function ImageEditorModal({
   onConfirm,
   onConfirmCopy,
 }: ImageEditorModalProps) {
+  useAppLanguage()
+
   const editor = useImageEditor({
     open,
     src,
@@ -28,7 +31,7 @@ export function ImageEditorModal({
 
   return (
     <Modal
-      title="编辑图片"
+      title={t('编辑图片')}
       open={open}
       width={900}
       destroyOnHidden
@@ -41,7 +44,7 @@ export function ImageEditorModal({
       footer={
         <div className="flex flex-wrap justify-between gap-2">
           <Button disabled={editor.modal.submitting} onClick={onCancel}>
-            取消
+            {t('取消')}
           </Button>
           <div className="flex gap-2">
             <Button
@@ -49,7 +52,7 @@ export function ImageEditorModal({
               disabled={editor.modal.submitting || !editor.modal.canConfirm}
               onClick={editor.modal.onConfirmCopy}
             >
-              提交副本
+              {t('提交副本')}
             </Button>
             <Button
               type="primary"
@@ -57,7 +60,7 @@ export function ImageEditorModal({
               disabled={editor.modal.submitting || !editor.modal.canConfirm}
               onClick={editor.modal.onConfirm}
             >
-              提交
+              {t('提交')}
             </Button>
           </div>
         </div>

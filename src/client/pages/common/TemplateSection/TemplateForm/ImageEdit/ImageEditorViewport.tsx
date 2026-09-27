@@ -7,6 +7,7 @@ import type {
 } from 'react'
 import ReactCrop, { type PixelCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
+import { t, useAppLanguage } from '../../../../../i18n'
 import type { ImageSize } from './imageEditor'
 
 export interface BrushPreview {
@@ -66,6 +67,8 @@ export function ImageEditorViewport({
   onPointerEnter,
   onPointerLeave,
 }: ImageEditorViewportProps) {
+  useAppLanguage()
+
   const canvasStyle: CSSProperties | undefined = displaySize
     ? { width: displaySize.width, height: displaySize.height }
     : undefined
@@ -75,7 +78,7 @@ export function ImageEditorViewport({
       ref={canvasRef}
       width={imageSize.width}
       height={imageSize.height}
-      aria-label={cropMode ? '图片裁剪画布' : '图片涂抹画布'}
+      aria-label={cropMode ? t('图片裁剪画布') : t('图片涂抹画布')}
       className={
         cropMode
           ? 'block select-none'
@@ -85,14 +88,10 @@ export function ImageEditorViewport({
       onPointerDown={cropMode ? undefined : onPointerDown}
       onPointerMove={cropMode ? undefined : onPointerMove}
       onPointerUp={
-        cropMode
-          ? undefined
-          : (event) => onPointerFinish(event.pointerId)
+        cropMode ? undefined : (event) => onPointerFinish(event.pointerId)
       }
       onPointerCancel={
-        cropMode
-          ? undefined
-          : (event) => onPointerFinish(event.pointerId)
+        cropMode ? undefined : (event) => onPointerFinish(event.pointerId)
       }
       onPointerEnter={cropMode ? undefined : onPointerEnter}
       onPointerLeave={cropMode ? undefined : onPointerLeave}
@@ -108,7 +107,7 @@ export function ImageEditorViewport({
         <img
           ref={imageRef}
           src={objectUrl}
-          alt="待编辑图片"
+          alt={t('待编辑图片')}
           className="hidden"
           onLoad={onImageLoad}
           onError={onImageError}
@@ -130,15 +129,15 @@ export function ImageEditorViewport({
                 minHeight={20}
                 ruleOfThirds
                 ariaLabels={{
-                  cropArea: '图片裁剪区域',
-                  nwDragHandle: '左上裁剪控制点',
-                  nDragHandle: '上方裁剪控制点',
-                  neDragHandle: '右上裁剪控制点',
-                  eDragHandle: '右侧裁剪控制点',
-                  seDragHandle: '右下裁剪控制点',
-                  sDragHandle: '下方裁剪控制点',
-                  swDragHandle: '左下裁剪控制点',
-                  wDragHandle: '左侧裁剪控制点',
+                  cropArea: t('图片裁剪区域'),
+                  nwDragHandle: t('左上裁剪控制点'),
+                  nDragHandle: t('上方裁剪控制点'),
+                  neDragHandle: t('右上裁剪控制点'),
+                  eDragHandle: t('右侧裁剪控制点'),
+                  seDragHandle: t('右下裁剪控制点'),
+                  sDragHandle: t('下方裁剪控制点'),
+                  swDragHandle: t('左下裁剪控制点'),
+                  wDragHandle: t('左侧裁剪控制点'),
                 }}
                 onChange={onCropChange}
               >

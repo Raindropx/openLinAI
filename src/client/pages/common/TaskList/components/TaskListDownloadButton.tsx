@@ -2,6 +2,7 @@ import { DownloadOutlined } from '@ant-design/icons'
 import { Button, Modal, message } from 'antd'
 import { useState } from 'react'
 import type { Task } from '../../../../../server/common/task-manager'
+import { t, useAppLanguage } from '../../../../i18n'
 import {
   DOWNLOAD_ZIP_MAX_FILES,
   downloadFile,
@@ -24,6 +25,8 @@ export function TaskListDownloadButton({
   includeDownloaded = false,
   compactLabel = false,
 }: TaskListDownloadButtonProps) {
+  useAppLanguage()
+
   const [downloading, setDownloading] = useState(false)
 
   const handleDownloadAll = () => {
@@ -36,15 +39,13 @@ export function TaskListDownloadButton({
     )
 
     if (tasksToDownload.length === 0) {
-      message.info('没有需要下载的任务')
+      message.info(t('没有需要下载的任务'))
       return
     }
 
     const filesToDownload = tasksToDownload.flatMap((task) => {
       const baseName =
-        task.rawTemplate?.title ||
-        task.rawTemplate?.prompt ||
-        `task_${task.id}`
+        task.rawTemplate?.title || task.rawTemplate?.prompt || `task_${task.id}`
 
       return task.outputUrls!.map((url, index) => ({
         url,
@@ -57,15 +58,21 @@ export function TaskListDownloadButton({
     })
 
     Modal.confirm({
-      title: '确认下载',
+      title: t('确认下载'),
       content: (
         <div>
-          <p>任务数量：{tasksToDownload.length}</p>
-          <p>图片数量：{filesToDownload.length}</p>
+          <p>
+            {t('任务数量：')}
+            {tasksToDownload.length}
+          </p>
+          <p>
+            {t('图片数量：')}
+            {filesToDownload.length}
+          </p>
         </div>
       ),
-      okText: '确认下载',
-      cancelText: '取消',
+      okText: t('确认下载'),
+      cancelText: t('取消'),
       okButtonProps: { style: { width: 96 } },
       cancelButtonProps: { style: { width: 96 } },
       onOk: async () => {
@@ -75,7 +82,7 @@ export function TaskListDownloadButton({
             includeDownloaded ||
             filesToDownload.length > DOWNLOAD_ZIP_MAX_FILES
           ) {
-            message.loading({ content: '正在打包压缩...', key: 'download' })
+            message.loading({ content: t('正在打包压缩...'), key: 'download' })
             const latestTaskCreatedAt = Math.max(
               ...tasksToDownload.map((task) => task.createdAt),
             )
@@ -83,17 +90,17 @@ export function TaskListDownloadButton({
               filesToDownload,
               `tasks_${formatTaskTimestamp(latestTaskCreatedAt)}`,
             )
-            message.success({ content: '打包下载完成', key: 'download' })
+            message.success({ content: t('打包下载完成'), key: 'download' })
           } else {
-            message.loading({ content: '正在下载...', key: 'download' })
+            message.loading({ content: t('正在下载...'), key: 'download' })
             await Promise.all(
               filesToDownload.map((file) =>
                 downloadFile(file).catch((error) => {
-                  console.error(`下载任务 ${file.id} 失败`, error)
+                  console.error(t('下载任务 {0} 失败', [file.id]), error)
                 }),
               ),
             )
-            message.success({ content: '下载完成', key: 'download' })
+            message.success({ content: t('下载完成'), key: 'download' })
           }
 
           // 标记为已下载
@@ -104,7 +111,7 @@ export function TaskListDownloadButton({
             ]),
           ])
         } catch (error) {
-          message.error({ content: '下载失败', key: 'download' })
+          message.error({ content: t('下载失败'), key: 'download' })
         } finally {
           setDownloading(false)
         }
@@ -121,11 +128,11 @@ export function TaskListDownloadButton({
     >
       {includeDownloaded
         ? compactLabel
-          ? '全部'
-          : '所有任务'
+          ? t('全部')
+          : t('所有任务')
         : compactLabel
-          ? '未下载'
-          : '所有未下载'}
+          ? t('未下载')
+          : t('所有未下载')}
     </Button>
   )
 }

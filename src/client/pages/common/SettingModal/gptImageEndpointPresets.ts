@@ -1,4 +1,5 @@
 import type { GptImageEndpoint } from '../../../../server/common/config'
+import { t } from '../../../i18n'
 
 export interface GptImageEndpointPreset {
   id: string
@@ -26,11 +27,13 @@ export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
     type: 'custom',
     engine: 'novelai-images',
     website: 'https://novelai.net',
-    notes: [
-      '使用 NovelAI 原生 /ai/generate-image 接口',
-      '支持基础生成与单张参考图 img2img',
-      '请填写 NovelAI Persistent API Token；余额查询默认关闭',
-    ],
+    get notes() {
+      return [
+        t('使用 NovelAI 原生 /ai/generate-image 接口'),
+        t('支持基础生成与单张参考图 img2img'),
+        t('请填写 NovelAI Persistent API Token；余额查询默认关闭'),
+      ]
+    },
   },
   {
     id: 'pollinations-zimage',
@@ -42,11 +45,13 @@ export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
     type: 'custom',
     engine: 'openai-images',
     website: 'https://pollinations.ai',
-    notes: [
-      '使用 Pollinations OpenAI-compatible Images 接口',
-      '多图生成会自动拆成多个 n=1 请求',
-      '生成与编辑模型目录按 supported_endpoints 分开显示',
-    ],
+    get notes() {
+      return [
+        t('使用 Pollinations OpenAI-compatible Images 接口'),
+        t('多图生成会自动拆成多个 n=1 请求'),
+        t('生成与编辑模型目录按 supported_endpoints 分开显示'),
+      ]
+    },
   },
   {
     id: 'venice-gpt-image-2',
@@ -58,11 +63,13 @@ export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
     type: 'venice',
     engine: 'venice-images',
     website: 'https://venice.ai',
-    notes: [
-      '使用 Venice 原生生成、单图编辑与多图编辑接口',
-      '模型目录会实时读取，可分别选择生成模型和编辑模型',
-      '支持同时显示 USD 与 DIEM 余额',
-    ],
+    get notes() {
+      return [
+        t('使用 Venice 原生生成、单图编辑与多图编辑接口'),
+        t('模型目录会实时读取，可分别选择生成模型和编辑模型'),
+        t('支持同时显示 USD 与 DIEM 余额'),
+      ]
+    },
   },
   {
     id: 'venice-seedream-v5-pro-edit',
@@ -74,12 +81,14 @@ export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
     type: 'venice',
     engine: 'venice-images',
     website: 'https://venice.ai',
-    notes: [
-      '使用 Seedream V5 Pro 生成模型与对应 Edit 编辑模型',
-      '支持单图和多图编辑，最多 6 张参考图',
-      '支持 1K、2K；不支持的比例与尺寸会按实时模型能力映射',
-      '支持同时显示 USD 与 DIEM 余额',
-    ],
+    get notes() {
+      return [
+        t('使用 Seedream V5 Pro 生成模型与对应 Edit 编辑模型'),
+        t('支持单图和多图编辑，最多 6 张参考图'),
+        t('支持 1K、2K；不支持的比例与尺寸会按实时模型能力映射'),
+        t('支持同时显示 USD 与 DIEM 余额'),
+      ]
+    },
   },
   {
     id: 'openlux-gpt-image-2-c',
@@ -90,11 +99,13 @@ export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
     type: 'yunwu',
     engine: 'openai-images',
     website: 'https://openlux.ai',
-    notes: [
-      '使用 OpenAI 兼容 Images 接口',
-      '支持查询 New API 令牌余额',
-      '模型可用性与计费以 OpenLux 控制台为准',
-    ],
+    get notes() {
+      return [
+        t('使用 OpenAI 兼容 Images 接口'),
+        t('支持查询 New API 令牌余额'),
+        t('模型可用性与计费以 OpenLux 控制台为准'),
+      ]
+    },
   },
   {
     id: 'openlux-gpt-image-2',
@@ -105,11 +116,13 @@ export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
     type: 'yunwu',
     engine: 'openai-images',
     website: 'https://openlux.ai',
-    notes: [
-      '使用 OpenAI 兼容 Images 接口',
-      '支持查询 New API 令牌余额',
-      '模型可用性与计费以 OpenLux 控制台为准',
-    ],
+    get notes() {
+      return [
+        t('使用 OpenAI 兼容 Images 接口'),
+        t('支持查询 New API 令牌余额'),
+        t('模型可用性与计费以 OpenLux 控制台为准'),
+      ]
+    },
   },
   {
     id: 'openrouter-gemini-3.1-flash-image',
@@ -120,7 +133,9 @@ export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
     type: 'openrouter',
     engine: 'openrouter-images',
     website: 'https://openrouter.ai',
-    notes: ['使用 OpenRouter Images 专用接口', '支持查询美元余额'],
+    get notes() {
+      return [t('使用 OpenRouter Images 专用接口'), t('支持查询美元余额')]
+    },
   },
   {
     id: 'dragon-gpt-image-2',
@@ -131,11 +146,13 @@ export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
     type: 'custom',
     engine: 'openai-images',
     website: 'https://dragon3api.com',
-    notes: [
-      '使用 DragonAPI 当前官方 OpenAI-compatible API Base',
-      '1K、2K、4K 固定计费 0.0231 元/张',
-      '有时输出分辨率不稳定',
-    ],
+    get notes() {
+      return [
+        t('使用 DragonAPI 当前官方 OpenAI-compatible API Base'),
+        t('1K、2K、4K 固定计费 0.0231 元/张'),
+        t('有时输出分辨率不稳定'),
+      ]
+    },
   },
 ]
 

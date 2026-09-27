@@ -7,6 +7,7 @@ import {
 } from '@ant-design/icons'
 import { Button, Form, Input, Tag, message } from 'antd'
 import type { FormInstance } from 'antd/es/form'
+import { t, useAppLanguage } from '../../../i18n'
 
 interface Props {
   form: FormInstance
@@ -16,6 +17,8 @@ interface Props {
 }
 
 export function AdminSettingsUser({ form, onSave, token, userId }: Props) {
+  useAppLanguage()
+
   const configured = !!(token && userId)
 
   // Track whether form values differ from saved values
@@ -30,7 +33,7 @@ export function AdminSettingsUser({ form, onSave, token, userId }: Props) {
         'yunwuUserId',
       ])
       onSave(values.yunwuSystemToken, values.yunwuUserId)
-      message.success('云雾用户设置已保存')
+      message.success(t('云雾用户设置已保存'))
     } catch {
       // antd validation handles display
     }
@@ -46,10 +49,10 @@ export function AdminSettingsUser({ form, onSave, token, userId }: Props) {
           </span>
           <div>
             <div className="text-sm font-medium text-slate-200">
-              云雾用户设置
+              {t('云雾用户设置')}
             </div>
             <div className="text-xs leading-tight text-slate-500">
-              所有 API Key 管理功能的前置条件
+              {t('所有 API Key 管理功能的前置条件')}
             </div>
           </div>
         </div>
@@ -66,18 +69,18 @@ export function AdminSettingsUser({ form, onSave, token, userId }: Props) {
           color={dirty ? 'warning' : configured ? 'success' : 'warning'}
           className="!m-0 !inline-flex !items-center !gap-1 !rounded-full !px-3 !text-xs"
         >
-          {dirty ? '未保存' : configured ? '已配置' : '未配置'}
+          {dirty ? t('未保存') : configured ? t('已配置') : t('未配置')}
         </Tag>
       </div>
 
       {/* System token */}
       <Form.Item
         name="yunwuSystemToken"
-        label={<span className="text-xs text-slate-400">系统令牌</span>}
-        rules={[{ required: true, message: '请输入云雾系统令牌' }]}
+        label={<span className="text-xs text-slate-400">{t('系统令牌')}</span>}
+        rules={[{ required: true, message: t('请输入云雾系统令牌') }]}
       >
         <Input.Password
-          placeholder="请输入云雾系统令牌"
+          placeholder={t('请输入云雾系统令牌')}
           prefix={<KeyOutlined className="text-slate-600" />}
         />
       </Form.Item>
@@ -85,14 +88,14 @@ export function AdminSettingsUser({ form, onSave, token, userId }: Props) {
       {/* User ID + Save — manual label keeps input and button aligned */}
       <div className="flex gap-3">
         <div className="flex-1">
-          <div className="mb-1 text-xs text-slate-400">用户 ID</div>
+          <div className="mb-1 text-xs text-slate-400">{t('用户 ID')}</div>
           <Form.Item
             name="yunwuUserId"
-            rules={[{ required: true, message: '请输入云雾用户 ID' }]}
+            rules={[{ required: true, message: t('请输入云雾用户 ID') }]}
             noStyle
           >
             <Input
-              placeholder="请输入云雾用户 ID"
+              placeholder={t('请输入云雾用户 ID')}
               prefix={<UserOutlined className="text-slate-600" />}
               style={{ width: '100%' }}
             />
@@ -101,7 +104,7 @@ export function AdminSettingsUser({ form, onSave, token, userId }: Props) {
         {/* paddingTop matches Form.Item label height (~12px font + 4px pb + 1px gap) so button aligns with input */}
         <div style={{ paddingTop: '17px' }}>
           <Button type="primary" onClick={handleSave}>
-            保存配置
+            {t('保存配置')}
           </Button>
         </div>
       </div>
@@ -109,8 +112,8 @@ export function AdminSettingsUser({ form, onSave, token, userId }: Props) {
       {/* Helper hint */}
       <p className="mt-2 mb-0 text-xs text-slate-500">
         {configured
-          ? '已配置用户凭据，下方 API Key 管理功能已可用'
-          : '请填写系统令牌和用户 ID 后点击保存，以启用 API Key 管理功能'}
+          ? t('已配置用户凭据，下方 API Key 管理功能已可用')
+          : t('请填写系统令牌和用户 ID 后点击保存，以启用 API Key 管理功能')}
       </p>
     </div>
   )

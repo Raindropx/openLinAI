@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import type { TaskTemplate } from '../../../../server/common/template-manager'
 import { useTasks } from '../../../hooks/useTasks'
+import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { TaskList } from '../TaskList'
 import { TemplateForm } from '../TemplateSection/TemplateForm'
@@ -21,6 +22,8 @@ type ResourcePanel = 'tasks' | 'templates'
 type MobileWorkspacePanel = 'parameters' | 'canvas' | 'resources'
 
 export const Home = () => {
+  useAppLanguage()
+
   const location = useLocation()
   const templateListRef = useRef<TemplateListRef>(null)
   const setFillTemplateData = useGlobalStore(
@@ -80,10 +83,14 @@ export const Home = () => {
           value={mobilePanel}
           onChange={setMobilePanel}
           options={[
-            { label: '参数', value: 'parameters', icon: <ControlOutlined /> },
-            { label: '画布', value: 'canvas', icon: <AppstoreOutlined /> },
             {
-              label: '资源',
+              label: t('参数'),
+              value: 'parameters',
+              icon: <ControlOutlined />,
+            },
+            { label: t('画布'), value: 'canvas', icon: <AppstoreOutlined /> },
+            {
+              label: t('资源'),
               value: 'resources',
               icon: <UnorderedListOutlined />,
             },
@@ -97,7 +104,7 @@ export const Home = () => {
         <div className="workbench-panel-header">
           <span className="flex items-center gap-2">
             <ControlOutlined className="app-accent-text" />
-            生成参数
+            {t('生成参数')}
           </span>
           <span className="text-[11px] font-normal tracking-wide text-slate-500">
             GENERATION
@@ -130,12 +137,12 @@ export const Home = () => {
             onChange={setResourcePanel}
             options={[
               {
-                label: '任务列表',
+                label: t('任务列表'),
                 value: 'tasks',
                 icon: <UnorderedListOutlined />,
               },
               {
-                label: '模板',
+                label: t('模板'),
                 value: 'templates',
                 icon: <AppstoreOutlined />,
               },

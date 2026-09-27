@@ -1,10 +1,13 @@
 import { AppstoreOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import type { TaskTemplate } from '../../../../server/common/template-manager'
+import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { TemplateList } from '../TemplateSection/TemplateList'
 
 export function TemplateManagementPage() {
+  useAppLanguage()
+
   const navigate = useNavigate()
   const setFillTemplateData = useGlobalStore(
     (state) => state.setFillTemplateData,
@@ -22,9 +25,11 @@ export function TemplateManagementPage() {
           <AppstoreOutlined />
         </div>
         <div>
-          <h1 className="m-0 text-lg font-semibold text-slate-100">模板管理</h1>
+          <h1 className="m-0 text-lg font-semibold text-slate-100">
+            {t('模板管理')}
+          </h1>
           <p className="m-0 mt-0.5 text-xs text-slate-500">
-            整理、编辑和载入已有模板
+            {t('整理、编辑和载入已有模板')}
           </p>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { Button, message, Modal } from 'antd'
 import { hc } from 'hono/client'
 import type { AppType } from '../../../../../server'
+import { t, useAppLanguage } from '../../../../i18n'
 
 type GalleryImageType = 'input' | 'generated'
 export type GalleryDeleteSuccessPayload = {
@@ -36,6 +37,8 @@ export function GalleryFooter({
   onConfirm,
   onDelete,
 }: GalleryFooterProps) {
+  useAppLanguage()
+
   const currentTabType = getTabType(activeKey)
   const currentTabImages = currentTabType
     ? images.filter((image) => image.type === currentTabType)
@@ -51,11 +54,11 @@ export function GalleryFooter({
       return ''
     }
 
-    const imageTypeLabel = currentTabType === 'input' ? '输入' : '生成'
+    const imageTypeLabel = currentTabType === 'input' ? t('输入') : t('生成')
 
     return hasSelectedImagesInCurrentTab
-      ? `删除选中的无引用${imageTypeLabel}图片`
-      : `删除无引用${imageTypeLabel}图片`
+      ? t('删除选中的无引用{0}图片', [imageTypeLabel])
+      : t('删除无引用{0}图片', [imageTypeLabel])
   }
 
   const getDeleteCandidateUrls = () => {
@@ -81,20 +84,23 @@ export function GalleryFooter({
     }
 
     const candidateUrls = getDeleteCandidateUrls()
-    const imageTypeLabel = currentTabType === 'input' ? '输入' : '生成'
+    const imageTypeLabel = currentTabType === 'input' ? t('输入') : t('生成')
 
     if (candidateUrls.length === 0) {
       message.info(
         hasSelectedImagesInCurrentTab
-          ? `当前选中的${imageTypeLabel}图片均有引用，无法删除`
-          : `当前没有可删除的无引用${imageTypeLabel}图片`,
+          ? t('当前选中的{0}图片均有引用，无法删除', [imageTypeLabel])
+          : t('当前没有可删除的无引用{0}图片', [imageTypeLabel]),
       )
       return
     }
 
     Modal.confirm({
       title: getDeleteButtonText(),
-      content: `确定删除 ${candidateUrls.length} 张无引用${imageTypeLabel}图片吗？`,
+      content: t('确定删除 {0} 张无引用{1}图片吗？', [
+        candidateUrls.length,
+        imageTypeLabel,
+      ]),
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
@@ -109,7 +115,7 @@ export function GalleryFooter({
           const data = await response.json()
 
           if (!data.success) {
-            message.error(data.error || '删除失败')
+            message.error(t(data.error || '') || t('删除失败'))
             return
           }
 
@@ -122,14 +128,17 @@ export function GalleryFooter({
 
           if (data.skippedCount > 0) {
             message.success(
-              `删除完成，已删除 ${data.deletedCount} 张，跳过 ${data.skippedCount} 张有引用图片`,
+              t('删除完成，已删除 {0} 张，跳过 {1} 张有引用图片', [
+                data.deletedCount,
+                data.skippedCount,
+              ]),
             )
             return
           }
 
-          message.success(`删除完成，已删除 ${data.deletedCount} 张图片`)
+          message.success(t('删除完成，已删除 {0} 张图片', [data.deletedCount]))
         } catch (error: any) {
-          message.error(error.message || '请求失败')
+          message.error(t(error.message) || t('请求失败'))
         }
       },
     })
@@ -146,7 +155,7 @@ export function GalleryFooter({
       )}
       <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
         <Button className="min-w-0 flex-1 sm:flex-none" onClick={onCancel}>
-          取消
+          {t('取消')}
         </Button>
         <Button
           className="min-w-0 flex-1 sm:flex-none"
@@ -154,7 +163,7 @@ export function GalleryFooter({
           onClick={onConfirm}
           disabled={selectedUrls.length === 0}
         >
-          确认选择
+          {t('确认选择')}
         </Button>
       </div>
     </div>

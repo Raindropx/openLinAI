@@ -7,6 +7,8 @@ import {
   type SyntheticEvent,
 } from 'react'
 import type { PixelCrop } from 'react-image-crop'
+import { t } from '../../../../../i18n'
+import { DEFAULT_DRAW_COLOR } from './ImageDrawToolbar'
 import {
   drawStroke,
   exportEditedImage,
@@ -17,7 +19,6 @@ import {
   type ImageEditOperation,
   type ImageSize,
 } from './imageEditor'
-import { DEFAULT_DRAW_COLOR } from './ImageDrawToolbar'
 import type { BrushPreview } from './ImageEditorViewport'
 
 const MIN_ZOOM = 0.25
@@ -62,8 +63,9 @@ export function useImageEditor({
   const [baseDisplaySize, setBaseDisplaySize] = useState<ImageSize | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [submittingAction, setSubmittingAction] =
-    useState<SubmitAction | null>(null)
+  const [submittingAction, setSubmittingAction] = useState<SubmitAction | null>(
+    null,
+  )
   const submitting = submittingAction !== null
   const [color, setColor] = useState(DEFAULT_DRAW_COLOR)
   const [brushSize, setBrushSize] = useState(12)
@@ -119,7 +121,7 @@ export function useImageEditor({
 
     fetch(src, { signal: controller.signal })
       .then((response) => {
-        if (!response.ok) throw new Error('图片加载失败')
+        if (!response.ok) throw new Error(t('图片加载失败'))
         return response.blob()
       })
       .then((blob) => {
@@ -128,7 +130,9 @@ export function useImageEditor({
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === 'AbortError') return
-        setLoadError(error instanceof Error ? error.message : '图片加载失败')
+        setLoadError(
+          error instanceof Error ? t(error.message) : t('图片加载失败'),
+        )
         setLoading(false)
       })
 
@@ -154,7 +158,9 @@ export function useImageEditor({
     try {
       renderEditedImage(image, currentOperations, canvas)
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : '图片编辑失败')
+      setLoadError(
+        error instanceof Error ? t(error.message) : t('图片编辑失败'),
+      )
     }
   }, [baseDisplaySize, cropMode, historyIndex, operations, originalSize])
 
@@ -217,12 +223,7 @@ export function useImageEditor({
       pointerType: event.pointerType,
     }
     const canvas = canvasRef.current
-    if (
-      !canvas ||
-      cropMode ||
-      event.pointerType === 'touch' ||
-      submitting
-    ) {
+    if (!canvas || cropMode || event.pointerType === 'touch' || submitting) {
       setPreview((current) => ({ ...current, visible: false }))
       return
     }
@@ -271,7 +272,7 @@ export function useImageEditor({
     currentStrokeRef.current = stroke
     const context = canvas.getContext('2d')
     if (!context) {
-      setLoadError('无法创建图片编辑画布')
+      setLoadError(t('无法创建图片编辑画布'))
       currentStrokeRef.current = null
       finishStroke(event.pointerId)
       return
@@ -292,7 +293,7 @@ export function useImageEditor({
     stroke.points.push(point)
     const context = canvas.getContext('2d')
     if (!context) {
-      setLoadError('无法创建图片编辑画布')
+      setLoadError(t('无法创建图片编辑画布'))
       currentStrokeRef.current = null
       finishStroke(event.pointerId)
       return
@@ -395,7 +396,7 @@ export function useImageEditor({
     const naturalWidth = event.currentTarget.naturalWidth
     const naturalHeight = event.currentTarget.naturalHeight
     if (!naturalWidth || !naturalHeight) {
-      setLoadError('图片加载失败')
+      setLoadError(t('图片加载失败'))
       setLoading(false)
       return
     }
@@ -406,7 +407,7 @@ export function useImageEditor({
   }
 
   const handleImageError = () => {
-    setLoadError('图片加载失败')
+    setLoadError(t('图片加载失败'))
     setLoading(false)
   }
 
@@ -476,7 +477,9 @@ export function useImageEditor({
       const dataUrl = await exportEditedImage(image, currentOperations)
       await (action === 'copy' ? onConfirmCopy : onConfirm)(dataUrl)
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '图片编辑失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('图片编辑失败'),
+      )
     } finally {
       setSubmittingAction(null)
     }
@@ -517,14 +520,12 @@ export function useImageEditor({
       disabled: submitting || !imageSize,
       cropMode,
       canApplyCrop: !!crop && crop.width > 0 && crop.height > 0,
-      onRotateLeft: () =>
-        applyTransform({ type: 'rotate', direction: 'left' }),
+      onRotateLeft: () => applyTransform({ type: 'rotate', direction: 'left' }),
       onRotateRight: () =>
         applyTransform({ type: 'rotate', direction: 'right' }),
       onFlipHorizontal: () =>
         applyTransform({ type: 'flip', axis: 'horizontal' }),
-      onFlipVertical: () =>
-        applyTransform({ type: 'flip', axis: 'vertical' }),
+      onFlipVertical: () => applyTransform({ type: 'flip', axis: 'vertical' }),
       onStartCrop: startCrop,
       onCancelCrop: cancelCrop,
       onApplyCrop: applyCurrentCrop,

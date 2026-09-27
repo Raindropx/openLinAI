@@ -8,6 +8,7 @@ import {
 import { Button, Checkbox, Input, message, Select } from 'antd'
 import { useMemo, useRef, useState } from 'react'
 import type { ChatMessage } from '../../../hooks/useChatCompletion'
+import { t, useAppLanguage } from '../../../i18n'
 import type { CharacterCard } from '../../../utils/characterCard'
 
 interface CharacterCardEditorFieldsProps {
@@ -20,6 +21,8 @@ interface CharacterCardEditorFieldsProps {
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
+  useAppLanguage()
+
   return (
     <label className="mb-1 block text-sm font-medium text-slate-300">
       {children}
@@ -131,7 +134,7 @@ async function requestChatCompletionWithAbort(
       data?.error?.message ||
         data?.error ||
         data?.message ||
-        `请求失败 (${res.status})`,
+        t('请求失败 ({0})', [res.status]),
     )
   }
 
@@ -144,7 +147,7 @@ async function requestChatCompletionWithAbort(
   if (typeof content === 'string') {
     return content
   }
-  throw new Error('模型未返回有效文本')
+  throw new Error(t('模型未返回有效文本'))
 }
 
 function MesExampleEditor({
@@ -158,6 +161,8 @@ function MesExampleEditor({
   endpointId?: string
   onChange: (value: string) => void
 }) {
+  useAppLanguage()
+
   const blocks = useMemo(() => parseMesExample(value), [value])
   const [focusKey, setFocusKey] = useState<string | null>(null)
   const [aiMode, setAiMode] = useState(false)
@@ -215,7 +220,7 @@ function MesExampleEditor({
 
   const handleAiInsert = async (role: MessageRole) => {
     if (!endpointId) {
-      message.warning('请先在设置中配置 LLM 端点')
+      message.warning(t('请先在设置中配置 LLM 端点'))
       return
     }
 
@@ -244,7 +249,7 @@ function MesExampleEditor({
       const content = reply.trim()
 
       if (!content) {
-        message.warning('AI 返回内容为空')
+        message.warning(t('AI 返回内容为空'))
         return
       }
 
@@ -260,7 +265,9 @@ function MesExampleEditor({
       onChange(serializeMesExample(next))
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
-      message.error(error instanceof Error ? error.message : 'AI 续写失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('AI 续写失败'),
+      )
     } finally {
       abortControllerRef.current = null
       setGeneratingRole(null)
@@ -287,7 +294,7 @@ function MesExampleEditor({
               <div className="flex items-center gap-3 py-1">
                 <div className="h-px flex-1 bg-[#2d333d]" />
                 <span className="text-[10px] tracking-widest text-slate-500">
-                  新对话
+                  {t('新对话')}
                 </span>
                 <div className="h-px flex-1 bg-[#2d333d]" />
               </div>
@@ -324,7 +331,7 @@ function MesExampleEditor({
                       </span>
                       <button
                         type="button"
-                        aria-label="删除该条发言"
+                        aria-label={t('删除该条发言')}
                         onClick={() => deleteMessage(bi, mi)}
                         className="cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition-opacity group-hover:opacity-100 hover:text-rose-300"
                       >
@@ -339,7 +346,7 @@ function MesExampleEditor({
                       autoFocus={focusKey === key}
                       variant="borderless"
                       autoSize={{ minRows: 1 }}
-                      placeholder="输入对话内容…"
+                      placeholder={t('输入对话内容…')}
                       className={`w-full! min-w-0! p-0! text-sm! ${
                         isChar
                           ? 'character-card-char-message-field'
@@ -390,13 +397,13 @@ function MesExampleEditor({
               </div>
               <div className="flex items-center gap-2 py-1 text-xs text-slate-400">
                 <LoadingOutlined />
-                <span>AI 续写中…</span>
+                <span>{t('AI 续写中…')}</span>
                 <button
                   type="button"
                   onClick={handleStop}
                   className="cursor-pointer rounded px-1.5 py-0.5 text-rose-300 transition-colors hover:bg-rose-500/10"
                 >
-                  <StopOutlined /> 停止
+                  <StopOutlined /> {t('停止')}
                 </button>
               </div>
             </div>
@@ -410,7 +417,7 @@ function MesExampleEditor({
 
         {totalMessages === 0 && !generatingRole && (
           <div className="rounded-lg border border-dashed border-[#2d333d] py-6 text-center text-xs text-slate-500">
-            暂无对话示例，点击下方按钮添加角色或用户发言
+            {t('暂无对话示例，点击下方按钮添加角色或用户发言')}
           </div>
         )}
 
@@ -420,14 +427,14 @@ function MesExampleEditor({
             onClick={() => handleInsert('char')}
             disabled={generatingRole !== null}
           >
-            插入角色发言
+            {t('插入角色发言')}
           </Button>
           <Button
             icon={<UserOutlined />}
             onClick={() => handleInsert('user')}
             disabled={generatingRole !== null}
           >
-            插入用户发言
+            {t('插入用户发言')}
           </Button>
           <Checkbox
             checked={aiMode}
@@ -435,7 +442,7 @@ function MesExampleEditor({
             disabled={generatingRole !== null}
             className="ml-1"
           >
-            AI续写
+            {t('AI续写')}
           </Checkbox>
         </div>
       </div>
@@ -448,6 +455,8 @@ export function CharacterCardEditorFields({
   endpointId,
   onChange,
 }: CharacterCardEditorFieldsProps) {
+  useAppLanguage()
+
   // 仅当 mes_example 符合 SillyTavern 气泡格式（或为空）时启用气泡编辑器，
   // 其它自由文本回退为普通文本域以避免数据丢失
   const isBubbleFormat =
@@ -458,20 +467,20 @@ export function CharacterCardEditorFields({
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <FieldLabel>姓名 (name)</FieldLabel>
+          <FieldLabel>{t('姓名 (name)')}</FieldLabel>
           <Input
             value={card.name}
             onChange={(event) => onChange('name', event.target.value)}
-            placeholder="角色姓名"
+            placeholder={t('角色姓名')}
           />
         </div>
         <div>
-          <FieldLabel>标签 (tags)</FieldLabel>
+          <FieldLabel>{t('标签 (tags)')}</FieldLabel>
           <Select
             mode="tags"
             value={card.tags}
             onChange={(value) => onChange('tags', value)}
-            placeholder="输入标签后按回车添加"
+            placeholder={t('输入标签后按回车添加')}
             className="w-full"
             tokenSeparators={[',']}
           />
@@ -479,48 +488,48 @@ export function CharacterCardEditorFields({
       </div>
 
       <div>
-        <FieldLabel>描述 (description)</FieldLabel>
+        <FieldLabel>{t('描述 (description)')}</FieldLabel>
         <Input.TextArea
           value={card.description}
           onChange={(event) => onChange('description', event.target.value)}
           autoSize={{ minRows: 4, maxRows: 14 }}
-          placeholder="外貌描述、服装、显著特征等"
+          placeholder={t('外貌描述、服装、显著特征等')}
         />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <div>
-          <FieldLabel>性格 (personality)</FieldLabel>
+          <FieldLabel>{t('性格 (personality)')}</FieldLabel>
           <Input.TextArea
             value={card.personality}
             onChange={(event) => onChange('personality', event.target.value)}
             autoSize={{ minRows: 3, maxRows: 10 }}
-            placeholder="性格特征"
+            placeholder={t('性格特征')}
           />
         </div>
         <div>
-          <FieldLabel>场景 (scenario)</FieldLabel>
+          <FieldLabel>{t('场景 (scenario)')}</FieldLabel>
           <Input.TextArea
             value={card.scenario}
             onChange={(event) => onChange('scenario', event.target.value)}
             autoSize={{ minRows: 3, maxRows: 10 }}
-            placeholder="初始场景设定"
+            placeholder={t('初始场景设定')}
           />
         </div>
       </div>
 
       <div>
-        <FieldLabel>第一句话 (first_mes)</FieldLabel>
+        <FieldLabel>{t('第一句话 (first_mes)')}</FieldLabel>
         <Input.TextArea
           value={card.first_mes}
           onChange={(event) => onChange('first_mes', event.target.value)}
           autoSize={{ minRows: 3, maxRows: 10 }}
-          placeholder="角色的第一句话"
+          placeholder={t('角色的第一句话')}
         />
       </div>
 
       <div>
-        <FieldLabel>对话示例 (mes_example)</FieldLabel>
+        <FieldLabel>{t('对话示例 (mes_example)')}</FieldLabel>
         {isBubbleFormat ? (
           <MesExampleEditor
             value={card.mes_example}
@@ -533,7 +542,7 @@ export function CharacterCardEditorFields({
             value={card.mes_example}
             onChange={(event) => onChange('mes_example', event.target.value)}
             autoSize={{ minRows: 5, maxRows: 16 }}
-            placeholder="使用 {{char}} 和 {{user}} 格式的示例对话"
+            placeholder={t('使用 {{char}} 和 {{user}} 格式的示例对话')}
           />
         )}
       </div>

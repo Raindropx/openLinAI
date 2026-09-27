@@ -2,6 +2,7 @@ import { Form, Input, Modal, message } from 'antd'
 import { hc } from 'hono/client'
 import { useState } from 'react'
 import type { AppType } from '../../../../../server'
+import { t, useAppLanguage } from '../../../../i18n'
 
 const client = hc<AppType>('/')
 
@@ -18,6 +19,8 @@ export function RenameFolderModal({
   onCancel,
   onSuccess,
 }: RenameFolderModalProps) {
+  useAppLanguage()
+
   const [form] = Form.useForm<{ newFolder: string }>()
   const [submitting, setSubmitting] = useState(false)
 
@@ -34,14 +37,14 @@ export function RenameFolderModal({
       })
       const json = await res.json()
       if (json.success) {
-        message.success(`已重命名 ${json.data.updatedCount} 个模板`)
+        message.success(t('已重命名 {0} 个模板', [json.data.updatedCount]))
         onSuccess(json.data.newFolder)
       } else {
-        message.error(json.error || '重命名失败')
+        message.error(t(json.error || '') || t('重命名失败'))
       }
     } catch (error) {
       if (error instanceof Error) {
-        message.error(`[网络] ${error.message || '重命名失败'}`)
+        message.error(t('[网络] {0}', [t(error.message) || t('重命名失败')]))
       }
     } finally {
       setSubmitting(false)
@@ -50,7 +53,7 @@ export function RenameFolderModal({
 
   return (
     <Modal
-      title="重命名文件夹"
+      title={t('重命名文件夹')}
       open={open}
       onOk={handleRename}
       onCancel={onCancel}
@@ -66,24 +69,24 @@ export function RenameFolderModal({
       >
         <Form.Item
           name="newFolder"
-          label="文件夹名称"
+          label={t('文件夹名称')}
           rules={[
             {
               required: true,
               whitespace: true,
-              message: '请输入文件夹名称',
+              message: t('请输入文件夹名称'),
             },
-            { max: 100, message: '文件夹名称不能超过 100 个字符' },
+            { max: 100, message: t('文件夹名称不能超过 100 个字符') },
             {
               validator: async (_, value) => {
                 if (value?.trim() === folder) {
-                  throw new Error('新名称不能与原名称相同')
+                  throw new Error(t('新名称不能与原名称相同'))
                 }
               },
             },
           ]}
         >
-          <Input placeholder="输入新的文件夹名称" maxLength={100} />
+          <Input placeholder={t('输入新的文件夹名称')} maxLength={100} />
         </Form.Item>
       </Form>
     </Modal>

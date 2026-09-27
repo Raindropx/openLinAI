@@ -1,31 +1,42 @@
 import { PictureOutlined } from '@ant-design/icons'
 import { Button, Input, Modal, Upload, message } from 'antd'
 import { useState } from 'react'
+import {
+  requestChatCompletion,
+  type ChatMessage,
+} from '../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
-import { requestChatCompletion, type ChatMessage } from '../../../hooks/useChatCompletion'
+import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { imageBlobToUploadDataUrl } from '../../../utils/image'
 import { openSettingModal } from '../SettingModal'
 
 const MAX_IMAGE_BYTES = 16 * 1024 * 1024
-const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp,image/svg+xml,.svg'
+const IMAGE_ACCEPT =
+  'image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp,image/svg+xml,.svg'
 
 function parseCharacterResult(raw: string) {
   const start = raw.indexOf('{')
   const end = raw.lastIndexOf('}')
-  if (start < 0 || end <= start) throw new Error('模型没有返回角色提示词和 UC，请重试')
+  if (start < 0 || end <= start)
+    throw new Error(t('模型没有返回角色提示词和 UC，请重试'))
 
   let value: unknown
   try {
     value = JSON.parse(raw.slice(start, end + 1))
   } catch {
-    throw new Error('模型返回格式不正确，请重试')
+    throw new Error(t('模型返回格式不正确，请重试'))
   }
-  if (!value || typeof value !== 'object') throw new Error('模型返回格式不正确，请重试')
+  if (!value || typeof value !== 'object')
+    throw new Error(t('模型返回格式不正确，请重试'))
   const result = value as Record<string, unknown>
-  if (typeof result.prompt !== 'string' || !result.prompt.trim()
-    || typeof result.uc !== 'string' || !result.uc.trim()) {
-    throw new Error('模型没有返回完整的角色提示词和 UC，请重试')
+  if (
+    typeof result.prompt !== 'string' ||
+    !result.prompt.trim() ||
+    typeof result.uc !== 'string' ||
+    !result.uc.trim()
+  ) {
+    throw new Error(t('模型没有返回完整的角色提示词和 UC，请重试'))
   }
   return { prompt: result.prompt.trim(), uc: result.uc.trim() }
 }
@@ -37,6 +48,8 @@ export function NovelAICharacterImagePrompt({
   mode: 'anime' | 'furry'
   onAdopt: (prompt: string, uc: string) => void
 }) {
+  useAppLanguage()
+
   const [loading, setLoading] = useState(false)
   const [image, setImage] = useState<{ name: string; url: string } | null>(null)
   const [prompt, setPrompt] = useState('')
@@ -47,15 +60,16 @@ export function NovelAICharacterImagePrompt({
   async function generateFromImage(file: File) {
     if (loading) return
     if (file.size > MAX_IMAGE_BYTES) {
-      message.error('角色图片不能超过 16 MiB')
+      message.error(t('角色图片不能超过 16 MiB'))
       return
     }
     if (!file.type.startsWith('image/') && !/\.svg$/i.test(file.name)) {
-      message.error('请选择图片文件')
+      message.error(t('请选择图片文件'))
       return
     }
-    const endpointId = llmEndpoints.find((endpoint) => endpoint.id === optimizeEndpointId)?.id
-      || llmEndpoints[0]?.id
+    const endpointId =
+      llmEndpoints.find((endpoint) => endpoint.id === optimizeEndpointId)?.id ||
+      llmEndpoints[0]?.id
     if (!endpointId) {
       openSettingModal({ initialTab: 'llm-endpoints' })
       return
@@ -65,8 +79,10 @@ export function NovelAICharacterImagePrompt({
     setLoading(true)
     try {
       const url = await imageBlobToUploadDataUrl(file)
-      const systemPrompt = mode === 'furry'
-        ? llmPrompts.novelaiFurryPrompt : llmPrompts.novelaiAnimePrompt
+      const systemPrompt =
+        mode === 'furry'
+          ? llmPrompts.novelaiFurryPrompt
+          : llmPrompts.novelaiAnimePrompt
       const messages: ChatMessage[] = [
         {
           role: 'system',
@@ -75,17 +91,24 @@ export function NovelAICharacterImagePrompt({
         {
           role: 'user',
           content: [
-            { type: 'text', text: '请从这张图片提取角色外观、服装、表情等角色专属特征，生成该角色的 Character Prompt 和角色 UC。' },
+            {
+              type: 'text',
+              text: '请从这张图片提取角色外观、服装、表情等角色专属特征，生成该角色的 Character Prompt 和角色 UC。',
+            },
             { type: 'image_url', image_url: { url } },
           ],
         },
       ]
-      const result = parseCharacterResult(await requestChatCompletion({ endpointId, messages }))
+      const result = parseCharacterResult(
+        await requestChatCompletion({ endpointId, messages }),
+      )
       setImage({ name: file.name, url })
       setPrompt(result.prompt)
       setUc(result.uc)
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '角色提示词生成失败')
+      message.error(
+        error instanceof Error ? t(error.message) : t('角色提示词生成失败'),
+      )
     } finally {
       setLoading(false)
     }
@@ -97,32 +120,60 @@ export function NovelAICharacterImagePrompt({
     setUc('')
   }
 
-  return <>
-    <Upload accept={IMAGE_ACCEPT} showUploadList={false} beforeUpload={(file) => {
-      void generateFromImage(file)
-      return false
-    }}>
-      <Button size="small" icon={<PictureOutlined />} loading={loading}>图片生成</Button>
-    </Upload>
-    <Modal title="从角色图片生成提示词" open={Boolean(image)} onCancel={close}
-      onOk={() => {
-        if (!prompt.trim() || !uc.trim()) {
-          message.warning('请填写角色提示词和 UC')
-          return
-        }
-        onAdopt(prompt.trim(), uc.trim())
-        close()
-      }} okText="填入角色" cancelText="取消" width={600} destroyOnHidden>
-      {image && <div style={{ marginBottom: 12 }}>
-        <img src={image.url} alt={image.name} style={{ width: 64, height: 64, objectFit: 'cover' }} />
-        <span style={{ marginLeft: 8 }}>{image.name}</span>
-      </div>}
-      <div style={{ marginBottom: 8 }}>角色提示词</div>
-      <Input.TextArea value={prompt} onChange={(event) => setPrompt(event.target.value)}
-        autoSize={{ minRows: 3, maxRows: 8 }} />
-      <div style={{ margin: '12px 0 8px' }}>角色 UC</div>
-      <Input.TextArea value={uc} onChange={(event) => setUc(event.target.value)}
-        autoSize={{ minRows: 2, maxRows: 6 }} />
-    </Modal>
-  </>
+  return (
+    <>
+      <Upload
+        accept={IMAGE_ACCEPT}
+        showUploadList={false}
+        beforeUpload={(file) => {
+          void generateFromImage(file)
+          return false
+        }}
+      >
+        <Button size="small" icon={<PictureOutlined />} loading={loading}>
+          {t('图片生成')}
+        </Button>
+      </Upload>
+      <Modal
+        title={t('从角色图片生成提示词')}
+        open={Boolean(image)}
+        onCancel={close}
+        onOk={() => {
+          if (!prompt.trim() || !uc.trim()) {
+            message.warning(t('请填写角色提示词和 UC'))
+            return
+          }
+          onAdopt(prompt.trim(), uc.trim())
+          close()
+        }}
+        okText={t('填入角色')}
+        cancelText={t('取消')}
+        width={600}
+        destroyOnHidden
+      >
+        {image && (
+          <div style={{ marginBottom: 12 }}>
+            <img
+              src={image.url}
+              alt={image.name}
+              style={{ width: 64, height: 64, objectFit: 'cover' }}
+            />
+            <span style={{ marginLeft: 8 }}>{image.name}</span>
+          </div>
+        )}
+        <div style={{ marginBottom: 8 }}>{t('角色提示词')}</div>
+        <Input.TextArea
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          autoSize={{ minRows: 3, maxRows: 8 }}
+        />
+        <div style={{ margin: '12px 0 8px' }}>{t('角色 UC')}</div>
+        <Input.TextArea
+          value={uc}
+          onChange={(event) => setUc(event.target.value)}
+          autoSize={{ minRows: 2, maxRows: 6 }}
+        />
+      </Modal>
+    </>
+  )
 }

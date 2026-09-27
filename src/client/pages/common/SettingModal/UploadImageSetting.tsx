@@ -3,10 +3,13 @@ import { Button, message, Switch } from 'antd'
 import { hc } from 'hono/client'
 import type { AppType } from '../../../../server'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import { t, useAppLanguage } from '../../../i18n'
 
 const client = hc<AppType>('/')
 
 export function UploadImageSetting() {
+  useAppLanguage()
+
   const { gptImageSettings, setGptImageSettings } = useLocalSetting()
   const [skipDeleteConfirm, setSkipDeleteConfirm] = useLocalStorageState(
     'skipDeleteTaskConfirm',
@@ -18,10 +21,10 @@ export function UploadImageSetting() {
       const response = await client.api.static.images.input['open-dir'].$post()
       const data = await response.json()
       if (!data.success) {
-        message.error(data.error || '打开目录失败')
+        message.error(t(data.error || '') || t('打开目录失败'))
       }
     } catch (error: any) {
-      message.error(error.message || '请求失败')
+      message.error(t(error.message) || t('请求失败'))
     }
   }
 
@@ -31,10 +34,10 @@ export function UploadImageSetting() {
         await client.api.static.images.generated['open-dir'].$post()
       const data = await response.json()
       if (!data.success) {
-        message.error(data.error || '打开输出图片目录失败')
+        message.error(t(data.error || '') || t('打开输出图片目录失败'))
       }
     } catch (error: any) {
-      message.error(error.message || '请求失败')
+      message.error(t(error.message) || t('请求失败'))
     }
   }
 
@@ -42,17 +45,19 @@ export function UploadImageSetting() {
     <div>
       <div className="flex gap-8">
         <div>
-          <div className="mb-2 text-sm text-slate-400">输入图片目录</div>
-          <Button onClick={handleOpenDir}>打开输入图片目录</Button>
+          <div className="mb-2 text-sm text-slate-400">{t('输入图片目录')}</div>
+          <Button onClick={handleOpenDir}>{t('打开输入图片目录')}</Button>
         </div>
         <div>
-          <div className="mb-2 text-sm text-slate-400">输出图片目录</div>
-          <Button onClick={handleOpenGeneratedDir}>打开输出图片目录</Button>
+          <div className="mb-2 text-sm text-slate-400">{t('输出图片目录')}</div>
+          <Button onClick={handleOpenGeneratedDir}>
+            {t('打开输出图片目录')}
+          </Button>
         </div>
       </div>
       <div className="mt-6 flex flex-wrap gap-8">
         <div>
-          <div className="mb-3 text-sm text-slate-400">删除任务</div>
+          <div className="mb-3 text-sm text-slate-400">{t('删除任务')}</div>
           <div className="flex items-center gap-2">
             <Switch
               checked={gptImageSettings.keepImageWhenDeleteTask}
@@ -63,7 +68,7 @@ export function UploadImageSetting() {
                 }))
               }
             />
-            <span>删除任务时不删除图片</span>
+            <span>{t('删除任务时不删除图片')}</span>
           </div>
           <div className="mt-2 flex items-center gap-2">
             <Button
@@ -71,15 +76,15 @@ export function UploadImageSetting() {
               disabled={!skipDeleteConfirm}
               onClick={() => {
                 setSkipDeleteConfirm(false)
-                message.success('已恢复删除任务时的提醒')
+                message.success(t('已恢复删除任务时的提醒'))
               }}
             >
-              恢复删除提醒
+              {t('恢复删除提醒')}
             </Button>
             <span className="text-xs text-slate-500">
               {skipDeleteConfirm
-                ? '当前：删除任务时不提醒'
-                : '当前：删除任务时会提醒'}
+                ? t('当前：删除任务时不提醒')
+                : t('当前：删除任务时会提醒')}
             </span>
           </div>
         </div>

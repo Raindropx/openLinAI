@@ -1,6 +1,7 @@
 import { ReloadOutlined } from '@ant-design/icons'
 import { Button, Tooltip } from 'antd'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { t, useAppLanguage } from '../../../i18n'
 import { getStudioProviderBalance, type StudioProviderBalance } from './api'
 
 export function ProviderBalance({
@@ -12,6 +13,8 @@ export function ProviderBalance({
   configured: boolean
   keyHint?: string
 }) {
+  useAppLanguage()
+
   const [balance, setBalance] = useState<StudioProviderBalance>()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -28,7 +31,7 @@ export function ProviderBalance({
     } catch (failure) {
       if (id === requestId.current) {
         setBalance(undefined)
-        setError(failure instanceof Error ? failure.message : '余额读取失败')
+        setError(failure instanceof Error ? failure.message : t('余额读取失败'))
       }
     } finally {
       if (id === requestId.current) setLoading(false)
@@ -39,7 +42,9 @@ export function ProviderBalance({
     setBalance(undefined)
     setError('')
     if (configured) void refresh()
-    return () => { requestId.current++ }
+    return () => {
+      requestId.current++
+    }
   }, [configured, keyHint, refresh])
 
   useEffect(() => {
@@ -52,21 +57,41 @@ export function ProviderBalance({
 
   if (!configured) return null
 
-  const content = provider === 'novelai'
-    ? balance && 'anlas' in balance ? `Anlas ${balance.anlas.toLocaleString()}` : null
-    : balance && 'yellow' in balance
-      ? <><span className="studio-balance-yellow">黄 Buzz {balance.yellow.toLocaleString()}</span><span className="studio-balance-blue">蓝 Buzz {balance.blue.toLocaleString()}</span></>
-      : null
+  const content =
+    provider === 'novelai' ? (
+      balance && 'anlas' in balance ? (
+        `Anlas ${balance.anlas.toLocaleString()}`
+      ) : null
+    ) : balance && 'yellow' in balance ? (
+      <>
+        <span className="studio-balance-yellow">
+          {t('黄 Buzz')} {balance.yellow.toLocaleString()}
+        </span>
+        <span className="studio-balance-blue">
+          {t('蓝 Buzz')} {balance.blue.toLocaleString()}
+        </span>
+      </>
+    ) : null
 
   return (
     <div className="studio-provider-balance" aria-live="polite">
       <span className="studio-provider-balance-values">
-        {content || (loading ? '余额读取中…' : '余额暂不可用')}
+        {content || (loading ? t('余额读取中…') : t('余额暂不可用'))}
       </span>
-      {error && <Tooltip title={error}><span className="studio-provider-balance-error">读取失败</span></Tooltip>}
-      <Tooltip title="刷新余额">
-        <Button type="text" size="small" icon={<ReloadOutlined />} loading={loading}
-          aria-label="刷新余额" onClick={() => void refresh()} />
+      {error && (
+        <Tooltip title={error}>
+          <span className="studio-provider-balance-error">{t('读取失败')}</span>
+        </Tooltip>
+      )}
+      <Tooltip title={t('刷新余额')}>
+        <Button
+          type="text"
+          size="small"
+          icon={<ReloadOutlined />}
+          loading={loading}
+          aria-label={t('刷新余额')}
+          onClick={() => void refresh()}
+        />
       </Tooltip>
     </div>
   )

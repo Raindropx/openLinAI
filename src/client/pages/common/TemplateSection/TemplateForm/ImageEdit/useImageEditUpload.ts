@@ -1,5 +1,6 @@
 import { message } from 'antd'
 import { useRef, useState, type MutableRefObject } from 'react'
+import { t } from '../../../../../i18n'
 
 export interface ImageEditTarget {
   index: number
@@ -31,7 +32,7 @@ export function useImageEditUpload({
       target.index >= currentUrls.length ||
       currentUrls[target.index] !== target.url
     ) {
-      throw new Error('图片列表已变化，请重新编辑')
+      throw new Error(t('图片列表已变化，请重新编辑'))
     }
     return currentUrls
   }
@@ -39,7 +40,7 @@ export function useImageEditUpload({
   const handleEditConfirm = async (dataUrl: string) => {
     const target = editTarget
     if (!target) {
-      throw new Error('未找到需要编辑的图片')
+      throw new Error(t('未找到需要编辑的图片'))
     }
 
     assertTargetIsCurrent(target)
@@ -53,7 +54,7 @@ export function useImageEditUpload({
       onChange?.(newUrls)
       addRecentImages(newUrl)
       setEditTarget(null)
-      message.success('图片编辑成功')
+      message.success(t('图片编辑成功'))
     } finally {
       handleUploadCountChange(-1)
     }
@@ -62,7 +63,7 @@ export function useImageEditUpload({
   const handleEditCopy = async (dataUrl: string) => {
     const target = editTarget
     if (!target) {
-      throw new Error('未找到需要编辑的图片')
+      throw new Error(t('未找到需要编辑的图片'))
     }
 
     assertTargetIsCurrent(target)
@@ -77,7 +78,7 @@ export function useImageEditUpload({
       latestValueRef.current = newUrls
       onChange?.(newUrls)
       addRecentImages(newUrl)
-      message.success('已添加图片编辑副本')
+      message.success(t('已添加图片编辑副本'))
     } finally {
       handleUploadCountChange(-1)
     }

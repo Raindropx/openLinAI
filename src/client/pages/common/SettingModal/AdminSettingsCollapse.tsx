@@ -1,6 +1,7 @@
 import { KeyOutlined, LockOutlined } from '@ant-design/icons'
 import { Button, Collapse, Input, message, Radio, Tag } from 'antd'
 import { useState } from 'react'
+import { t, useAppLanguage } from '../../../i18n'
 import { AdminSettingsGroup } from './AdminSettingsGroup'
 import type { ApiKeySearchResult } from './types'
 
@@ -17,6 +18,8 @@ export function AdminSettingsCollapse({
   onGenerate,
   loading,
 }: Props) {
+  useAppLanguage()
+
   const configured = !!(yunwuSystemToken && yunwuUserId)
 
   // Search state
@@ -36,7 +39,7 @@ export function AdminSettingsCollapse({
     const kw = (value || '').trim()
     if (!kw) return
     if (!yunwuSystemToken || !yunwuUserId) {
-      message.warning('请先配置系统令牌和用户 ID')
+      message.warning(t('请先配置系统令牌和用户 ID'))
       return
     }
     setSearching(true)
@@ -58,7 +61,7 @@ export function AdminSettingsCollapse({
         const payload = data.data as Record<string, unknown>
         if (payload && !Array.isArray(payload) && payload.success === false) {
           setSearchResults([])
-          message.error((payload.message as string) || '搜索失败')
+          message.error((payload.message as string) || t('搜索失败'))
         } else {
           const items = (data.data as ApiKeySearchResult[]) || []
           setSearchResults(items)
@@ -68,14 +71,14 @@ export function AdminSettingsCollapse({
               return arr.includes('search') ? arr : [...arr, 'search']
             })
           } else {
-            message.info((data.message as string) || '未找到匹配的 API Key')
+            message.info((data.message as string) || t('未找到匹配的 API Key'))
           }
         }
       } else {
-        message.error((data.message as string) || '搜索失败')
+        message.error((data.message as string) || t('搜索失败'))
       }
     } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : '搜索请求失败')
+      message.error(err instanceof Error ? t(err.message) : t('搜索请求失败'))
     } finally {
       setSearching(false)
     }
@@ -98,15 +101,17 @@ export function AdminSettingsCollapse({
           onChange={(e) => setSearchMode(e.target.value)}
           size="small"
         >
-          <Radio.Button value="keyword">关键词</Radio.Button>
+          <Radio.Button value="keyword">{t('关键词')}</Radio.Button>
           <Radio.Button value="token">Token</Radio.Button>
         </Radio.Group>
         <Input.Search
           placeholder={
-            searchMode === 'keyword' ? '输入关键词搜索' : '输入 Token 搜索'
+            searchMode === 'keyword'
+              ? t('输入关键词搜索')
+              : t('输入 Token 搜索')
           }
           allowClear
-          enterButton="搜索"
+          enterButton={t('搜索')}
           onSearch={handleSearch}
           loading={searching}
           className="flex-1"
@@ -126,7 +131,7 @@ export function AdminSettingsCollapse({
                     color={item.status === 1 ? 'green' : 'default'}
                     className="!m-0 !text-[10px]"
                   >
-                    {item.status === 1 ? '启用' : '禁用'}
+                    {item.status === 1 ? t('启用') : t('禁用')}
                   </Tag>
                   <span className="font-medium text-slate-200">
                     {item.name}
@@ -139,7 +144,7 @@ export function AdminSettingsCollapse({
                     onClick={() => handleToggleSelect(item.id)}
                     className="!text-xs"
                   >
-                    {selectedId === item.id ? '取消' : '选择'}
+                    {selectedId === item.id ? t('取消') : t('选择')}
                   </Button>
                   <Button
                     size="small"
@@ -147,7 +152,7 @@ export function AdminSettingsCollapse({
                     onClick={() => handleToggleExpand(item.id)}
                     className="!text-xs"
                   >
-                    {expandedId === item.id ? '收起' : '详情'}
+                    {expandedId === item.id ? t('收起') : t('详情')}
                   </Button>
                 </div>
               </div>
@@ -157,29 +162,29 @@ export function AdminSettingsCollapse({
                     ID: <span className="text-slate-300">{item.id}</span>
                   </div>
                   <div>
-                    分组:{' '}
+                    {t('分组:')}{' '}
                     <span className="text-slate-300">{item.group || '-'}</span>
                   </div>
                   <div>
-                    已用配额:{' '}
+                    {t('已用配额:')}{' '}
                     <span className="text-slate-300">{item.used_quota}</span>
                   </div>
                   <div>
-                    剩余配额:{' '}
+                    {t('剩余配额:')}{' '}
                     <span className="text-slate-300">{item.remain_quota}</span>
                   </div>
                   <div>
-                    创建时间:{' '}
+                    {t('创建时间:')}{' '}
                     <span className="text-slate-300">
                       {new Date(item.created_time * 1000).toLocaleString()}
                     </span>
                   </div>
                   <div>
-                    过期时间:{' '}
+                    {t('过期时间:')}{' '}
                     <span className="text-slate-300">
                       {item.expired_time
                         ? new Date(item.expired_time * 1000).toLocaleString()
-                        : '永久'}
+                        : t('永久')}
                     </span>
                   </div>
                 </div>
@@ -195,27 +200,27 @@ export function AdminSettingsCollapse({
   const generateContent = (
     <div className="space-y-4">
       <p className="text-xs leading-relaxed text-slate-400">
-        使用当前配置的云雾用户凭据，在系统中生成一个新的 API Key。
+        {t('使用当前配置的云雾用户凭据，在系统中生成一个新的 API Key。')}
       </p>
       <div>
-        <div className="mb-1 text-xs text-slate-400">名称</div>
+        <div className="mb-1 text-xs text-slate-400">{t('名称')}</div>
         <Input
-          placeholder="例：my-api-key"
+          placeholder={t('例：my-api-key')}
           value={genName}
           onChange={(e) => setGenName(e.target.value)}
         />
       </div>
       <div>
         <div className="mb-1 text-xs text-slate-400">
-          限额（百万 Token，0 = 无限制）
+          {t('限额（百万 Token，0 = 无限制）')}
         </div>
         <Input
           type="number"
           min={0}
-          placeholder="输入额度数值"
+          placeholder={t('输入额度数值')}
           value={genQuota}
           onChange={(e) => setGenQuota(Number(e.target.value) || 0)}
-          suffix={<span className="text-xs text-slate-500">百万</span>}
+          suffix={<span className="text-xs text-slate-500">{t('百万')}</span>}
         />
       </div>
       <Button
@@ -224,7 +229,7 @@ export function AdminSettingsCollapse({
         icon={<KeyOutlined />}
         disabled={!genName.trim()}
       >
-        生成新的 API Key
+        {t('生成新的 API Key')}
       </Button>
     </div>
   )
@@ -232,17 +237,19 @@ export function AdminSettingsCollapse({
   const items = [
     {
       key: 'generate',
-      label: '生成',
+      label: t('生成'),
       children: generateContent,
     },
     {
       key: 'search',
-      label: `搜索${searchResults.length > 0 ? ` (${searchResults.length})` : ''}`,
+      label: t('搜索{0}', [
+        searchResults.length > 0 ? ` (${searchResults.length})` : '',
+      ]),
       children: searchContent,
     },
     {
       key: 'group',
-      label: '分组设置',
+      label: t('分组设置'),
       children: (
         <AdminSettingsGroup
           yunwuSystemToken={yunwuSystemToken}
@@ -259,7 +266,9 @@ export function AdminSettingsCollapse({
       {!configured && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-lg bg-[#15181d]/85 backdrop-blur-[1px] transition-all">
           <LockOutlined className="mb-2 text-2xl text-slate-600" />
-          <div className="text-sm text-slate-500">请先完成上方云雾用户设置</div>
+          <div className="text-sm text-slate-500">
+            {t('请先完成上方云雾用户设置')}
+          </div>
         </div>
       )}
 
@@ -268,7 +277,7 @@ export function AdminSettingsCollapse({
         <div className="flex items-center gap-2 border-b border-white/10 px-5 py-3">
           <KeyOutlined className="text-base text-slate-500" />
           <span className="text-sm font-medium text-slate-200">
-            API Key 管理
+            {t('API Key 管理')}
           </span>
         </div>
 

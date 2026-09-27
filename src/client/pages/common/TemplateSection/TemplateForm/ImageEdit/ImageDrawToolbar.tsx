@@ -5,13 +5,39 @@ import {
   UndoOutlined,
 } from '@ant-design/icons'
 import { Button, ColorPicker, Divider, Slider, Tooltip } from 'antd'
+import { t, useAppLanguage } from '../../../../../i18n'
 
 const DRAW_COLOR_PRESETS = [
-  { color: '#ff4d4f', label: '红色画笔' },
-  { color: '#fadb14', label: '黄色画笔' },
-  { color: '#1677ff', label: '蓝色画笔' },
-  { color: '#000000', label: '黑色画笔' },
-  { color: '#ffffff', label: '白色画笔' },
+  {
+    color: '#ff4d4f',
+    get label() {
+      return t('红色画笔')
+    },
+  },
+  {
+    color: '#fadb14',
+    get label() {
+      return t('黄色画笔')
+    },
+  },
+  {
+    color: '#1677ff',
+    get label() {
+      return t('蓝色画笔')
+    },
+  },
+  {
+    color: '#000000',
+    get label() {
+      return t('黑色画笔')
+    },
+  },
+  {
+    color: '#ffffff',
+    get label() {
+      return t('白色画笔')
+    },
+  },
 ]
 
 export const DEFAULT_DRAW_COLOR = DRAW_COLOR_PRESETS[0].color
@@ -49,6 +75,8 @@ export function ImageDrawToolbar({
   onRedo,
   onReset,
 }: ImageDrawToolbarProps) {
+  useAppLanguage()
+
   return (
     <div className="flex flex-nowrap items-center gap-2 overflow-x-auto rounded-lg border border-[#343a44] bg-[#20252d] p-2">
       {DRAW_COLOR_PRESETS.map((preset) => (
@@ -78,7 +106,7 @@ export function ImageDrawToolbar({
           </button>
         </Tooltip>
       ))}
-      <Tooltip title="自定义画笔颜色">
+      <Tooltip title={t('自定义画笔颜色')}>
         <ColorPicker
           value={color}
           disabled={submitting}
@@ -87,7 +115,7 @@ export function ImageDrawToolbar({
         />
       </Tooltip>
       <Divider orientation="vertical" className="h-7!" />
-      <span className="shrink-0 text-sm">画笔大小</span>
+      <span className="shrink-0 text-sm">{t('画笔大小')}</span>
       <Slider
         min={4}
         max={64}
@@ -98,7 +126,7 @@ export function ImageDrawToolbar({
         onChange={onBrushSizeChange}
       />
       <span className="w-12 shrink-0 text-sm tabular-nums">{brushSize} px</span>
-      <Tooltip title="滚轮缩放，点击恢复 100%">
+      <Tooltip title={t('滚轮缩放，点击恢复 100%')}>
         <Button
           type="text"
           disabled={submitting || zoomDisabled}
@@ -108,28 +136,28 @@ export function ImageDrawToolbar({
         </Button>
       </Tooltip>
       <Divider orientation="vertical" className="h-7!" />
-      <Tooltip title="撤销">
+      <Tooltip title={t('撤销')}>
         <Button
           type="text"
-          aria-label="撤销"
+          aria-label={t('撤销')}
           icon={<UndoOutlined />}
           disabled={submitting || !canUndo}
           onClick={onUndo}
         />
       </Tooltip>
-      <Tooltip title="重做">
+      <Tooltip title={t('重做')}>
         <Button
           type="text"
-          aria-label="重做"
+          aria-label={t('重做')}
           icon={<RedoOutlined />}
           disabled={submitting || !canRedo}
           onClick={onRedo}
         />
       </Tooltip>
-      <Tooltip title="还原原图">
+      <Tooltip title={t('还原原图')}>
         <Button
           type="text"
-          aria-label="还原原图"
+          aria-label={t('还原原图')}
           icon={<DeleteOutlined />}
           disabled={submitting || !canReset}
           onClick={onReset}

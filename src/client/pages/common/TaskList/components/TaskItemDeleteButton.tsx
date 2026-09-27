@@ -4,6 +4,7 @@ import { Button, Checkbox, message, Modal, Tooltip } from 'antd'
 import { hc } from 'hono/client'
 import type { AppType } from '../../../../../server'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
+import { t, useAppLanguage } from '../../../../i18n'
 
 const client = hc<AppType>('/')
 
@@ -18,6 +19,8 @@ export function TaskItemDeleteButton({
   status,
   onSuccess,
 }: DeleteTaskButtonProps) {
+  useAppLanguage()
+
   const { gptImageSettings } = useLocalSetting()
   const [, setSkipDeleteConfirm] = useLocalStorageState(
     'skipDeleteTaskConfirm',
@@ -30,17 +33,21 @@ export function TaskItemDeleteButton({
     try {
       const res = await client.api.task[':id'].$delete({
         param: { id },
-        query: { keepImage: gptImageSettings.keepImageWhenDeleteTask ? 'true' : 'false' },
+        query: {
+          keepImage: gptImageSettings.keepImageWhenDeleteTask
+            ? 'true'
+            : 'false',
+        },
       })
       const json = await res.json()
       if (json.success) {
-        message.success('删除成功')
+        message.success(t('删除成功'))
         onSuccess?.()
       } else {
-        message.error(json.error || '删除失败')
+        message.error(t(json.error || '') || t('删除失败'))
       }
     } catch (error) {
-      message.error('删除失败')
+      message.error(t('删除失败'))
     }
   }
 
@@ -61,24 +68,24 @@ export function TaskItemDeleteButton({
     let skipNext = false
 
     Modal.confirm({
-      title: '确认删除任务？',
+      title: t('确认删除任务？'),
       content: (
         <div>
           <p>
             {gptImageSettings.keepImageWhenDeleteTask
-              ? '删除任务不会删除其生成的图片文件。'
-              : '删除任务将同时删除其生成的图片文件，且不可恢复。'}
+              ? t('删除任务不会删除其生成的图片文件。')
+              : t('删除任务将同时删除其生成的图片文件，且不可恢复。')}
           </p>
           <Checkbox
             onChange={(e) => {
               skipNext = e.target.checked
             }}
           >
-            下次不再提醒
+            {t('下次不再提醒')}
           </Checkbox>
         </div>
       ),
-      okText: '确认删除',
+      okText: t('确认删除'),
       okType: 'danger',
       onOk: () => {
         if (skipNext) {
@@ -90,7 +97,7 @@ export function TaskItemDeleteButton({
   }
 
   return (
-    <Tooltip title="删除">
+    <Tooltip title={t('删除')}>
       <Button
         type="text"
         danger

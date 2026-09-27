@@ -16,8 +16,10 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import pkg from '../../../../../package.json'
 import LinpxLogo from '../../../assets/icon/linpx.png'
 import LinpxSquareLogo from '../../../assets/icon/linpx2.png'
+import { useAppLanguage } from '../../../i18n'
 import { useAppTheme } from '../../../theme'
 import { openSettingModal } from '../../common/SettingModal'
+import { LanguageToggle } from '../LanguageToggle'
 import { openNotificationModal } from '../Notification'
 import { ThemeToggle } from '../ThemeToggle'
 import { GPTImageQuota } from './GPTImageQuota'
@@ -37,6 +39,8 @@ function NavigationItem({
   collapsed,
   end,
 }: NavigationItemProps) {
+  useAppLanguage()
+
   return (
     <NavLink
       to={to}
@@ -59,6 +63,7 @@ function NavigationItem({
 }
 
 export function Header() {
+  const { t } = useAppLanguage()
   const navigate = useNavigate()
   const { squareCorners } = useAppTheme()
   const [collapsed, setCollapsed] = useState(true)
@@ -75,7 +80,7 @@ export function Header() {
           collapsed ? 'justify-center' : 'justify-start'
         }`}
         onClick={() => navigate('/')}
-        title="返回工作台"
+        title={t('返回工作台')}
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#262b33] ring-1 ring-white/8">
           <img
@@ -87,7 +92,7 @@ export function Header() {
         {!collapsed && (
           <span className="min-w-0">
             <span className="block truncate text-base font-semibold tracking-wide text-slate-100">
-              LinAI 工作台
+              {t('LinAI 工作台')}
             </span>
             <span className="block text-[11px] text-slate-500">
               v{pkg.version}-ow
@@ -105,49 +110,53 @@ export function Header() {
       <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2">
         {!collapsed && (
           <div className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-[0.16em] text-slate-600">
-            创作工具
+            {t('创作工具')}
           </div>
         )}
         <NavigationItem
           to="/"
           end
           icon={<PictureOutlined />}
-          label="图片生成"
+          label={t('图片生成')}
           collapsed={collapsed}
         />
         <NavigationItem
           to="/character-card"
           icon={<IdcardOutlined />}
-          label="角色卡生成"
+          label={t('角色卡生成')}
           collapsed={collapsed}
         />
         <NavigationItem
           to="/templates"
           icon={<AppstoreOutlined />}
-          label="模板管理"
+          label={t('模板管理')}
           collapsed={collapsed}
         />
         <NavigationItem
           to="/template-editor"
           icon={<EditOutlined />}
-          label="模板编辑器"
+          label={t('模板编辑器')}
           collapsed={collapsed}
         />
         <NavigationItem
           to="/tasks"
           icon={<UnorderedListOutlined />}
-          label="任务列表管理"
+          label={t('任务列表管理')}
           collapsed={collapsed}
         />
         <NavigationItem
           to="/studio"
           icon={<ToolOutlined />}
-          label="工作室"
+          label={t('工作室')}
           collapsed={collapsed}
         />
       </nav>
 
       <div className="flex shrink-0 flex-col gap-1 border-t border-[#2b3039] p-2">
+        <LanguageToggle
+          className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
+          compact={collapsed}
+        />
         <ThemeToggle
           className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
           showLabel={!collapsed}
@@ -156,39 +165,39 @@ export function Header() {
           type="button"
           className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
           onClick={() => setCollapsed((value) => !value)}
-          title={collapsed ? '展开侧栏' : '收起侧栏'}
-          aria-label={collapsed ? '展开侧栏' : '收起侧栏'}
+          title={t(collapsed ? t('展开侧栏') : t('收起侧栏'))}
+          aria-label={t(collapsed ? t('展开侧栏') : t('收起侧栏'))}
         >
           {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-          {!collapsed && <span>收起侧栏</span>}
+          {!collapsed && <span>{t('收起侧栏')}</span>}
         </button>
         <button
           type="button"
           className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
           onClick={() => openNotificationModal()}
-          title="通知与说明"
+          title={t('通知与说明')}
         >
           <BellOutlined />
-          {!collapsed && <span>通知与说明</span>}
+          {!collapsed && <span>{t('通知与说明')}</span>}
         </button>
         <button
           type="button"
           className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
           onClick={() => openSettingModal()}
-          title="设置"
+          title={t('设置')}
         >
           <SettingOutlined />
-          {!collapsed && <span>设置</span>}
+          {!collapsed && <span>{t('设置')}</span>}
         </button>
         <a
           className={`sidebar-action-button ${collapsed ? '' : 'justify-start!'}`}
           href="https://github.com/Raindropx/openLinAI"
           target="_blank"
           rel="noreferrer"
-          title="GitHub 源码"
+          title={t('GitHub 源码')}
         >
           <GithubOutlined />
-          {!collapsed && <span>GitHub 源码</span>}
+          {!collapsed && <span>{t('GitHub 源码')}</span>}
         </a>
       </div>
     </aside>

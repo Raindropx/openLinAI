@@ -1,6 +1,7 @@
 import { ArrowRightOutlined } from '@ant-design/icons'
 import { Button, Dropdown, Tooltip, message } from 'antd'
 import { useState } from 'react'
+import { t, useAppLanguage } from '../../../i18n'
 import { copyTaskImageToStudio } from './api'
 
 export function CopyToStudioButton({
@@ -14,15 +15,17 @@ export function CopyToStudioButton({
   imageIndex?: number
   className?: string
 }) {
+  useAppLanguage()
+
   const [busy, setBusy] = useState(false)
   const copy = async (index: number) => {
     if (busy) return
     setBusy(true)
     try {
       await copyTaskImageToStudio(taskId, index)
-      message.success('已复制到工作室暂存台')
+      message.success(t('已复制到工作室暂存台'))
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '复制失败')
+      message.error(error instanceof Error ? t(error.message) : t('复制失败'))
     } finally {
       setBusy(false)
     }
@@ -35,7 +38,7 @@ export function CopyToStudioButton({
       loading={busy}
       disabled={busy}
       className={className}
-      aria-label="复制到暂存台"
+      aria-label={t('复制到暂存台')}
       onClick={
         count > 1 && imageIndex === undefined
           ? undefined
@@ -48,15 +51,15 @@ export function CopyToStudioButton({
       menu={{
         items: Array.from({ length: count }, (_, index) => ({
           key: String(index),
-          label: `图片 ${index + 1}`,
+          label: t('图片 {0}', [index + 1]),
         })),
         onClick: ({ key }) => void copy(Number(key)),
       }}
       trigger={['click']}
     >
-      <Tooltip title="选择图片复制到暂存台">{button}</Tooltip>
+      <Tooltip title={t('选择图片复制到暂存台')}>{button}</Tooltip>
     </Dropdown>
   ) : (
-    <Tooltip title="复制到暂存台">{button}</Tooltip>
+    <Tooltip title={t('复制到暂存台')}>{button}</Tooltip>
   )
 }

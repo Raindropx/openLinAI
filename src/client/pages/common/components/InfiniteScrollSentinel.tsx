@@ -1,5 +1,6 @@
 import { Spin } from 'antd'
 import { useEffect, useRef } from 'react'
+import { t, useAppLanguage } from '../../../i18n'
 
 interface InfiniteScrollSentinelProps {
   hasMore: boolean
@@ -10,6 +11,8 @@ export function InfiniteScrollSentinel({
   hasMore,
   onLoadMore,
 }: InfiniteScrollSentinelProps) {
+  useAppLanguage()
+
   const sentinelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -34,7 +37,7 @@ export function InfiniteScrollSentinel({
       className="flex h-12 items-center justify-center gap-2 text-xs text-slate-500"
     >
       <Spin size="small" />
-      继续滚动加载
+      {t('继续滚动加载')}
     </div>
   )
 }

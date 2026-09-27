@@ -2,6 +2,7 @@ import { AppstoreOutlined, EditOutlined } from '@ant-design/icons'
 import { message, Segmented } from 'antd'
 import { useCallback, useRef, useState } from 'react'
 import type { TaskTemplate } from '../../../../server/common/template-manager'
+import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { TemplateForm } from '../TemplateSection/TemplateForm'
 import {
@@ -10,6 +11,8 @@ import {
 } from '../TemplateSection/TemplateList'
 
 export function TemplateEditorPage() {
+  useAppLanguage()
+
   const listRef = useRef<TemplateListRef>(null)
   const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(
     null,
@@ -23,7 +26,7 @@ export function TemplateEditorPage() {
     (template: TaskTemplate) => {
       setEditingTemplate(template)
       setFillTemplateData(template)
-      message.success('已载入到工作区')
+      message.success(t('已载入到工作区'))
     },
     [setFillTemplateData],
   )
@@ -36,10 +39,10 @@ export function TemplateEditorPage() {
         </div>
         <div>
           <h1 className="m-0 text-lg font-semibold text-slate-100">
-            模板编辑器
+            {t('模板编辑器')}
           </h1>
           <p className="m-0 mt-0.5 text-xs text-slate-500">
-            维护提示词、参考图、分类和生成参数；右侧可直接切换模板
+            {t('维护提示词、参考图、分类和生成参数；右侧可直接切换模板')}
           </p>
         </div>
       </div>
@@ -50,8 +53,12 @@ export function TemplateEditorPage() {
           value={mobilePanel}
           onChange={setMobilePanel}
           options={[
-            { label: '编辑模板', value: 'editor', icon: <EditOutlined /> },
-            { label: '模板库', value: 'library', icon: <AppstoreOutlined /> },
+            { label: t('编辑模板'), value: 'editor', icon: <EditOutlined /> },
+            {
+              label: t('模板库'),
+              value: 'library',
+              icon: <AppstoreOutlined />,
+            },
           ]}
         />
       </div>
@@ -63,10 +70,10 @@ export function TemplateEditorPage() {
           <div className="workbench-panel-header h-auto! gap-3 py-3">
             <span className="flex items-center gap-2">
               <EditOutlined className="app-accent-text" />
-              {editingTemplate?.title || '新模板草稿'}
+              {editingTemplate?.title || t('新模板草稿')}
             </span>
             <span className="text-xs font-normal text-slate-500">
-              {editingTemplate ? '保存会更新当前模板' : '请另存为新模板'}
+              {editingTemplate ? t('保存会更新当前模板') : t('请另存为新模板')}
             </span>
           </div>
           <div className="h-[calc(100%-49px)] overflow-y-auto p-4 sm:p-5">
@@ -89,10 +96,10 @@ export function TemplateEditorPage() {
           <div className="workbench-panel-header h-auto! gap-3 py-3">
             <span className="flex items-center gap-2">
               <AppstoreOutlined className="app-accent-text" />
-              模板库
+              {t('模板库')}
             </span>
             <span className="text-xs font-normal text-slate-500">
-              点击卡片即可载入编辑
+              {t('点击卡片即可载入编辑')}
             </span>
           </div>
           <div className="absolute inset-x-0 top-[49px] bottom-0">

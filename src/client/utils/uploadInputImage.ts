@@ -1,5 +1,6 @@
 import { hc } from 'hono/client'
 import type { AppType } from '../../server'
+import { t } from '../i18n'
 import { imageBlobToUploadDataUrl } from './image'
 
 const client = hc<AppType>('/')
@@ -14,7 +15,7 @@ export async function uploadInputImageBase64(
   const data = await response.json()
 
   if (!data.success || !('url' in data)) {
-    throw new Error((data as { error?: string }).error || '图片上传失败')
+    throw new Error((data as { error?: string }).error || t('图片上传失败'))
   }
 
   return data.url as string
@@ -26,7 +27,7 @@ export async function uploadInputImageFromUrl(
 ) {
   const response = await fetch(url)
   if (!response.ok) {
-    throw new Error('图片下载失败')
+    throw new Error(t('图片下载失败'))
   }
 
   const uploadDataUrl = await imageBlobToUploadDataUrl(await response.blob())

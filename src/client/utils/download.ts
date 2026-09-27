@@ -1,8 +1,12 @@
 import { saveAs } from 'file-saver'
 import JSZip from 'jszip'
+import { t } from '../i18n'
 
 const getSafeFileNamePart = (value: string, fallback: string) => {
-  const safeValue = value.trim().replace(/[\\/:*?"<>|]/g, '_').slice(0, 30)
+  const safeValue = value
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .slice(0, 30)
   return safeValue || fallback
 }
 
@@ -28,7 +32,7 @@ export const getTaskDownloadName = (
   const safeFileName = getSafeFileNamePart(fileName, 'task')
   const safeEndpointName = getSafeFileNamePart(
     endpointName || '',
-    '未知端点',
+    t('未知端点'),
   )
   return `${safeFileName}_${safeEndpointName}_${formatTaskTimestamp(createdAt)}`
 }
@@ -74,7 +78,7 @@ export const downloadFilesZip = async (
         const ext = getExtension(file.url)
         zip.file(`${downloadName}.${ext}`, blob)
       } catch (error) {
-        console.error(`下载任务 ${file.id} 失败`, error)
+        console.error(t('下载任务 {0} 失败', [file.id]), error)
       }
     }),
   )

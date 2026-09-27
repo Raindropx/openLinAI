@@ -5,6 +5,7 @@ import {
 } from '@ant-design/icons'
 import { Button, Card } from 'antd'
 import { useState } from 'react'
+import { t, useAppLanguage } from '../../../../i18n'
 import { RenameFolderModal } from './RenameFolderModal'
 
 interface TemplateFolderProps {
@@ -26,6 +27,8 @@ export function TemplateFolder({
   isParent = false,
   dropFolder,
 }: TemplateFolderProps) {
+  useAppLanguage()
+
   const [isDragOver, setIsDragOver] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -76,7 +79,7 @@ export function TemplateFolder({
               {folder}
             </div>
             <div className="text-xs text-slate-400">
-              {isParent ? '拖到这里移出分类' : `${count} 个模板`}
+              {isParent ? t('拖到这里移出分类') : t('{0} 个模板', [count])}
             </div>
           </div>
           {!isParent && (

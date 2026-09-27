@@ -6,6 +6,7 @@ import type { AppType } from '../../../../../server'
 import { TaskTemplate } from '../../../../../server/common/template-manager'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { useTemplates } from '../../../../hooks/useTemplates'
+import { t, useAppLanguage } from '../../../../i18n'
 import { useGlobalStore } from '../../../../store/global'
 import { TemplateFormFields } from '../TemplateForm/TemplateFormItems'
 
@@ -16,6 +17,8 @@ interface TemplateEditButtonProps {
 }
 
 export function TemplateEditButton({ template }: TemplateEditButtonProps) {
+  useAppLanguage()
+
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [imageUrls, setImageUrls] = useState<string[]>([])
@@ -63,14 +66,14 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
       })
       const json = await res.json()
       if (json.success) {
-        message.success('更新成功')
+        message.success(t('更新成功'))
         refresh()
         handleClose()
       } else {
-        message.error(json.error || '更新失败')
+        message.error(t(json.error || '') || t('更新失败'))
       }
     } catch (error) {
-      message.error('请求失败')
+      message.error(t('请求失败'))
     } finally {
       setSubmitting(false)
     }
@@ -89,17 +92,17 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
       })
       const json = await res.json()
       if (json.success) {
-        message.success('另存成功')
+        message.success(t('另存成功'))
         refresh()
         handleClose()
       } else {
-        message.error(json.error || '另存失败')
+        message.error(t(json.error || '') || t('另存失败'))
       }
     } catch (error) {
       if (error && typeof error === 'object' && 'errorFields' in error) {
         // Validation failed, do nothing
       } else {
-        message.error('请求失败')
+        message.error(t('请求失败'))
       }
     } finally {
       setSubmitting(false)
@@ -108,7 +111,7 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
 
   return (
     <>
-      <Tooltip title="编辑模板">
+      <Tooltip title={t('编辑模板')}>
         <Button
           type="text"
           icon={<EditOutlined />}
@@ -117,7 +120,7 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
         />
       </Tooltip>
       <Modal
-        title="编辑模板"
+        title={t('编辑模板')}
         open={open}
         onCancel={handleClose}
         afterOpenChange={handleOpenChange}
@@ -130,11 +133,11 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
                 loading={submitting}
                 disabled={uploadingCount > 0}
               >
-                另存
+                {t('另存')}
               </Button>
               <div className="flex gap-4">
                 <Button key="cancel" onClick={handleClose}>
-                  取消
+                  {t('取消')}
                 </Button>
                 <Button
                   key="submit"
@@ -143,7 +146,7 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
                   loading={submitting}
                   disabled={uploadingCount > 0}
                 >
-                  保存
+                  {t('保存')}
                 </Button>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { Tooltip } from 'antd'
 import { useMemo } from 'react'
 import { useGPTImageQuota } from '../../../hooks/useGPTImageQuota'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { openSettingModal } from '../SettingModal'
 
@@ -13,6 +14,8 @@ export function GPTImageQuota({
 }: {
   variant?: 'header' | 'sidebar' | 'pull'
 }) {
+  useAppLanguage()
+
   const endpoints = useGlobalStore((state) => state.endpoints)
   const { gptImageSettings } = useLocalSetting()
   const selectedEndpoint = useMemo(
@@ -34,13 +37,13 @@ export function GPTImageQuota({
   const isNewApi = selectedEndpoint.type === 'yunwu'
   const isVenice = selectedEndpoint.type === 'venice'
   const endpointName =
-    selectedEndpoint.name || selectedEndpoint.model || '未命名端点'
+    selectedEndpoint.name || selectedEndpoint.model || t('未命名端点')
   const sidebar = variant === 'sidebar'
   const pull = variant === 'pull'
 
   return (
     <Tooltip
-      title={supportsQuota && error ? error : '点击打开图片端点设置'}
+      title={supportsQuota && error ? error : t('点击打开图片端点设置')}
       placement="bottom"
     >
       <div
@@ -71,17 +74,19 @@ export function GPTImageQuota({
               <span className="mx-1 h-3.5 w-px shrink-0 bg-slate-600" />
             )}
             {loading ? (
-              <span className="shrink-0 text-slate-400">余额查询中...</span>
+              <span className="shrink-0 text-slate-400">
+                {t('余额查询中...')}
+              </span>
             ) : error ? (
               <span className="line-clamp-1 max-w-40 shrink-0 text-red-500">
-                余额: {error}
+                {t('余额:')} {error}
               </span>
             ) : quota ? (
               <span className="shrink-0">
-                余额：
+                {t('余额：')}
                 <span className="font-semibold text-slate-100">
                   {quota.unlimited_quota
-                    ? '不限'
+                    ? t('不限')
                     : isVenice
                       ? [
                           quota.balances?.USD !== undefined
@@ -93,13 +98,13 @@ export function GPTImageQuota({
                         ]
                           .filter(Boolean)
                           .join(' / ')
-                    : isOpenRouter
-                      ? `$${quota.total_available.toFixed(2)}`
-                      : isNewApi
-                        ? `$${(
-                            quota.total_available / NEW_API_QUOTA_PER_USD
-                          ).toFixed(2)}`
-                        : quota.total_available.toFixed(2)}
+                      : isOpenRouter
+                        ? `$${quota.total_available.toFixed(2)}`
+                        : isNewApi
+                          ? `$${(
+                              quota.total_available / NEW_API_QUOTA_PER_USD
+                            ).toFixed(2)}`
+                          : quota.total_available.toFixed(2)}
                 </span>
               </span>
             ) : null}

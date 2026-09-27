@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { create } from 'zustand'
 import type { AppType } from '../../server'
 import type { GPTImageQuotaResponse } from '../../server/api/gpt-image'
+import { t } from '../i18n'
 import { isAdmin } from '../pages/common/SettingModal'
 import { useGlobalStore } from '../store/global'
 import { useLocalSetting } from './useLocalSetting'
@@ -16,10 +17,7 @@ interface QuotaStore {
   loading: boolean
   lastKey: string | null
   fetchPromise: Promise<void> | null
-  fetchQuota: (
-    endpointId: string | null,
-    force?: boolean,
-  ) => Promise<void>
+  fetchQuota: (endpointId: string | null, force?: boolean) => Promise<void>
 }
 
 const useQuotaStore = create<QuotaStore>((set, get) => ({
@@ -55,7 +53,7 @@ const useQuotaStore = create<QuotaStore>((set, get) => ({
         })
         const json = await response.json()
         if (!json.success) {
-          throw new Error(json.error || '获取余额失败')
+          throw new Error(t(json.error || '') || t('获取余额失败'))
         }
         set({
           data: json.data.data,
@@ -65,7 +63,7 @@ const useQuotaStore = create<QuotaStore>((set, get) => ({
         })
       } catch (error: any) {
         console.error(error)
-        set({ error: error.message, loading: false, fetchPromise: null })
+        set({ error: t(error.message), loading: false, fetchPromise: null })
       }
     })()
 

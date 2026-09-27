@@ -1,6 +1,7 @@
 import { SearchOutlined, SortAscendingOutlined } from '@ant-design/icons'
 import { Input, Select } from 'antd'
 import type { ReactNode } from 'react'
+import { t, useAppLanguage } from '../../../i18n'
 
 export type ListSortMode =
   | 'default'
@@ -10,11 +11,36 @@ export type ListSortMode =
   | 'title-desc'
 
 export const LIST_SORT_OPTIONS = [
-  { value: 'default', label: '默认排序' },
-  { value: 'time-asc', label: '时间顺序' },
-  { value: 'time-desc', label: '时间倒序' },
-  { value: 'title-asc', label: '首字母顺序' },
-  { value: 'title-desc', label: '首字母倒序' },
+  {
+    value: 'default',
+    get label() {
+      return t('默认排序')
+    },
+  },
+  {
+    value: 'time-asc',
+    get label() {
+      return t('时间顺序')
+    },
+  },
+  {
+    value: 'time-desc',
+    get label() {
+      return t('时间倒序')
+    },
+  },
+  {
+    value: 'title-asc',
+    get label() {
+      return t('首字母顺序')
+    },
+  },
+  {
+    value: 'title-desc',
+    get label() {
+      return t('首字母倒序')
+    },
+  },
 ] satisfies Array<{ value: ListSortMode; label: string }>
 
 export function sortListItems<T>(
@@ -70,6 +96,8 @@ export function ListToolbar({
   fluidSortOnMobile = false,
   actions,
 }: ListToolbarProps) {
+  useAppLanguage()
+
   return (
     <div
       className={`flex gap-2 ${
@@ -88,7 +116,7 @@ export function ListToolbar({
         <Select<ListSortMode>
           value={sortMode}
           onChange={onSortChange}
-          options={LIST_SORT_OPTIONS}
+          options={LIST_SORT_OPTIONS.map((option) => ({ ...option }))}
           suffixIcon={<SortAscendingOutlined />}
           className={
             compact || fluidSortOnMobile

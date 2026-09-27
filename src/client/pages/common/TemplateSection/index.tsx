@@ -2,11 +2,14 @@ import { Radio } from 'antd'
 import { useRef, useState } from 'react'
 import type { TaskTemplate } from '../../../../server/common/template-manager'
 import { usePlatform } from '../../../hooks/usePlatform'
+import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { TemplateForm } from './TemplateForm'
 import { TemplateList, TemplateListRef } from './TemplateList'
 
 const ModuleWrapper = ({ children }: { children: React.ReactElement }) => {
+  useAppLanguage()
+
   return (
     <div className="w-full min-w-0 rounded-2xl border border-[#303640] bg-[#1a1e24] p-3 shadow-sm md:relative md:w-1/2 md:p-6">
       {children}
@@ -15,6 +18,8 @@ const ModuleWrapper = ({ children }: { children: React.ReactElement }) => {
 }
 
 export function TemplateSection() {
+  useAppLanguage()
+
   const listRef = useRef<TemplateListRef>(null)
   const { isMobile } = usePlatform()
   const setFillTemplateData = useGlobalStore(
@@ -42,8 +47,8 @@ export function TemplateSection() {
             optionType="button"
             buttonStyle="solid"
             options={[
-              { label: '新增模板', value: 'form' },
-              { label: '模板列表', value: 'list' },
+              { label: t('新增模板'), value: 'form' },
+              { label: t('模板列表'), value: 'list' },
             ]}
           />
         </div>

@@ -11,8 +11,10 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import LinpxLogo from '../../../assets/icon/linpx.png'
 import LinpxSquareLogo from '../../../assets/icon/linpx2.png'
+import { t, useAppLanguage } from '../../../i18n'
 import { useAppTheme } from '../../../theme'
 import { GPTImageQuota } from '../Header/GPTImageQuota'
+import { LanguageToggle } from '../LanguageToggle'
 import { openNotificationModal } from '../Notification'
 import { openSettingModal } from '../SettingModal'
 import { ThemeToggle } from '../ThemeToggle'
@@ -62,7 +64,15 @@ function hasScrolledAncestor(target: Element, root: HTMLElement) {
   return false
 }
 
-export function MobilePullBalance({ children, disabled = false }: { children: ReactNode; disabled?: boolean }) {
+export function MobilePullBalance({
+  children,
+  disabled = false,
+}: {
+  children: ReactNode
+  disabled?: boolean
+}) {
+  useAppLanguage()
+
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -182,7 +192,11 @@ export function MobilePullBalance({ children, disabled = false }: { children: Re
           <GPTImageQuota variant="pull" />
         </div>
       </div>
-      <div className="mobile-pull-balance-content" data-mobile-pull-content style={disabled ? { transform: 'none', willChange: 'auto' } : undefined}>
+      <div
+        className="mobile-pull-balance-content"
+        data-mobile-pull-content
+        style={disabled ? { transform: 'none', willChange: 'auto' } : undefined}
+      >
         {children}
       </div>
     </div>
@@ -190,14 +204,46 @@ export function MobilePullBalance({ children, disabled = false }: { children: Re
 }
 
 const navigationItems = [
-  { to: '/', label: '工作台', icon: <PictureOutlined />, end: true },
-  { to: '/character-card', label: '角色卡', icon: <IdcardOutlined /> },
-  { to: '/templates', label: '模板', icon: <AppstoreOutlined /> },
-  { to: '/tasks', label: '任务', icon: <UnorderedListOutlined /> },
-  { to: '/studio', label: '工作室', icon: <ToolOutlined /> },
+  {
+    to: '/',
+    get label() {
+      return t('工作台')
+    },
+    icon: <PictureOutlined />,
+    end: true,
+  },
+  {
+    to: '/character-card',
+    get label() {
+      return t('角色卡')
+    },
+    icon: <IdcardOutlined />,
+  },
+  {
+    to: '/templates',
+    get label() {
+      return t('模板')
+    },
+    icon: <AppstoreOutlined />,
+  },
+  {
+    to: '/tasks',
+    get label() {
+      return t('任务')
+    },
+    icon: <UnorderedListOutlined />,
+  },
+  {
+    to: '/studio',
+    get label() {
+      return t('工作室')
+    },
+    icon: <ToolOutlined />,
+  },
 ]
 
 export function MobileTopBar() {
+  useAppLanguage()
   const navigate = useNavigate()
   const { squareCorners } = useAppTheme()
 
@@ -213,15 +259,18 @@ export function MobileTopBar() {
           alt="LinAI Logo"
           className="app-theme-logo h-9 w-9 rounded-lg ring-1 ring-white/8"
         />
-        <span className="truncate text-sm font-semibold">LinAI 工作台</span>
+        <span className="truncate text-sm font-semibold">
+          {t('LinAI 工作台')}
+        </span>
       </button>
       <div className="flex items-center gap-1">
+        <LanguageToggle className="mobile-header-button" compact />
         <ThemeToggle className="mobile-header-button" />
         <button
           type="button"
           className="mobile-header-button"
           onClick={() => openNotificationModal()}
-          aria-label="通知与说明"
+          aria-label={t('通知与说明')}
         >
           <BellOutlined />
         </button>
@@ -229,7 +278,7 @@ export function MobileTopBar() {
           type="button"
           className="mobile-header-button"
           onClick={() => openSettingModal()}
-          aria-label="设置"
+          aria-label={t('设置')}
         >
           <SettingOutlined />
         </button>
@@ -239,10 +288,14 @@ export function MobileTopBar() {
 }
 
 export function MobileBottomNavigation() {
+  useAppLanguage()
   const { pathname } = useLocation()
 
   return (
-    <nav className="mobile-bottom-navigation lg:hidden" aria-label="主导航">
+    <nav
+      className="mobile-bottom-navigation lg:hidden"
+      aria-label={t('主导航')}
+    >
       {navigationItems.map((item) => {
         const isTemplateRoute =
           item.to === '/templates' && pathname === '/template-editor'
@@ -257,7 +310,7 @@ export function MobileBottomNavigation() {
             }
           >
             <span className="text-xl leading-none">{item.icon}</span>
-            <span>{item.label}</span>
+            <span>{t(item.label)}</span>
           </NavLink>
         )
       })}

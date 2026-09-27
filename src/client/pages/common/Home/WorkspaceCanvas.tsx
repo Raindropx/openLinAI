@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Task } from '../../../../server/common/task-manager'
 import { useRecentImages } from '../../../hooks/useRecentImages'
 import { useTasks } from '../../../hooks/useTasks'
+import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { uploadInputImageFromUrl } from '../../../utils/uploadInputImage'
 import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
@@ -34,6 +35,8 @@ export function WorkspaceCanvas({
   selectedTaskId,
   onSelectTask,
 }: WorkspaceCanvasProps) {
+  useAppLanguage()
+
   const { data: tasks = [], loading } = useTasks()
   const { addRecentImages } = useRecentImages()
   const addReferenceImage = useGlobalStore((state) => state.addReferenceImage)
@@ -65,18 +68,18 @@ export function WorkspaceCanvas({
     status === 'completed'
       ? {
           icon: <CheckCircleFilled />,
-          label: '已完成',
+          label: t('已完成'),
           className: 'text-emerald-400',
         }
       : status === 'failed'
         ? {
             icon: <CloseCircleFilled />,
-            label: '生成失败',
+            label: t('生成失败'),
             className: 'text-red-400',
           }
         : {
             icon: <SyncOutlined spin={status === 'running'} />,
-            label: status === 'running' ? '生成中' : '等待中',
+            label: status === 'running' ? t('生成中') : t('等待中'),
             className: 'app-accent-text',
           }
 
@@ -86,7 +89,7 @@ export function WorkspaceCanvas({
         <div className="flex min-w-0 items-center gap-2">
           <PictureOutlined className="app-accent-text" />
           <span className="truncate">
-            {selectedTask?.rawTemplate?.title || '创作画布'}
+            {selectedTask?.rawTemplate?.title || t('创作画布')}
           </span>
         </div>
         {selectedTask && (
@@ -106,7 +109,7 @@ export function WorkspaceCanvas({
         {loading && imageTasks.length === 0 ? (
           <div className="relative flex flex-col items-center gap-3 text-slate-500">
             <Spin />
-            <span className="text-sm">正在载入工作区</span>
+            <span className="text-sm">{t('正在载入工作区')}</span>
           </div>
         ) : !selectedTask ? (
           <div className="relative flex max-w-sm flex-col items-center text-center text-slate-500">
@@ -114,25 +117,27 @@ export function WorkspaceCanvas({
               <PictureOutlined />
             </div>
             <h2 className="mb-2 text-base font-semibold text-slate-300">
-              画布等待生成结果
+              {t('画布等待生成结果')}
             </h2>
             <p className="m-0 text-sm leading-6">
-              在左侧填写提示词并提交任务，最新结果会自动显示在这里。
+              {t('在左侧填写提示词并提交任务，最新结果会自动显示在这里。')}
             </p>
           </div>
         ) : status === 'failed' ? (
           <div className="relative max-w-md rounded-xl border border-red-500/25 bg-red-500/8 p-6 text-center">
             <CloseCircleFilled className="mb-3 text-3xl text-red-400" />
-            <div className="mb-2 font-semibold text-red-300">生成失败</div>
+            <div className="mb-2 font-semibold text-red-300">
+              {t('生成失败')}
+            </div>
             <div className="text-sm leading-6 text-slate-400">
-              {selectedTask.error || '任务未返回可用结果'}
+              {selectedTask.error || t('任务未返回可用结果')}
             </div>
           </div>
         ) : selectedUrls.length === 0 ? (
           <div className="relative flex flex-col items-center gap-3 text-slate-400">
             <Spin size="large" />
             <div className="font-medium">
-              {status === 'running' ? '正在生成图片' : '任务正在排队'}
+              {status === 'running' ? t('正在生成图片') : t('任务正在排队')}
             </div>
             <div className="line-clamp-2 max-w-md text-center text-xs leading-5 text-slate-500">
               {selectedTask.rawTemplate?.prompt}
@@ -152,7 +157,7 @@ export function WorkspaceCanvas({
                 >
                   <Image
                     src={url}
-                    alt={`生成结果 ${index + 1}`}
+                    alt={t('生成结果 {0}', [index + 1])}
                     className="max-h-[calc(100dvh-240px)]! max-w-full! object-contain"
                     styles={{
                       root: {
@@ -171,7 +176,7 @@ export function WorkspaceCanvas({
         {selectedTask && (
           <div className="canvas-task-meta absolute top-3 left-3 flex items-center overflow-hidden rounded-md border text-[11px] backdrop-blur">
             {selectedUrls[0] && (
-              <Tooltip title="将当前图片加入左侧参考图">
+              <Tooltip title={t('将当前图片加入左侧参考图')}>
                 <Button
                   type="text"
                   size="small"
@@ -187,12 +192,12 @@ export function WorkspaceCanvas({
                       )
                       addReferenceImage(inputUrl)
                       addRecentImages(inputUrl)
-                      message.success('已复制到输入区并加入左侧参考图')
+                      message.success(t('已复制到输入区并加入左侧参考图'))
                     } catch (error) {
                       message.error(
                         error instanceof Error
-                          ? error.message
-                          : '加入参考图失败',
+                          ? t(error.message)
+                          : t('加入参考图失败'),
                       )
                     } finally {
                       setAddingReference(false)
@@ -227,7 +232,7 @@ export function WorkspaceCanvas({
       <div className="h-24 shrink-0 border-t border-[#2d333d] bg-[#15181d] p-2.5">
         {recentTasks.length === 0 ? (
           <div className="flex h-full items-center justify-center text-xs text-slate-600">
-            最近生成的图片会显示在这里
+            {t('最近生成的图片会显示在这里')}
           </div>
         ) : (
           <div className="flex h-full gap-2 overflow-x-auto pb-1">
@@ -248,7 +253,7 @@ export function WorkspaceCanvas({
                 >
                   <img
                     src={getThumbUrl(url)}
-                    alt="最近生成结果"
+                    alt={t('最近生成结果')}
                     className="h-full w-full object-cover"
                     loading="lazy"
                   />

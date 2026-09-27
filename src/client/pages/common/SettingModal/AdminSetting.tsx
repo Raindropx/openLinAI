@@ -5,6 +5,7 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import type { AppType } from '../../../../server'
 import { encryptApiKey } from '../../../../server/module/gpt-image/encrypt'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import { t, useAppLanguage } from '../../../i18n'
 import { AdminSettingsCollapse } from './AdminSettingsCollapse'
 import { AdminSettingsUser } from './AdminSettingsUser'
 import type { GenerateApiKeyResponse } from './types'
@@ -16,6 +17,8 @@ export interface AdminSettingRef {
 const client = hc<AppType>('/')
 
 export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
+  useAppLanguage()
+
   const [form] = Form.useForm()
   const { yunwuSystemToken, setYunwuSystemToken, yunwuUserId, setYunwuUserId } =
     useLocalSetting()
@@ -47,7 +50,7 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
 
   const handleGenerate = async (name: string, quota: number, group: string) => {
     if (!yunwuSystemToken || !yunwuUserId) {
-      message.warning('请先配置云雾用户设置')
+      message.warning(t('请先配置云雾用户设置'))
       return
     }
     setLoading(true)
@@ -73,12 +76,12 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
       const data = (await response.json()) as GenerateApiKeyResponse
       if (data.success && data.data) {
         setGeneratedApiKey(data.data)
-        message.success('API Key 生成成功')
+        message.success(t('API Key 生成成功'))
       } else {
-        message.error(data.message || '生成失败')
+        message.error(data.message || t('生成失败'))
       }
     } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : '请求失败')
+      message.error(err instanceof Error ? t(err.message) : t('请求失败'))
     } finally {
       setLoading(false)
     }
@@ -86,16 +89,16 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
 
   const handleEncrypt = async () => {
     if (!rawApiKey) {
-      message.warning('请输入 API Key')
+      message.warning(t('请输入 API Key'))
       return
     }
     setEncrypting(true)
     try {
       const result = encryptApiKey(rawApiKey)
       setEncryptedApiKey(result)
-      message.success('转换成功')
+      message.success(t('转换成功'))
     } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : '转换失败')
+      message.error(err instanceof Error ? t(err.message) : t('转换失败'))
     } finally {
       setEncrypting(false)
     }
@@ -136,11 +139,11 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
           <div className="mb-2 flex items-center gap-2">
             <span className="text-lg">✅</span>
             <span className="text-sm font-medium text-green-300">
-              API Key 生成成功
+              {t('API Key 生成成功')}
             </span>
           </div>
           <div className="mb-2 text-xs text-green-400">
-            请妥善保存，此 Key 关闭后将无法再次查看
+            {t('请妥善保存，此 Key 关闭后将无法再次查看')}
           </div>
           <div className="flex items-center gap-2">
             <Input
@@ -152,10 +155,10 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
               icon={<CopyOutlined />}
               onClick={() => {
                 navigator.clipboard.writeText(generatedApiKey)
-                message.success('已复制到剪贴板')
+                message.success(t('已复制到剪贴板'))
               }}
             >
-              复制
+              {t('复制')}
             </Button>
           </div>
         </div>
@@ -165,26 +168,28 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
       <div className="rounded-lg border border-white/10 bg-white/[0.025]">
         <div className="flex items-center gap-2 border-b border-white/10 px-5 py-3">
           <ToolOutlined className="text-base text-slate-500" />
-          <span className="text-sm font-medium text-slate-200">工具</span>
+          <span className="text-sm font-medium text-slate-200">
+            {t('工具')}
+          </span>
         </div>
         <div className="space-y-3 px-5 py-4">
-          <div className="text-xs text-slate-400">API Key 加密转换</div>
+          <div className="text-xs text-slate-400">{t('API Key 加密转换')}</div>
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Input.Password
-                placeholder="输入原始 API Key"
+                placeholder={t('输入原始 API Key')}
                 value={rawApiKey}
                 onChange={(e) => setRawApiKey(e.target.value)}
                 autoComplete="off"
               />
             </div>
             <Button type="primary" onClick={handleEncrypt} loading={encrypting}>
-              转换
+              {t('转换')}
             </Button>
           </div>
           {encryptedApiKey && (
             <div className="rounded-md border border-blue-400/20 bg-blue-400/10 p-3">
-              <div className="mb-1 text-xs text-blue-300">加密结果</div>
+              <div className="mb-1 text-xs text-blue-300">{t('加密结果')}</div>
               <div className="font-mono text-xs break-all text-slate-300">
                 {encryptedApiKey}
               </div>
@@ -194,11 +199,11 @@ export const AdminSetting = forwardRef<AdminSettingRef>((_props, ref) => {
                 icon={<CopyOutlined />}
                 onClick={() => {
                   navigator.clipboard.writeText(encryptedApiKey)
-                  message.success('已复制到剪贴板')
+                  message.success(t('已复制到剪贴板'))
                 }}
                 className="mt-1 !px-0 !text-xs"
               >
-                复制
+                {t('复制')}
               </Button>
             </div>
           )}
