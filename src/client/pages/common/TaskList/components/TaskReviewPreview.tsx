@@ -119,6 +119,7 @@ export function TaskReviewPreview({
   onDelete,
   onAddToTemplate,
   onToggleSelection,
+  onExitSelectionMode,
 }: {
   images: ReviewImage[]
   current: number
@@ -134,6 +135,7 @@ export function TaskReviewPreview({
   onDelete: () => void
   onAddToTemplate: () => void
   onToggleSelection: () => void
+  onExitSelectionMode: () => void
 }) {
   useAppLanguage()
 
@@ -148,6 +150,20 @@ export function TaskReviewPreview({
     if (!open) return
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      const isSelectKey = event.key === 'Enter'
+      const isDeleteKey = event.key === 'Delete'
+      if (
+        (!isSelectKey && !isDeleteKey) ||
+        event.repeat ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        deleting ||
+        (isSelectKey && !canSelect) ||
+        (isDeleteKey && (selectionMode || !canDelete))
+      )
+        return
+
       const hasOpenModal = Array.from(
         document.querySelectorAll<HTMLElement>('.ant-modal-wrap'),
       ).some(
@@ -155,16 +171,7 @@ export function TaskReviewPreview({
           element.getClientRects().length > 0 &&
           window.getComputedStyle(element).display !== 'none',
       )
-      if (
-        event.key !== 'Enter' ||
-        event.repeat ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.altKey ||
-        !canSelect ||
-        hasOpenModal
-      )
-        return
+      if (hasOpenModal) return
 
       const target = event.target
       if (
@@ -176,12 +183,13 @@ export function TaskReviewPreview({
 
       event.preventDefault()
       event.stopPropagation()
-      onToggleSelection()
+      if (isSelectKey) onToggleSelection()
+      else onDelete()
     }
 
     window.addEventListener('keydown', handleKeyDown, true)
     return () => window.removeEventListener('keydown', handleKeyDown, true)
-  }, [canSelect, open, onToggleSelection])
+  }, [canDelete, canSelect, deleting, onDelete, onToggleSelection, open, selectionMode])
 
   return (
     <Image.PreviewGroup
@@ -211,7 +219,7 @@ export function TaskReviewPreview({
               {node}
               <div className="task-review-preview-toolbar-progress">
                 {index + 1} / {images.length}{' '}
-                {t('· ← → 切图 · Enter 选中 · 窄屏可左右滑动')}
+                {t('· ← → 切图 · Enter 选中 · Del 删除 · 窄屏可左右滑动')}
               </div>
               <div className="task-review-preview-task-actions">
                 <Tooltip
@@ -263,6 +271,11 @@ export function TaskReviewPreview({
                     {selected ? t('取消选中') : t('选中')}
                   </Button>
                 </Tooltip>
+                {selectionMode && (
+                  <Button size="small" onClick={onExitSelectionMode}>
+                    {t('退出多选模式')}
+                  </Button>
+                )}
               </div>
             </div>
           </ReviewSwipeActions>

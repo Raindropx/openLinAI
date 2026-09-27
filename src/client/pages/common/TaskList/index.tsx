@@ -1314,6 +1314,7 @@ export function TaskList({
             }
           }}
           onToggleSelection={toggleReviewedTaskSelection}
+          onExitSelectionMode={exitSelectionMode}
         />
       )}
     </Card>
