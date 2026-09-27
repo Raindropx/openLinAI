@@ -281,7 +281,15 @@ export function NovelAIStudio({
     if (values.scale !== undefined && values.scale >= 0 && values.scale <= 10) patch.scale = values.scale
     else if (values.scale !== undefined) skipped.push('CFG')
     form.setFieldsValue(patch)
-    if (patch.prompt !== undefined) setPromptMode(/^\s*fur dataset\s*,/i.test(patch.prompt) ? 'furry' : 'anime')
+    if (patch.model !== undefined) clearUnsupportedPreciseReference(patch.model)
+    if (patch.prompt !== undefined) {
+      const nextMode = provider === 'novelai' && (values.promptMode === 'anime' || values.promptMode === 'furry')
+        ? values.promptMode
+        : /^\s*fur dataset\s*,/i.test(patch.prompt) ? 'furry' : 'anime'
+      setPromptMode(nextMode)
+      try { window.localStorage.setItem('studio-novelai-prompt-mode', nextMode) }
+      catch { /* 存储不可用 */ }
+    }
     saveDraft()
     const summary = `${Object.keys(patch).length ? '已套用' : '没有可套用参数'}预设「${incomingPreset.preset.name}」${skipped.length ? `；跳过 ${skipped.join('、')}` : ''}`
     if (Object.keys(patch).length) message.success(summary)
@@ -291,7 +299,7 @@ export function NovelAIStudio({
   function capturePreset() {
     const current = form.getFieldsValue(true) as NovelAIStudioGenerateRequest
     const values: PresetValues = {
-      model: current.model, prompt: current.prompt, negativePrompt: current.negativePrompt,
+      model: current.model, prompt: current.prompt, promptMode, negativePrompt: current.negativePrompt,
       characters: current.characters, width: current.width, height: current.height,
       steps: current.steps, seed: current.seed, sampler: current.sampler,
       schedule: current.noiseSchedule, scale: current.scale, cfgRescale: current.cfgRescale,
@@ -300,7 +308,7 @@ export function NovelAIStudio({
     const defaults = { ...INITIAL_VALUES, model: settings.model }
     const suggested = PRESET_FIELDS.filter((field) => touchedPresetFields.current.has(field.key) || field.keys.some((key) => {
       const actual = values[key]
-      const original = key === 'schedule' ? defaults.noiseSchedule : defaults[key as keyof NovelAIStudioGenerateRequest]
+      const original = key === 'promptMode' ? 'anime' : key === 'schedule' ? defaults.noiseSchedule : defaults[key as keyof NovelAIStudioGenerateRequest]
       return actual !== undefined && JSON.stringify(actual) !== JSON.stringify(original)
     })).map((field) => field.key)
     return { values, suggested }
@@ -322,6 +330,11 @@ export function NovelAIStudio({
   function saveDraft(mask = maskDataUrl) {
     try { window.localStorage.setItem('studio-novelai-draft-v1', JSON.stringify({ ...form.getFieldsValue(true), maskImageUrl: mask })) }
     catch { /* 浏览器禁用存储 */ }
+  }
+
+  function clearUnsupportedPreciseReference(nextModel: string) {
+    if (!nextModel.startsWith('nai-diffusion-4-5-'))
+      form.setFieldValue(['preciseReference', 'imageUrl'], undefined)
   }
 
   async function stageReferenceImage(
@@ -540,8 +553,8 @@ export function NovelAIStudio({
         ...plainValues,
         characters,
         prompt: promptMode === 'furry'
-          ? (/^\s*fur dataset\s*,/i.test(values.prompt) ? values.prompt : `fur dataset, ${values.prompt.trim()}`)
-          : values.prompt.replace(/^\s*fur dataset\s*,\s*/i, ''),
+          ? (/\bfur dataset\b/i.test(values.prompt) ? values.prompt : `fur dataset, ${values.prompt}`)
+          : values.prompt,
         referenceImageUrl: values.action === 'generate' ? undefined : values.referenceImageUrl,
         ...(preciseReference?.imageUrl ? { preciseReference } : {}),
         maskImageUrl,
@@ -621,7 +634,7 @@ export function NovelAIStudio({
                 value: model.id,
               }))}
               onChange={(model) => {
-                if (!model.startsWith('nai-diffusion-4-5-')) form.setFieldValue(['preciseReference', 'imageUrl'], undefined)
+                clearUnsupportedPreciseReference(model)
                 saveDraft()
                 void updateNovelAISettings({ model })
                   .then(onSettings)
@@ -637,7 +650,7 @@ export function NovelAIStudio({
           </Form.Item>
         </div>
         <div className="studio-section-heading">
-          <div><strong>提示词模式</strong><small>生成时按模式调整 fur dataset 标签</small></div>
+          <div><strong>提示词模式</strong><small>Furry 模式自动补齐 fur dataset 标签；Anime 模式保留原文</small></div>
           <Segmented value={promptMode} options={[{ label: 'Anime', value: 'anime' }, { label: 'Furry', value: 'furry' }]}
             onChange={(value) => {
               setPromptMode(value as 'anime' | 'furry')
