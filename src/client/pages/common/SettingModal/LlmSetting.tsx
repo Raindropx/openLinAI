@@ -12,6 +12,7 @@ import type { LlmEndpoint, LlmPrompts } from '../../../../server/common/config'
 import { useEndpointModels } from '../../../hooks/useEndpointModels'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../i18n'
+import { canonicalizeLlmPrompts, localizeLlmPrompt } from '../../../prompts/localize'
 import { useGlobalStore } from '../../../store/global'
 import {
   findLlmEndpointPreset,
@@ -57,9 +58,9 @@ const isCompleteEndpoint = (endpoint: LlmEndpoint) =>
   )
 
 export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
-  useAppLanguage()
+  const { language } = useAppLanguage()
 
-  const { llmEndpoints, llmPrompts, saveLlmEndpoints, saveLlmPrompts } =
+  const { llmEndpoints, llmPrompts, defaultLlmPrompts, saveLlmEndpoints, saveLlmPrompts } =
     useGlobalStore()
   const {
     optimizeEndpointId,
@@ -76,6 +77,8 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
   const [pendingPresetEndpoint, setPendingPresetEndpoint] =
     useState<LlmEndpoint | null>(null)
   const [draftPrompts, setDraftPrompts] = useState<LlmPrompts>(llmPrompts)
+  const shownPrompt = (key: keyof LlmPrompts) =>
+    localizeLlmPrompt(key, draftPrompts[key], defaultLlmPrompts, language)
   const [updatingEndpoint, setUpdatingEndpoint] = useState(false)
   const skipNextEndpointSyncRef = useRef(false)
 
@@ -236,7 +239,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         setActiveId(pendingPresetEndpoint.id)
       }
       setPendingPresetEndpoint(null)
-      await saveLlmPrompts(draftPrompts)
+      await saveLlmPrompts(canonicalizeLlmPrompts(draftPrompts, defaultLlmPrompts))
       // 确保两个功能都有端点，缺失则默认用第一个
       if (
         !optimizeEndpointId ||
@@ -417,7 +420,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         <div className="mb-2 text-sm text-slate-400">{t('系统提示词')}</div>
         <Form.Item label={t('提示词优化提示词')}>
           <Input.TextArea
-            value={draftPrompts.optimizePrompt}
+            value={shownPrompt('optimizePrompt')}
             onChange={(e) =>
               setDraftPrompts((p) => ({ ...p, optimizePrompt: e.target.value }))
             }
@@ -427,7 +430,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         </Form.Item>
         <Form.Item label={t('NovelAI Furry 文生图/图生图提示词优化')}>
           <Input.TextArea
-            value={draftPrompts.novelaiFurryPrompt}
+            value={shownPrompt('novelaiFurryPrompt')}
             onChange={(e) =>
               setDraftPrompts((p) => ({
                 ...p,
@@ -439,7 +442,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         </Form.Item>
         <Form.Item label={t('NovelAI Anime 文生图/图生图提示词优化')}>
           <Input.TextArea
-            value={draftPrompts.novelaiAnimePrompt}
+            value={shownPrompt('novelaiAnimePrompt')}
             onChange={(e) =>
               setDraftPrompts((p) => ({
                 ...p,
@@ -451,7 +454,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         </Form.Item>
         <Form.Item label={t('NovelAI Furry 局部重绘提示词优化')}>
           <Input.TextArea
-            value={draftPrompts.novelaiInpaintFurryPrompt}
+            value={shownPrompt('novelaiInpaintFurryPrompt')}
             onChange={(e) =>
               setDraftPrompts((p) => ({
                 ...p,
@@ -463,7 +466,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         </Form.Item>
         <Form.Item label={t('NovelAI Anime 局部重绘提示词优化')}>
           <Input.TextArea
-            value={draftPrompts.novelaiInpaintAnimePrompt}
+            value={shownPrompt('novelaiInpaintAnimePrompt')}
             onChange={(e) =>
               setDraftPrompts((p) => ({
                 ...p,
@@ -475,7 +478,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
         </Form.Item>
         <Form.Item label={t('角色卡生成提示词')}>
           <Input.TextArea
-            value={draftPrompts.charCardPrompt}
+            value={shownPrompt('charCardPrompt')}
             onChange={(e) =>
               setDraftPrompts((p) => ({ ...p, charCardPrompt: e.target.value }))
             }
@@ -488,7 +491,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
           extra={t('与提示词优化共用同一个 LLM 端点。')}
         >
           <Input.TextArea
-            value={draftPrompts.styleOptimizePrompt}
+            value={shownPrompt('styleOptimizePrompt')}
             onChange={(e) =>
               setDraftPrompts((p) => ({
                 ...p,

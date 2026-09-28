@@ -41,6 +41,7 @@ import {
 } from '../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../i18n'
+import { localizeLlmPrompt } from '../../../prompts/localize'
 import { useGlobalStore } from '../../../store/global'
 import { imageBlobToUploadDataUrl } from '../../../utils/image'
 import {
@@ -155,7 +156,7 @@ export function NovelAIStudio({
   onSavePreset: (preset: StudioPreset) => boolean
   onOpenPhotopea: (item: StudioItem) => void
 }) {
-  useAppLanguage()
+  const { language } = useAppLanguage()
 
   const [form] = Form.useForm<NovelAIStudioGenerateRequest>()
   const [generating, setGenerating] = useState(false)
@@ -188,7 +189,7 @@ export function NovelAIStudio({
   const touchedPresetFields = useRef(new Set<PresetField>())
   const { gptImageSettings, optimizeEndpointId, setOptimizeEndpointId } =
     useLocalSetting()
-  const { llmEndpoints, llmPrompts } = useGlobalStore()
+  const { llmEndpoints, llmPrompts, defaultLlmPrompts } = useGlobalStore()
   const model = Form.useWatch('model', form) || settings.model
   const action = Form.useWatch('action', form) || 'generate'
   const focusedInpaint = Form.useWatch('focusedInpaint', form) ?? true
@@ -656,8 +657,11 @@ export function NovelAIStudio({
         : promptMode === 'furry'
           ? llmPrompts.novelaiFurryPrompt
           : llmPrompts.novelaiAnimePrompt
+      const promptKey = inpaint
+        ? promptMode === 'furry' ? 'novelaiInpaintFurryPrompt' : 'novelaiInpaintAnimePrompt'
+        : promptMode === 'furry' ? 'novelaiFurryPrompt' : 'novelaiAnimePrompt'
       const messages: ChatMessage[] = [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: localizeLlmPrompt(promptKey, systemPrompt, defaultLlmPrompts, language) },
         { role: 'user', content },
       ]
       const result = await requestChatCompletion({ endpointId, messages })

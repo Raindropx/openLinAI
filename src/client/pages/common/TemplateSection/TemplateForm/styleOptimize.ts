@@ -7,7 +7,7 @@ function cleanModelOutput(content: string) {
 }
 
 export function resolveStylePrompt(template: string, currentPrompt: string) {
-  const prompt = currentPrompt.trim() || '此画面'
+  const prompt = currentPrompt.trim() || t('此画面')
   return template.split('{prompt}').join(prompt).trim()
 }
 

@@ -2,7 +2,7 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { BACKEND_PORT } from '../..'
-import { getConfig, updateConfig } from '../../common/config'
+import { DEFAULT_LLM_PROMPTS, getConfig, updateConfig } from '../../common/config'
 import { getLocalIpAddress } from '../utils/ip'
 
 const configApi = new Hono()
@@ -14,6 +14,7 @@ const configApi = new Hono()
       success: true,
       data: {
         ...getConfig(),
+        defaultLlmPrompts: DEFAULT_LLM_PROMPTS,
         localNetworkUrl,
       },
     })
@@ -85,6 +86,7 @@ const configApi = new Hono()
         success: true,
         data: {
           ...newConfig,
+          defaultLlmPrompts: DEFAULT_LLM_PROMPTS,
           localNetworkUrl,
         },
       })

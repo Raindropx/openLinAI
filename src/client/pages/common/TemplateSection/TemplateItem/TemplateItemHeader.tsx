@@ -15,11 +15,13 @@ const client = hc<AppType>('/')
 
 export const TemplateItemHeader = ({
   template,
+  shownTemplate,
   draggable,
   onLoad,
   clickToLoad = false,
 }: {
   template: TaskTemplate
+  shownTemplate: TaskTemplate
   draggable: boolean
   onLoad: (template: TaskTemplate) => void
   clickToLoad?: boolean
@@ -70,7 +72,7 @@ export const TemplateItemHeader = ({
                 icon={<ImportOutlined />}
                 onClick={() => {
                   message.success(t('已载入到工作区'))
-                  onLoad(template)
+                  onLoad(shownTemplate)
                 }}
                 className="app-accent-hover"
               />

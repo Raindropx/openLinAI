@@ -166,7 +166,7 @@ export function TaskList({
   selectedTaskId,
   onSelectTask,
 }: TaskListProps) {
-  useAppLanguage()
+  const { language } = useAppLanguage()
 
   const panelMode = variant === 'panel'
   const managementMode = variant === 'management'
@@ -263,6 +263,7 @@ export function TaskList({
           gptImageSettings.selectedEndpointId || endpoints[0]?.id || '',
         size: (task.size as any) || '2k',
         quality: (task.quality as any) || 'medium',
+        language,
         originalPrompt: task.originalPrompt,
         writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
       },

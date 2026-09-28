@@ -352,6 +352,7 @@ const gptImageApi = new Hono()
         endpointId: z.string().min(1, 'Endpoint ID is required'),
         size: z.enum(['1k', '2k', '4k']),
         quality: z.enum(['medium', 'high']),
+        language: z.enum(['zh-CN', 'en-US']).optional(),
         originalPrompt: z.string().optional(),
         writeMetadata: z.boolean().optional().default(true),
       }),
@@ -362,6 +363,7 @@ const gptImageApi = new Hono()
         endpointId,
         size,
         quality,
+        language,
         originalPrompt,
         writeMetadata,
       } = c.req.valid('json')
@@ -373,7 +375,8 @@ const gptImageApi = new Hono()
         )
       }
       const templates = await templateManager.getTemplates()
-      const template = templates.find((t) => t.id === templateId)
+      const storedTemplate = templates.find((t) => t.id === templateId)
+      const template = storedTemplate && { ...storedTemplate, generationLanguage: language }
       if (!template) {
         return c.json(
           { success: false as const, error: '[服务] Template not found' },
@@ -464,6 +467,7 @@ const gptImageApi = new Hono()
         endpointId: z.string().min(1, 'Endpoint ID is required'),
         aspectRatio: z.string().optional().default('1:1'),
         injectAspectRatio: z.boolean().optional(),
+        language: z.enum(['zh-CN', 'en-US']).optional(),
         images: z.array(z.string()).optional(),
         size: z.enum(['1k', '2k', '4k']).optional().default('1k'),
         quality: z.enum(['medium', 'high']).optional().default('medium'),
@@ -479,6 +483,7 @@ const gptImageApi = new Hono()
         endpointId,
         aspectRatio,
         injectAspectRatio,
+        language,
         images,
         size,
         quality,
@@ -500,6 +505,7 @@ const gptImageApi = new Hono()
         prompt,
         aspectRatio,
         injectAspectRatio,
+        generationLanguage: language,
         usageType: isChat ? 'chat-image' : 'image',
         images: images || [],
         title: title?.trim() || TRIAL_TEMPLATE_TITLE,

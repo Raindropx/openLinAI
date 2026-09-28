@@ -204,7 +204,9 @@ export function buildPromptWithAspectRatio(template: TaskTemplate): string {
   if (!template.injectAspectRatio) return prompt
   const ratio = template.aspectRatio
   if (!ratio || ratio === 'auto') return prompt
-  return `${prompt}。画面比例${ratio}`
+  return template.generationLanguage === 'en-US'
+    ? `${prompt}\nAspect ratio: ${ratio}`
+    : `${prompt}。画面比例${ratio}`
 }
 
 function calculateSize(aspectRatio: string, baseSize: GptImageSize): string {

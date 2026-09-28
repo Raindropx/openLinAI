@@ -7,6 +7,7 @@ import {
 } from '../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../i18n'
+import { localizeLlmPrompt } from '../../../prompts/localize'
 import { useGlobalStore } from '../../../store/global'
 import { imageBlobToUploadDataUrl } from '../../../utils/image'
 import { openSettingModal } from '../SettingModal'
@@ -48,14 +49,14 @@ export function NovelAICharacterImagePrompt({
   mode: 'anime' | 'furry'
   onAdopt: (prompt: string, uc: string) => void
 }) {
-  useAppLanguage()
+  const { language } = useAppLanguage()
 
   const [loading, setLoading] = useState(false)
   const [image, setImage] = useState<{ name: string; url: string } | null>(null)
   const [prompt, setPrompt] = useState('')
   const [uc, setUc] = useState('')
   const { optimizeEndpointId, setOptimizeEndpointId } = useLocalSetting()
-  const { llmEndpoints, llmPrompts } = useGlobalStore()
+  const { llmEndpoints, llmPrompts, defaultLlmPrompts } = useGlobalStore()
 
   async function generateFromImage(file: File) {
     if (loading) return
@@ -79,21 +80,26 @@ export function NovelAICharacterImagePrompt({
     setLoading(true)
     try {
       const url = await imageBlobToUploadDataUrl(file)
-      const systemPrompt =
-        mode === 'furry'
-          ? llmPrompts.novelaiFurryPrompt
-          : llmPrompts.novelaiAnimePrompt
+      const promptKey = mode === 'furry' ? 'novelaiFurryPrompt' : 'novelaiAnimePrompt'
+      const systemPrompt = localizeLlmPrompt(
+        promptKey, llmPrompts[promptKey], defaultLlmPrompts, language,
+      )
+      const characterOnlyInstruction = language === 'en-US'
+        ? 'For this task, generate only one NovelAI V5 Character Prompt and a UC specific to that character. Follow the Anime/Furry tag rules above, but do not output a Base Prompt, scene, composition, quality tags, or global UC. Describe only character traits visible in the image; do not invent unclear details. Return a JSON object with exactly two fields, "prompt" and "uc", each containing a directly usable English tag string. No Markdown or explanation.'
+        : '当前任务只生成一个角色的 NovelAI V5 Character Prompt 和该角色专用 UC。遵循上述 Anime/Furry 标签规则，但不要输出 Base Prompt、场景、构图、画质标签或全局 UC。只根据图片中可见的角色特征编写，不确定的细节不要臆造。只返回 JSON 对象，字段严格为 "prompt" 和 "uc"，值均为可直接使用的英文标签字符串，不要 Markdown 或解释。'
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: `${systemPrompt}\n\n当前任务只生成一个角色的 NovelAI V5 Character Prompt 和该角色专用 UC。遵循上述 Anime/Furry 标签规则，但不要输出 Base Prompt、场景、构图、画质标签或全局 UC。只根据图片中可见的角色特征编写，不确定的细节不要臆造。只返回 JSON 对象，字段严格为 "prompt" 和 "uc"，值均为可直接使用的英文标签字符串，不要 Markdown 或解释。`,
+          content: `${systemPrompt}\n\n${characterOnlyInstruction}`,
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: '请从这张图片提取角色外观、服装、表情等角色专属特征，生成该角色的 Character Prompt 和角色 UC。',
+              text: language === 'en-US'
+                ? 'Extract the character\'s appearance, clothing, expression, and other character-specific traits from this image. Write a Character Prompt and character UC.'
+                : '请从这张图片提取角色外观、服装、表情等角色专属特征，生成该角色的 Character Prompt 和角色 UC。',
             },
             { type: 'image_url', image_url: { url } },
           ],

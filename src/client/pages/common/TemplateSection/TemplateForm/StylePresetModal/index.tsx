@@ -25,8 +25,10 @@ import builtinData from '../../../../../../../styles_zh.json'
 import type { AppType } from '../../../../../../server'
 import { useLocalSetting } from '../../../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../../../i18n'
+import { localizeLlmPrompt } from '../../../../../prompts/localize'
 import { useGlobalStore } from '../../../../../store/global'
 import { optimizeStyleTemplate, resolveStylePrompt } from '../styleOptimize'
+import { englishStyles } from './styles-en'
 
 interface StylePreset {
   id: string
@@ -44,15 +46,6 @@ interface PresetFormValue {
 }
 
 const client = hc<AppType>('/')
-const builtins: StylePreset[] = builtinData.map((item, index) => ({
-  ...item,
-  get name() {
-    return t(item.name)
-  },
-  id: `builtin-${index}`,
-  source: 'builtin',
-}))
-
 function injectStyle(template: string, currentPrompt: string) {
   const prompt = currentPrompt.trim()
   if (template.includes('{prompt}')) {
@@ -73,9 +66,15 @@ export function StylePresetModal({
   onApply: (prompt: string) => void
 }) {
   const { language } = useAppLanguage()
+  const builtins: StylePreset[] = useMemo(() =>
+    builtinData.map((item, index) => ({
+      ...(language === 'en-US' ? englishStyles[index] : item),
+      id: `builtin-${index}`,
+      source: 'builtin',
+    })), [language])
 
   const [customPresets, setCustomPresets] = useState<StylePreset[]>([])
-  const [selectedId, setSelectedId] = useState(builtins[0]?.id ?? '')
+  const [selectedId, setSelectedId] = useState('builtin-0')
   const [keyword, setKeyword] = useState('')
   const [customOnly, setCustomOnly] = useState(false)
   const [styleExtractOnly, setStyleExtractOnly] = useState(false)
@@ -84,12 +83,12 @@ export function StylePresetModal({
   const [editingPreset, setEditingPreset] = useState<StylePreset | null>(null)
   const [optimizing, setOptimizing] = useState(false)
   const [form] = Form.useForm<PresetFormValue>()
-  const { llmEndpoints, llmPrompts } = useGlobalStore()
+  const { llmEndpoints, llmPrompts, defaultLlmPrompts } = useGlobalStore()
   const { optimizeEndpointId, setOptimizeEndpointId } = useLocalSetting()
 
   const allPresets = useMemo(
     () => [...customPresets.slice().reverse(), ...builtins],
-    [customPresets],
+    [customPresets, builtins],
   )
   const selected =
     allPresets.find((preset) => preset.id === selectedId) ?? allPresets[0]
@@ -204,7 +203,7 @@ export function StylePresetModal({
     try {
       const result = await optimizeStyleTemplate({
         endpointId,
-        systemPrompt: llmPrompts.styleOptimizePrompt,
+        systemPrompt: localizeLlmPrompt('styleOptimizePrompt', llmPrompts.styleOptimizePrompt, defaultLlmPrompts, language),
         source,
       })
       form.setFieldValue('prompt', result)

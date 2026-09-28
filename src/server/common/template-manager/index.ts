@@ -17,6 +17,8 @@ export interface TaskTemplate {
   aspectRatio?: string
   /** 勾选后会在提示词末尾追加“。画面比例X:Y”，用于不支持 size 参数的模型 */
   injectAspectRatio?: boolean
+  /** Language of built-in generation text for this request. */
+  generationLanguage?: 'zh-CN' | 'en-US'
   folder?: string
   n?: number
   /** 用户拖动调整后的显示顺序；未设置的旧模板仍按创建时间倒序显示。 */

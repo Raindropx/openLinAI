@@ -36,6 +36,7 @@ import {
 } from '../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../i18n'
+import { localizeLlmPrompt } from '../../../prompts/localize'
 import { useGlobalStore } from '../../../store/global'
 import {
   emptyCharacterCard,
@@ -67,6 +68,10 @@ const CHARACTER_CARD_EDIT_SYSTEM_PROMPT = `你是一名 SillyTavern 角色卡编
 4. 保留原文的语言、文风、详细程度和所有自定义字段。
 5. 输出必须能直接替换原角色卡 JSON。`
 
+const ENGLISH_CHARACTER_CARD_EDIT_SYSTEM_PROMPT = `You edit SillyTavern character cards. Apply the user's requested changes to the complete character-card JSON provided.
+
+Return a complete, valid JSON object with no Markdown fence or commentary. Preserve the original structure, every field, all custom fields, and anything the user did not ask to change. Change only the requested settings and any related fields that must change for internal consistency. Keep the source card's language, writing style, and level of detail. The result must be ready to replace the original JSON directly.`
+
 function arrayBufferToDataUrl(buffer: ArrayBuffer) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
@@ -77,9 +82,9 @@ function arrayBufferToDataUrl(buffer: ArrayBuffer) {
 }
 
 export function CharacterCardPage() {
-  useAppLanguage()
+  const { language } = useAppLanguage()
 
-  const { llmEndpoints, llmPrompts } = useGlobalStore()
+  const { llmEndpoints, llmPrompts, defaultLlmPrompts } = useGlobalStore()
   const { charCardEndpointId, setCharCardEndpointId } = useLocalSetting()
   const {
     data: storedCards = [],
@@ -179,7 +184,7 @@ export function CharacterCardPage() {
       })
 
       const messages: ChatMessage[] = [
-        { role: 'system', content: llmPrompts.charCardPrompt },
+        { role: 'system', content: localizeLlmPrompt('charCardPrompt', llmPrompts.charCardPrompt, defaultLlmPrompts, language) },
         { role: 'user', content: userContent },
       ]
       const reply = await requestChatCompletion({ endpointId: epId, messages })
@@ -230,10 +235,12 @@ export function CharacterCardPage() {
       const reply = await requestChatCompletion({
         endpointId: epId,
         messages: [
-          { role: 'system', content: CHARACTER_CARD_EDIT_SYSTEM_PROMPT },
+          { role: 'system', content: language === 'en-US' ? ENGLISH_CHARACTER_CARD_EDIT_SYSTEM_PROMPT : CHARACTER_CARD_EDIT_SYSTEM_PROMPT },
           {
             role: 'user',
-            content: `修改要求：\n${instructions}\n\n当前完整角色卡 JSON：\n${aiEditOriginalJson}`,
+            content: language === 'en-US'
+              ? `Requested changes:\n${instructions}\n\nCurrent complete character-card JSON:\n${aiEditOriginalJson}`
+              : `修改要求：\n${instructions}\n\n当前完整角色卡 JSON：\n${aiEditOriginalJson}`,
           },
         ],
       })

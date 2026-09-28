@@ -167,19 +167,21 @@ export const DEFAULT_CHAR_CARD_PROMPT = `请分析这张角色图片，为SillyT
 
 请确保角色引人入胜、一致且发展完善。请用中文回答，只返回JSON对象，不要额外的文本。`
 
+export const DEFAULT_LLM_PROMPTS: LlmPrompts = {
+  optimizePrompt: DEFAULT_OPTIMIZE_PROMPT,
+  novelaiFurryPrompt: DEFAULT_NOVELAI_FURRY_PROMPT,
+  novelaiAnimePrompt: DEFAULT_NOVELAI_ANIME_PROMPT,
+  novelaiInpaintFurryPrompt: DEFAULT_NOVELAI_INPAINT_FURRY_PROMPT,
+  novelaiInpaintAnimePrompt: DEFAULT_NOVELAI_INPAINT_ANIME_PROMPT,
+  styleOptimizePrompt: DEFAULT_STYLE_OPTIMIZE_PROMPT,
+  charCardPrompt: DEFAULT_CHAR_CARD_PROMPT,
+}
+
 const DEFAULT_CONFIG: Config = {
   gptImageApiKey: null,
   endpoints: [],
   llmEndpoints: [],
-  llmPrompts: {
-    optimizePrompt: DEFAULT_OPTIMIZE_PROMPT,
-    novelaiFurryPrompt: DEFAULT_NOVELAI_FURRY_PROMPT,
-    novelaiAnimePrompt: DEFAULT_NOVELAI_ANIME_PROMPT,
-    novelaiInpaintFurryPrompt: DEFAULT_NOVELAI_INPAINT_FURRY_PROMPT,
-    novelaiInpaintAnimePrompt: DEFAULT_NOVELAI_INPAINT_ANIME_PROMPT,
-    styleOptimizePrompt: DEFAULT_STYLE_OPTIMIZE_PROMPT,
-    charCardPrompt: DEFAULT_CHAR_CARD_PROMPT,
-  },
+  llmPrompts: DEFAULT_LLM_PROMPTS,
 }
 
 let currentConfig: Config = { ...DEFAULT_CONFIG }

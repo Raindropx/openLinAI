@@ -53,7 +53,7 @@ if (typeof window !== 'undefined')
     }
   })
 
-/** UI strings only; user content and generation prompts keep their original language. */
+/** Short interface strings; built-in prompts have separate authored language variants. */
 export function t(
   key: string,
   values: readonly unknown[] = [],

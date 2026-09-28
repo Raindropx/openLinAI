@@ -5,6 +5,7 @@ import dayjs from 'dayjs'
 import { useState, type DragEvent } from 'react'
 import { TaskTemplate } from '../../../../../server/common/template-manager'
 import { t, useAppLanguage } from '../../../../i18n'
+import { localizeSampleTemplate } from '../../../../presets/sample-templates'
 import { ImageGroup } from '../../../../pages/common/components/ImageGroup'
 import { TemplateItemHeader } from './TemplateItemHeader'
 
@@ -39,7 +40,8 @@ export function TemplateItem({
   active = false,
   clickToLoad = false,
 }: TemplateItemProps) {
-  useAppLanguage()
+  const { language } = useAppLanguage()
+  const shownTemplate = localizeSampleTemplate(template, language)
 
   const [dropPosition, setDropPosition] = useState<TemplateDropPosition | null>(
     null,
@@ -59,7 +61,7 @@ export function TemplateItem({
         if (selectionMode) {
           onToggleSelect?.(template.id)
         } else if (clickToLoad) {
-          onLoad(template)
+          onLoad(shownTemplate)
         }
       }}
       className={`template-card shadow-sm ${
@@ -114,7 +116,7 @@ export function TemplateItem({
             {template.images?.[0] ? (
               <Image
                 src={template.images[0]}
-                alt={template.title || t('模板预览')}
+                alt={shownTemplate.title || t('模板预览')}
                 preview={!selectionMode}
                 classNames={{
                   root: 'w-full h-full',
@@ -148,6 +150,7 @@ export function TemplateItem({
             {!selectionMode && (
               <TemplateItemHeader
                 template={template}
+                shownTemplate={shownTemplate}
                 draggable={draggable}
                 onLoad={onLoad}
                 clickToLoad={clickToLoad}
@@ -156,26 +159,26 @@ export function TemplateItem({
             <div className="flex min-w-0 items-center gap-2">
               <div
                 className="min-w-0 flex-1 truncate font-bold text-slate-100"
-                title={template.title}
+                title={shownTemplate.title}
               >
-                {template.title || t('未命名模板')}
+                {shownTemplate.title || t('未命名模板')}
               </div>
               <div className="shrink-0 text-[11px] text-slate-500">
                 {dayjs(template.createdAt).format('YY/MM/DD')}
               </div>
             </div>
-            <Tooltip title={template.prompt} placement="bottom">
+            <Tooltip title={shownTemplate.prompt} placement="bottom">
               <p
                 className="app-accent-hover m-0 line-clamp-2 cursor-pointer text-xs leading-5 text-slate-400 transition-colors sm:line-clamp-3"
                 onClick={(event) => {
                   event.stopPropagation()
-                  if (!selectionMode && template.prompt) {
-                    copy(template.prompt)
+                  if (!selectionMode && shownTemplate.prompt) {
+                    copy(shownTemplate.prompt)
                     message.success(t('提示词已复制'))
                   }
                 }}
               >
-                {template.prompt || t('暂无提示词')}
+                {shownTemplate.prompt || t('暂无提示词')}
               </p>
             </Tooltip>
           </div>
@@ -194,35 +197,36 @@ export function TemplateItem({
             {!selectionMode && (
               <TemplateItemHeader
                 template={template}
+                shownTemplate={shownTemplate}
                 draggable={draggable}
                 onLoad={onLoad}
                 clickToLoad={clickToLoad}
               />
             )}
             <div className="flex items-center gap-2">
-              {template.title && (
+              {shownTemplate.title && (
                 <div
                   className="truncate font-bold text-slate-100"
-                  title={template.title}
+                  title={shownTemplate.title}
                 >
-                  {template.title}
+                  {shownTemplate.title}
                 </div>
               )}
               <div className="shrink-0 text-xs text-slate-500">
                 {dayjs(template.createdAt).format('YY/MM/DD HH:mm')}
               </div>
             </div>
-            <Tooltip title={template.prompt} placement="bottom">
+            <Tooltip title={shownTemplate.prompt} placement="bottom">
               <p
                 className="app-accent-hover m-0 line-clamp-2 cursor-pointer text-sm text-slate-400 transition-colors"
                 onClick={() => {
-                  if (template.prompt) {
-                    copy(template.prompt)
+                  if (shownTemplate.prompt) {
+                    copy(shownTemplate.prompt)
                     message.success(t('提示词已复制'))
                   }
                 }}
               >
-                {template.prompt}
+                {shownTemplate.prompt}
               </p>
             </Tooltip>
           </div>

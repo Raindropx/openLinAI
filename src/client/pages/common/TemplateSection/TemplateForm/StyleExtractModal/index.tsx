@@ -25,6 +25,7 @@ import type { AppType } from '../../../../../../server'
 import { requestChatCompletion } from '../../../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../../../i18n'
+import { localizeLlmPrompt } from '../../../../../prompts/localize'
 import { useGlobalStore } from '../../../../../store/global'
 import { imageBlobToUploadDataUrl } from '../../../../../utils/image'
 import {
@@ -173,6 +174,10 @@ const SYSTEM_PROMPT = `你是专业的图片风格分析助手。请观察图片
 
 只返回一个 JSON 对象，不要说明文字或 Markdown。所有字段都必须存在且值必须是字符串；无法观察的维度返回空字符串。描述应精炼、具体，用中文顿号连接关键词。`
 
+const ENGLISH_SYSTEM_PROMPT = `You are an image-style analyst. Examine the image and extract concise English keywords suitable for an image-generation prompt in these 12 dimensions: media_style, camera_lens, composition, color_palette, lighting, texture_effects, subject_main, subject_detail, environment, ui_text, atmosphere, art_reference.
+
+Return one JSON object only, without commentary or Markdown. Include every key with a string value; use an empty string for a dimension that cannot be observed. Be specific and concise, separating related keywords with commas.`
+
 function parseAnalysis(content: string): StyleAnalysis {
   const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]
   const candidate = fenced || content.match(/\{[\s\S]*\}/)?.[0] || content
@@ -215,7 +220,7 @@ function composePrompt(
   return DIMENSIONS.flatMap(({ key }) => {
     const value = analysis[key].trim()
     return selected.has(key) && value ? [value] : []
-  }).join('，')
+  }).join(t('，'))
 }
 
 export function StyleExtractModal({
@@ -229,12 +234,13 @@ export function StyleExtractModal({
   onClose: () => void
   onApply: (prompt: string) => void
 }) {
-  useAppLanguage()
+  const { language } = useAppLanguage()
 
   const llmEndpoints = useGlobalStore((state) => state.llmEndpoints)
   const styleOptimizePrompt = useGlobalStore(
     (state) => state.llmPrompts.styleOptimizePrompt,
   )
+  const defaultLlmPrompts = useGlobalStore((state) => state.defaultLlmPrompts)
   const {
     styleExtractEndpointId,
     setStyleExtractEndpointId,
@@ -263,7 +269,7 @@ export function StyleExtractModal({
 
   const composed = useMemo(
     () => composePrompt(analysis, selected),
-    [analysis, selected],
+    [analysis, selected, language],
   )
 
   useEffect(() => {
@@ -356,7 +362,7 @@ export function StyleExtractModal({
             role: 'user',
             content: [
               { type: 'image_url', image_url: { url: imageUrl } },
-              { type: 'text', text: SYSTEM_PROMPT },
+              { type: 'text', text: language === 'en-US' ? ENGLISH_SYSTEM_PROMPT : SYSTEM_PROMPT },
             ],
           },
         ],
@@ -382,7 +388,7 @@ export function StyleExtractModal({
     try {
       const template = prompt.includes('{prompt}')
         ? prompt
-        : `{prompt}。${prompt}`
+        : `{prompt}${t('。')}${prompt}`
       const response = await client.api['style-preset'].$post({
         json: { name, prompt: template, origin: 'style-extract' },
       })
@@ -413,7 +419,7 @@ export function StyleExtractModal({
     try {
       const optimized = await optimizeStyleTemplate({
         endpointId: optimizeId,
-        systemPrompt: styleOptimizePrompt,
+        systemPrompt: localizeLlmPrompt('styleOptimizePrompt', styleOptimizePrompt, defaultLlmPrompts, language),
         source,
       })
       setManualResult(true)

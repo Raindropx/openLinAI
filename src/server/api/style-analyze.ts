@@ -27,6 +27,7 @@ export interface StyleAnalysis {
 
 const styleAnalyzeSchema = z.object({
   imageUrl: z.string().min(1, 'Image URL is required'),
+  language: z.enum(['zh-CN', 'en-US']).optional(),
 })
 
 const SYSTEM_PROMPT = `你是一个专业的图片风格分析助手。请仔细观察用户提供的图片，从以下12个维度分析其画风构成，并以 JSON 格式返回结果。
@@ -52,6 +53,25 @@ const SYSTEM_PROMPT = `你是一个专业的图片风格分析助手。请仔细
 - 如果图片中能观察到相关内容，请提炼为紧凑的关键词描述（用中文顿号连接）。
 - 如果图片中观察不到该维度相关内容，返回空字符串 ""。
 - 描述要精炼，适合直接用于生图提示词。`
+
+const ENGLISH_SYSTEM_PROMPT = `You are an image-style analyst. Examine the supplied image and return a JSON object describing its visual style across these 12 dimensions. Include every key with a string value:
+
+{
+  "media_style": "medium, art style, and format, such as digital painting, cyberpunk, ukiyo-e, or film photography",
+  "camera_lens": "viewpoint, lens, and framing, such as low-angle wide shot, telephoto close-up, or fisheye",
+  "composition": "layout, subject placement, and aspect relationship, such as central symmetry, rule of thirds, or diagonal composition",
+  "color_palette": "dominant colors, saturation, and color temperature, such as muted tones, vivid warm-cool contrast, or monochrome",
+  "lighting": "light direction, quality, and shadow pattern, such as rim light, softbox light, or Rembrandt lighting",
+  "texture_effects": "grain, noise, scan lines, vignetting, sharpening, or other finishing effects",
+  "subject_main": "main subject's visible form, action, and expression",
+  "subject_detail": "clothing, materials, makeup, and other visible details",
+  "environment": "setting, location, objects, and weather",
+  "ui_text": "visible lettering, subtitles, and interface elements, or none",
+  "atmosphere": "overall emotional impression and mood",
+  "art_reference": "relevant artists, works, or cultural references"
+}
+
+Use concise, specific English keywords separated by commas. If a dimension cannot be observed, return an empty string. Return only valid JSON, without explanation or a Markdown code block.`
 
 function getLocalImageFilename(rawUrl: string): string | null {
   const url = rawUrl.trim()
@@ -154,7 +174,7 @@ const styleAnalyzeApi = new Hono().post(
       )
     }
 
-    const { imageUrl } = c.req.valid('json')
+    const { imageUrl, language } = c.req.valid('json')
 
     let resolvedUrl: string
     try {
@@ -178,7 +198,7 @@ const styleAnalyzeApi = new Hono().post(
               },
               {
                 type: 'text',
-                text: SYSTEM_PROMPT,
+                text: language === 'en-US' ? ENGLISH_SYSTEM_PROMPT : SYSTEM_PROMPT,
               },
             ],
           },

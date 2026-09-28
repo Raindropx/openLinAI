@@ -17,6 +17,7 @@ import {
 } from '../../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../../i18n'
+import { localizeLlmPrompt } from '../../../../prompts/localize'
 import { useGlobalStore } from '../../../../store/global'
 import { openSettingModal } from '../../SettingModal'
 import { PromptOptimizeModal } from './PromptOptimizeModal'
@@ -41,7 +42,7 @@ export function TemplateForm({
   onTemplateLoaded,
   onEditingTemplateChange,
 }: TemplateFormProps) {
-  useAppLanguage()
+  const { language } = useAppLanguage()
 
   const formRef = useRef<HTMLDivElement>(null)
   const [form] = Form.useForm()
@@ -54,6 +55,7 @@ export function TemplateForm({
     endpoints,
     llmEndpoints,
     llmPrompts,
+    defaultLlmPrompts,
     fillTemplateData,
     setFillTemplateData,
     pendingReferenceImage,
@@ -64,6 +66,7 @@ export function TemplateForm({
       endpoints: state.endpoints,
       llmEndpoints: state.llmEndpoints,
       llmPrompts: state.llmPrompts,
+      defaultLlmPrompts: state.defaultLlmPrompts,
       fillTemplateData: state.fillTemplateData,
       setFillTemplateData: state.setFillTemplateData,
       pendingReferenceImage: state.pendingReferenceImage,
@@ -176,6 +179,7 @@ export function TemplateForm({
           endpointId,
           aspectRatio,
           injectAspectRatio,
+          language,
           images: imageUrls,
           size,
           quality: gptImageSettings.quality,
@@ -243,7 +247,7 @@ export function TemplateForm({
       const content: any[] = []
       // 系统提示词
       const messages: ChatMessage[] = [
-        { role: 'system', content: llmPrompts.optimizePrompt },
+        { role: 'system', content: localizeLlmPrompt('optimizePrompt', llmPrompts.optimizePrompt, defaultLlmPrompts, language) },
       ]
       // 用户消息：文本 + 图片
       if (prompt) content.push({ type: 'text', text: prompt })

@@ -8,7 +8,7 @@ import {
 import { Button, Checkbox, Input, message, Select } from 'antd'
 import { useMemo, useRef, useState } from 'react'
 import type { ChatMessage } from '../../../hooks/useChatCompletion'
-import { t, useAppLanguage } from '../../../i18n'
+import { t, useAppLanguage, type AppLanguage } from '../../../i18n'
 import type { CharacterCard } from '../../../utils/characterCard'
 
 interface CharacterCardEditorFieldsProps {
@@ -88,7 +88,24 @@ function buildContinuationPrompt(
   card: CharacterCard,
   dialogue: string,
   role: MessageRole,
+  language: AppLanguage,
 ): string {
+  if (language === 'en-US') {
+    const roleLabel = role === 'char' ? `the character (${card.name || '{{char}}'})` : 'the user ({{user}})'
+    return `You continue sample roleplay dialogue for a character card. Use the card and existing dialogue to write one new message.
+
+Character card:
+Name: ${card.name || 'Unnamed'}
+Description: ${card.description || 'None'}
+Personality: ${card.personality || 'None'}
+Scenario: ${card.scenario || 'None'}
+First message: ${card.first_mes || 'None'}
+
+Existing sample dialogue:
+${dialogue || '(No dialogue yet)'}
+
+Write one natural reply as ${roleLabel}, consistent with the character and the conversation. Return only the message text, without a speaker label, prefix, explanation, or metadata. Keep it to one to three sentences in the speaker's voice.`
+  }
   const roleLabel =
     role === 'char' ? `角色（${card.name || '{{char}}'}）` : '用户（{{user}}）'
 
@@ -161,7 +178,7 @@ function MesExampleEditor({
   endpointId?: string
   onChange: (value: string) => void
 }) {
-  useAppLanguage()
+  const { language } = useAppLanguage()
 
   const blocks = useMemo(() => parseMesExample(value), [value])
   const [focusKey, setFocusKey] = useState<string | null>(null)
@@ -230,14 +247,16 @@ function MesExampleEditor({
 
     try {
       const dialogue = value.trim()
-      const systemContent = buildContinuationPrompt(card, dialogue, role)
+      const systemContent = buildContinuationPrompt(card, dialogue, role, language)
       const roleLabel = role === 'char' ? card.name || '{{char}}' : '{{user}}'
 
       const messages: ChatMessage[] = [
         { role: 'system', content: systemContent },
         {
           role: 'user',
-          content: `请以 ${roleLabel} 的身份续写一条对话发言。`,
+          content: language === 'en-US'
+            ? `Continue the dialogue with one message as ${roleLabel}.`
+            : `请以 ${roleLabel} 的身份续写一条对话发言。`,
         },
       ]
 

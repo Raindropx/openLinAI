@@ -17,6 +17,7 @@ import type { TaskTemplate } from '../../../../../server/common/template-manager
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { useTemplates } from '../../../../hooks/useTemplates'
 import { t, useAppLanguage } from '../../../../i18n'
+import { localizeSampleTemplate } from '../../../../presets/sample-templates'
 import {
   ListToolbar,
   sortListItems,
@@ -60,7 +61,7 @@ function TemplateListComponent(
   }: TemplateListProps,
   ref: ForwardedRef<TemplateListRef>,
 ) {
-  useAppLanguage()
+  const { language } = useAppLanguage()
 
   const managementMode = variant === 'management'
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
@@ -98,7 +99,7 @@ function TemplateListComponent(
     const keyword = searchText.trim().toLocaleLowerCase('zh-CN')
     const matchedTemplates = keyword
       ? imageTemplates.filter((template) =>
-          [template.title, template.prompt, template.folder].some((value) =>
+          [localizeSampleTemplate(template, language).title, localizeSampleTemplate(template, language).prompt, template.folder].some((value) =>
             String(value || '')
               .toLocaleLowerCase('zh-CN')
               .includes(keyword),
@@ -108,10 +109,13 @@ function TemplateListComponent(
 
     return sortListItems(matchedTemplates, sortMode, {
       getTime: (template) => template.createdAt || 0,
-      getTitle: (template) => template.title || template.prompt || '',
+      getTitle: (template) => {
+        const shown = localizeSampleTemplate(template, language)
+        return shown.title || shown.prompt || ''
+      },
       defaultCompare: compareTemplateOrder,
     })
-  }, [imageTemplates, searchText, sortMode])
+  }, [imageTemplates, searchText, sortMode, language])
 
   const folders = useMemo(
     () =>

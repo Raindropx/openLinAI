@@ -16,6 +16,7 @@ interface GlobalState {
   endpoints: GptImageEndpoint[]
   llmEndpoints: LlmEndpoint[]
   llmPrompts: LlmPrompts
+  defaultLlmPrompts: LlmPrompts | null
   localNetworkUrl: string | null
   fillTemplateData: Partial<TaskTemplate> | null
   pendingReferenceImage: { url: string; token: number } | null
@@ -47,6 +48,7 @@ function syncFromConfigData(data: Record<string, unknown>) {
       styleOptimizePrompt: '',
       charCardPrompt: '',
     },
+    defaultLlmPrompts: (data.defaultLlmPrompts as LlmPrompts) ?? null,
     localNetworkUrl: (data.localNetworkUrl as string | null) ?? null,
   }
 }
@@ -64,6 +66,7 @@ export const useGlobalStore = create<GlobalState>()((set) => ({
     styleOptimizePrompt: '',
     charCardPrompt: '',
   },
+  defaultLlmPrompts: null,
   localNetworkUrl: null,
   fillTemplateData: null,
   pendingReferenceImage: null,
