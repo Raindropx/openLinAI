@@ -2,7 +2,7 @@
 
 # ⚡ openLinAI
 
-**面向多端点生图、提示词工作流与本地资产管理的 Local-First AI 创作台**
+**连接多个图片生成 API 的 Web UI，提供提示词工作流与本地资产管理**
 
 [简体中文](README.md) | [English](README.en.md)
 
@@ -17,7 +17,9 @@
 
 ---
 
-openLinAI fork 自 [libudu/LinAI](https://github.com/libudu/LinAI)，保留了本地优先的 Web 工作台形态，并将重心收束到一套完整的图片创作闭环：管理多个生图与 LLM 端点，组织模板和参考图，优化提示词，生成、审阅、追踪并下载图片，同时提供 SillyTavern 角色卡生成与编辑能力。
+openLinAI 通过你配置的 API 端点请求生成图片，由端点对应的服务执行生图；它本身不内置或运行绘图模型。这里的“本地优先”指应用可在自己的设备上运行，并在本地管理配置、模板、任务和图片，不表示 openLinAI 自己在本机进行模型推理。
+
+项目 fork 自 [libudu/LinAI](https://github.com/libudu/LinAI)，围绕图片创作流程整合了多种生图与 LLM 端点、模板和参考图、提示词优化、结果审阅与下载，以及 SillyTavern 角色卡生成和编辑。
 
 它既可作为 Windows 绿色应用在个人电脑上运行，也针对 ARM64 OpenWrt、外接存储、FFmpeg 图片处理与 procd 自启动进行了专门适配。
 

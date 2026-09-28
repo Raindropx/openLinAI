@@ -2,7 +2,7 @@
 
 # ⚡ openLinAI
 
-**A local-first AI creative workspace for multi-endpoint image generation, prompt workflows, and local asset management**
+**A web UI for image generation APIs, with prompt workflows and local asset management**
 
 [简体中文](README.md) | [English](README.en.md)
 
@@ -17,7 +17,9 @@
 
 ---
 
-openLinAI is a fork of [libudu/LinAI](https://github.com/libudu/LinAI). It keeps the local-first web workspace and focuses on a complete image creation workflow: manage multiple image and LLM endpoints, organize templates and reference images, refine prompts, generate and review images, track and download results, and create and edit SillyTavern character cards.
+openLinAI sends image generation requests to the API endpoints you configure. The service behind each endpoint generates the images; openLinAI does not bundle or run an image model. "Local-first" means you can run the app on your own device and manage configuration, templates, tasks, and images locally. It does not mean the app performs model inference on your device.
+
+Forked from [libudu/LinAI](https://github.com/libudu/LinAI), it brings image and LLM endpoints, templates and reference images, prompt optimization, result review and downloads, and SillyTavern character card creation and editing into one image creation workflow.
 
 You can run it as a portable Windows application on your own computer. It is also adapted for ARM64 OpenWrt, external storage, FFmpeg image processing, and procd startup.
 
