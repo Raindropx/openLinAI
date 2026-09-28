@@ -4,6 +4,8 @@
 
 **面向多端点生图、提示词工作流与本地资产管理的 Local-First AI 创作台**
 
+[简体中文](README.md) | [English](README.en.md)
+
 [![Release](https://img.shields.io/github/v/release/Raindropx/openLinAI?label=Release&color=3b82f6)](https://github.com/Raindropx/openLinAI/releases/latest)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black)](https://react.dev/)
