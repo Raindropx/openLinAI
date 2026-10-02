@@ -1201,6 +1201,7 @@
   "比例": "Aspect ratio",
   "请选择比例": "Select an aspect ratio",
   "注入提示": "Inject prompt",
+  "GPT2画质优化": "GPT2 quality optimization",
   "清空": "Clear",
   "请填写提示词": "Enter a prompt",
   "请输入生成内容的提示词...": "Enter a prompt describing what to generate...",

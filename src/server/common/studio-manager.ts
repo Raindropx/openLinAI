@@ -236,6 +236,7 @@ export class StudioManager {
           endpointId: template.endpointId,
           aspectRatio: template.aspectRatio,
           injectAspectRatio: template.injectAspectRatio,
+          gpt2QualityOptimization: template.gpt2QualityOptimization,
           n: template.n,
         },
       } : {
@@ -259,6 +260,7 @@ export class StudioManager {
           endpointId: template.endpointId,
           aspectRatio: template.aspectRatio,
           injectAspectRatio: template.injectAspectRatio,
+          gpt2QualityOptimization: template.gpt2QualityOptimization,
           n: template.n,
         },
       }

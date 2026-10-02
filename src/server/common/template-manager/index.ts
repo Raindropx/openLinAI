@@ -17,6 +17,8 @@ export interface TaskTemplate {
   aspectRatio?: string
   /** 勾选后会在提示词末尾追加“。画面比例X:Y”，用于不支持 size 参数的模型 */
   injectAspectRatio?: boolean
+  /** 勾选后会在提示词末尾追加 GPT Image 2 画质优化指令。 */
+  gpt2QualityOptimization?: boolean
   /** Language of built-in generation text for this request. */
   generationLanguage?: 'zh-CN' | 'en-US'
   folder?: string
@@ -115,6 +117,7 @@ class TemplateManager {
         | 'prompt'
         | 'aspectRatio'
         | 'injectAspectRatio'
+        | 'gpt2QualityOptimization'
         | 'folder'
         | 'images'
         | 'n'

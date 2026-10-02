@@ -99,6 +99,7 @@ export function TemplateForm({
           endpoints[0]?.id,
         aspectRatio: fillTemplateData.aspectRatio || '1:1',
         injectAspectRatio: fillTemplateData.injectAspectRatio ?? false,
+        gpt2QualityOptimization: fillTemplateData.gpt2QualityOptimization,
         n: fillTemplateData.n || 1,
         prompt: fillTemplateData.prompt,
         usageType: fillTemplateData.usageType || 'image',
@@ -160,6 +161,8 @@ export function TemplateForm({
     }
     const aspectRatio = form.getFieldValue('aspectRatio') || '1:1'
     const injectAspectRatio = form.getFieldValue('injectAspectRatio') || false
+    const gpt2QualityOptimization =
+      form.getFieldValue('gpt2QualityOptimization') || false
     const endpointId =
       form.getFieldValue('endpointId') ||
       gptImageSettings.selectedEndpointId ||
@@ -179,6 +182,7 @@ export function TemplateForm({
           endpointId,
           aspectRatio,
           injectAspectRatio,
+          gpt2QualityOptimization,
           language,
           images: imageUrls,
           size,
@@ -346,7 +350,6 @@ export function TemplateForm({
       usageType: 'image',
       endpointId: gptImageSettings.selectedEndpointId || endpoints[0]?.id,
       aspectRatio: '1:1',
-      injectAspectRatio: false,
       n: 1,
     })
     setImageUrls([])

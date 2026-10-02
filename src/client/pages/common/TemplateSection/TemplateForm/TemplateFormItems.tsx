@@ -5,7 +5,7 @@ import {
 } from '@ant-design/icons'
 import { Button, Checkbox, Form, Input, InputNumber, Select } from 'antd'
 import classnames from 'classnames'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../../i18n'
 import { useGlobalStore } from '../../../../store/global'
@@ -52,6 +52,17 @@ function EndpointSelectFormItem({
     </Form.Item>
   )
 }
+
+function shouldEnableGpt2QualityOptimization(model: string | undefined) {
+  const normalizedModel = model?.toLowerCase()
+  return [
+    'gpt-image-2',
+    'gpt-5.4-image',
+    'openai/gpt-image-2',
+    'openai/gpt-5.4-image',
+  ].some((prefix) => normalizedModel?.startsWith(prefix))
+}
+
 function TitleFormItem({ className }: { className?: string }) {
   useAppLanguage()
 
@@ -95,11 +106,22 @@ function AspectRatioFormItem({ className }: { className?: string }) {
             ]}
           />
         </Form.Item>
-        <Form.Item name="injectAspectRatio" valuePropName="checked" noStyle>
-          <Checkbox className="mt-1 whitespace-nowrap">
-            {t('注入提示')}
-          </Checkbox>
-        </Form.Item>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          <Form.Item
+            name="gpt2QualityOptimization"
+            valuePropName="checked"
+            noStyle
+          >
+            <Checkbox className="whitespace-nowrap">
+              {t('GPT2画质优化')}
+            </Checkbox>
+          </Form.Item>
+          <Form.Item name="injectAspectRatio" valuePropName="checked" noStyle>
+            <Checkbox className="whitespace-nowrap">
+              {t('注入提示')}
+            </Checkbox>
+          </Form.Item>
+        </div>
       </div>
     </Form.Item>
   )
@@ -228,6 +250,17 @@ export function TemplateFormFields({
   useAppLanguage()
 
   const { gptImageSettings } = useLocalSetting()
+  const endpoints = useGlobalStore((state) => state.endpoints)
+  const endpointId = Form.useWatch('endpointId', form)
+  const selectedEndpoint = endpoints.find((endpoint) => endpoint.id === endpointId)
+
+  useEffect(() => {
+    if (!endpointId || !selectedEndpoint) return
+    form.setFieldValue(
+      'gpt2QualityOptimization',
+      shouldEnableGpt2QualityOptimization(selectedEndpoint.model),
+    )
+  }, [endpointId, form, selectedEndpoint])
 
   return (
     <>

@@ -195,18 +195,42 @@ function getInputImageMimeType(filePath: string): string {
   }
 }
 
+/** GPT Image 2 画质优化指令，保留英文原文以避免翻译改变模型行为。 */
+const GPT2_QUALITY_OPTIMIZATION_PROMPT =
+  'Favor clean, continuous large forms; merge unnecessary micro-textures, tiny highlights, and small surface details into simpler shapes with low visual noise.'
+
+function endsWithPromptPunctuation(prompt: string) {
+  return /[,，。.]/u.test(prompt.slice(-1))
+}
+
+function appendPromptInstruction(prompt: string, instruction: string) {
+  const trimmed = prompt.trimEnd()
+  if (!trimmed) return instruction
+  return `${trimmed}${endsWithPromptPunctuation(trimmed) ? '' : ','}${instruction}`
+}
+
+function appendAspectRatioInstruction(prompt: string, ratio: string) {
+  const trimmed = prompt.trimEnd()
+  if (!trimmed) return `画面比例${ratio}`
+  return `${trimmed}${endsWithPromptPunctuation(trimmed) ? '' : '。'}画面比例${ratio}`
+}
+
 /**
- * 根据模板生成最终提示词。当 injectAspectRatio 为 true 且 aspectRatio 有效（非 auto）时，
- * 在提示词末尾追加“。画面比例X:Y”，用于不支持 size 参数的模型。
+ * 根据模板生成发送给图片模型的最终提示词。当选项开启时，按顺序追加比例和 GPT2
+ * 画质指令，并统一处理连接标点，避免两个注入选项同时开启时产生重复符号。
  */
 export function buildPromptWithAspectRatio(template: TaskTemplate): string {
-  const prompt = template.prompt
-  if (!template.injectAspectRatio) return prompt
+  let prompt = template.prompt
   const ratio = template.aspectRatio
-  if (!ratio || ratio === 'auto') return prompt
-  return template.generationLanguage === 'en-US'
-    ? `${prompt}\nAspect ratio: ${ratio}`
-    : `${prompt}。画面比例${ratio}`
+  if (template.injectAspectRatio && ratio && ratio !== 'auto') {
+    prompt = template.generationLanguage === 'en-US'
+      ? `${prompt.trimEnd()}\nAspect ratio: ${ratio}`
+      : appendAspectRatioInstruction(prompt, ratio)
+  }
+  if (template.gpt2QualityOptimization) {
+    prompt = appendPromptInstruction(prompt, GPT2_QUALITY_OPTIMIZATION_PROMPT)
+  }
+  return prompt
 }
 
 function calculateSize(aspectRatio: string, baseSize: GptImageSize): string {

@@ -43,6 +43,7 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
       prompt: template.prompt,
       aspectRatio: template.aspectRatio || '1:1',
       injectAspectRatio: template.injectAspectRatio,
+      gpt2QualityOptimization: template.gpt2QualityOptimization,
       folder: template.folder,
       n: template.n || 1,
     })
