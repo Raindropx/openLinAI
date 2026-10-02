@@ -225,6 +225,8 @@ export function TemplateForm({
   // —— 提示词优化 ——
   const handlePromptOptimize = async () => {
     const prompt = form.getFieldValue('prompt') as string | undefined
+    const aspectRatio = form.getFieldValue('aspectRatio') || '1:1'
+    const injectAspectRatio = form.getFieldValue('injectAspectRatio') || false
     if (!prompt && imageUrls.length === 0) {
       message.warning(t('请先填写提示词或上传图片'))
       return
@@ -250,7 +252,17 @@ export function TemplateForm({
         { role: 'system', content: localizeLlmPrompt('optimizePrompt', llmPrompts.optimizePrompt, defaultLlmPrompts, language) },
       ]
       // 用户消息：文本 + 图片
-      if (prompt) content.push({ type: 'text', text: prompt })
+      if (!injectAspectRatio) {
+        content.push({
+          type: 'text',
+          text: prompt
+            ? `${prompt}，画面比例${aspectRatio}`
+            : `画面比例${aspectRatio}`,
+        })
+      } else if (prompt) {
+        // 生成阶段已经会注入比例，避免把同一信息重复发给 LLM。
+        content.push({ type: 'text', text: prompt })
+      }
       for (const url of imageUrls) {
         content.push({ type: 'image_url', image_url: { url } })
       }
