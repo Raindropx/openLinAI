@@ -1200,7 +1200,7 @@
   "请输入模板标题...": "Enter a template title...",
   "比例": "Aspect ratio",
   "请选择比例": "Select an aspect ratio",
-  "注入提示": "Inject prompt",
+  "比例注入提示词": "Inject aspect ratio prompt",
   "GPT2画质优化": "GPT2 quality optimization",
   "清空": "Clear",
   "请填写提示词": "Enter a prompt",

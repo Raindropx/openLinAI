@@ -107,6 +107,11 @@ function AspectRatioFormItem({ className }: { className?: string }) {
           />
         </Form.Item>
         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          <Form.Item name="injectAspectRatio" valuePropName="checked" noStyle>
+            <Checkbox className="whitespace-nowrap">
+              {t('比例注入提示词')}
+            </Checkbox>
+          </Form.Item>
           <Form.Item
             name="gpt2QualityOptimization"
             valuePropName="checked"
@@ -114,11 +119,6 @@ function AspectRatioFormItem({ className }: { className?: string }) {
           >
             <Checkbox className="whitespace-nowrap">
               {t('GPT2画质优化')}
-            </Checkbox>
-          </Form.Item>
-          <Form.Item name="injectAspectRatio" valuePropName="checked" noStyle>
-            <Checkbox className="whitespace-nowrap">
-              {t('注入提示')}
             </Checkbox>
           </Form.Item>
         </div>
