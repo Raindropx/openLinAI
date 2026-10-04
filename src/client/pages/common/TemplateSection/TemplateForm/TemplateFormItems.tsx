@@ -78,52 +78,49 @@ function AspectRatioFormItem({ className }: { className?: string }) {
 
   return (
     <Form.Item
+      name="aspectRatio"
       label={t('比例')}
       className={className}
-      // 仅用于展示 label 与容纳下拉框 + 复选框，本身不绑定字段
-      required
+      rules={[{ required: true, message: t('请选择比例') }]}
     >
-      <div>
-        <Form.Item
-          name="aspectRatio"
-          rules={[{ required: true, message: t('请选择比例') }]}
-          noStyle
-        >
-          <Select
-            options={[
-              { label: '21:9', value: '21:9' },
-              { label: '2:1', value: '2:1' },
-              { label: '16:9', value: '16:9' },
-              { label: '3:2', value: '3:2' },
-              { label: '4:3', value: '4:3' },
-              { label: '1:1', value: '1:1' },
-              { label: '3:4', value: '3:4' },
-              { label: '2:3', value: '2:3' },
-              { label: '9:16', value: '9:16' },
-              { label: '1:2', value: '1:2' },
-              { label: '9:21', value: '9:21' },
-              { label: 'Auto', value: 'auto' },
-            ]}
-          />
-        </Form.Item>
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-          <Form.Item name="injectAspectRatio" valuePropName="checked" noStyle>
-            <Checkbox className="whitespace-nowrap">
-              {t('比例注入提示词')}
-            </Checkbox>
-          </Form.Item>
-          <Form.Item
-            name="gpt2QualityOptimization"
-            valuePropName="checked"
-            noStyle
-          >
-            <Checkbox className="whitespace-nowrap">
-              {t('GPT2画质优化')}
-            </Checkbox>
-          </Form.Item>
-        </div>
-      </div>
+      <Select
+        options={[
+          { label: '21:9', value: '21:9' },
+          { label: '2:1', value: '2:1' },
+          { label: '16:9', value: '16:9' },
+          { label: '3:2', value: '3:2' },
+          { label: '4:3', value: '4:3' },
+          { label: '1:1', value: '1:1' },
+          { label: '3:4', value: '3:4' },
+          { label: '2:3', value: '2:3' },
+          { label: '9:16', value: '9:16' },
+          { label: '1:2', value: '1:2' },
+          { label: '9:21', value: '9:21' },
+          { label: 'Auto', value: 'auto' },
+        ]}
+      />
     </Form.Item>
+  )
+}
+
+function PromptOptionsFormItem({ className }: { className?: string }) {
+  useAppLanguage()
+
+  return (
+    <div
+      className={classnames(className, 'flex min-w-0 flex-wrap gap-x-3 gap-y-1')}
+    >
+      <Form.Item name="injectAspectRatio" valuePropName="checked" noStyle>
+        <Checkbox className="m-0! min-w-0 max-w-full whitespace-normal">
+          {t('比例注入提示词')}
+        </Checkbox>
+      </Form.Item>
+      <Form.Item name="gpt2QualityOptimization" valuePropName="checked" noStyle>
+        <Checkbox className="m-0! min-w-0 max-w-full whitespace-normal">
+          {t('GPT-I2画面优化')}
+        </Checkbox>
+      </Form.Item>
+    </div>
   )
 }
 
@@ -271,8 +268,9 @@ export function TemplateFormFields({
 
       <div className="grid min-w-0 grid-cols-2 gap-x-3">
         <TitleFormItem className="col-span-2 min-w-0" />
-        <FolderFormItem className="min-w-0" />
-        <AspectRatioFormItem className="min-w-0" />
+        <FolderFormItem className="mb-2! min-w-0" />
+        <AspectRatioFormItem className="mb-2! min-w-0" />
+        <PromptOptionsFormItem className="col-span-2 mb-6" />
       </div>
 
       <div className="flex min-w-0 flex-col gap-3">
