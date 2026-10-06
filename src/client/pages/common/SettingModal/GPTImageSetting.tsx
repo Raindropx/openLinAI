@@ -28,6 +28,7 @@ import {
   SPICY_API_BASE_URL,
   SPICY_SEEDREAM_MODEL,
 } from '../../../../shared/spicyapi'
+import { resolveImageEndpointId } from '../../../hooks/useEnabledImageEndpoints'
 import {
   type EndpointModelCatalog,
   useEndpointModels,
@@ -310,7 +311,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
       if (id === gptImageSettings.defaultEndpointId) {
         setGptImageSettings((prev) => ({
           ...prev,
-          defaultEndpointId: next[0].id,
+          defaultEndpointId: resolveImageEndpointId(next),
         }))
       }
       return next
@@ -320,6 +321,45 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
   const handleSetDefaultEndpoint = (id: string) => {
     setGptImageSettings((prev) => ({ ...prev, defaultEndpointId: id }))
     message.success(t('已设为默认端点'))
+  }
+
+  const handleToggleEndpoint = async () => {
+    if (!activeEndpoint) return
+    const { id } = activeEndpoint
+    const disabled = !activeEndpoint.disabled
+    const savedEndpoint = endpoints.find((endpoint) => endpoint.id === id)
+
+    // 已保存的端点只更新停用状态，保留各端点尚未保存的编辑内容。
+    if (savedEndpoint) {
+      setUpdatingEndpoint(true)
+      skipNextEndpointSyncRef.current = true
+      try {
+        const next = endpoints.map((endpoint) =>
+          endpoint.id === id ? { ...endpoint, disabled } : endpoint,
+        )
+        if (!(await saveEndpoints(next))) {
+          skipNextEndpointSyncRef.current = false
+          message.error(t('端点状态更新失败'))
+          return
+        }
+        setGptImageSettings((prev) => ({
+          ...prev,
+          defaultEndpointId: resolveImageEndpointId(
+            next,
+            prev.defaultEndpointId,
+          ),
+          selectedEndpointId: resolveImageEndpointId(
+            next,
+            prev.selectedEndpointId,
+            prev.defaultEndpointId,
+          ),
+        }))
+      } finally {
+        setUpdatingEndpoint(false)
+      }
+    }
+    updateActiveEndpoint({ disabled })
+    message.success(disabled ? t('端点已停用') : t('端点已启用'))
   }
 
   const handleUpdateEndpoint = async () => {
@@ -398,16 +438,15 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
 
       const values = await form.validateFields()
       setGptImageSettings((prev) => {
-        const defaultEndpointId = cleaned.some(
-          (e) => e.id === prev.defaultEndpointId,
+        const defaultEndpointId = resolveImageEndpointId(
+          cleaned,
+          prev.defaultEndpointId,
         )
-          ? prev.defaultEndpointId
-          : cleaned[0].id
-        const selectedEndpointId = cleaned.some(
-          (e) => e.id === prev.selectedEndpointId,
+        const selectedEndpointId = resolveImageEndpointId(
+          cleaned,
+          prev.selectedEndpointId,
+          defaultEndpointId,
         )
-          ? prev.selectedEndpointId
-          : defaultEndpointId
 
         return {
           ...prev,
@@ -457,7 +496,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
             className="min-w-40 flex-1"
             options={draftEndpoints.map((e) => ({
               value: e.id,
-              label: e.name || t('未命名端点'),
+              label: `${e.name || t('未命名端点')}${e.disabled ? ` (${t('已停用')})` : ''}`,
             }))}
           />
           <Button icon={<PlusOutlined />} onClick={handleAddEndpoint}>
@@ -475,6 +514,12 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
           />
           <Button loading={updatingEndpoint} onClick={handleUpdateEndpoint}>
             {t('更新')}
+          </Button>
+          <Button
+            disabled={updatingEndpoint || !activeEndpoint}
+            onClick={handleToggleEndpoint}
+          >
+            {activeEndpoint?.disabled ? t('启用') : t('停用')}
           </Button>
           {!pendingPresetEndpoint && draftEndpoints.length > 1 && (
             <Button
@@ -1180,7 +1225,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
             <div className="flex items-center gap-2">
               <Button
                 size="small"
-                disabled={Boolean(pendingPresetEndpoint)}
+                disabled={
+                  Boolean(pendingPresetEndpoint) || activeEndpoint.disabled
+                }
                 type={
                   gptImageSettings.defaultEndpointId === activeEndpoint.id
                     ? 'primary'

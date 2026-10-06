@@ -4,10 +4,13 @@ import { hc } from 'hono/client'
 import { useState } from 'react'
 import type { AppType } from '../../../../../server'
 import { TaskTemplate } from '../../../../../server/common/template-manager'
+import {
+  resolveImageEndpointId,
+  useEnabledImageEndpoints,
+} from '../../../../hooks/useEnabledImageEndpoints'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { useTemplates } from '../../../../hooks/useTemplates'
 import { t, useAppLanguage } from '../../../../i18n'
-import { useGlobalStore } from '../../../../store/global'
 import { TemplateFormFields } from '../TemplateForm/TemplateFormItems'
 
 const client = hc<AppType>('/')
@@ -25,7 +28,7 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
   const [uploadingCount, setUploadingCount] = useState(0)
   const [form] = Form.useForm()
   const { refresh } = useTemplates()
-  const endpoints = useGlobalStore((state) => state.endpoints)
+  const endpoints = useEnabledImageEndpoints()
   const { gptImageSettings } = useLocalSetting()
 
   const handleOpen = () => {
@@ -36,10 +39,12 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
     if (!visible) return
     form.setFieldsValue({
       title: template.title,
-      endpointId:
-        template.endpointId ||
-        gptImageSettings.selectedEndpointId ||
-        endpoints[0]?.id,
+      endpointId: resolveImageEndpointId(
+        endpoints,
+        template.endpointId,
+        gptImageSettings.selectedEndpointId,
+        gptImageSettings.defaultEndpointId,
+      ),
       prompt: template.prompt,
       aspectRatio: template.aspectRatio || '1:1',
       injectAspectRatio: template.injectAspectRatio,

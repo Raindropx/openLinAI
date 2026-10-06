@@ -31,6 +31,10 @@ import { useNavigate } from 'react-router-dom'
 import type { AppType } from '../../../../server'
 import type { Task } from '../../../../server/common/task-manager'
 import { TRIAL_TEMPLATE_TITLE } from '../../../../server/common/template-manager/enum'
+import {
+  resolveImageEndpointId,
+  useEnabledImageEndpoints,
+} from '../../../hooks/useEnabledImageEndpoints'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { usePlatform } from '../../../hooks/usePlatform'
 import { useTasks } from '../../../hooks/useTasks'
@@ -174,7 +178,7 @@ export function TaskList({
   const navigate = useNavigate()
   const { data: tasks = [], loading } = useTasks()
   const { gptImageSettings } = useLocalSetting()
-  const endpoints = useGlobalStore((state) => state.endpoints)
+  const endpoints = useEnabledImageEndpoints()
   const [downloadedIds, setDownloadedIds] = useLocalStorageState<string[]>(
     'downloadedTaskIds',
     { defaultValue: [] },
@@ -256,11 +260,19 @@ export function TaskList({
       }
       return
     }
-    await client.api.gptImage.generate.$post({
+    const endpointId = resolveImageEndpointId(
+      endpoints,
+      gptImageSettings.selectedEndpointId,
+      gptImageSettings.defaultEndpointId,
+    )
+    if (!endpointId) {
+      message.warning(t('无可用端点，请到设置中添加或启用'))
+      return
+    }
+    const res = await client.api.gptImage.generate.$post({
       json: {
         templateId: task.rawTemplate?.id || '',
-        endpointId:
-          gptImageSettings.selectedEndpointId || endpoints[0]?.id || '',
+        endpointId,
         size: (task.size as any) || '2k',
         quality: (task.quality as any) || 'medium',
         language,
@@ -268,6 +280,11 @@ export function TaskList({
         writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
       },
     })
+    const result = await res.json()
+    if (!result.success) {
+      message.error(t(result.error || '') || t('生成失败'))
+      return
+    }
     message.success(t('已创建重试任务'))
   }
 

@@ -6,9 +6,12 @@ import {
 import { Button, Checkbox, Form, Input, InputNumber, Select } from 'antd'
 import classnames from 'classnames'
 import React, { useEffect, useState } from 'react'
+import {
+  resolveImageEndpointId,
+  useEnabledImageEndpoints,
+} from '../../../../hooks/useEnabledImageEndpoints'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../../i18n'
-import { useGlobalStore } from '../../../../store/global'
 import { FolderFormItem } from './FolderSelectInput'
 import { ImageUpload } from './ImageUpload'
 import { StyleExtractModal } from './StyleExtractModal'
@@ -23,8 +26,37 @@ function EndpointSelectFormItem({
 }) {
   useAppLanguage()
 
-  const endpoints = useGlobalStore((state) => state.endpoints)
-  const { setGptImageSettings } = useLocalSetting()
+  const endpoints = useEnabledImageEndpoints()
+  const { gptImageSettings, setGptImageSettings } = useLocalSetting()
+  const form = Form.useFormInstance()
+  const endpointId = Form.useWatch('endpointId', form)
+
+  useEffect(() => {
+    const nextId = resolveImageEndpointId(
+      endpoints,
+      form.getFieldValue('endpointId'),
+      gptImageSettings.selectedEndpointId,
+      gptImageSettings.defaultEndpointId,
+    )
+    if (form.getFieldValue('endpointId') !== nextId) {
+      form.setFieldValue('endpointId', nextId)
+    }
+    if (
+      syncSelectedEndpoint &&
+      nextId &&
+      gptImageSettings.selectedEndpointId !== nextId
+    ) {
+      setGptImageSettings((prev) => ({ ...prev, selectedEndpointId: nextId }))
+    }
+  }, [
+    endpoints,
+    endpointId,
+    form,
+    gptImageSettings.selectedEndpointId,
+    gptImageSettings.defaultEndpointId,
+    setGptImageSettings,
+    syncSelectedEndpoint,
+  ])
 
   return (
     <Form.Item
@@ -47,7 +79,7 @@ function EndpointSelectFormItem({
           value: e.id,
           label: e.name || t('未命名端点'),
         }))}
-        notFoundContent={t('未配置端点，请到设置中添加')}
+        notFoundContent={t('无可用端点，请到设置中添加或启用')}
       />
     </Form.Item>
   )
@@ -247,9 +279,11 @@ export function TemplateFormFields({
   useAppLanguage()
 
   const { gptImageSettings } = useLocalSetting()
-  const endpoints = useGlobalStore((state) => state.endpoints)
+  const endpoints = useEnabledImageEndpoints()
   const endpointId = Form.useWatch('endpointId', form)
-  const selectedEndpoint = endpoints.find((endpoint) => endpoint.id === endpointId)
+  const selectedEndpoint = endpoints.find(
+    (endpoint) => endpoint.id === endpointId,
+  )
 
   useEffect(() => {
     if (!endpointId || !selectedEndpoint) return

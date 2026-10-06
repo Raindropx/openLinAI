@@ -432,6 +432,15 @@ const gptImageApi = new Hono()
           400,
         )
       }
+      if (endpoint.disabled) {
+        return c.json(
+          {
+            success: false as const,
+            error: '[配置] 图片端点已停用，请先启用或选择其他端点',
+          },
+          400,
+        )
+      }
       const templates = await templateManager.getTemplates()
       const storedTemplate = templates.find((t) => t.id === templateId)
       const template = storedTemplate && {
@@ -594,6 +603,15 @@ const gptImageApi = new Hono()
       if (!endpoint) {
         return c.json(
           { success: false as const, error: '[配置] Endpoint not found' },
+          400,
+        )
+      }
+      if (endpoint.disabled) {
+        return c.json(
+          {
+            success: false as const,
+            error: '[配置] 图片端点已停用，请先启用或选择其他端点',
+          },
           400,
         )
       }

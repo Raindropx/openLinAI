@@ -5,7 +5,7 @@ import type { AppType } from '../../server'
 import type { GPTImageQuotaResponse } from '../../server/api/gpt-image'
 import { t } from '../i18n'
 import { isAdmin } from '../pages/common/SettingModal'
-import { useGlobalStore } from '../store/global'
+import { useEnabledImageEndpoints } from './useEnabledImageEndpoints'
 import { useLocalSetting } from './useLocalSetting'
 import { useTasks } from './useTasks'
 
@@ -79,7 +79,7 @@ export const isPublicApiKey = (name?: string | null) =>
   false
 
 export function useGPTImageQuota() {
-  const endpoints = useGlobalStore((state) => state.endpoints)
+  const endpoints = useEnabledImageEndpoints()
   const { gptImageSettings } = useLocalSetting()
   const selectedEndpointId = gptImageSettings.selectedEndpointId
   const selectedEndpoint = useMemo(

@@ -39,6 +39,8 @@ export type GptImageEndpointEngine =
 
 export interface GptImageEndpoint {
   id: string
+  /** 停用后保留配置，但不参与图片生成；旧配置未设置时默认启用。 */
+  disabled?: boolean
   name: string
   baseURL: string
   model: string

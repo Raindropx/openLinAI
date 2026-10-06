@@ -1,10 +1,10 @@
 import { ApiOutlined } from '@ant-design/icons'
 import { Tooltip } from 'antd'
 import { useMemo } from 'react'
+import { useEnabledImageEndpoints } from '../../../hooks/useEnabledImageEndpoints'
 import { useGPTImageQuota } from '../../../hooks/useGPTImageQuota'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../i18n'
-import { useGlobalStore } from '../../../store/global'
 import { openSettingModal } from '../SettingModal'
 
 const NEW_API_QUOTA_PER_USD = 500_000
@@ -16,7 +16,7 @@ export function GPTImageQuota({
 }) {
   useAppLanguage()
 
-  const endpoints = useGlobalStore((state) => state.endpoints)
+  const endpoints = useEnabledImageEndpoints()
   const { gptImageSettings } = useLocalSetting()
   const selectedEndpoint = useMemo(
     () =>

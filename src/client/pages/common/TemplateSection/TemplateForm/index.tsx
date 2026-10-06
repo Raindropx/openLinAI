@@ -15,6 +15,10 @@ import {
   requestChatCompletion,
   type ChatMessage,
 } from '../../../../hooks/useChatCompletion'
+import {
+  resolveImageEndpointId,
+  useEnabledImageEndpoints,
+} from '../../../../hooks/useEnabledImageEndpoints'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../../i18n'
 import { localizeLlmPrompt } from '../../../../prompts/localize'
@@ -52,7 +56,6 @@ export function TemplateForm({
   const [dirty, setDirty] = useState(false)
   const saveIntentRef = useRef<'save' | 'save-as'>('save-as')
   const {
-    endpoints,
     llmEndpoints,
     llmPrompts,
     defaultLlmPrompts,
@@ -63,7 +66,6 @@ export function TemplateForm({
     setFocusNewestTask,
   } = useGlobalStore(
     useShallow((state) => ({
-      endpoints: state.endpoints,
       llmEndpoints: state.llmEndpoints,
       llmPrompts: state.llmPrompts,
       defaultLlmPrompts: state.defaultLlmPrompts,
@@ -80,6 +82,12 @@ export function TemplateForm({
     setGptImageSettings,
     setOptimizeEndpointId,
   } = useLocalSetting()
+  const endpoints = useEnabledImageEndpoints()
+  const preferredEndpointId = resolveImageEndpointId(
+    endpoints,
+    gptImageSettings.selectedEndpointId,
+    gptImageSettings.defaultEndpointId,
+  )
   // 提示词优化弹框状态
   const [optimizeOpen, setOptimizeOpen] = useState(false)
   const [optimizeLoading, setOptimizeLoading] = useState(false)
@@ -93,10 +101,11 @@ export function TemplateForm({
       form.setFieldsValue({
         title: fillTemplateData.title,
         folder: fillTemplateData.folder,
-        endpointId:
-          fillTemplateData.endpointId ||
-          gptImageSettings.selectedEndpointId ||
-          endpoints[0]?.id,
+        endpointId: resolveImageEndpointId(
+          endpoints,
+          fillTemplateData.endpointId,
+          preferredEndpointId,
+        ),
         aspectRatio: fillTemplateData.aspectRatio || '1:1',
         injectAspectRatio: fillTemplateData.injectAspectRatio ?? false,
         gpt2QualityOptimization: fillTemplateData.gpt2QualityOptimization,
@@ -109,7 +118,11 @@ export function TemplateForm({
       if (fillTemplateData.endpointId) {
         setGptImageSettings((prev) => ({
           ...prev,
-          selectedEndpointId: fillTemplateData.endpointId,
+          selectedEndpointId: resolveImageEndpointId(
+            endpoints,
+            fillTemplateData.endpointId,
+            preferredEndpointId,
+          ),
         }))
       }
       setFillTemplateData(null)
@@ -125,6 +138,7 @@ export function TemplateForm({
     fillTemplateData,
     form,
     gptImageSettings.selectedEndpointId,
+    preferredEndpointId,
     setFillTemplateData,
     setGptImageSettings,
     onTemplateLoaded,
@@ -144,13 +158,14 @@ export function TemplateForm({
   }, [clearPendingReferenceImage, pendingReferenceImage])
 
   useEffect(() => {
-    if (!form.getFieldValue('endpointId')) {
-      form.setFieldValue(
-        'endpointId',
-        gptImageSettings.selectedEndpointId || endpoints[0]?.id,
+    if (
+      !endpoints.some(
+        (endpoint) => endpoint.id === form.getFieldValue('endpointId'),
       )
+    ) {
+      form.setFieldValue('endpointId', preferredEndpointId)
     }
-  }, [endpoints, form, gptImageSettings.selectedEndpointId])
+  }, [endpoints, form, preferredEndpointId])
 
   const doTrial = async (size: GptImageSize) => {
     const prompt = form.getFieldValue('prompt')
@@ -163,10 +178,15 @@ export function TemplateForm({
     const injectAspectRatio = form.getFieldValue('injectAspectRatio') || false
     const gpt2QualityOptimization =
       form.getFieldValue('gpt2QualityOptimization') || false
-    const endpointId =
-      form.getFieldValue('endpointId') ||
-      gptImageSettings.selectedEndpointId ||
-      endpoints[0]?.id
+    const endpointId = resolveImageEndpointId(
+      useGlobalStore.getState().endpoints,
+      form.getFieldValue('endpointId'),
+      preferredEndpointId,
+    )
+    if (!endpointId) {
+      message.warning(t('无可用端点，请到设置中添加或启用'))
+      return
+    }
     // 一次优化记录只绑定下一次生成，避免后续普通任务复用旧提示词。
     const originalPrompt = pendingOriginalPromptRef.current
     pendingOriginalPromptRef.current = undefined
@@ -327,10 +347,7 @@ export function TemplateForm({
           onEditingTemplateChange?.(json.data as TaskTemplate)
         } else {
           form.resetFields()
-          form.setFieldValue(
-            'endpointId',
-            gptImageSettings.selectedEndpointId || endpoints[0]?.id,
-          )
+          form.setFieldValue('endpointId', preferredEndpointId)
           setImageUrls([])
         }
         onSuccess()
@@ -348,7 +365,7 @@ export function TemplateForm({
     form.resetFields()
     form.setFieldsValue({
       usageType: 'image',
-      endpointId: gptImageSettings.selectedEndpointId || endpoints[0]?.id,
+      endpointId: preferredEndpointId,
       aspectRatio: '1:1',
       n: 1,
     })
@@ -374,7 +391,7 @@ export function TemplateForm({
         onFinish={handleFinish}
         initialValues={{
           usageType: 'image',
-          endpointId: gptImageSettings.selectedEndpointId || endpoints[0]?.id,
+          endpointId: preferredEndpointId,
           aspectRatio: '1:1',
           n: 1,
         }}
