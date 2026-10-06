@@ -33,6 +33,7 @@ export type GptImageEndpointEngine =
   | 'venice-images'
   | 'novelai-images'
   | 'apimart-images'
+  | 'spicyapi-images'
   | 'laozhang-images'
   | 'chat-completions'
 
@@ -66,6 +67,9 @@ export interface GptImageEndpoint {
   /** 老张质量覆盖；GPT Image 留空沿用任务，Grok 留空使用 medium。 */
   laozhangQuality?: LaoZhangQuality
   laozhangTransparentBackground?: boolean
+  spicyLoras?: import('../../../shared/spicyapi').SpicyLora[]
+  spicySeed?: number
+  spicyResolution?: '1k' | '1.5k' | '2k'
   /** New API 实际消费日志不可用时，用于费用估算的分组倍率快照。 */
   groupRatio?: number
   /**
@@ -74,6 +78,7 @@ export interface GptImageEndpoint {
    * - openrouter-images：OpenRouter 专用 POST /images 接口
    * - venice-images：Venice 原生 /image/generate、/image/edit 与 /image/multi-edit
    * - novelai-images：NovelAI 原生 /ai/generate-image
+   * - spicyapi-images：SpicyAPI 原生任务、参考图上传与结果查询
    * - apimart-images：APImart JSON 图片生成与异步任务查询
    * - laozhang-images：按模型选择 Images、Gemini 原生或 Seedream JSON 接口
    * - chat-completions：OpenAI 兼容 /chat/completions（Nano Banana 等）

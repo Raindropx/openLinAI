@@ -1,5 +1,4 @@
 import {
-  DeleteOutlined,
   LinkOutlined,
   SearchOutlined,
   ThunderboltOutlined,
@@ -42,6 +41,7 @@ import type {
 } from '../../../../shared/studio-generation'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../i18n'
+import { LoraWeightRow } from '../LoraWeightRow'
 import {
   estimateCivitaiGeneration,
   listCivitaiJobs,
@@ -622,36 +622,27 @@ export function CivitaiStudio({
             </Button>
           </div>
           {loras.map((lora) => (
-            <div className="studio-civitai-lora" key={lora.versionId}>
-              <span title={lora.name}>{lora.name}</span>
-              <InputNumber
-                aria-label={t('{0} 权重', [lora.name])}
-                min={-2}
-                max={2}
-                step={0.1}
-                value={lora.strength}
-                onChange={(strength) =>
-                  setLoras((current) =>
-                    current.map((entry) =>
-                      entry.versionId === lora.versionId
-                        ? { ...entry, strength: strength ?? 1 }
-                        : entry,
-                    ),
-                  )
-                }
-              />
-              <Button
-                aria-label={t('移除 {0}', [lora.name])}
-                icon={<DeleteOutlined />}
-                onClick={() =>
-                  setLoras((current) =>
-                    current.filter(
-                      (entry) => entry.versionId !== lora.versionId,
-                    ),
-                  )
-                }
-              />
-            </div>
+            <LoraWeightRow
+              key={lora.versionId}
+              label={lora.name}
+              min={-2}
+              max={2}
+              value={lora.strength}
+              onChange={(strength) =>
+                setLoras((current) =>
+                  current.map((entry) =>
+                    entry.versionId === lora.versionId
+                      ? { ...entry, strength }
+                      : entry,
+                  ),
+                )
+              }
+              onRemove={() =>
+                setLoras((current) =>
+                  current.filter((entry) => entry.versionId !== lora.versionId),
+                )
+              }
+            />
           ))}
           <Form
             form={generationForm}

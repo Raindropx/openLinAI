@@ -5,12 +5,15 @@ import {
 } from '../../shared/laozhang'
 import { NOVELAI_IMAGE_MODELS } from '../../shared/studio-generation'
 import { isAPIMartBaseURL } from './apimart'
+import { spicyRequest } from './gpt-image/spicyapi-api'
 import { fetchWithTimeout } from './utils/fetch'
 import { listVeniceModels, VeniceModelType } from './venice/models'
 
 export type ModelCatalogType =
   | 'openai'
   | 'openai-image'
+  | 'spicyapi-image-generation'
+  | 'spicyapi-image-edit'
   | 'laozhang-image'
   | 'openai-image-generation'
   | 'openai-image-edit'
@@ -311,6 +314,28 @@ export async function listModelCatalog(options: {
   let models: ModelCatalogItem[]
   if (catalog === 'novelai-image') {
     models = [...NOVELAI_IMAGE_MODELS]
+  } else if (catalog.startsWith('spicyapi-image-')) {
+    const task =
+      catalog === 'spicyapi-image-generation'
+        ? 'text-to-image'
+        : 'image-to-image'
+    const response = await spicyRequest(
+      baseURL,
+      apiKey,
+      '/models?modality=image&task=' + task,
+    )
+    const items = response.data?.items
+    if (!Array.isArray(items)) throw new Error('SpicyAPI 未返回有效的模型目录')
+    models = items
+      .filter(
+        (item) =>
+          item.enabled === true &&
+          item.available === true &&
+          item.modality === 'image' &&
+          item.tasks?.includes(task),
+      )
+      .map((item) => ({ id: item.model, name: item.displayName || item.model }))
+      .filter((item) => typeof item.id === 'string' && item.id)
   } else if (veniceType) {
     const veniceModels = await listVeniceModels({
       type: veniceType,

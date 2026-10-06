@@ -1,4 +1,9 @@
 import type { GptImageEndpoint } from '../../../../server/common/config'
+import {
+  SPICY_API_BASE_URL,
+  SPICY_QWEN_LORA_MODEL,
+  SPICY_SEEDREAM_MODEL,
+} from '../../../../shared/spicyapi'
 import { t } from '../../../i18n'
 
 export interface GptImageEndpointPreset {
@@ -18,6 +23,46 @@ export interface GptImageEndpointPreset {
 }
 
 export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
+  {
+    id: 'spicyapi-seedream-5-flash',
+    label: 'SpicyAPI Seedream 5.0 Flash',
+    name: 'SpicyAPI Seedream 5.0 Flash',
+    baseURL: SPICY_API_BASE_URL,
+    model: SPICY_SEEDREAM_MODEL,
+    editModel: 'bytedance/seedream-5.0-flash/edit',
+    type: 'custom',
+    engine: 'spicyapi-images',
+    balanceEnabled: true,
+    balanceApiPath: '/chat/credit',
+    balanceResultJsonKey: 'data.available',
+    website: 'https://spicyapi.ai',
+    get notes() {
+      return [
+        t('支持文生图、最多 10 张参考图编辑及 1K、1.5K、2K 分辨率'),
+        t('自动上传参考图并查询异步任务；多图拆成单张请求，质量由模型决定。'),
+      ]
+    },
+  },
+  {
+    id: 'spicyapi-qwen-image-2-1-lora',
+    label: 'SpicyAPI Qwen Image 2.1 LoRA',
+    name: 'SpicyAPI Qwen Image 2.1 LoRA',
+    baseURL: SPICY_API_BASE_URL,
+    model: SPICY_QWEN_LORA_MODEL,
+    editModel: 'alibaba/qwen-image-2.1-lora/edit',
+    type: 'custom',
+    engine: 'spicyapi-images',
+    balanceEnabled: true,
+    balanceApiPath: '/chat/credit',
+    balanceResultJsonKey: 'data.available',
+    website: 'https://spicyapi.ai',
+    get notes() {
+      return [
+        t('支持文生图、最多 10 张参考图编辑及 1K、1.5K、2K 分辨率'),
+        t('支持最多 3 个 LoRA 地址、0–4 权重和可选 Seed；留空使用基础模型。'),
+      ]
+    },
+  },
   {
     id: 'laozhang-gpt-image-2-5-web',
     label: '老张 GPT Image 2.5 Web',

@@ -1484,5 +1484,17 @@
   "[配置]": "[Configuration]",
   "[网络]": "[Network]",
   "openLinAI v2.0.0 更新内容 🐱：\n🌐 新增全界面中文与英文切换，覆盖工作台、角色卡、模板、任务管理、Studio、设置与通知说明，默认使用中文并记住语言选择\n🔤 桌面侧栏左下角新增语言入口：中文界面显示「Switch language」，英文界面显示「切换语言」，侧栏折叠时仅显示翻译图标\n📱 移动端顶部新增语言切换图标，设置弹窗与多标签页同步切换语言\n📝 英文界面采用人工编写的本地翻译，用户内容、提示词与现有草稿保留原文": "openLinAI v2.0.0 release notes 🐱:\n🌐 Switch the entire interface between Chinese and English, including the workspace, character cards, templates, task management, Studio, settings, and help. Chinese is the default, and your language choice is remembered.\n🔤 A language control now appears at the bottom left of the desktop sidebar: “Switch language” in Chinese and “切换语言” in English. When the sidebar is collapsed, only the translation icon is shown.\n📱 A language icon is also available in the mobile top bar. Settings dialogs and other browser tabs stay in sync with your language choice.\n📝 English text is written by hand and stored locally. User content, prompts, and existing drafts remain in their original language.",
-  "openLinAI v2.0.1 更新内容 🐱：\n🌐 英文界面的 107 个内置图片风格预设、示例模板与默认系统提示词改用人工编写的英文版本\n🤖 NovelAI 提示词优化、图片风格提取与角色卡等内部指令随界面语言切换；自定义提示词保持原样\n🖼️ 图片生成附加的画面比例指令在英文界面使用英文": "openLinAI v2.0.1 release notes 🐱:\n🌐 The English interface now uses hand-written English copy for all 107 built-in image styles, sample templates, and default system prompts.\n🤖 Internal instructions for NovelAI prompt optimization, image-style extraction, and character cards follow the interface language. Custom prompts stay unchanged.\n🖼️ The aspect-ratio instruction appended to image-generation prompts is in English when the interface is in English."
+  "openLinAI v2.0.1 更新内容 🐱：\n🌐 英文界面的 107 个内置图片风格预设、示例模板与默认系统提示词改用人工编写的英文版本\n🤖 NovelAI 提示词优化、图片风格提取与角色卡等内部指令随界面语言切换；自定义提示词保持原样\n🖼️ 图片生成附加的画面比例指令在英文界面使用英文": "openLinAI v2.0.1 release notes 🐱:\n🌐 The English interface now uses hand-written English copy for all 107 built-in image styles, sample templates, and default system prompts.\n🤖 Internal instructions for NovelAI prompt optimization, image-style extraction, and character cards follow the interface language. Custom prompts stay unchanged.\n🖼️ The aspect-ratio instruction appended to image-generation prompts is in English when the interface is in English.",
+  "支持文生图、最多 10 张参考图编辑及 1K、1.5K、2K 分辨率": "Supports text-to-image, editing with up to 10 reference images, and 1K/1.5K/2K resolution",
+  "自动上传参考图并查询异步任务；多图拆成单张请求，质量由模型决定。": "Uploads reference images and polls asynchronous tasks automatically. Multiple images use separate requests; quality is determined by the model.",
+  "支持最多 3 个 LoRA 地址、0–4 权重和可选 Seed；留空使用基础模型。": "Supports up to 3 LoRA URLs with weights from 0 to 4 and an optional seed. Leave empty to use the base model.",
+  "SpicyAPI 自动上传参考图并查询异步任务，质量由模型决定；比例、分辨率和 LoRA 参数按当前模型定义校验。": "SpicyAPI uploads references and polls tasks automatically. Quality is determined by the model; aspect ratio, resolution, and LoRA parameters are validated against its current schema.",
+  "SpicyAPI 分辨率覆盖": "SpicyAPI resolution override",
+  "沿用任务分辨率": "Use task resolution",
+  "留空则随机生成": "Leave empty for a random seed",
+  "LoRA 地址与权重": "LoRA URLs and weights",
+  "所有 SpicyAPI 模型均可配置；仅填写后发送，数量和权重按当前模型定义校验。不支持 LoRA 的模型请保持列表为空。": "Available for all SpicyAPI models. LoRAs are sent only when configured, and validated against the current model schema. Keep the list empty for models without LoRA support.",
+  "LoRA 文件或 Hugging Face 的完整 URL": "Full URL to a LoRA file or Hugging Face repository",
+  "SpicyAPI 编辑模型目录": "SpicyAPI editing model catalog",
+  "请填写有效的 LoRA URL 和 0–4 权重，或移除空白 LoRA": "Enter a valid LoRA URL and a weight from 0 to 4, or remove empty LoRA entries"
 }

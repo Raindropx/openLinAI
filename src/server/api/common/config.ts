@@ -60,6 +60,18 @@ const configApi = new Hono()
                 .enum(['low', 'medium', 'high', 'xhigh', 'max'])
                 .optional(),
               laozhangTransparentBackground: z.boolean().optional(),
+              spicyLoras: z
+                .array(
+                  z.object({
+                    path: z
+                      .url()
+                      .refine((value) => /^https?:\/\//i.test(value)),
+                    scale: z.number().finite().min(0).max(4),
+                  }),
+                )
+                .optional(),
+              spicySeed: z.number().int().min(0).max(2147483647).optional(),
+              spicyResolution: z.enum(['1k', '1.5k', '2k']).optional(),
               groupRatio: z.number().finite().nonnegative().optional(),
               engine: z
                 .enum([
@@ -68,6 +80,7 @@ const configApi = new Hono()
                   'venice-images',
                   'novelai-images',
                   'apimart-images',
+                  'spicyapi-images',
                   'laozhang-images',
                   'chat-completions',
                 ])

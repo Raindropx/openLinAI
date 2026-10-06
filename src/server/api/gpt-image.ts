@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 import { usesLaoZhangImages } from '../../shared/laozhang'
+import { spicyBaseURL } from '../../shared/spicyapi'
 import { getEndpointById } from '../common/config'
 import { TaskTemplate, templateManager } from '../common/template-manager'
 import { TRIAL_TEMPLATE_TITLE } from '../common/template-manager/enum'
@@ -15,6 +16,7 @@ import { fetchLaoZhangBalance } from '../module/gpt-image/laozhang-api'
 import { handleLaoZhangImageGeneration } from '../module/gpt-image/laozhang-image'
 import { handleNovelAIImageGeneration } from '../module/gpt-image/novelai-image'
 import { handleOpenRouterImageGeneration } from '../module/gpt-image/openrouter-image'
+import { handleSpicyImageGeneration } from '../module/gpt-image/spicyapi-image'
 import { handleVeniceImageGeneration } from '../module/gpt-image/venice-image'
 import { fetchWithTimeout } from '../module/utils/fetch'
 
@@ -73,6 +75,7 @@ function getJsonValueByPath(value: unknown, path: string): unknown {
 function getResponseError(json: any) {
   if (typeof json?.error === 'string') return json.error
   if (typeof json?.error?.message === 'string') return json.error.message
+  if (typeof json?.msg === 'string') return json.msg
   if (typeof json?.message === 'string') return json.message
   return '获取余额失败'
 }
@@ -206,7 +209,12 @@ const gptImageApi = new Hono()
 
       try {
         const response = await fetchWithTimeout(
-          resolveBalanceUrl(endpoint.baseURL, apiPath),
+          resolveBalanceUrl(
+            endpoint.engine === 'spicyapi-images'
+              ? spicyBaseURL(endpoint.baseURL)
+              : endpoint.baseURL,
+            apiPath,
+          ),
           {
             headers: {
               Authorization: `Bearer ${endpoint.apiKey}`,
@@ -217,7 +225,8 @@ const gptImageApi = new Hono()
         const json: any = await response.json().catch(() => ({}))
         if (
           !response.ok ||
-          (isAPIMartBaseURL(endpoint.baseURL) && json?.success === false)
+          (isAPIMartBaseURL(endpoint.baseURL) && json?.success === false) ||
+          (endpoint.engine === 'spicyapi-images' && json?.code !== 200)
         ) {
           return c.json(
             {
@@ -504,6 +513,18 @@ const gptImageApi = new Hono()
         })
         return c.json(result.data, result.status as any)
       }
+      if (endpoint.engine === 'spicyapi-images') {
+        const result = await handleSpicyImageGeneration({
+          ...endpoint,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          originalPrompt,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
+      }
       if (endpoint.engine === 'apimart-images') {
         const result = await handleAPIMartImageGeneration({
           ...endpoint,
@@ -650,6 +671,18 @@ const gptImageApi = new Hono()
           apiKey: endpoint.apiKey,
           baseURL: endpoint.baseURL,
           model: endpoint.model,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          originalPrompt,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
+      }
+      if (endpoint.engine === 'spicyapi-images') {
+        const result = await handleSpicyImageGeneration({
+          ...endpoint,
           template,
           size,
           quality,

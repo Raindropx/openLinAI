@@ -4,6 +4,8 @@ import { t } from '../i18n'
 export type EndpointModelCatalog =
   | 'openai'
   | 'openai-image'
+  | 'spicyapi-image-generation'
+  | 'spicyapi-image-edit'
   | 'laozhang-image'
   | 'openai-image-generation'
   | 'openai-image-edit'

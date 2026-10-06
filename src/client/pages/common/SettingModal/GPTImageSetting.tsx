@@ -25,6 +25,10 @@ import {
   usesLaoZhangImages,
 } from '../../../../shared/laozhang'
 import {
+  SPICY_API_BASE_URL,
+  SPICY_SEEDREAM_MODEL,
+} from '../../../../shared/spicyapi'
+import {
   type EndpointModelCatalog,
   useEndpointModels,
 } from '../../../hooks/useEndpointModels'
@@ -32,6 +36,7 @@ import { useGPTImageQuota } from '../../../hooks/useGPTImageQuota'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
+import { LoraWeightRow } from '../LoraWeightRow'
 import {
   findGptImageEndpointPreset,
   GPT_IMAGE_ENDPOINT_PRESETS,
@@ -87,6 +92,10 @@ const cleanEndpoint = (endpoint: GptImageEndpoint): GptImageEndpoint => {
     baseURL: endpoint.baseURL.trim(),
     model: endpoint.model.trim(),
     editModel: endpoint.editModel?.trim() || undefined,
+    spicyLoras: endpoint.spicyLoras?.map((lora) => ({
+      ...lora,
+      path: lora.path.trim(),
+    })),
   }
   // An untouched/emptied replacement field keeps the saved credential.
   // The explicit Clear action sets the configured flag to false and sends ''.
@@ -115,6 +124,21 @@ const isCompleteEndpoint = (endpoint: GptImageEndpoint) =>
   Boolean(
     endpoint.name && endpoint.baseURL && endpoint.model && endpoint.apiKey,
   )
+
+const hasInvalidSpicyLora = (endpoint: GptImageEndpoint) =>
+  endpoint.engine === 'spicyapi-images' &&
+  endpoint.spicyLoras?.some((lora) => {
+    try {
+      return (
+        !['https:', 'http:'].includes(new URL(lora.path).protocol) ||
+        !Number.isFinite(lora.scale) ||
+        lora.scale < 0 ||
+        lora.scale > 4
+      )
+    } catch {
+      return true
+    }
+  })
 
 export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
   useAppLanguage()
@@ -176,23 +200,26 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     activeEndpoint?.type === 'venice' ||
     activeEndpoint?.engine === 'venice-images'
   const isNovelAIEndpoint = activeEndpoint?.engine === 'novelai-images'
+  const isSpicyEndpoint = activeEndpoint?.engine === 'spicyapi-images'
   const isAPIMartEndpoint = activeEndpoint?.engine === 'apimart-images'
   const isLaoZhangEndpoint =
     activeEndpoint && usesLaoZhangImages(activeEndpoint)
   const laoZhangModel = normalizeLaoZhangModel(activeEndpoint?.model || '')
   const laoZhangFamily = getLaoZhangImageFamily(laoZhangModel)
   const isOpenAIImagesEndpoint = activeEndpoint?.engine === 'openai-images'
-  const imageModelCatalog: EndpointModelCatalog = isLaoZhangEndpoint
-    ? 'laozhang-image'
-    : isVeniceEndpoint
-      ? 'venice-image'
-      : isNovelAIEndpoint
-        ? 'novelai-image'
-        : activeEndpoint?.engine === 'openrouter-images'
-          ? 'openrouter-images'
-          : isOpenAIImagesEndpoint || isAPIMartEndpoint
-            ? 'openai-image-generation'
-            : 'openai-image'
+  const imageModelCatalog: EndpointModelCatalog = isSpicyEndpoint
+    ? 'spicyapi-image-generation'
+    : isLaoZhangEndpoint
+      ? 'laozhang-image'
+      : isVeniceEndpoint
+        ? 'venice-image'
+        : isNovelAIEndpoint
+          ? 'novelai-image'
+          : activeEndpoint?.engine === 'openrouter-images'
+            ? 'openrouter-images'
+            : isOpenAIImagesEndpoint || isAPIMartEndpoint
+              ? 'openai-image-generation'
+              : 'openai-image'
   const {
     models: imageModels,
     loading: loadingImageModels,
@@ -210,18 +237,21 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     error: editModelsError,
     refresh: refreshEditModels,
   } = useEndpointModels({
-    catalog: isLaoZhangEndpoint
-      ? 'laozhang-image'
-      : isVeniceEndpoint
-        ? 'venice-inpaint'
-        : 'openai-image-edit',
+    catalog: isSpicyEndpoint
+      ? 'spicyapi-image-edit'
+      : isLaoZhangEndpoint
+        ? 'laozhang-image'
+        : isVeniceEndpoint
+          ? 'venice-inpaint'
+          : 'openai-image-edit',
     baseURL: activeEndpoint?.baseURL,
     apiKey: activeEndpoint?.apiKey,
     enabled:
       isLaoZhangEndpoint ||
       isVeniceEndpoint ||
       isOpenAIImagesEndpoint ||
-      isAPIMartEndpoint,
+      isAPIMartEndpoint ||
+      isSpicyEndpoint,
   })
 
   const updateActiveEndpoint = (patch: Partial<GptImageEndpoint>) => {
@@ -296,6 +326,10 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     if (!activeEndpoint) return
 
     const cleanedEndpoint = cleanEndpoint(activeEndpoint)
+    if (hasInvalidSpicyLora(cleanedEndpoint)) {
+      message.warning(t('请填写有效的 LoRA URL 和 0–4 权重，或移除空白 LoRA'))
+      return
+    }
     if (!isCompleteEndpoint(cleanedEndpoint)) {
       message.warning(t('请完整配置当前端点（名称/地址/模型/Key）'))
       return
@@ -342,6 +376,11 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
       const cleaned = endpointsToSave
         .map(cleanEndpoint)
         .filter(isCompleteEndpoint)
+      if (cleaned.some(hasInvalidSpicyLora)) {
+        const error = t('请填写有效的 LoRA URL 和 0–4 权重，或移除空白 LoRA')
+        message.warning(error)
+        throw new Error(error)
+      }
       if (cleaned.length === 0) {
         message.warning(t('请至少完整配置一个端点（名称/地址/模型/Key）'))
         throw new Error('No endpoint')
@@ -486,18 +525,20 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   updateActiveEndpoint({ baseURL: e.target.value })
                 }
                 placeholder={
-                  isLaoZhangEndpoint
-                    ? LAOZHANG_BASE_URL
-                    : activeEndpoint.engine === 'venice-images'
-                      ? DEFAULT_VENICE_BASE_URL
-                      : isAPIMartEndpoint
-                        ? 'https://api.apimart.ai/v1'
-                        : activeEndpoint.engine === 'novelai-images'
-                          ? DEFAULT_NOVELAI_BASE_URL
-                          : activeEndpoint.engine === 'chat-completions' ||
-                              activeEndpoint.engine === 'openrouter-images'
-                            ? t('如 https://openrouter.ai/api/v1')
-                            : t('如 https://api.openlux.ai/v1')
+                  isSpicyEndpoint
+                    ? SPICY_API_BASE_URL
+                    : isLaoZhangEndpoint
+                      ? LAOZHANG_BASE_URL
+                      : activeEndpoint.engine === 'venice-images'
+                        ? DEFAULT_VENICE_BASE_URL
+                        : isAPIMartEndpoint
+                          ? 'https://api.apimart.ai/v1'
+                          : activeEndpoint.engine === 'novelai-images'
+                            ? DEFAULT_NOVELAI_BASE_URL
+                            : activeEndpoint.engine === 'chat-completions' ||
+                                activeEndpoint.engine === 'openrouter-images'
+                              ? t('如 https://openrouter.ai/api/v1')
+                              : t('如 https://api.openlux.ai/v1')
                 }
               />
             </Form.Item>
@@ -552,7 +593,8 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
             {(isLaoZhangEndpoint ||
               isVeniceEndpoint ||
               isOpenAIImagesEndpoint ||
-              isAPIMartEndpoint) && (
+              isAPIMartEndpoint ||
+              isSpicyEndpoint) && (
               <Form.Item label={t('参考图编辑模型 ID')}>
                 <ModelIdInput
                   value={activeEndpoint.editModel}
@@ -566,17 +608,19 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   directoryLabel={
                     isLaoZhangEndpoint
                       ? t('老张图片模型目录')
-                      : isAPIMartEndpoint
-                        ? t('APImart 编辑模型目录')
-                        : isVeniceEndpoint
-                          ? t('Venice 编辑模型目录')
-                          : t('OpenAI Images 编辑模型目录')
+                      : isSpicyEndpoint
+                        ? t('SpicyAPI 编辑模型目录')
+                        : isAPIMartEndpoint
+                          ? t('APImart 编辑模型目录')
+                          : isVeniceEndpoint
+                            ? t('Venice 编辑模型目录')
+                            : t('OpenAI Images 编辑模型目录')
                   }
                   waitingForKey={!activeEndpoint.apiKey.trim()}
                   placeholder={
                     isLaoZhangEndpoint
                       ? t('搜索或输入参考图模型 ID；留空则沿用生成模型')
-                      : isAPIMartEndpoint
+                      : isAPIMartEndpoint || isSpicyEndpoint
                         ? t('搜索或输入参考图模型 ID；留空则沿用生成模型')
                         : isVeniceEndpoint
                           ? t('搜索或输入编辑模型 ID；使用参考图时必填')
@@ -611,6 +655,17 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                           model: 'gpt-image-2-vip',
                           editModel: undefined,
                           balanceEnabled: false,
+                        }
+                      : {}),
+                    ...(engine === 'spicyapi-images'
+                      ? {
+                          baseURL: SPICY_API_BASE_URL,
+                          type: 'custom' as const,
+                          model: SPICY_SEEDREAM_MODEL,
+                          editModel: 'bytedance/seedream-5.0-flash/edit',
+                          balanceEnabled: true,
+                          balanceApiPath: '/chat/credit',
+                          balanceResultJsonKey: 'data.available',
                         }
                       : {}),
                     // 切换引擎时给出对应默认值，减少用户手动改的麻烦
@@ -678,6 +733,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                     ...(engine !== 'venice-images' &&
                     engine !== 'openai-images' &&
                     engine !== 'apimart-images' &&
+                    engine !== 'spicyapi-images' &&
                     engine !== 'laozhang-images'
                       ? { editModel: undefined }
                       : {}),
@@ -713,6 +769,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 </Radio.Button>
                 <Radio.Button value="venice-images">Venice Images</Radio.Button>
                 <Radio.Button value="novelai-images">NovelAI</Radio.Button>
+                <Radio.Button value="spicyapi-images">
+                  SpicyAPI Images
+                </Radio.Button>
                 <Radio.Button value="apimart-images">
                   APImart Images
                 </Radio.Button>
@@ -736,6 +795,103 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 )}
               </div>
             </Form.Item>
+            {isSpicyEndpoint && (
+              <div className="mb-4 rounded-lg border border-slate-700 p-3">
+                <div className="mb-3 text-xs text-slate-500">
+                  {t(
+                    'SpicyAPI 自动上传参考图并查询异步任务，质量由模型决定；比例、分辨率和 LoRA 参数按当前模型定义校验。',
+                  )}
+                </div>
+                <Form.Item label={t('SpicyAPI 分辨率覆盖')}>
+                  <Select<'1k' | '1.5k' | '2k' | ''>
+                    value={activeEndpoint.spicyResolution || ''}
+                    onChange={(value) =>
+                      updateActiveEndpoint({
+                        spicyResolution: value || undefined,
+                      })
+                    }
+                    options={[
+                      { value: '', label: t('沿用任务分辨率') },
+                      ...['1k', '1.5k', '2k'].map((value) => ({
+                        value,
+                        label: value.toUpperCase(),
+                      })),
+                    ]}
+                  />
+                </Form.Item>
+                <Form.Item label="Seed">
+                  <InputNumber
+                    min={0}
+                    max={2147483647}
+                    precision={0}
+                    className="w-full"
+                    value={activeEndpoint.spicySeed}
+                    onChange={(value) =>
+                      updateActiveEndpoint({ spicySeed: value ?? undefined })
+                    }
+                    placeholder={t('留空则随机生成')}
+                  />
+                </Form.Item>
+                <div className="mb-2 text-sm">{t('LoRA 地址与权重')}</div>
+                <div className="mb-2 text-xs text-slate-500">
+                  {t(
+                    '所有 SpicyAPI 模型均可配置；仅填写后发送，数量和权重按当前模型定义校验。不支持 LoRA 的模型请保持列表为空。',
+                  )}
+                </div>
+                {(activeEndpoint.spicyLoras || []).map((lora, index) => (
+                  <LoraWeightRow
+                    key={index}
+                    label={lora.path || 'LoRA ' + (index + 1)}
+                    min={0}
+                    max={4}
+                    value={lora.scale}
+                    editor={
+                      <Input
+                        value={lora.path}
+                        placeholder={t('LoRA 文件或 Hugging Face 的完整 URL')}
+                        onChange={(e) =>
+                          updateActiveEndpoint({
+                            spicyLoras: activeEndpoint.spicyLoras?.map(
+                              (item, i) =>
+                                i === index
+                                  ? { ...item, path: e.target.value }
+                                  : item,
+                            ),
+                          })
+                        }
+                      />
+                    }
+                    onChange={(scale) =>
+                      updateActiveEndpoint({
+                        spicyLoras: activeEndpoint.spicyLoras?.map((item, i) =>
+                          i === index ? { ...item, scale } : item,
+                        ),
+                      })
+                    }
+                    onRemove={() =>
+                      updateActiveEndpoint({
+                        spicyLoras: activeEndpoint.spicyLoras?.filter(
+                          (_, i) => i !== index,
+                        ),
+                      })
+                    }
+                  />
+                ))}
+                <Button
+                  icon={<PlusOutlined />}
+                  onClick={() =>
+                    updateActiveEndpoint({
+                      spicyLoras: [
+                        ...(activeEndpoint.spicyLoras || []),
+                        { path: '', scale: 1 },
+                      ],
+                    })
+                  }
+                >
+                  {t('添加 LoRA')}
+                </Button>
+              </div>
+            )}
             {isLaoZhangEndpoint && (
               <div className="mb-4 rounded-md border border-white/10 bg-white/[0.03] p-3">
                 <div className="mb-3 text-xs text-slate-500">
