@@ -5,7 +5,9 @@ import { z } from 'zod'
 import { getEndpointById } from '../common/config'
 import { TaskTemplate, templateManager } from '../common/template-manager'
 import { TRIAL_TEMPLATE_TITLE } from '../common/template-manager/enum'
+import { isAPIMartBaseURL } from '../module/apimart'
 import { handleImageGeneration } from '../module/gpt-image'
+import { handleAPIMartImageGeneration } from '../module/gpt-image/apimart-image'
 import { handleChatImageGeneration } from '../module/gpt-image/chat-image'
 import { GPT_IMAGE_OUTPUT_MAX_N } from '../module/gpt-image/enum'
 import { handleNovelAIImageGeneration } from '../module/gpt-image/novelai-image'
@@ -163,8 +165,7 @@ const gptImageApi = new Hono()
       const apiPath =
         endpoint.balanceApiPath?.trim() || DEFAULT_BALANCE_API_PATH
       const resultJsonKey =
-        endpoint.balanceResultJsonKey?.trim() ||
-        DEFAULT_BALANCE_RESULT_JSON_KEY
+        endpoint.balanceResultJsonKey?.trim() || DEFAULT_BALANCE_RESULT_JSON_KEY
 
       try {
         const response = await fetchWithTimeout(
@@ -177,7 +178,10 @@ const gptImageApi = new Hono()
           15000,
         )
         const json: any = await response.json().catch(() => ({}))
-        if (!response.ok) {
+        if (
+          !response.ok ||
+          (isAPIMartBaseURL(endpoint.baseURL) && json?.success === false)
+        ) {
           return c.json(
             {
               success: false as const,
@@ -204,15 +208,23 @@ const gptImageApi = new Hono()
           )
         }
 
+        const apimartBalance = isAPIMartBaseURL(endpoint.baseURL)
+        const unlimited = apimartBalance && json?.unlimited_quota === true
+        const usedBalance =
+          apimartBalance &&
+          typeof json?.used_balance === 'number' &&
+          Number.isFinite(json.used_balance)
+            ? json.used_balance
+            : 0
         const normalized: GPTImageQuotaResponse = {
           message: '',
           data: {
             expires_at: -1,
             name: endpoint.name,
-            total_granted: balance,
-            total_used: 0,
-            total_available: balance,
-            unlimited_quota: false,
+            total_granted: unlimited ? 0 : balance + usedBalance,
+            total_used: usedBalance,
+            total_available: unlimited ? 0 : balance,
+            unlimited_quota: unlimited,
           },
         }
         return c.json({
@@ -376,7 +388,10 @@ const gptImageApi = new Hono()
       }
       const templates = await templateManager.getTemplates()
       const storedTemplate = templates.find((t) => t.id === templateId)
-      const template = storedTemplate && { ...storedTemplate, generationLanguage: language }
+      const template = storedTemplate && {
+        ...storedTemplate,
+        generationLanguage: language,
+      }
       if (!template) {
         return c.json(
           { success: false as const, error: '[服务] Template not found' },
@@ -431,6 +446,18 @@ const gptImageApi = new Hono()
           apiKey: endpoint.apiKey,
           baseURL: endpoint.baseURL,
           model: endpoint.model,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          originalPrompt,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
+      }
+      if (endpoint.engine === 'apimart-images') {
+        const result = await handleAPIMartImageGeneration({
+          ...endpoint,
           template,
           size,
           quality,
@@ -562,6 +589,18 @@ const gptImageApi = new Hono()
           apiKey: endpoint.apiKey,
           baseURL: endpoint.baseURL,
           model: endpoint.model,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          originalPrompt,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
+      }
+      if (endpoint.engine === 'apimart-images') {
+        const result = await handleAPIMartImageGeneration({
+          ...endpoint,
           template,
           size,
           quality,

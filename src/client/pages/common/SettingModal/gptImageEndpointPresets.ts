@@ -19,6 +19,46 @@ export interface GptImageEndpointPreset {
 
 export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
   {
+    id: 'apimart-gpt-image-2',
+    label: 'APImart GPT Image 2',
+    name: 'APImart GPT Image 2',
+    baseURL: 'https://api.apimart.ai/v1',
+    model: 'gpt-image-2',
+    type: 'custom',
+    engine: 'apimart-images',
+    balanceEnabled: true,
+    balanceApiPath: '/balance',
+    balanceResultJsonKey: 'remain_balance',
+    website: 'https://apimart.ai',
+    get notes() {
+      return [
+        t('支持文生图、参考图编辑与 1K、2K、4K 分辨率'),
+        t('异步任务自动查询并保存图片；多图生成拆成单图请求'),
+        t('余额显示当前 API Key 的剩余额度'),
+      ]
+    },
+  },
+  {
+    id: 'apimart-nano-banana-2',
+    label: 'APImart Nano Banana 2',
+    name: 'APImart Nano Banana 2',
+    baseURL: 'https://api.apimart.ai/v1',
+    model: 'gemini-3.1-flash-image-preview',
+    type: 'custom',
+    engine: 'apimart-images',
+    balanceEnabled: true,
+    balanceApiPath: '/balance',
+    balanceResultJsonKey: 'remain_balance',
+    website: 'https://apimart.ai',
+    get notes() {
+      return [
+        t('支持文生图、参考图编辑与 1K、2K、4K 分辨率'),
+        t('异步任务自动查询并保存图片；多图生成拆成单图请求'),
+        t('余额显示当前 API Key 的剩余额度'),
+      ]
+    },
+  },
+  {
     id: 'novelai-v5-full',
     label: 'NovelAI Diffusion V5 Full',
     name: 'NovelAI Diffusion V5 Full',

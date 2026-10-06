@@ -162,6 +162,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     activeEndpoint?.type === 'venice' ||
     activeEndpoint?.engine === 'venice-images'
   const isNovelAIEndpoint = activeEndpoint?.engine === 'novelai-images'
+  const isAPIMartEndpoint = activeEndpoint?.engine === 'apimart-images'
   const isOpenAIImagesEndpoint = activeEndpoint?.engine === 'openai-images'
   const imageModelCatalog: EndpointModelCatalog = isVeniceEndpoint
     ? 'venice-image'
@@ -169,7 +170,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
       ? 'novelai-image'
       : activeEndpoint?.engine === 'openrouter-images'
         ? 'openrouter-images'
-        : isOpenAIImagesEndpoint
+        : isOpenAIImagesEndpoint || isAPIMartEndpoint
           ? 'openai-image-generation'
           : 'openai-image'
   const {
@@ -192,7 +193,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     catalog: isVeniceEndpoint ? 'venice-inpaint' : 'openai-image-edit',
     baseURL: activeEndpoint?.baseURL,
     apiKey: activeEndpoint?.apiKey,
-    enabled: isVeniceEndpoint || isOpenAIImagesEndpoint,
+    enabled: isVeniceEndpoint || isOpenAIImagesEndpoint || isAPIMartEndpoint,
   })
 
   const updateActiveEndpoint = (patch: Partial<GptImageEndpoint>) => {
@@ -455,12 +456,14 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 placeholder={
                   activeEndpoint.engine === 'venice-images'
                     ? DEFAULT_VENICE_BASE_URL
-                    : activeEndpoint.engine === 'novelai-images'
-                      ? DEFAULT_NOVELAI_BASE_URL
-                      : activeEndpoint.engine === 'chat-completions' ||
-                          activeEndpoint.engine === 'openrouter-images'
-                        ? t('如 https://openrouter.ai/api/v1')
-                        : t('如 https://api.openlux.ai/v1')
+                    : isAPIMartEndpoint
+                      ? 'https://api.apimart.ai/v1'
+                      : activeEndpoint.engine === 'novelai-images'
+                        ? DEFAULT_NOVELAI_BASE_URL
+                        : activeEndpoint.engine === 'chat-completions' ||
+                            activeEndpoint.engine === 'openrouter-images'
+                          ? t('如 https://openrouter.ai/api/v1')
+                          : t('如 https://api.openlux.ai/v1')
                 }
               />
             </Form.Item>
@@ -500,7 +503,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 )}
               </div>
             </Form.Item>
-            {(isVeniceEndpoint || isOpenAIImagesEndpoint) && (
+            {(isVeniceEndpoint ||
+              isOpenAIImagesEndpoint ||
+              isAPIMartEndpoint) && (
               <Form.Item label={t('参考图编辑模型 ID')}>
                 <ModelIdInput
                   value={activeEndpoint.editModel}
@@ -512,17 +517,21 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   error={editModelsError}
                   onRefresh={refreshEditModels}
                   directoryLabel={
-                    isVeniceEndpoint
-                      ? t('Venice 编辑模型目录')
-                      : t('OpenAI Images 编辑模型目录')
+                    isAPIMartEndpoint
+                      ? t('APImart 编辑模型目录')
+                      : isVeniceEndpoint
+                        ? t('Venice 编辑模型目录')
+                        : t('OpenAI Images 编辑模型目录')
                   }
                   waitingForKey={!activeEndpoint.apiKey.trim()}
                   placeholder={
-                    isVeniceEndpoint
-                      ? t('搜索或输入编辑模型 ID；使用参考图时必填')
-                      : t(
-                          '搜索或输入支持 /images/edits 的模型；留空则沿用生成模型',
-                        )
+                    isAPIMartEndpoint
+                      ? t('搜索或输入参考图模型 ID；留空则沿用生成模型')
+                      : isVeniceEndpoint
+                        ? t('搜索或输入编辑模型 ID；使用参考图时必填')
+                        : t(
+                            '搜索或输入支持 /images/edits 的模型；留空则沿用生成模型',
+                          )
                   }
                   allowClear
                 />
@@ -545,6 +554,17 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   updateActiveEndpoint({
                     engine,
                     // 切换引擎时给出对应默认值，减少用户手动改的麻烦
+                    ...(engine === 'apimart-images'
+                      ? {
+                          baseURL: 'https://api.apimart.ai/v1',
+                          type: 'custom' as const,
+                          model: 'gpt-image-2',
+                          editModel: undefined,
+                          balanceEnabled: true,
+                          balanceApiPath: '/balance',
+                          balanceResultJsonKey: 'remain_balance',
+                        }
+                      : {}),
                     ...(engine === 'chat-completions' &&
                     [DEFAULT_MODEL, DEFAULT_NOVELAI_MODEL].includes(
                       activeEndpoint.model,
@@ -595,7 +615,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                     activeEndpoint.baseURL === DEFAULT_OPENROUTER_BASE_URL
                       ? { baseURL: DEFAULT_OPENAI_IMAGES_BASE_URL }
                       : {}),
-                    ...(engine !== 'venice-images' && engine !== 'openai-images'
+                    ...(engine !== 'venice-images' &&
+                    engine !== 'openai-images' &&
+                    engine !== 'apimart-images'
                       ? { editModel: undefined }
                       : {}),
                     ...((engine === 'openrouter-images' ||
@@ -630,10 +652,20 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 </Radio.Button>
                 <Radio.Button value="venice-images">Venice Images</Radio.Button>
                 <Radio.Button value="novelai-images">NovelAI</Radio.Button>
+                <Radio.Button value="apimart-images">
+                  APImart Images
+                </Radio.Button>
                 <Radio.Button value="chat-completions">
                   {t('聊天式（Nano Banana 等）')}
                 </Radio.Button>
               </Radio.Group>
+              {isAPIMartEndpoint && (
+                <div className="mt-1 text-xs text-slate-500">
+                  {t(
+                    'APImart 自动查询异步任务；按模型能力传递比例、分辨率与参考图，多图生成拆成单图请求。',
+                  )}
+                </div>
+              )}
               <div className="mt-1 text-xs text-slate-500">
                 {t(
                   'GPT Image / DALL·E 使用 OpenAI 兼容接口；OpenRouter Images 使用专用 /images；Venice Images 使用原生生成/编辑接口并按实时模型能力传参；NovelAI 使用原生 /ai/generate-image；聊天式使用 chat/completions，并通过 image_config 传递图片参数。',

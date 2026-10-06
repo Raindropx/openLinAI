@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { NOVELAI_IMAGE_MODELS } from '../../shared/studio-generation'
+import { isAPIMartBaseURL } from './apimart'
 import { fetchWithTimeout } from './utils/fetch'
 import { listVeniceModels, VeniceModelType } from './venice/models'
 
@@ -157,6 +158,13 @@ function getSupportedEndpointTypes(metadata: Record<string, unknown>) {
 
 function isImageOutputModel(record: CompatibleModelRecord) {
   const { model, metadata } = record
+  if (
+    metadata.apimart === true &&
+    typeof metadata.category === 'string' &&
+    metadata.category !== 'unknown'
+  ) {
+    return metadata.category === 'image'
+  }
   const architecture = getArchitecture(metadata)
   if (architecture.output.length > 0) {
     return architecture.output.includes('image')
@@ -179,6 +187,21 @@ function supportsImageOperation(
   operation: 'generation' | 'edit',
 ) {
   if (!isImageOutputModel(record)) return false
+  // APImart handles image edits on /images/generations, not /images/edits.
+  if (
+    record.metadata.apimart === true &&
+    record.metadata.category === 'image'
+  ) {
+    const tags = stringArray(record.metadata.capability_tags).map((tag) =>
+      tag.toLowerCase(),
+    )
+    if (!tags.length) return operation === 'generation'
+    return tags.some((tag) =>
+      operation === 'edit'
+        ? /image to image|image edit|inpaint/.test(tag)
+        : /text to image/.test(tag),
+    )
+  }
   const endpoints = getSupportedEndpointTypes(record.metadata)
   if (endpoints.length === 0) return true
   const expected =
@@ -195,6 +218,16 @@ function supportsImageOperation(
 function isVisionTextModel(record: CompatibleModelRecord) {
   const { model, metadata } = record
   if (isImageOutputModel(record)) return false
+  if (
+    metadata.apimart === true &&
+    typeof metadata.category === 'string' &&
+    metadata.category !== 'unknown'
+  ) {
+    return (
+      metadata.category === 'chat' &&
+      stringArray(metadata.capability_tags).some((tag) => /vision/i.test(tag))
+    )
+  }
 
   const architecture = getArchitecture(metadata)
   if (architecture.input.length > 0 || architecture.output.length > 0) {
@@ -292,8 +325,10 @@ export async function listModelCatalog(options: {
     }
   } else {
     const isOpenRouter = new URL(baseURL).hostname === 'openrouter.ai'
-    const path =
-      catalog === 'openrouter-images'
+    const isAPIMart = isAPIMartBaseURL(baseURL)
+    const path = isAPIMart
+      ? '/models?expand=category'
+      : catalog === 'openrouter-images'
         ? '/images/models'
         : (catalog === 'openai-image' ||
               catalog === 'openai-image-generation' ||
@@ -326,6 +361,19 @@ export async function listModelCatalog(options: {
       )
     }
     let records = parseCompatibleModels(data)
+    if (isAPIMart)
+      records = records.map((record) => ({
+        ...record,
+        metadata: { ...record.metadata, apimart: true },
+      }))
+    if (isAPIMart && catalog === 'openai') {
+      records = records.filter(
+        (record) =>
+          record.metadata.category === 'chat' ||
+          !record.metadata.category ||
+          record.metadata.category === 'unknown',
+      )
+    }
     if (
       !isOpenRouter &&
       (catalog === 'openai-image' ||

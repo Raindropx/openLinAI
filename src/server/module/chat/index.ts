@@ -1,5 +1,6 @@
 export const YUNWU_CHAT_COMPLETIONS_URL = 'https://yunwu.ai/v1/chat/completions'
 
+import { isAPIMartBaseURL, unwrapAPIMartResponse } from '../apimart'
 import { fetchWithTimeout } from '../utils/fetch'
 
 export interface ChatContentPart {
@@ -82,22 +83,41 @@ export async function createChatCompletion(options: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, stream: false }),
       },
       120000,
     )
 
-    const data = await parseChatResponse(response)
+    const rawData = await parseChatResponse(response)
+    const isAPIMart = isAPIMartBaseURL(baseURL || '')
+    const data = isAPIMart ? unwrapAPIMartResponse(rawData) : rawData
+    const providerStatus =
+      isAPIMart &&
+      isPlainObject(rawData) &&
+      typeof rawData.code === 'number' &&
+      rawData.code >= 400 &&
+      rawData.code <= 599
+        ? rawData.code
+        : response.status
 
-    if (!response.ok) {
-      const upstreamError = isPlainObject(data) && typeof data.error === 'string'
-        ? data.error
+    if (!response.ok || providerStatus >= 400) {
+      const upstreamError = isPlainObject(data)
+        ? typeof data.error === 'string'
+          ? data.error
+          : isPlainObject(data.error) && typeof data.error.message === 'string'
+            ? data.error.message
+            : typeof data.message === 'string'
+              ? data.message
+              : ''
         : ''
       const prefix = `[${getServiceLabel(baseURL)}] `
       return {
-        status: response.status,
+        status: providerStatus,
         data: isPlainObject(data)
-          ? { ...data, error: `${prefix}${upstreamError || 'Chat completion request failed'}` }
+          ? {
+              ...data,
+              error: `${prefix}${upstreamError || 'Chat completion request failed'}`,
+            }
           : {
               success: false as const,
               error: `${prefix}Chat completion request failed`,

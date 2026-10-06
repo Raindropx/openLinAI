@@ -27,6 +27,7 @@ export type GptImageEndpointEngine =
   | 'openrouter-images'
   | 'venice-images'
   | 'novelai-images'
+  | 'apimart-images'
   | 'chat-completions'
 
 export interface GptImageEndpoint {
@@ -59,6 +60,7 @@ export interface GptImageEndpoint {
    * - openrouter-images：OpenRouter 专用 POST /images 接口
    * - venice-images：Venice 原生 /image/generate、/image/edit 与 /image/multi-edit
    * - novelai-images：NovelAI 原生 /ai/generate-image
+   * - apimart-images：APImart JSON 图片生成与异步任务查询
    * - chat-completions：OpenAI 兼容 /chat/completions（Nano Banana 等）
    */
   engine?: GptImageEndpointEngine

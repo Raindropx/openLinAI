@@ -13,6 +13,20 @@ export interface LlmEndpointPreset {
 
 export const LLM_ENDPOINT_PRESETS: LlmEndpointPreset[] = [
   {
+    id: 'apimart-gpt-5',
+    label: 'APImart GPT-5',
+    name: 'APImart GPT-5',
+    baseURL: 'https://api.apimart.ai/v1',
+    model: 'gpt-5',
+    website: 'https://apimart.ai',
+    get notes() {
+      return [
+        t('使用 APImart Chat Completions 接口，自动关闭流式并兼容响应包装'),
+        t('模型按账号和分组开放，输入 Key 后以实际目录为准'),
+      ]
+    },
+  },
+  {
     id: 'venice-gpt-5.6-luna',
     label: 'Venice GPT-5.6 Luna',
     name: 'Venice GPT-5.6 Luna',

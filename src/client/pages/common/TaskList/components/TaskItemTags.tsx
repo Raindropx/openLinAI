@@ -250,6 +250,11 @@ export function TaskItemTags({
           {studioSourceLabel(task.studioProvenance, t)}
         </Tag>
       )}
+      {task.status === 'completed' && task.error && (
+        <Tooltip title={task.error}>
+          <Tag color="warning">{t('部分生成失败')}</Tag>
+        </Tooltip>
+      )}
       {task.rawTemplate?.aspectRatio && (
         <Tag color="blue">
           {task.studioProvenance || task.endpointName?.endsWith(' Studio')
