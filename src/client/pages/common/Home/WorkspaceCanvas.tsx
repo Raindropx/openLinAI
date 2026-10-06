@@ -8,16 +8,17 @@ import {
 } from '@ant-design/icons'
 import { Button, Image, Spin, Tooltip, message } from 'antd'
 import dayjs from 'dayjs'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Task } from '../../../../server/common/task-manager'
 import { useRecentImages } from '../../../hooks/useRecentImages'
-import { useTasks } from '../../../hooks/useTasks'
 import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { uploadInputImageFromUrl } from '../../../utils/uploadInputImage'
 import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
 
 interface WorkspaceCanvasProps {
+  imageTasks: Task[]
+  loading: boolean
   selectedTaskId?: string
   onSelectTask: (taskId: string) => void
 }
@@ -32,24 +33,16 @@ function getThumbUrl(url: string) {
 }
 
 export function WorkspaceCanvas({
+  imageTasks,
+  loading,
   selectedTaskId,
   onSelectTask,
 }: WorkspaceCanvasProps) {
   useAppLanguage()
 
-  const { data: tasks = [], loading } = useTasks()
   const { addRecentImages } = useRecentImages()
   const addReferenceImage = useGlobalStore((state) => state.addReferenceImage)
   const [addingReference, setAddingReference] = useState(false)
-  const imageTasks = useMemo(
-    () =>
-      tasks.filter(
-        (task) =>
-          task.rawTemplate?.usageType === 'image' ||
-          task.rawTemplate?.usageType === 'chat-image',
-      ),
-    [tasks],
-  )
   const selectedTask =
     imageTasks.find((task) => task.id === selectedTaskId) ?? imageTasks[0]
   const selectedUrls = selectedTask ? getOutputUrls(selectedTask) : []
@@ -144,7 +137,7 @@ export function WorkspaceCanvas({
             </div>
           </div>
         ) : (
-          <Image.PreviewGroup>
+          <Image.PreviewGroup key={selectedTask.id}>
             <div
               className={`relative grid max-h-full max-w-full gap-3 ${
                 selectedUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'

@@ -32,7 +32,8 @@ export const Home = () => {
   const focusNewestTaskSignal = useGlobalStore(
     (state) => state.focusNewestTaskSignal,
   )
-  const { data: tasks = [] } = useTasks()
+  const { data: tasks = [], folders, loading } = useTasks()
+  const folderId = useGlobalStore((state) => state.taskFolderId)
   const [resourcePanel, setResourcePanel] = useState<ResourcePanel>('tasks')
   const [mobilePanel, setMobilePanel] = useState<MobileWorkspacePanel>(() =>
     (location.state as { mobilePanel?: MobileWorkspacePanel } | null)
@@ -46,10 +47,13 @@ export const Home = () => {
     () =>
       tasks.filter(
         (task) =>
-          task.rawTemplate?.usageType === 'image' ||
-          task.rawTemplate?.usageType === 'chat-image',
+          (task.rawTemplate?.usageType === 'image' ||
+            task.rawTemplate?.usageType === 'chat-image') &&
+          (folderId
+            ? task.folderId === folderId
+            : !folders.some((folder) => folder.id === task.folderId)),
       ),
-    [tasks],
+    [tasks, folderId, folders],
   )
 
   // 生成新任务后让画布自动聚焦到最新任务
@@ -122,6 +126,8 @@ export const Home = () => {
         className={`min-h-[calc(100dvh-9.5rem)] lg:block lg:h-full lg:min-h-0 ${mobilePanel === 'canvas' ? 'block' : 'hidden'}`}
       >
         <WorkspaceCanvas
+          imageTasks={imageTasks}
+          loading={loading}
           selectedTaskId={selectedTaskId}
           onSelectTask={setSelectedTaskId}
         />

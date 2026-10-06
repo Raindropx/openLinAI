@@ -1168,7 +1168,6 @@ export function TaskList({
                               images={task.outputUrls}
                               width={panelMode ? 90 : 100}
                               height={panelMode ? 120 : 130}
-                              preview={!panelMode}
                               onPreview={
                                 managementMode
                                   ? (imageIndex) =>
@@ -1184,7 +1183,6 @@ export function TaskList({
                         ) : (
                           <TaskImage
                             src={task.outputUrls[0]}
-                            preview={!panelMode}
                             onPreview={
                               managementMode
                                 ? () =>
