@@ -363,6 +363,7 @@ export async function handleNovelAIImageGeneration(options: {
   quality?: GptImageQuality
   endpointName?: string
   originalPrompt?: string
+  folderId?: string
   writeMetadata?: boolean
   advanced?: Omit<NovelAIStudioGenerateRequest, 'title' | 'prompt' | 'model'>
   studioRequest?: NovelAIStudioGenerateRequest
@@ -388,6 +389,7 @@ export async function handleNovelAIImageGeneration(options: {
     quality,
     endpointName,
     originalPrompt,
+    folderId: options.folderId,
   })
   if (!task) {
     return {

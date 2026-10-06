@@ -388,6 +388,7 @@ export async function handleImageGeneration(options: {
   quality?: GptImageQuality
   endpointName?: string
   originalPrompt?: string
+  folderId?: string
   writeMetadata?: boolean
   queryBilling?: boolean
   billingGroupRatio?: number
@@ -419,6 +420,7 @@ export async function handleImageGeneration(options: {
       quality,
       endpointName,
       originalPrompt,
+      folderId: options.folderId,
     })
 
     if (!task) {

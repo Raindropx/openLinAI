@@ -2,6 +2,7 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
+import { taskFolderNameSchema } from '../../../shared/task-folders'
 import { taskManager } from '../../common/task-manager'
 
 const taskApi = new Hono()
@@ -9,7 +10,11 @@ const taskApi = new Hono()
   .get('/', async (c) => {
     try {
       const tasks = await taskManager.getTasks()
-      return c.json({ success: true as const, data: tasks })
+      return c.json({
+        success: true as const,
+        data: tasks,
+        folders: await taskManager.getFolders(),
+      })
     } catch (error: any) {
       return c.json({ success: false as const, error: error.message }, 500)
     }
@@ -21,7 +26,11 @@ const taskApi = new Hono()
       try {
         const initialTasks = await taskManager.getTasks()
         await stream.writeSSE({
-          data: JSON.stringify({ success: true, data: initialTasks }),
+          data: JSON.stringify({
+            success: true,
+            data: initialTasks,
+            folders: await taskManager.getFolders(),
+          }),
           event: 'message',
         })
       } catch (error: any) {
@@ -36,7 +45,11 @@ const taskApi = new Hono()
         if (aborted) return
         try {
           await stream.writeSSE({
-            data: JSON.stringify({ success: true, data: tasks }),
+            data: JSON.stringify({
+              success: true,
+              data: tasks,
+              folders: await taskManager.getFolders(),
+            }),
             event: 'message',
           })
         } catch (e) {
@@ -67,6 +80,66 @@ const taskApi = new Hono()
       }
     })
   })
+  .post(
+    '/folders',
+    zValidator('json', z.object({ name: taskFolderNameSchema })),
+    async (c) => {
+      try {
+        return c.json({
+          success: true as const,
+          data: await taskManager.saveFolder(c.req.valid('json').name),
+        })
+      } catch (error: any) {
+        return c.json({ success: false as const, error: error.message }, 400)
+      }
+    },
+  )
+  .put(
+    '/folders/:id',
+    zValidator('json', z.object({ name: taskFolderNameSchema })),
+    async (c) => {
+      try {
+        return c.json({
+          success: true as const,
+          data: await taskManager.saveFolder(
+            c.req.valid('json').name,
+            c.req.param('id'),
+          ),
+        })
+      } catch (error: any) {
+        return c.json({ success: false as const, error: error.message }, 400)
+      }
+    },
+  )
+  .delete('/folders/:id', async (c) => {
+    try {
+      await taskManager.deleteFolder(c.req.param('id'))
+      return c.json({ success: true as const })
+    } catch (error: any) {
+      return c.json({ success: false as const, error: error.message }, 400)
+    }
+  })
+  .put(
+    '/move',
+    zValidator(
+      'json',
+      z.object({
+        ids: z.array(z.string().min(1)).min(1).max(10000),
+        folderId: z.string().optional(),
+      }),
+    ),
+    async (c) => {
+      try {
+        const { ids, folderId } = c.req.valid('json')
+        return c.json({
+          success: true as const,
+          count: await taskManager.moveTasks(ids, folderId),
+        })
+      } catch (error: any) {
+        return c.json({ success: false as const, error: error.message }, 400)
+      }
+    },
+  )
   .delete(
     '/:id/images/:index',
     zValidator(

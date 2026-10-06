@@ -1,9 +1,12 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import type { Task } from '../../server/common/task-manager'
+import type { TaskFolder } from '../../shared/task-folders'
+import { useGlobalStore } from '../store/global'
 
 interface TasksState {
   data: Task[]
+  folders: TaskFolder[]
   loading: boolean
   subscriberCount: number
   eventSource: EventSource | null
@@ -13,6 +16,7 @@ interface TasksState {
 
 const useTasksStore = create<TasksState>((set, get) => ({
   data: [],
+  folders: [],
   loading: true,
   subscriberCount: 0,
   eventSource: null,
@@ -29,7 +33,21 @@ const useTasksStore = create<TasksState>((set, get) => ({
               if (json.success) {
                 const tasks = json.data as Task[]
                 tasks.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-                set({ data: tasks, loading: false })
+                const folders: TaskFolder[] = json.folders ?? []
+                const global = useGlobalStore.getState()
+                if (
+                  global.taskFolderId &&
+                  !folders.some((folder) => folder.id === global.taskFolderId)
+                )
+                  global.setTaskFolderId('')
+                const generationFolderId =
+                  useGlobalStore.getState().generationFolderId
+                if (
+                  generationFolderId &&
+                  !folders.some((folder) => folder.id === generationFolderId)
+                )
+                  global.setGenerationFolderId('')
+                set({ data: tasks, folders, loading: false })
               } else {
                 set({ data: [], loading: false })
               }
@@ -67,6 +85,7 @@ const useTasksStore = create<TasksState>((set, get) => ({
 
 export function useTasks() {
   const data = useTasksStore((state) => state.data)
+  const folders = useTasksStore((state) => state.folders)
   const loading = useTasksStore((state) => state.loading)
   const addSubscriber = useTasksStore((state) => state.addSubscriber)
   const removeSubscriber = useTasksStore((state) => state.removeSubscriber)
@@ -80,6 +99,7 @@ export function useTasks() {
 
   return {
     data,
+    folders,
     loading,
   }
 }

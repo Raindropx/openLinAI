@@ -25,6 +25,7 @@ export async function handleLaoZhangImageGeneration(
     quality: GptImageQuality
     endpointName?: string
     originalPrompt?: string
+    folderId?: string
     writeMetadata?: boolean
   },
 ) {
@@ -46,6 +47,7 @@ export async function handleLaoZhangImageGeneration(
     quality,
     endpointName,
     originalPrompt,
+    folderId: options.folderId,
   })
   if (!task)
     return {

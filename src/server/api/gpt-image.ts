@@ -412,6 +412,7 @@ const gptImageApi = new Hono()
         quality: z.enum(['medium', 'high']),
         language: z.enum(['zh-CN', 'en-US']).optional(),
         originalPrompt: z.string().optional(),
+        folderId: z.string().optional(),
         writeMetadata: z.boolean().optional().default(true),
       }),
     ),
@@ -423,6 +424,7 @@ const gptImageApi = new Hono()
         quality,
         language,
         originalPrompt,
+        folderId,
         writeMetadata,
       } = c.req.valid('json')
       const endpoint = getEndpointById(endpointId)
@@ -461,6 +463,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -475,6 +478,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -489,6 +493,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -504,6 +509,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -518,6 +524,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -530,6 +537,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -542,6 +550,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -558,6 +567,7 @@ const gptImageApi = new Hono()
         quality,
         endpointName: endpoint.name,
         originalPrompt,
+        folderId,
         writeMetadata,
       })
       return c.json(result.data, result.status as any)
@@ -580,6 +590,7 @@ const gptImageApi = new Hono()
         quality: z.enum(['medium', 'high']).optional().default('medium'),
         n: z.number().min(1).max(GPT_IMAGE_OUTPUT_MAX_N).optional().default(1),
         originalPrompt: z.string().optional(),
+        folderId: z.string().optional(),
         writeMetadata: z.boolean().optional().default(true),
       }),
     ),
@@ -597,6 +608,7 @@ const gptImageApi = new Hono()
         quality,
         n,
         originalPrompt,
+        folderId,
         writeMetadata,
       } = c.req.valid('json')
       const endpoint = getEndpointById(endpointId)
@@ -637,6 +649,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -651,6 +664,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -665,6 +679,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -680,6 +695,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -694,6 +710,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -706,6 +723,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -718,6 +736,7 @@ const gptImageApi = new Hono()
           quality,
           endpointName: endpoint.name,
           originalPrompt,
+          folderId,
           writeMetadata,
         })
         return c.json(result.data, result.status as any)
@@ -734,6 +753,7 @@ const gptImageApi = new Hono()
         quality,
         endpointName: endpoint.name,
         originalPrompt,
+        folderId,
         writeMetadata,
       })
       return c.json(result.data, result.status as any)

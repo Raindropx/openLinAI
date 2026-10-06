@@ -182,6 +182,7 @@ export async function handleChatImageGeneration(options: {
   quality?: GptImageQuality
   endpointName?: string
   originalPrompt?: string
+  folderId?: string
   writeMetadata?: boolean
 }) {
   try {
@@ -206,6 +207,7 @@ export async function handleChatImageGeneration(options: {
       quality,
       endpointName,
       originalPrompt,
+      folderId: options.folderId,
     })
 
     if (!task) {

@@ -86,6 +86,7 @@ const novelaiGenerateSchema = z.object({
   strength: z.number().min(0).max(1).default(0.7),
   noise: z.number().min(0).max(1).default(0.1),
   saveToTaskList: z.boolean().default(false),
+  folderId: z.string().optional(),
   characters: z
     .array(
       z.object({
@@ -310,6 +311,7 @@ const studioApi = new Hono()
         baseURL: NOVELAI_IMAGE_API_BASE_URL,
         model: input.model,
         endpointName: 'NovelAI Studio',
+        folderId: input.saveToTaskList ? input.folderId : undefined,
         template: {
           id: uuidv4(),
           title: input.title || 'NovelAI Studio',

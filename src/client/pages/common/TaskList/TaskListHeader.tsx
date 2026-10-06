@@ -11,6 +11,7 @@ import { hc } from 'hono/client'
 import { useState } from 'react'
 import type { AppType } from '../../../../server'
 import type { Task } from '../../../../server/common/task-manager'
+import type { TaskFolder } from '../../../../shared/task-folders'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { TaskListDownloadButton } from './components/TaskListDownloadButton'
 import { TaskListFinishedAlertButton } from './components/TaskListFinishedAlertButton'
@@ -25,6 +26,7 @@ interface TaskListHeaderProps {
   compact?: boolean
   hideFinishedAlert?: boolean
   management?: boolean
+  folders?: TaskFolder[]
 }
 
 export function TaskListHeader({
@@ -34,6 +36,7 @@ export function TaskListHeader({
   compact = false,
   hideFinishedAlert = false,
   management = false,
+  folders = [],
 }: TaskListHeaderProps) {
   useAppLanguage()
 
@@ -263,11 +266,13 @@ export function TaskListHeader({
         </div>
         <Space.Compact className="w-full justify-end">
           <TaskListDownloadButton
+            folders={folders}
             tasks={tasks}
             downloadedIds={downloadedIds}
             setDownloadedIds={setDownloadedIds}
           />
           <TaskListDownloadButton
+            folders={folders}
             tasks={tasks}
             downloadedIds={downloadedIds}
             setDownloadedIds={setDownloadedIds}
@@ -294,12 +299,14 @@ export function TaskListHeader({
       </h2>
       <Space.Compact>
         <TaskListDownloadButton
+          folders={folders}
           tasks={tasks}
           downloadedIds={downloadedIds}
           setDownloadedIds={setDownloadedIds}
           compactLabel
         />
         <TaskListDownloadButton
+          folders={folders}
           tasks={tasks}
           downloadedIds={downloadedIds}
           setDownloadedIds={setDownloadedIds}
@@ -339,11 +346,13 @@ export function TaskListHeader({
         <div className="hidden xl:block">
           <Space.Compact>
             <TaskListDownloadButton
+              folders={folders}
               tasks={tasks}
               downloadedIds={downloadedIds}
               setDownloadedIds={setDownloadedIds}
             />
             <TaskListDownloadButton
+              folders={folders}
               tasks={tasks}
               downloadedIds={downloadedIds}
               setDownloadedIds={setDownloadedIds}
@@ -385,11 +394,13 @@ export function TaskListHeader({
         <div className="block xl:hidden">
           <Space.Compact>
             <TaskListDownloadButton
+              folders={folders}
               tasks={tasks}
               downloadedIds={downloadedIds}
               setDownloadedIds={setDownloadedIds}
             />
             <TaskListDownloadButton
+              folders={folders}
               tasks={tasks}
               downloadedIds={downloadedIds}
               setDownloadedIds={setDownloadedIds}

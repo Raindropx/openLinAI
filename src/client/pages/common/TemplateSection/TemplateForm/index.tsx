@@ -24,6 +24,7 @@ import { t, useAppLanguage } from '../../../../i18n'
 import { localizeLlmPrompt } from '../../../../prompts/localize'
 import { useGlobalStore } from '../../../../store/global'
 import { openSettingModal } from '../../SettingModal'
+import { TaskFolderSelect } from '../../TaskList/components/TaskFolderSelect'
 import { PromptOptimizeModal } from './PromptOptimizeModal'
 import { TemplateFormFields } from './TemplateFormItems'
 
@@ -209,6 +210,7 @@ export function TemplateForm({
           quality: gptImageSettings.quality,
           n,
           originalPrompt,
+          folderId: useGlobalStore.getState().generationFolderId,
           writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
         },
       })
@@ -424,6 +426,8 @@ export function TemplateForm({
             </Button>
           }
         />
+
+        {!editorMode && <TaskFolderSelect />}
 
         <Form.Item className="mb-0! pt-4">
           {editorMode ? (

@@ -2,6 +2,7 @@ import { DownloadOutlined } from '@ant-design/icons'
 import { Button, Modal, message } from 'antd'
 import { useState } from 'react'
 import type { Task } from '../../../../../server/common/task-manager'
+import type { TaskFolder } from '../../../../../shared/task-folders'
 import { t, useAppLanguage } from '../../../../i18n'
 import {
   DOWNLOAD_ZIP_MAX_FILES,
@@ -16,6 +17,9 @@ interface TaskListDownloadButtonProps {
   setDownloadedIds: (ids: string[]) => void
   includeDownloaded?: boolean
   compactLabel?: boolean
+  folders?: TaskFolder[]
+  folder?: TaskFolder
+  iconOnly?: boolean
 }
 
 export function TaskListDownloadButton({
@@ -24,6 +28,9 @@ export function TaskListDownloadButton({
   setDownloadedIds,
   includeDownloaded = false,
   compactLabel = false,
+  folders = [],
+  folder,
+  iconOnly = false,
 }: TaskListDownloadButtonProps) {
   useAppLanguage()
 
@@ -54,6 +61,7 @@ export function TaskListDownloadButton({
         id: `${task.id}_${index}`,
         endpointName: task.endpointName,
         createdAt: task.createdAt,
+        folder: folders.find((folder) => folder.id === task.folderId)?.name,
       }))
     })
 
@@ -80,6 +88,7 @@ export function TaskListDownloadButton({
         try {
           if (
             includeDownloaded ||
+            filesToDownload.some((file) => file.folder) ||
             filesToDownload.length > DOWNLOAD_ZIP_MAX_FILES
           ) {
             message.loading({ content: t('正在打包压缩...'), key: 'download' })
@@ -88,18 +97,12 @@ export function TaskListDownloadButton({
             )
             await downloadFilesZip(
               filesToDownload,
-              `tasks_${formatTaskTimestamp(latestTaskCreatedAt)}`,
+              `${folder?.name || 'tasks'}_${formatTaskTimestamp(latestTaskCreatedAt)}`,
             )
             message.success({ content: t('打包下载完成'), key: 'download' })
           } else {
             message.loading({ content: t('正在下载...'), key: 'download' })
-            await Promise.all(
-              filesToDownload.map((file) =>
-                downloadFile(file).catch((error) => {
-                  console.error(t('下载任务 {0} 失败', [file.id]), error)
-                }),
-              ),
-            )
+            await Promise.all(filesToDownload.map((file) => downloadFile(file)))
             message.success({ content: t('下载完成'), key: 'download' })
           }
 
@@ -121,18 +124,23 @@ export function TaskListDownloadButton({
 
   return (
     <Button
-      className="md:w-32 md:px-1"
+      className={folder || iconOnly ? undefined : 'md:w-32 md:px-1'}
+      title={folder ? t('下载文件夹') : undefined}
       icon={<DownloadOutlined />}
       onClick={handleDownloadAll}
       loading={downloading}
     >
-      {includeDownloaded
-        ? compactLabel
-          ? t('全部')
-          : t('所有任务')
-        : compactLabel
-          ? t('未下载')
-          : t('所有未下载')}
+      {iconOnly
+        ? null
+        : folder
+          ? t('下载文件夹')
+          : includeDownloaded
+            ? compactLabel
+              ? t('全部')
+              : t('所有任务')
+            : compactLabel
+              ? t('未下载')
+              : t('所有未下载')}
     </Button>
   )
 }

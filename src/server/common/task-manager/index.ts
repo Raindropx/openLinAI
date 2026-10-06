@@ -4,6 +4,10 @@ import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import type { StudioProvenance } from '../../../shared/studio'
 import type { NovelAIGenerationSnapshot } from '../../../shared/studio-generation'
+import {
+  taskFolderNameSchema,
+  type TaskFolder,
+} from '../../../shared/task-folders'
 import type { ImageBilling } from '../../module/gpt-image/billing'
 import { GptImageQuality, GptImageSize } from '../../module/gpt-image/enum'
 import { Logger } from '../../module/utils/logger'
@@ -15,6 +19,7 @@ import { TaskTemplate } from '../template-manager'
 
 export interface Task {
   id: string
+  folderId?: string
   rawTemplate: TaskTemplate
   source: string
   status: 'pending' | 'running' | 'completed' | 'failed'
@@ -43,6 +48,8 @@ export class TaskManager extends EventEmitter {
   private tasksDbPath: string
   private logger: Logger
   private store: SafeJsonStore<Task[]>
+  private folderStore: SafeJsonStore<TaskFolder[]>
+  private folderQueue: Promise<unknown> = Promise.resolve()
 
   constructor() {
     super()
@@ -50,6 +57,9 @@ export class TaskManager extends EventEmitter {
     this.tasksDbPath = path.join(this.dataDir, 'tasks.json')
     this.logger = new Logger('task-manager')
     this.store = new SafeJsonStore<Task[]>(this.tasksDbPath)
+    this.folderStore = new SafeJsonStore<TaskFolder[]>(
+      path.join(this.dataDir, 'task-folders.json'),
+    )
     this.init()
   }
 
@@ -102,6 +112,92 @@ export class TaskManager extends EventEmitter {
     return tasks ?? []
   }
 
+  public async getFolders(): Promise<TaskFolder[]> {
+    return (await this.folderStore.read()) ?? []
+  }
+
+  // Serialize folder membership changes with creation/removal of folders.
+  private withFolders<T>(action: () => Promise<T>): Promise<T> {
+    const result = this.folderQueue.then(action)
+    this.folderQueue = result.catch(() => {})
+    return result
+  }
+
+  public async saveFolder(name: string, id?: string): Promise<TaskFolder> {
+    return this.withFolders(async () => {
+      const normalizedName = taskFolderNameSchema.parse(name)
+      let folder!: TaskFolder
+      await this.folderStore.mutate((list) => {
+        if (
+          list.some(
+            (item) =>
+              item.id !== id &&
+              item.name.toLocaleLowerCase() ===
+                normalizedName.toLocaleLowerCase(),
+          )
+        ) {
+          throw new Error('文件夹已存在')
+        }
+        if (id) {
+          const index = list.findIndex((item) => item.id === id)
+          if (index < 0) throw new Error('文件夹不存在')
+          folder = { id, name: normalizedName }
+          list[index] = folder
+        } else {
+          folder = { id: uuidv4(), name: normalizedName }
+          list.push(folder)
+        }
+        return list
+      })
+      await this.notifyTasksUpdate()
+      return folder
+    })
+  }
+
+  public async deleteFolder(id: string): Promise<void> {
+    return this.withFolders(async () => {
+      if (!(await this.getFolders()).some((folder) => folder.id === id))
+        throw new Error('文件夹不存在')
+      // Preserve tasks and images; if catalog writing fails, an empty folder remains.
+      await this.store.mutate((list) =>
+        list.map((task) => {
+          if (task.folderId !== id) return task
+          const { folderId, ...rest } = task
+          return rest
+        }),
+      )
+      await this.folderStore.mutate((list) =>
+        list.filter((folder) => folder.id !== id),
+      )
+      await this.notifyTasksUpdate()
+    })
+  }
+
+  public async moveTasks(ids: string[], folderId?: string): Promise<number> {
+    return this.withFolders(async () => {
+      if (
+        folderId &&
+        !(await this.getFolders()).some((folder) => folder.id === folderId)
+      )
+        throw new Error('文件夹不存在')
+      const selected = new Set(ids)
+      let count = 0
+      const tasks = await this.store.mutate((list) => {
+        // Validate the entire batch before writing so a stale selection cannot partially move.
+        const existing = new Set(list.map((task) => task.id))
+        if ([...selected].some((id) => !existing.has(id)))
+          throw new Error('任务不存在')
+        return list.map((task) => {
+          if (!selected.has(task.id)) return task
+          count++
+          return { ...task, folderId: folderId || undefined }
+        })
+      })
+      await this.notifyTasksUpdate(tasks)
+      return count
+    })
+  }
+
   public async addCompletedTask(task: Task): Promise<void> {
     if (task.status !== 'completed') throw new Error('只能归档已完成的作品')
     const tasks = await this.store.mutate((list) => [...list, task])
@@ -115,27 +211,38 @@ export class TaskManager extends EventEmitter {
     quality?: GptImageQuality
     endpointName?: string
     originalPrompt?: string
+    folderId?: string
   }): Promise<Task> {
-    const newTask: Task = {
-      id: uuidv4(),
-      rawTemplate: options.template,
-      source: options.source,
-      size: options.size,
-      quality: options.quality,
-      endpointName: options.endpointName,
-      ...(options.originalPrompt !== undefined
-        ? { originalPrompt: options.originalPrompt }
-        : {}),
-      status: 'pending',
-      createdAt: Date.now(),
-    }
+    return this.withFolders(async () => {
+      if (
+        options.folderId &&
+        !(await this.getFolders()).some(
+          (folder) => folder.id === options.folderId,
+        )
+      )
+        throw new Error('文件夹不存在')
+      const newTask: Task = {
+        id: uuidv4(),
+        folderId: options.folderId || undefined,
+        rawTemplate: options.template,
+        source: options.source,
+        size: options.size,
+        quality: options.quality,
+        endpointName: options.endpointName,
+        ...(options.originalPrompt !== undefined
+          ? { originalPrompt: options.originalPrompt }
+          : {}),
+        status: 'pending',
+        createdAt: Date.now(),
+      }
 
-    const tasks = await this.store.mutate((list) => {
-      list.push(newTask)
-      return list
+      const tasks = await this.store.mutate((list) => {
+        list.push(newTask)
+        return list
+      })
+      this.notifyTasksUpdate(tasks)
+      return newTask
     })
-    this.notifyTasksUpdate(tasks)
-    return newTask
   }
 
   public async deleteTask(

@@ -155,6 +155,7 @@ export interface NovelAIStudioGenerateRequest {
   noise: number
   characters: NovelAICharacterPrompt[]
   saveToTaskList?: boolean
+  folderId?: string
 }
 
 /** 不含凭据及图片 Base64，request 可直接用于单张图片的参数回填。 */

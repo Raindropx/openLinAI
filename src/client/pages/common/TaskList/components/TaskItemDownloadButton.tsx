@@ -13,12 +13,14 @@ export const TaskItemDownloadButton = ({
   fileName,
   endpointName,
   createdAt,
+  folder,
   onDownloaded,
 }: {
   outputUrls: string[]
   fileName: string
   endpointName?: string
   createdAt: number
+  folder?: string
   onDownloaded: () => void
 }) => {
   useAppLanguage()
@@ -30,7 +32,10 @@ export const TaskItemDownloadButton = ({
     }
 
     try {
-      if (outputUrls.length > DOWNLOAD_ZIP_MAX_FILES) {
+      if (
+        (folder && outputUrls.length > 1) ||
+        outputUrls.length > DOWNLOAD_ZIP_MAX_FILES
+      ) {
         message.loading({ content: t('正在打包压缩...'), key: 'download' })
         const filesToDownload = outputUrls.map((url, index) => ({
           url,
@@ -39,6 +44,7 @@ export const TaskItemDownloadButton = ({
           id: `${index}`,
           endpointName,
           createdAt,
+          folder,
         }))
         await downloadFilesZip(
           filesToDownload,

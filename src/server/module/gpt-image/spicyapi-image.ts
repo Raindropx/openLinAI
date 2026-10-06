@@ -26,6 +26,7 @@ export async function handleSpicyImageGeneration(options: {
   quality: GptImageQuality
   endpointName?: string
   originalPrompt?: string
+  folderId?: string
   writeMetadata?: boolean
   spicyLoras?: SpicyLora[]
   spicySeed?: number
@@ -49,6 +50,7 @@ export async function handleSpicyImageGeneration(options: {
     quality,
     endpointName,
     originalPrompt,
+    folderId: options.folderId,
   })
   if (!task)
     return {

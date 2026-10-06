@@ -11,6 +11,10 @@ import type { TaskTemplate } from '../../server/common/template-manager'
 const client = hc<AppType>('/')
 
 interface GlobalState {
+  taskFolderId: string
+  generationFolderId: string
+  setTaskFolderId: (id: string) => void
+  setGenerationFolderId: (id: string) => void
   /** @deprecated 旧版单 key，保留兼容；多端点下用 endpoints 判断是否已配置 */
   gptImageApiKey: string | null
   endpoints: GptImageEndpoint[]
@@ -54,6 +58,10 @@ function syncFromConfigData(data: Record<string, unknown>) {
 }
 
 export const useGlobalStore = create<GlobalState>()((set) => ({
+  taskFolderId: '',
+  generationFolderId: '',
+  setTaskFolderId: (id) => set({ taskFolderId: id, generationFolderId: id }),
+  setGenerationFolderId: (id) => set({ generationFolderId: id }),
   gptImageApiKey: null,
   endpoints: [],
   llmEndpoints: [],

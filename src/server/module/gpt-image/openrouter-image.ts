@@ -173,6 +173,7 @@ export async function handleOpenRouterImageGeneration(options: {
   quality?: GptImageQuality
   endpointName?: string
   originalPrompt?: string
+  folderId?: string
   writeMetadata?: boolean
 }) {
   const {
@@ -194,6 +195,7 @@ export async function handleOpenRouterImageGeneration(options: {
     quality,
     endpointName,
     originalPrompt,
+    folderId: options.folderId,
   })
   await taskManager.updateTaskStatus(task.id, 'running')
   const startTime = Date.now()

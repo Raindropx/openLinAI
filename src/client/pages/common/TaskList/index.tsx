@@ -4,6 +4,8 @@ import {
   DeleteOutlined,
   EyeOutlined,
   FileAddOutlined,
+  FolderAddOutlined,
+  FolderOutlined,
   GlobalOutlined,
   RedoOutlined,
   SyncOutlined,
@@ -15,9 +17,12 @@ import {
   Card,
   Checkbox,
   Empty,
+  Form,
   Image,
+  Input,
   Modal,
   Pagination,
+  Select,
   Spin,
   Tooltip,
   Typography,
@@ -31,6 +36,10 @@ import { useNavigate } from 'react-router-dom'
 import type { AppType } from '../../../../server'
 import type { Task } from '../../../../server/common/task-manager'
 import { TRIAL_TEMPLATE_TITLE } from '../../../../server/common/template-manager/enum'
+import {
+  taskFolderNameSchema,
+  type TaskFolder,
+} from '../../../../shared/task-folders'
 import {
   resolveImageEndpointId,
   useEnabledImageEndpoints,
@@ -49,9 +58,11 @@ import {
 } from '../components/ListToolbar'
 import { generateNovelAIStudioImages } from '../Studio/api'
 import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
+import { TaskFolderCard } from './components/TaskFolderCard'
 import { TaskItemDeleteButton } from './components/TaskItemDeleteButton'
 import { TaskItemDownloadButton } from './components/TaskItemDownloadButton'
 import { TaskItemMetrics, TaskItemTags } from './components/TaskItemTags'
+import { TaskListDownloadButton } from './components/TaskListDownloadButton'
 import {
   TaskReviewPreview,
   type ReviewImage,
@@ -176,7 +187,18 @@ export function TaskList({
   const managementMode = variant === 'management'
   const { isMobile } = usePlatform()
   const navigate = useNavigate()
-  const { data: tasks = [], loading } = useTasks()
+  const { data: tasks = [], folders, loading } = useTasks()
+  const folderId = useGlobalStore((state) => state.taskFolderId)
+  const setFolderId = useGlobalStore((state) => state.setTaskFolderId)
+  const currentFolder = folders.find((folder) => folder.id === folderId)
+  const [folderEditor, setFolderEditor] = useState<{
+    folder?: TaskFolder
+  } | null>(null)
+  const [folderName, setFolderName] = useState('')
+  const [savingFolder, setSavingFolder] = useState(false)
+  const [moveOpen, setMoveOpen] = useState(false)
+  const [moveFolderId, setMoveFolderId] = useState('')
+  const [moving, setMoving] = useState(false)
   const { gptImageSettings } = useLocalSetting()
   const endpoints = useEnabledImageEndpoints()
   const [downloadedIds, setDownloadedIds] = useLocalStorageState<string[]>(
@@ -248,6 +270,7 @@ export function TaskList({
         const result = await generateNovelAIStudioImages({
           ...novelai.request,
           saveToTaskList: true,
+          folderId: task.folderId,
         })
         window.dispatchEvent(new Event('studio-changed'))
         message.success(t('已重新生成 {0} 张图片', [result.items.length]))
@@ -277,6 +300,7 @@ export function TaskList({
         quality: (task.quality as any) || 'medium',
         language,
         originalPrompt: task.originalPrompt,
+        folderId: task.folderId,
         writeMetadata: gptImageSettings.writeGenerationMetadata ?? true,
       },
     })
@@ -307,7 +331,7 @@ export function TaskList({
     [tasks],
   )
 
-  const filteredTasks = useMemo(() => {
+  const searchedTasks = useMemo(() => {
     const keyword = searchText.trim().toLocaleLowerCase('zh-CN')
     const matchedTasks = keyword
       ? gptImageTasks.filter((task) =>
@@ -316,6 +340,7 @@ export function TaskList({
             task.rawTemplate?.prompt,
             task.originalPrompt,
             task.rawTemplate?.folder,
+            folders.find((folder) => folder.id === task.folderId)?.name,
             task.endpointName,
             task.status,
           ].some((value) =>
@@ -331,7 +356,95 @@ export function TaskList({
       getTitle: (task) =>
         task.rawTemplate?.title || task.rawTemplate?.prompt || '',
     })
-  }, [gptImageTasks, searchText, sortMode])
+  }, [gptImageTasks, searchText, sortMode, folders])
+
+  const filteredTasks = useMemo(
+    () =>
+      searchedTasks.filter((task) =>
+        folderId
+          ? task.folderId === folderId
+          : !folders.some((folder) => folder.id === task.folderId),
+      ),
+    [searchedTasks, folderId, folders],
+  )
+  const visibleFolders = folderId
+    ? []
+    : folders
+        .filter(
+          (folder) =>
+            !searchText.trim() ||
+            folder.name
+              .toLocaleLowerCase()
+              .includes(searchText.trim().toLocaleLowerCase()) ||
+            searchedTasks.some((task) => task.folderId === folder.id),
+        )
+        .sort((a, b) => a.name.localeCompare(b.name))
+
+  const handleMove = async (ids: string[], targetFolderId: string) => {
+    setMoving(true)
+    try {
+      const response = await client.api.task.move.$put({
+        json: { ids, folderId: targetFolderId },
+      })
+      const result = await response.json()
+      if (!result.success) throw new Error(result.error)
+      message.success(targetFolderId ? t('已移动到文件夹') : t('已移出文件夹'))
+      setSelectedIds((current) => current.filter((id) => !ids.includes(id)))
+      setMoveOpen(false)
+    } catch (error) {
+      message.error(error instanceof Error ? t(error.message) : t('移动失败'))
+    } finally {
+      setMoving(false)
+    }
+  }
+
+  const saveFolder = async () => {
+    const parsed = taskFolderNameSchema.safeParse(folderName)
+    if (!parsed.success) {
+      message.warning(t('文件夹名称无效'))
+      return
+    }
+    setSavingFolder(true)
+    try {
+      const response = folderEditor?.folder
+        ? await client.api.task.folders[':id'].$put({
+            param: { id: folderEditor.folder.id },
+            json: { name: parsed.data },
+          })
+        : await client.api.task.folders.$post({ json: { name: parsed.data } })
+      const result = await response.json()
+      if (!result.success) throw new Error(result.error)
+      setFolderEditor(null)
+      message.success(t('文件夹已保存'))
+    } catch (error) {
+      message.error(error instanceof Error ? t(error.message) : t('保存失败'))
+    } finally {
+      setSavingFolder(false)
+    }
+  }
+
+  const deleteFolder = (folder: TaskFolder) => {
+    Modal.confirm({
+      title: t('删除文件夹“{0}”？', [folder.name]),
+      content: t('里面的任务将移回主文件夹，图片会保留。'),
+      okText: t('删除文件夹'),
+      cancelText: t('取消'),
+      onOk: async () => {
+        try {
+          const response = await client.api.task.folders[':id'].$delete({
+            param: { id: folder.id },
+          })
+          const result = await response.json()
+          if (!result.success) throw new Error(result.error)
+          message.success(t('文件夹已删除'))
+        } catch (error) {
+          message.error(
+            error instanceof Error ? t(error.message) : t('删除失败'),
+          )
+        }
+      },
+    })
+  }
 
   const reviewImages = useMemo(
     () =>
@@ -419,7 +532,15 @@ export function TaskList({
   useEffect(() => {
     setPage(0)
     setVisibleCount(pageSize)
-  }, [infiniteScroll, pageSize, searchText, sortMode])
+  }, [infiniteScroll, pageSize, searchText, sortMode, folderId])
+
+  useEffect(() => {
+    setSelectedIds([])
+    setReviewImage(null)
+    setReviewedTaskId(null)
+    setReviewOrphaned(false)
+    setMoveOpen(false)
+  }, [folderId])
 
   useEffect(() => {
     if (page > 0 && page * pageSize >= filteredTasks.length) setPage(0)
@@ -747,6 +868,33 @@ export function TaskList({
         </Button>
         <Button
           size="small"
+          disabled={!filteredTasks.length}
+          onClick={() => {
+            const scope = new Set(filteredTasks.map((task) => task.id))
+            setSelectedIds((ids) => [
+              ...ids.filter((id) => !scope.has(id)),
+              ...filteredTasks
+                .filter((task) => !ids.includes(task.id))
+                .map((task) => task.id),
+            ])
+          }}
+        >
+          {t('反选')}
+        </Button>
+        <Button
+          size="small"
+          icon={<FolderOutlined />}
+          loading={moving}
+          disabled={!selectedIds.length || batchDeleting}
+          onClick={() => {
+            setMoveFolderId(folderId)
+            setMoveOpen(true)
+          }}
+        >
+          {t('移动到文件夹')}
+        </Button>
+        <Button
+          size="small"
           danger
           icon={<DeleteOutlined />}
           loading={batchDeleting}
@@ -774,6 +922,7 @@ export function TaskList({
     <>
       <TaskListHeader
         tasks={gptImageTasks}
+        folders={folders}
         downloadedIds={downloadedIds || []}
         setDownloadedIds={setDownloadedIds}
         loading={loading}
@@ -781,6 +930,36 @@ export function TaskList({
         hideFinishedAlert={managementMode}
         management={managementMode}
       />
+
+      <div className="flex shrink-0 flex-wrap items-center gap-2 py-2">
+        <span
+          className="min-w-0 flex-1 truncate text-sm"
+          title={currentFolder?.name}
+        >
+          {currentFolder?.name || t('主文件夹')}{' '}
+          <span className="text-xs text-slate-500">{filteredTasks.length}</span>
+        </span>
+        {currentFolder && (
+          <TaskListDownloadButton
+            tasks={gptImageTasks.filter((task) => task.folderId === folderId)}
+            folders={folders}
+            folder={currentFolder}
+            downloadedIds={downloadedIds || []}
+            setDownloadedIds={setDownloadedIds}
+            includeDownloaded
+          />
+        )}
+        <Button
+          size="small"
+          icon={<FolderAddOutlined />}
+          onClick={() => {
+            setFolderName('')
+            setFolderEditor({})
+          }}
+        >
+          {t('新建文件夹')}
+        </Button>
+      </div>
 
       <div className={panelMode ? 'pt-3' : 'mb-2 sm:mb-4'}>
         <ListToolbar
@@ -801,6 +980,45 @@ export function TaskList({
           panelMode ? 'min-h-0 flex-1 overflow-y-auto py-3 pr-1' : undefined
         }
       >
+        {(currentFolder || visibleFolders.length > 0) && (
+          <div
+            className={
+              panelMode
+                ? 'mb-3 grid grid-cols-1 gap-2'
+                : 'mb-3 grid grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-2'
+            }
+          >
+            {currentFolder && (
+              <TaskFolderCard
+                tasks={[]}
+                folders={folders}
+                downloadedIds={downloadedIds || []}
+                setDownloadedIds={setDownloadedIds}
+                onOpen={() => setFolderId('')}
+                onMove={handleMove}
+              />
+            )}
+            {visibleFolders.map((folder) => (
+              <TaskFolderCard
+                key={folder.id}
+                folder={folder}
+                tasks={gptImageTasks.filter(
+                  (task) => task.folderId === folder.id,
+                )}
+                folders={folders}
+                downloadedIds={downloadedIds || []}
+                setDownloadedIds={setDownloadedIds}
+                onOpen={() => setFolderId(folder.id)}
+                onMove={handleMove}
+                onRename={() => {
+                  setFolderName(folder.name)
+                  setFolderEditor({ folder })
+                }}
+                onDelete={() => deleteFolder(folder)}
+              />
+            ))}
+          </div>
+        )}
         {loading && !gptImageTasks.length ? (
           <div className="flex justify-center py-12">
             <Spin size="large" />
@@ -835,6 +1053,16 @@ export function TaskList({
                       else taskCardRefs.current.delete(task.id)
                     }}
                     size="small"
+                    draggable={!isMobile && !moving}
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'move'
+                      event.dataTransfer.setData(
+                        'application/x-linai-task',
+                        JSON.stringify(
+                          selectionMode && selected ? selectedIds : [task.id],
+                        ),
+                      )
+                    }}
                     aria-current={reviewing ? 'true' : undefined}
                     onClick={() =>
                       selectionMode
@@ -1116,6 +1344,11 @@ export function TaskList({
                                   )}
                                 {task.outputUrls.length > 0 && (
                                   <TaskItemDownloadButton
+                                    folder={
+                                      folders.find(
+                                        (folder) => folder.id === task.folderId,
+                                      )?.name
+                                    }
                                     outputUrls={task.outputUrls}
                                     fileName={
                                       task.rawTemplate?.title ||
@@ -1250,6 +1483,55 @@ export function TaskList({
               )
             : t('当前设置：删除整个任务时会同时删除其中所有图片文件。')}
         </p>
+      </Modal>
+      <Modal
+        title={folderEditor?.folder ? t('重命名文件夹') : t('新建文件夹')}
+        open={folderEditor !== null}
+        onCancel={() => setFolderEditor(null)}
+        onOk={saveFolder}
+        confirmLoading={savingFolder}
+        okText={t('保存')}
+        cancelText={t('取消')}
+        destroyOnHidden
+      >
+        <Form layout="vertical">
+          <Form.Item label={t('文件夹名称')}>
+            <Input
+              autoFocus
+              maxLength={100}
+              value={folderName}
+              onChange={(event) => setFolderName(event.target.value)}
+              onPressEnter={() => {
+                if (!savingFolder) void saveFolder()
+              }}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal
+        title={t('移动选中的 {0} 个任务', [selectedIds.length])}
+        open={moveOpen}
+        onCancel={() => setMoveOpen(false)}
+        onOk={() => handleMove(selectedIds, moveFolderId)}
+        confirmLoading={moving}
+        okButtonProps={{ disabled: !selectedIds.length }}
+        okText={t('移动')}
+        cancelText={t('取消')}
+      >
+        <Select
+          className="w-full"
+          showSearch
+          optionFilterProp="label"
+          value={moveFolderId}
+          onChange={setMoveFolderId}
+          options={[
+            { value: '', label: t('主文件夹') },
+            ...folders.map((folder) => ({
+              value: folder.id,
+              label: folder.name,
+            })),
+          ]}
+        />
       </Modal>
       <Modal
         title={t('优化前的提示词')}

@@ -20,6 +20,7 @@ export async function handleAPIMartImageGeneration(options: {
   quality: GptImageQuality
   endpointName?: string
   originalPrompt?: string
+  folderId?: string
   writeMetadata?: boolean
 }) {
   const {
@@ -40,6 +41,7 @@ export async function handleAPIMartImageGeneration(options: {
     quality,
     endpointName,
     originalPrompt,
+    folderId: options.folderId,
   })
   if (!task)
     return {
