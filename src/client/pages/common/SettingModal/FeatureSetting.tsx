@@ -28,6 +28,14 @@ export function FeatureSetting() {
       checked: gptImageSettings.autoSelectAspectRatioFromReference ?? true,
     },
     {
+      key: 'sendAspectRatioToPromptOptimize' as const,
+      label: t('提示词优化时发送画面比例'),
+      description: t(
+        '向提示词优化 LLM 附加当前设定的比例；开启提示词注入时不会重复发送。关闭后不自动附加比例。',
+      ),
+      checked: gptImageSettings.sendAspectRatioToPromptOptimize ?? true,
+    },
+    {
       key: 'writeGenerationMetadata' as const,
       label: t('写入元数据'),
       description: t('将提示词、模型、尺寸等生成参数写入输出图片。'),

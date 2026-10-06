@@ -1,4 +1,6 @@
 {
+  "提示词优化时发送画面比例": "Send aspect ratio during prompt optimization",
+  "向提示词优化 LLM 附加当前设定的比例；开启提示词注入时不会重复发送。关闭后不自动附加比例。": "Include the selected aspect ratio in requests to the prompt optimization LLM. It is omitted when prompt injection is enabled. Turn this off to stop adding the aspect ratio automatically.",
   "Grok 2.0 支持 1K、2K，生成质量默认 medium；编辑最多 3 张参考图，分辨率和质量由服务端决定。": "Grok 2.0 supports 1K and 2K, with medium generation quality by default. Editing accepts up to 3 references; output resolution and quality are set by the server.",
   "网页版支持尺寸设置；质量由服务端决定。": "The web model supports size settings; quality is determined by the server.",
   "老张 API": "LaoZhang API",

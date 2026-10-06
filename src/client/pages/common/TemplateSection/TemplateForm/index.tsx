@@ -278,7 +278,10 @@ export function TemplateForm({
         { role: 'system', content: localizeLlmPrompt('optimizePrompt', llmPrompts.optimizePrompt, defaultLlmPrompts, language) },
       ]
       // 用户消息：文本 + 图片
-      if (!injectAspectRatio) {
+      if (
+        (gptImageSettings.sendAspectRatioToPromptOptimize ?? true) &&
+        !injectAspectRatio
+      ) {
         content.push({
           type: 'text',
           text: prompt
@@ -286,7 +289,7 @@ export function TemplateForm({
             : `画面比例${aspectRatio}`,
         })
       } else if (prompt) {
-        // 生成阶段已经会注入比例，避免把同一信息重复发给 LLM。
+        // 关闭比例发送或生成阶段已注入比例时，只发送原提示词。
         content.push({ type: 'text', text: prompt })
       }
       for (const url of imageUrls) {

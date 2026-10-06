@@ -13,6 +13,8 @@ export interface GPTImageSettings {
   showImageSizeInTaskList?: boolean
   autoSaveStudioTasksToTaskList?: boolean
   autoSelectAspectRatioFromReference?: boolean
+  /** 提示词优化时向 LLM 发送当前画面比例。 */
+  sendAspectRatioToPromptOptimize?: boolean
   writeGenerationMetadata?: boolean
   /** 工作台右侧的任务/模板列表使用无限滚动，否则使用分页。 */
   workspaceListInfiniteScroll?: boolean
@@ -46,6 +48,7 @@ export const defaultGPTImageSettings: GPTImageSettings = {
   showImageSizeInTaskList: true,
   autoSaveStudioTasksToTaskList: false,
   autoSelectAspectRatioFromReference: true,
+  sendAspectRatioToPromptOptimize: true,
   writeGenerationMetadata: true,
   workspaceListInfiniteScroll: true,
   workspaceListPageSize: 8,
