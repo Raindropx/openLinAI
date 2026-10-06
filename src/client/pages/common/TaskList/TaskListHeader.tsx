@@ -264,12 +264,13 @@ export function TaskListHeader({
           </span>
           {!hideFinishedAlert && <TaskListFinishedAlertButton tasks={tasks} />}
         </div>
-        <Space.Compact className="w-full justify-end">
+        <Space.Compact className="task-list-download-actions">
           <TaskListDownloadButton
             folders={folders}
             tasks={tasks}
             downloadedIds={downloadedIds}
             setDownloadedIds={setDownloadedIds}
+            compactLabel
           />
           <TaskListDownloadButton
             folders={folders}
@@ -277,12 +278,17 @@ export function TaskListHeader({
             downloadedIds={downloadedIds}
             setDownloadedIds={setDownloadedIds}
             includeDownloaded
+            compactLabel
           />
           <Dropdown
             menu={{ items: deleteMenuItems, onClick: onMenuClick }}
             placement="bottomRight"
           >
-            <Button icon={<EllipsisOutlined />} loading={isDeleting} />
+            <Button
+              icon={<EllipsisOutlined />}
+              loading={isDeleting}
+              aria-label={t('更多操作')}
+            />
           </Dropdown>
         </Space.Compact>
       </div>
@@ -290,14 +296,14 @@ export function TaskListHeader({
   }
 
   const managementMobileHeader = management && (
-    <div className="mb-2 flex items-center justify-between gap-2 sm:hidden">
+    <div className="task-list-mobile-header mb-2 flex sm:hidden">
       <h2 className="m-0 text-base font-semibold text-slate-100">
         {t('任务')}{' '}
         <span className="text-xs font-normal text-slate-500">
           {tasks.length}
         </span>
       </h2>
-      <Space.Compact>
+      <Space.Compact className="task-list-download-actions">
         <TaskListDownloadButton
           folders={folders}
           tasks={tasks}
@@ -317,7 +323,11 @@ export function TaskListHeader({
           menu={{ items: deleteMenuItems, onClick: onMenuClick }}
           placement="bottomRight"
         >
-          <Button icon={<EllipsisOutlined />} loading={isDeleting} />
+          <Button
+            icon={<EllipsisOutlined />}
+            loading={isDeleting}
+            aria-label={t('更多操作')}
+          />
         </Dropdown>
       </Space.Compact>
     </div>

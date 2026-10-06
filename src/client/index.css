@@ -733,6 +733,152 @@ html[data-theme='light'] .ant-drawer-content {
   }
 }
 
+.task-list-container {
+  container-type: inline-size;
+}
+
+.task-list-mobile-header {
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.task-list-mobile-header h2 {
+  flex-shrink: 0;
+}
+
+.task-list-download-actions {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+}
+
+.task-list-mobile-header .task-list-download-actions {
+  flex: 1 1 0;
+  max-width: 260px;
+  width: auto;
+}
+
+.task-list-download-actions > .task-list-download-button {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  padding-inline: 8px;
+  white-space: normal;
+  height: auto;
+  min-height: 32px;
+}
+
+.task-list-download-actions > .ant-btn:last-child {
+  flex-shrink: 0;
+  height: auto;
+  min-height: 32px;
+}
+
+.task-list-folder-toolbar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding-block: 8px;
+}
+
+.task-list-folder-name {
+  display: flex;
+  flex: 1 1 0;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.task-list-folder-name > :last-child {
+  flex-shrink: 0;
+}
+
+.task-list-folder-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-list-selection-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--task-list-card-border);
+  border-radius: 8px;
+  background-color: var(--task-list-shell-bg);
+}
+
+.task-list-selection-status {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.task-list-selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@container (max-width: 480px) {
+  .task-list-folder-toolbar-with-download {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .task-list-folder-toolbar-with-download .task-list-folder-name {
+    flex: auto;
+  }
+
+  .task-list-folder-actions {
+    align-items: stretch;
+  }
+
+  .task-list-folder-actions > .ant-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 32px;
+    height: auto;
+    padding: 4px 8px;
+    white-space: normal;
+  }
+
+  .task-list-selection-status {
+    flex-basis: 100%;
+  }
+
+  .task-list-selection-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr) minmax(
+        0,
+        1.3fr
+      );
+    width: 100%;
+  }
+
+  .task-list-selection-actions > .ant-btn {
+    min-width: 0;
+    min-height: 32px;
+    height: auto;
+    padding: 4px;
+    font-size: 12px;
+    white-space: normal;
+  }
+}
+
+@container (max-width: 340px) {
+  .task-list-selection-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .task-list-management-shell {
   border: 0 !important;
   background-color: transparent !important;

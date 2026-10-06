@@ -855,57 +855,61 @@ export function TaskList({
 
   const managementActions = managementMode ? (
     selectionMode ? (
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-        <span className="text-xs whitespace-nowrap text-slate-400">
-          {t('已选')} {selectedIds.length}
-        </span>
-        <Button
-          size="small"
-          onClick={() => setSelectedIds(filteredTasks.map((task) => task.id))}
-          disabled={!filteredTasks.length}
-        >
-          {t('全选')}
-        </Button>
-        <Button
-          size="small"
-          disabled={!filteredTasks.length}
-          onClick={() => {
-            const scope = new Set(filteredTasks.map((task) => task.id))
-            setSelectedIds((ids) => [
-              ...ids.filter((id) => !scope.has(id)),
-              ...filteredTasks
-                .filter((task) => !ids.includes(task.id))
-                .map((task) => task.id),
-            ])
-          }}
-        >
-          {t('反选')}
-        </Button>
-        <Button
-          size="small"
-          icon={<FolderOutlined />}
-          loading={moving}
-          disabled={!selectedIds.length || batchDeleting}
-          onClick={() => {
-            setMoveFolderId(folderId)
-            setMoveOpen(true)
-          }}
-        >
-          {t('移动到文件夹')}
-        </Button>
-        <Button
-          size="small"
-          danger
-          icon={<DeleteOutlined />}
-          loading={batchDeleting}
-          disabled={!selectedIds.length}
-          onClick={handleBatchDelete}
-        >
-          {t('删除')}
-        </Button>
-        <Button size="small" onClick={exitSelectionMode}>
-          {t('退出')}
-        </Button>
+      <div className="task-list-selection-toolbar">
+        <div className="task-list-selection-status">
+          <span className="text-xs text-slate-500">
+            {t('已选')} {selectedIds.length}
+          </span>
+          <Button size="small" onClick={exitSelectionMode}>
+            {t('退出')}
+          </Button>
+        </div>
+        <div className="task-list-selection-actions">
+          <Button
+            size="small"
+            onClick={() => setSelectedIds(filteredTasks.map((task) => task.id))}
+            disabled={!filteredTasks.length}
+          >
+            {t('全选')}
+          </Button>
+          <Button
+            size="small"
+            disabled={!filteredTasks.length}
+            onClick={() => {
+              const scope = new Set(filteredTasks.map((task) => task.id))
+              setSelectedIds((ids) => [
+                ...ids.filter((id) => !scope.has(id)),
+                ...filteredTasks
+                  .filter((task) => !ids.includes(task.id))
+                  .map((task) => task.id),
+              ])
+            }}
+          >
+            {t('反选')}
+          </Button>
+          <Button
+            size="small"
+            icon={<FolderOutlined />}
+            loading={moving}
+            disabled={!selectedIds.length || batchDeleting}
+            onClick={() => {
+              setMoveFolderId(folderId)
+              setMoveOpen(true)
+            }}
+          >
+            {t('移动到文件夹')}
+          </Button>
+          <Button
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            loading={batchDeleting}
+            disabled={!selectedIds.length}
+            onClick={handleBatchDelete}
+          >
+            {t('删除')}
+          </Button>
+        </div>
       </div>
     ) : (
       <Button
@@ -931,34 +935,40 @@ export function TaskList({
         management={managementMode}
       />
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 py-2">
+      <div
+        className={`task-list-folder-toolbar ${currentFolder ? 'task-list-folder-toolbar-with-download' : ''}`}
+      >
         <span
-          className="min-w-0 flex-1 truncate text-sm"
+          className="task-list-folder-name min-w-0 text-sm"
           title={currentFolder?.name}
         >
-          {currentFolder?.name || t('主文件夹')}{' '}
+          <span className="min-w-0 truncate">
+            {currentFolder?.name || t('主文件夹')}
+          </span>
           <span className="text-xs text-slate-500">{filteredTasks.length}</span>
         </span>
-        {currentFolder && (
-          <TaskListDownloadButton
-            tasks={gptImageTasks.filter((task) => task.folderId === folderId)}
-            folders={folders}
-            folder={currentFolder}
-            downloadedIds={downloadedIds || []}
-            setDownloadedIds={setDownloadedIds}
-            includeDownloaded
-          />
-        )}
-        <Button
-          size="small"
-          icon={<FolderAddOutlined />}
-          onClick={() => {
-            setFolderName('')
-            setFolderEditor({})
-          }}
-        >
-          {t('新建文件夹')}
-        </Button>
+        <div className="task-list-folder-actions">
+          {currentFolder && (
+            <TaskListDownloadButton
+              tasks={gptImageTasks.filter((task) => task.folderId === folderId)}
+              folders={folders}
+              folder={currentFolder}
+              downloadedIds={downloadedIds || []}
+              setDownloadedIds={setDownloadedIds}
+              includeDownloaded
+            />
+          )}
+          <Button
+            size="small"
+            icon={<FolderAddOutlined />}
+            onClick={() => {
+              setFolderName('')
+              setFolderEditor({})
+            }}
+          >
+            {t('新建文件夹')}
+          </Button>
+        </div>
       </div>
 
       <div className={panelMode ? 'pt-3' : 'mb-2 sm:mb-4'}>
@@ -970,8 +980,9 @@ export function TaskList({
           sortMode={sortMode}
           onSortChange={setSortMode}
           searchPlaceholder={t('搜索任务标题、提示词或端点')}
-          actions={managementActions}
+          actions={selectionMode ? undefined : managementActions}
         />
+        {selectionMode && managementActions}
       </div>
 
       <div
@@ -1569,7 +1580,9 @@ export function TaskList({
 
   if (panelMode) {
     return (
-      <div className="flex h-full min-h-0 flex-col px-3">{taskContent}</div>
+      <div className="task-list-container flex h-full min-h-0 min-w-0 flex-col px-3">
+        {taskContent}
+      </div>
     )
   }
 
@@ -1577,8 +1590,8 @@ export function TaskList({
     <Card
       className={
         managementMode
-          ? 'task-list-management-shell w-full shadow-none! sm:shadow-sm'
-          : 'w-full border-[#303640] shadow-sm'
+          ? 'task-list-container task-list-management-shell w-full min-w-0 shadow-none! sm:shadow-sm'
+          : 'task-list-container w-full min-w-0 border-[#303640] shadow-sm'
       }
       classNames={{
         body: managementMode ? 'p-0! sm:px-3! md:px-6!' : 'px-3! md:px-6!',

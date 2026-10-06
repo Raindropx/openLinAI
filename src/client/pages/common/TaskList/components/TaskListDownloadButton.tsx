@@ -122,25 +122,32 @@ export function TaskListDownloadButton({
     })
   }
 
+  const label = folder
+    ? t('下载文件夹')
+    : includeDownloaded
+      ? t('所有任务')
+      : t('所有未下载')
+
   return (
     <Button
-      className={folder || iconOnly ? undefined : 'md:w-32 md:px-1'}
-      title={folder ? t('下载文件夹') : undefined}
+      className={
+        folder || iconOnly
+          ? undefined
+          : 'task-list-download-button md:w-32 md:px-1'
+      }
+      title={label}
+      aria-label={label}
       icon={<DownloadOutlined />}
       onClick={handleDownloadAll}
       loading={downloading}
     >
       {iconOnly
         ? null
-        : folder
-          ? t('下载文件夹')
-          : includeDownloaded
-            ? compactLabel
-              ? t('全部')
-              : t('所有任务')
-            : compactLabel
-              ? t('未下载')
-              : t('所有未下载')}
+        : compactLabel && !folder
+          ? includeDownloaded
+            ? t('全部')
+            : t('未下载')
+          : label}
     </Button>
   )
 }
