@@ -1,5 +1,6 @@
 export const YUNWU_CHAT_COMPLETIONS_URL = 'https://yunwu.ai/v1/chat/completions'
 
+import { isLaoZhangBaseURL } from '../../../shared/laozhang'
 import { isAPIMartBaseURL, unwrapAPIMartResponse } from '../apimart'
 import { fetchWithTimeout } from '../utils/fetch'
 
@@ -69,8 +70,15 @@ export async function createChatCompletion(options: {
     }
   }
 
-  const url = baseURL
-    ? `${baseURL.replace(/\/$/, '')}/chat/completions`
+  const normalizedBaseURL = baseURL?.trim().replace(/\/+$/, '')
+  const chatBaseURL =
+    normalizedBaseURL &&
+    isLaoZhangBaseURL(normalizedBaseURL) &&
+    new URL(normalizedBaseURL).pathname === '/'
+      ? `${normalizedBaseURL}/v1`
+      : normalizedBaseURL
+  const url = chatBaseURL
+    ? `${chatBaseURL}/chat/completions`
     : YUNWU_CHAT_COMPLETIONS_URL
 
   try {

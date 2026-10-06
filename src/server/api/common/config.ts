@@ -2,7 +2,15 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { BACKEND_PORT } from '../..'
-import { DEFAULT_LLM_PROMPTS, getConfig, updateConfig } from '../../common/config'
+import {
+  DEFAULT_LLM_PROMPTS,
+  getConfig,
+  updateConfig,
+} from '../../common/config'
+import {
+  clientConfig,
+  preserveBalanceCredentials,
+} from '../../common/config/client-config'
 import { getLocalIpAddress } from '../utils/ip'
 
 const configApi = new Hono()
@@ -13,7 +21,7 @@ const configApi = new Hono()
     return c.json({
       success: true,
       data: {
-        ...getConfig(),
+        ...clientConfig(getConfig()),
         defaultLlmPrompts: DEFAULT_LLM_PROMPTS,
         localNetworkUrl,
       },
@@ -34,10 +42,24 @@ const configApi = new Hono()
               model: z.string(),
               editModel: z.string().optional(),
               apiKey: z.string(),
-              type: z.enum(['yunwu', 'openrouter', 'venice', 'custom']),
+              type: z.enum([
+                'yunwu',
+                'openrouter',
+                'venice',
+                'laozhang',
+                'custom',
+              ]),
               balanceEnabled: z.boolean().optional(),
               balanceApiPath: z.string().optional(),
               balanceResultJsonKey: z.string().optional(),
+              balanceAccessToken: z.string().trim().optional(),
+              laozhangGptImage2Mode: z
+                .enum(['per-call', 'official'])
+                .optional(),
+              laozhangQuality: z
+                .enum(['low', 'medium', 'high', 'xhigh', 'max'])
+                .optional(),
+              laozhangTransparentBackground: z.boolean().optional(),
               groupRatio: z.number().finite().nonnegative().optional(),
               engine: z
                 .enum([
@@ -46,6 +68,7 @@ const configApi = new Hono()
                   'venice-images',
                   'novelai-images',
                   'apimart-images',
+                  'laozhang-images',
                   'chat-completions',
                 ])
                 .optional(),
@@ -78,6 +101,12 @@ const configApi = new Hono()
     ),
     (c) => {
       const body = c.req.valid('json')
+      if (body.endpoints) {
+        body.endpoints = preserveBalanceCredentials(
+          body.endpoints,
+          getConfig().endpoints,
+        )
+      }
       const newConfig = updateConfig(body)
       const ip = getLocalIpAddress()
       const port = BACKEND_PORT
@@ -86,7 +115,7 @@ const configApi = new Hono()
       return c.json({
         success: true,
         data: {
-          ...newConfig,
+          ...clientConfig(newConfig),
           defaultLlmPrompts: DEFAULT_LLM_PROMPTS,
           localNetworkUrl,
         },

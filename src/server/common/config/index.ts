@@ -1,9 +1,13 @@
 import fs from 'fs'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
-import { getDataDir } from '../data-dir'
+import type {
+  LaoZhangGptImage2Mode,
+  LaoZhangQuality,
+} from '../../../shared/laozhang'
 import { decryptApiKey } from '../../module/gpt-image/encrypt'
 import { GPT_IMAGE_SOURCE_MODEL } from '../../module/gpt-image/enum'
+import { getDataDir } from '../data-dir'
 import {
   DEFAULT_NOVELAI_ANIME_PROMPT,
   DEFAULT_NOVELAI_FURRY_PROMPT,
@@ -19,6 +23,7 @@ export type GptImageEndpointType =
   | 'yunwu'
   | 'openrouter'
   | 'venice'
+  | 'laozhang'
   | 'custom'
 
 /** 端点的生成引擎：决定 /generate 走哪种调用方式 */
@@ -28,6 +33,7 @@ export type GptImageEndpointEngine =
   | 'venice-images'
   | 'novelai-images'
   | 'apimart-images'
+  | 'laozhang-images'
   | 'chat-completions'
 
 export interface GptImageEndpoint {
@@ -43,15 +49,23 @@ export interface GptImageEndpoint {
    * - yunwu：New API /api/usage/token/ 查余额（字段名为兼容旧配置保留）
    * - openrouter：OpenRouter /api/v1/credits 查余额
    * - venice：Venice /api/v1/api_keys/rate_limits 查 USD 与 DIEM
+   * - laozhang：独立系统 AccessToken 查询 /api/user/self
    * - custom：可按下方自定义配置查询余额
    */
   type: GptImageEndpointType
-  /** 自定义端点是否查询账户余额 */
+  /** 自定义或老张端点是否查询账户余额 */
   balanceEnabled?: boolean
   /** 自定义端点余额 API 路径，可填写相对 baseURL 的路径或绝对 URL */
   balanceApiPath?: string
   /** 从余额响应中读取数值的 JSON 键路径 */
   balanceResultJsonKey?: string
+  /** 老张账户余额使用独立系统令牌；配置响应仅返回是否已设置。 */
+  balanceAccessToken?: string
+  balanceAccessTokenConfigured?: boolean
+  laozhangGptImage2Mode?: LaoZhangGptImage2Mode
+  /** 老张质量覆盖；GPT Image 留空沿用任务，Grok 留空使用 medium。 */
+  laozhangQuality?: LaoZhangQuality
+  laozhangTransparentBackground?: boolean
   /** New API 实际消费日志不可用时，用于费用估算的分组倍率快照。 */
   groupRatio?: number
   /**
@@ -61,6 +75,7 @@ export interface GptImageEndpoint {
    * - venice-images：Venice 原生 /image/generate、/image/edit 与 /image/multi-edit
    * - novelai-images：NovelAI 原生 /ai/generate-image
    * - apimart-images：APImart JSON 图片生成与异步任务查询
+   * - laozhang-images：按模型选择 Images、Gemini 原生或 Seedream JSON 接口
    * - chat-completions：OpenAI 兼容 /chat/completions（Nano Banana 等）
    */
   engine?: GptImageEndpointEngine
@@ -211,11 +226,14 @@ try {
         novelaiAnimePrompt:
           parsed.llmPrompts?.novelaiAnimePrompt ?? DEFAULT_NOVELAI_ANIME_PROMPT,
         novelaiInpaintFurryPrompt:
-          parsed.llmPrompts?.novelaiInpaintFurryPrompt ?? DEFAULT_NOVELAI_INPAINT_FURRY_PROMPT,
+          parsed.llmPrompts?.novelaiInpaintFurryPrompt ??
+          DEFAULT_NOVELAI_INPAINT_FURRY_PROMPT,
         novelaiInpaintAnimePrompt:
-          parsed.llmPrompts?.novelaiInpaintAnimePrompt ?? DEFAULT_NOVELAI_INPAINT_ANIME_PROMPT,
+          parsed.llmPrompts?.novelaiInpaintAnimePrompt ??
+          DEFAULT_NOVELAI_INPAINT_ANIME_PROMPT,
         styleOptimizePrompt:
-          parsed.llmPrompts?.styleOptimizePrompt ?? DEFAULT_STYLE_OPTIMIZE_PROMPT,
+          parsed.llmPrompts?.styleOptimizePrompt ??
+          DEFAULT_STYLE_OPTIMIZE_PROMPT,
         // 角色卡生成是新功能，不迁移旧版 roleplayPrompt，直接使用新默认提示词
         charCardPrompt:
           parsed.llmPrompts?.charCardPrompt ?? DEFAULT_CHAR_CARD_PROMPT,
@@ -230,10 +248,7 @@ try {
   }
 
   // 一次性迁移：旧版只有 gptImageApiKey，自动转成一个云雾默认端点
-  if (
-    currentConfig.endpoints.length === 0 &&
-    currentConfig.gptImageApiKey
-  ) {
+  if (currentConfig.endpoints.length === 0 && currentConfig.gptImageApiKey) {
     currentConfig.endpoints = [
       {
         id: uuidv4(),

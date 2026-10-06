@@ -1,4 +1,8 @@
 import crypto from 'crypto'
+import {
+  getLaoZhangImageFamily,
+  isLaoZhangBaseURL,
+} from '../../shared/laozhang'
 import { NOVELAI_IMAGE_MODELS } from '../../shared/studio-generation'
 import { isAPIMartBaseURL } from './apimart'
 import { fetchWithTimeout } from './utils/fetch'
@@ -7,6 +11,7 @@ import { listVeniceModels, VeniceModelType } from './venice/models'
 export type ModelCatalogType =
   | 'openai'
   | 'openai-image'
+  | 'laozhang-image'
   | 'openai-image-generation'
   | 'openai-image-edit'
   | 'openai-vision-text'
@@ -294,7 +299,9 @@ export async function listModelCatalog(options: {
   apiKey: string
 }): Promise<ModelCatalogItem[]> {
   const { catalog, apiKey } = options
-  const baseURL = normalizeBaseURL(options.baseURL)
+  let baseURL = normalizeBaseURL(options.baseURL)
+  if (isLaoZhangBaseURL(baseURL) && new URL(baseURL).pathname === '/')
+    baseURL += '/v1'
   const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex')
   const cacheKey = `${catalog}:${baseURL}:${keyHash}`
   const cached = modelCache.get(cacheKey)
@@ -361,6 +368,10 @@ export async function listModelCatalog(options: {
       )
     }
     let records = parseCompatibleModels(data)
+    if (catalog === 'laozhang-image')
+      records = records.filter((record) =>
+        Boolean(getLaoZhangImageFamily(record.model.id)),
+      )
     if (isAPIMart)
       records = records.map((record) => ({
         ...record,
@@ -402,7 +413,8 @@ export async function listModelCatalog(options: {
     models = records.map((record) => record.model)
     if (models.length === 0) {
       throw new Error(
-        catalog === 'openai-image' ||
+        catalog === 'laozhang-image' ||
+          catalog === 'openai-image' ||
           catalog === 'openai-image-generation' ||
           catalog === 'openai-image-edit'
           ? '目录中未找到图片生成或编辑模型；仍可手动输入模型 ID'

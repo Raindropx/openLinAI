@@ -25,6 +25,8 @@ export interface Task {
   createdAt: number
   size?: GptImageSize
   quality?: GptImageQuality
+  /** Provider-specific effective quality, when it differs from the task setting. */
+  providerQuality?: string
   /** 生成时使用的端点名快照（任务列表展示用） */
   endpointName?: string
   /** 采纳提示词优化结果前的本地文本，不参与生图请求 */

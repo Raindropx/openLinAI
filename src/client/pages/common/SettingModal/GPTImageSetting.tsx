@@ -19,6 +19,12 @@ import {
 import { v4 as uuidv4 } from 'uuid'
 import type { GptImageEndpoint } from '../../../../server/common/config'
 import {
+  getLaoZhangImageFamily,
+  LAOZHANG_BASE_URL,
+  normalizeLaoZhangModel,
+  usesLaoZhangImages,
+} from '../../../../shared/laozhang'
+import {
   type EndpointModelCatalog,
   useEndpointModels,
 } from '../../../hooks/useEndpointModels'
@@ -81,6 +87,14 @@ const cleanEndpoint = (endpoint: GptImageEndpoint): GptImageEndpoint => {
     baseURL: endpoint.baseURL.trim(),
     model: endpoint.model.trim(),
     editModel: endpoint.editModel?.trim() || undefined,
+  }
+  // An untouched/emptied replacement field keeps the saved credential.
+  // The explicit Clear action sets the configured flag to false and sends ''.
+  if (
+    cleaned.balanceAccessTokenConfigured &&
+    !cleaned.balanceAccessToken?.trim()
+  ) {
+    delete cleaned.balanceAccessToken
   }
 
   if (cleaned.type === 'custom' && cleaned.balanceEnabled) {
@@ -163,16 +177,22 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     activeEndpoint?.engine === 'venice-images'
   const isNovelAIEndpoint = activeEndpoint?.engine === 'novelai-images'
   const isAPIMartEndpoint = activeEndpoint?.engine === 'apimart-images'
+  const isLaoZhangEndpoint =
+    activeEndpoint && usesLaoZhangImages(activeEndpoint)
+  const laoZhangModel = normalizeLaoZhangModel(activeEndpoint?.model || '')
+  const laoZhangFamily = getLaoZhangImageFamily(laoZhangModel)
   const isOpenAIImagesEndpoint = activeEndpoint?.engine === 'openai-images'
-  const imageModelCatalog: EndpointModelCatalog = isVeniceEndpoint
-    ? 'venice-image'
-    : isNovelAIEndpoint
-      ? 'novelai-image'
-      : activeEndpoint?.engine === 'openrouter-images'
-        ? 'openrouter-images'
-        : isOpenAIImagesEndpoint || isAPIMartEndpoint
-          ? 'openai-image-generation'
-          : 'openai-image'
+  const imageModelCatalog: EndpointModelCatalog = isLaoZhangEndpoint
+    ? 'laozhang-image'
+    : isVeniceEndpoint
+      ? 'venice-image'
+      : isNovelAIEndpoint
+        ? 'novelai-image'
+        : activeEndpoint?.engine === 'openrouter-images'
+          ? 'openrouter-images'
+          : isOpenAIImagesEndpoint || isAPIMartEndpoint
+            ? 'openai-image-generation'
+            : 'openai-image'
   const {
     models: imageModels,
     loading: loadingImageModels,
@@ -190,10 +210,18 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     error: editModelsError,
     refresh: refreshEditModels,
   } = useEndpointModels({
-    catalog: isVeniceEndpoint ? 'venice-inpaint' : 'openai-image-edit',
+    catalog: isLaoZhangEndpoint
+      ? 'laozhang-image'
+      : isVeniceEndpoint
+        ? 'venice-inpaint'
+        : 'openai-image-edit',
     baseURL: activeEndpoint?.baseURL,
     apiKey: activeEndpoint?.apiKey,
-    enabled: isVeniceEndpoint || isOpenAIImagesEndpoint || isAPIMartEndpoint,
+    enabled:
+      isLaoZhangEndpoint ||
+      isVeniceEndpoint ||
+      isOpenAIImagesEndpoint ||
+      isAPIMartEndpoint,
   })
 
   const updateActiveEndpoint = (patch: Partial<GptImageEndpoint>) => {
@@ -288,10 +316,14 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         message.error(t('当前端点更新失败'))
         return
       }
+      const savedEndpoint =
+        useGlobalStore
+          .getState()
+          .endpoints.find((e) => e.id === cleanedEndpoint.id) || cleanedEndpoint
       setDraftEndpoints((list) =>
         list.some((e) => e.id === cleanedEndpoint.id)
-          ? list.map((e) => (e.id === cleanedEndpoint.id ? cleanedEndpoint : e))
-          : [...list, cleanedEndpoint],
+          ? list.map((e) => (e.id === cleanedEndpoint.id ? savedEndpoint : e))
+          : [...list, savedEndpoint],
       )
       setPendingPresetEndpoint(null)
       setActiveId(cleanedEndpoint.id)
@@ -319,7 +351,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
         message.error(t('端点配置保存失败'))
         throw new Error('Failed to save endpoints')
       }
-      setDraftEndpoints(cleaned)
+      setDraftEndpoints(useGlobalStore.getState().endpoints)
       if (pendingPresetEndpoint && isCompleteEndpoint(pendingPresetEndpoint)) {
         setActiveId(pendingPresetEndpoint.id)
       }
@@ -454,35 +486,49 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   updateActiveEndpoint({ baseURL: e.target.value })
                 }
                 placeholder={
-                  activeEndpoint.engine === 'venice-images'
-                    ? DEFAULT_VENICE_BASE_URL
-                    : isAPIMartEndpoint
-                      ? 'https://api.apimart.ai/v1'
-                      : activeEndpoint.engine === 'novelai-images'
-                        ? DEFAULT_NOVELAI_BASE_URL
-                        : activeEndpoint.engine === 'chat-completions' ||
-                            activeEndpoint.engine === 'openrouter-images'
-                          ? t('如 https://openrouter.ai/api/v1')
-                          : t('如 https://api.openlux.ai/v1')
+                  isLaoZhangEndpoint
+                    ? LAOZHANG_BASE_URL
+                    : activeEndpoint.engine === 'venice-images'
+                      ? DEFAULT_VENICE_BASE_URL
+                      : isAPIMartEndpoint
+                        ? 'https://api.apimart.ai/v1'
+                        : activeEndpoint.engine === 'novelai-images'
+                          ? DEFAULT_NOVELAI_BASE_URL
+                          : activeEndpoint.engine === 'chat-completions' ||
+                              activeEndpoint.engine === 'openrouter-images'
+                            ? t('如 https://openrouter.ai/api/v1')
+                            : t('如 https://api.openlux.ai/v1')
                 }
               />
             </Form.Item>
             <Form.Item label={t('模型 ID')} required>
               <ModelIdInput
                 value={activeEndpoint.model}
-                onChange={(model) => updateActiveEndpoint({ model })}
+                onChange={(model) =>
+                  updateActiveEndpoint({
+                    model,
+                    ...(isLaoZhangEndpoint
+                      ? {
+                          laozhangQuality: undefined,
+                          laozhangTransparentBackground: false,
+                        }
+                      : {}),
+                  })
+                }
                 models={imageModels}
                 loading={loadingImageModels}
                 error={imageModelsError}
                 onRefresh={refreshImageModels}
                 directoryLabel={
-                  imageModelCatalog === 'openrouter-images'
-                    ? t('OpenRouter Images 模型目录')
-                    : isNovelAIEndpoint
-                      ? t('NovelAI 图片模型目录')
-                      : isVeniceEndpoint
-                        ? t('Venice 生成模型目录')
-                        : t('图片生成/编辑模型目录')
+                  isLaoZhangEndpoint
+                    ? t('老张图片模型目录')
+                    : imageModelCatalog === 'openrouter-images'
+                      ? t('OpenRouter Images 模型目录')
+                      : isNovelAIEndpoint
+                        ? t('NovelAI 图片模型目录')
+                        : isVeniceEndpoint
+                          ? t('Venice 生成模型目录')
+                          : t('图片生成/编辑模型目录')
                 }
                 waitingForKey={!activeEndpoint.apiKey.trim()}
                 placeholder={
@@ -503,7 +549,8 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 )}
               </div>
             </Form.Item>
-            {(isVeniceEndpoint ||
+            {(isLaoZhangEndpoint ||
+              isVeniceEndpoint ||
               isOpenAIImagesEndpoint ||
               isAPIMartEndpoint) && (
               <Form.Item label={t('参考图编辑模型 ID')}>
@@ -517,21 +564,25 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   error={editModelsError}
                   onRefresh={refreshEditModels}
                   directoryLabel={
-                    isAPIMartEndpoint
-                      ? t('APImart 编辑模型目录')
-                      : isVeniceEndpoint
-                        ? t('Venice 编辑模型目录')
-                        : t('OpenAI Images 编辑模型目录')
+                    isLaoZhangEndpoint
+                      ? t('老张图片模型目录')
+                      : isAPIMartEndpoint
+                        ? t('APImart 编辑模型目录')
+                        : isVeniceEndpoint
+                          ? t('Venice 编辑模型目录')
+                          : t('OpenAI Images 编辑模型目录')
                   }
                   waitingForKey={!activeEndpoint.apiKey.trim()}
                   placeholder={
-                    isAPIMartEndpoint
+                    isLaoZhangEndpoint
                       ? t('搜索或输入参考图模型 ID；留空则沿用生成模型')
-                      : isVeniceEndpoint
-                        ? t('搜索或输入编辑模型 ID；使用参考图时必填')
-                        : t(
-                            '搜索或输入支持 /images/edits 的模型；留空则沿用生成模型',
-                          )
+                      : isAPIMartEndpoint
+                        ? t('搜索或输入参考图模型 ID；留空则沿用生成模型')
+                        : isVeniceEndpoint
+                          ? t('搜索或输入编辑模型 ID；使用参考图时必填')
+                          : t(
+                              '搜索或输入支持 /images/edits 的模型；留空则沿用生成模型',
+                            )
                   }
                   allowClear
                 />
@@ -553,6 +604,15 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   const engine = e.target.value
                   updateActiveEndpoint({
                     engine,
+                    ...(engine === 'laozhang-images'
+                      ? {
+                          baseURL: LAOZHANG_BASE_URL,
+                          type: 'laozhang' as const,
+                          model: 'gpt-image-2-vip',
+                          editModel: undefined,
+                          balanceEnabled: false,
+                        }
+                      : {}),
                     // 切换引擎时给出对应默认值，减少用户手动改的麻烦
                     ...(engine === 'apimart-images'
                       ? {
@@ -617,7 +677,8 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                       : {}),
                     ...(engine !== 'venice-images' &&
                     engine !== 'openai-images' &&
-                    engine !== 'apimart-images'
+                    engine !== 'apimart-images' &&
+                    engine !== 'laozhang-images'
                       ? { editModel: undefined }
                       : {}),
                     ...((engine === 'openrouter-images' ||
@@ -655,6 +716,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 <Radio.Button value="apimart-images">
                   APImart Images
                 </Radio.Button>
+                <Radio.Button value="laozhang-images">
+                  {t('老张 API')}
+                </Radio.Button>
                 <Radio.Button value="chat-completions">
                   {t('聊天式（Nano Banana 等）')}
                 </Radio.Button>
@@ -672,6 +736,103 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 )}
               </div>
             </Form.Item>
+            {isLaoZhangEndpoint && (
+              <div className="mb-4 rounded-md border border-white/10 bg-white/[0.03] p-3">
+                <div className="mb-3 text-xs text-slate-500">
+                  {t(
+                    '老张按模型自动选择 Images、Gemini 原生或 Seedream 接口。多图拆成单张请求；不支持的尺寸会在提交前提示。',
+                  )}
+                </div>
+                {laoZhangModel === 'gpt-image-2' && (
+                  <Form.Item label={t('GPT Image 2 线路')}>
+                    <Select
+                      value={activeEndpoint.laozhangGptImage2Mode || 'per-call'}
+                      onChange={(laozhangGptImage2Mode) =>
+                        updateActiveEndpoint({ laozhangGptImage2Mode })
+                      }
+                      options={[
+                        {
+                          value: 'per-call',
+                          label: t('按次（不传尺寸和质量）'),
+                        },
+                        { value: 'official', label: t('官转（传尺寸和质量）') },
+                      ]}
+                    />
+                    <div className="mt-1 text-xs text-slate-500">
+                      {t(
+                        '这里仅决定请求参数；实际线路由老张控制台中 API Key 的分组决定。',
+                      )}
+                    </div>
+                  </Form.Item>
+                )}
+                {(laoZhangFamily === 'grok' ||
+                  (laoZhangFamily === 'gpt' &&
+                    laoZhangModel !== 'gpt-image-2.5-web')) &&
+                  (laoZhangModel !== 'gpt-image-2' ||
+                    activeEndpoint.laozhangGptImage2Mode === 'official') && (
+                    <Form.Item label={t('老张质量档位')}>
+                      <Select
+                        allowClear
+                        value={activeEndpoint.laozhangQuality}
+                        placeholder={
+                          laoZhangFamily === 'grok'
+                            ? 'medium'
+                            : t('沿用任务质量')
+                        }
+                        onChange={(laozhangQuality) =>
+                          updateActiveEndpoint({ laozhangQuality })
+                        }
+                        options={(laoZhangFamily === 'grok'
+                          ? ['low', 'medium']
+                          : laoZhangModel.startsWith('gpt-image-2.5-')
+                            ? ['low', 'medium', 'high', 'xhigh', 'max']
+                            : ['low', 'medium', 'high']
+                        ).map((value) => ({ value, label: value }))}
+                      />
+                    </Form.Item>
+                  )}
+                {/^gpt-image-2\.5-(flare|sunburst)-vip$/.test(
+                  laoZhangModel,
+                ) && (
+                  <Form.Item label={t('透明背景 PNG')} className="mb-0">
+                    <Switch
+                      checked={
+                        activeEndpoint.laozhangTransparentBackground || false
+                      }
+                      onChange={(laozhangTransparentBackground) =>
+                        updateActiveEndpoint({ laozhangTransparentBackground })
+                      }
+                    />
+                  </Form.Item>
+                )}
+                {laoZhangFamily === 'gemini' && (
+                  <div className="text-xs text-slate-500">
+                    {t(
+                      'Nano Banana 2 / Pro 支持 1K、2K、4K；Lite / Standard 仅支持 1K。2:1、1:2、9:21 映射为邻近支持比例。',
+                    )}
+                  </div>
+                )}
+                {laoZhangFamily === 'seedream' && (
+                  <div className="text-xs text-slate-500">
+                    {t(
+                      'Seedream 5.0 Flash / Pro 支持 1K、2K；5.0 支持 2K；4.5 支持 2K、4K；4.0 支持 1K、2K、4K。',
+                    )}
+                  </div>
+                )}
+                {laoZhangFamily === 'grok' && (
+                  <div className="text-xs text-slate-500">
+                    {t(
+                      'Grok 2.0 支持 1K、2K，生成质量默认 medium；编辑最多 3 张参考图，分辨率和质量由服务端决定。',
+                    )}
+                  </div>
+                )}
+                {laoZhangModel === 'gpt-image-2.5-web' && (
+                  <div className="text-xs text-slate-500">
+                    {t('网页版支持尺寸设置；质量由服务端决定。')}
+                  </div>
+                )}
+              </div>
+            )}
             <Form.Item label={t('端点类型')} required>
               <Radio.Group
                 value={activeEndpoint.type}
@@ -679,6 +840,15 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   const type = e.target.value as GptImageEndpoint['type']
                   updateActiveEndpoint({
                     type,
+                    ...(type === 'laozhang'
+                      ? {
+                          baseURL: LAOZHANG_BASE_URL,
+                          engine: 'laozhang-images' as const,
+                          model: 'gpt-image-2-vip',
+                          editModel: undefined,
+                          balanceEnabled: false,
+                        }
+                      : {}),
                     ...(type === 'venice'
                       ? {
                           baseURL: DEFAULT_VENICE_BASE_URL,
@@ -703,6 +873,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 <Radio.Button value="yunwu">New API</Radio.Button>
                 <Radio.Button value="openrouter">OpenRouter</Radio.Button>
                 <Radio.Button value="venice">Venice</Radio.Button>
+                <Radio.Button value="laozhang">{t('老张 API')}</Radio.Button>
                 <Radio.Button value="custom">{t('自定义')}</Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-slate-500">
@@ -731,6 +902,54 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   )}
                 </div>
               </Form.Item>
+            )}
+            {activeEndpoint.type === 'laozhang' && (
+              <div className="mb-4 rounded-md border border-white/10 bg-white/[0.03] p-3">
+                <Form.Item label={t('获取账户余额')}>
+                  <Switch
+                    checked={activeEndpoint.balanceEnabled || false}
+                    onChange={(balanceEnabled) =>
+                      updateActiveEndpoint({ balanceEnabled })
+                    }
+                  />
+                </Form.Item>
+                {activeEndpoint.balanceEnabled && (
+                  <Form.Item label={t('系统 AccessToken')} className="mb-0">
+                    <Input.Password
+                      value={activeEndpoint.balanceAccessToken || ''}
+                      autoComplete="new-password"
+                      onChange={(e) =>
+                        updateActiveEndpoint({
+                          balanceAccessToken: e.target.value,
+                        })
+                      }
+                      placeholder={
+                        activeEndpoint.balanceAccessTokenConfigured
+                          ? t('已配置；留空保留，输入新令牌替换')
+                          : t('输入老张系统 AccessToken（不是生图 API Key）')
+                      }
+                    />
+                    {activeEndpoint.balanceAccessTokenConfigured && (
+                      <Button
+                        type="link"
+                        onClick={() =>
+                          updateActiveEndpoint({
+                            balanceAccessToken: '',
+                            balanceAccessTokenConfigured: false,
+                          })
+                        }
+                      >
+                        {t('清除余额令牌')}
+                      </Button>
+                    )}
+                    <div className="mt-1 text-xs text-slate-500">
+                      {t(
+                        '令牌仅保存在服务端，不回传浏览器；余额显示整个账户的美元余额。',
+                      )}
+                    </div>
+                  </Form.Item>
+                )}
+              </div>
             )}
             {activeEndpoint.type === 'custom' && (
               <div className="rounded-md border border-white/10 bg-white/[0.03] p-3">

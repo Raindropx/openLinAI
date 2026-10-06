@@ -183,6 +183,24 @@ async function persistImageBuffer(
   return filename
 }
 
+/** Images gateways may return a data URL prefix, whitespace or missing padding. */
+export function decodeImageBase64(value: string): Buffer {
+  const encoded = value
+    .trim()
+    .replace(/^data:[^,]*;base64,/i, '')
+    .replace(/\s/g, '')
+  if (
+    !encoded ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) ||
+    encoded.replace(/=+$/, '').length % 4 === 1
+  )
+    throw new Error('图片响应包含无效的 Base64 数据')
+  const buffer = Buffer.from(encoded, 'base64')
+  if (!detectImageFormat(buffer))
+    throw new Error('图片响应不包含可识别的图片数据')
+  return buffer
+}
+
 export async function persistImageBuffers(
   buffers: Buffer[],
   generationMetadata?: GenerationMetadataInput,
@@ -209,7 +227,7 @@ export async function persistImages(
       const match = /^data:([^;]+);base64,([\s\S]*)$/.exec(url)
       if (!match) continue
       mimeHint = match[1]
-      buffer = Buffer.from(match[2], 'base64')
+      buffer = decodeImageBase64(match[2])
     } else {
       const res = await fetchWithTimeout(url, {}, 30000)
       if (!res.ok) {

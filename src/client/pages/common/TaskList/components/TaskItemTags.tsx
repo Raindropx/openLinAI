@@ -272,9 +272,26 @@ export function TaskItemTags({
           <Tag color="magenta">{task.size}</Tag>
         </Tooltip>
       )}
-      {task.quality && (
-        <Tag color={task.quality === 'high' ? 'red' : 'volcano'}>
-          {task.quality === 'high' ? 'H' : 'M'}
+      {(task.providerQuality || task.quality) && (
+        <Tag
+          color={
+            (task.providerQuality || task.quality) === 'high'
+              ? 'red'
+              : 'volcano'
+          }
+        >
+          {task.providerQuality === 'auto'
+            ? t('自动')
+            : (
+                {
+                  low: 'L',
+                  medium: 'M',
+                  high: 'H',
+                  xhigh: 'XH',
+                  max: 'MAX',
+                } as Record<string, string>
+              )[task.providerQuality || task.quality || ''] ||
+              task.providerQuality}
         </Tag>
       )}
       {downloadedIds?.includes(task.id) ? (

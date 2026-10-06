@@ -13,6 +13,20 @@ export interface LlmEndpointPreset {
 
 export const LLM_ENDPOINT_PRESETS: LlmEndpointPreset[] = [
   {
+    id: 'laozhang-gpt-5-6-luna',
+    label: '老张 GPT-5.6 Luna',
+    name: '老张 GPT-5.6 Luna',
+    baseURL: 'https://api.laozhang.ai/v1',
+    model: 'gpt-5.6-luna',
+    website: 'https://docs.laozhang.ai',
+    get notes() {
+      return [
+        t('使用 OpenAI-compatible Chat Completions 接口'),
+        t('模型可用性与计费以当前 Key 所属分组为准'),
+      ]
+    },
+  },
+  {
     id: 'apimart-gpt-5',
     label: 'APImart GPT-5',
     name: 'APImart GPT-5',

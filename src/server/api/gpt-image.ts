@@ -2,6 +2,7 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
+import { usesLaoZhangImages } from '../../shared/laozhang'
 import { getEndpointById } from '../common/config'
 import { TaskTemplate, templateManager } from '../common/template-manager'
 import { TRIAL_TEMPLATE_TITLE } from '../common/template-manager/enum'
@@ -10,6 +11,8 @@ import { handleImageGeneration } from '../module/gpt-image'
 import { handleAPIMartImageGeneration } from '../module/gpt-image/apimart-image'
 import { handleChatImageGeneration } from '../module/gpt-image/chat-image'
 import { GPT_IMAGE_OUTPUT_MAX_N } from '../module/gpt-image/enum'
+import { fetchLaoZhangBalance } from '../module/gpt-image/laozhang-api'
+import { handleLaoZhangImageGeneration } from '../module/gpt-image/laozhang-image'
 import { handleNovelAIImageGeneration } from '../module/gpt-image/novelai-image'
 import { handleOpenRouterImageGeneration } from '../module/gpt-image/openrouter-image'
 import { handleVeniceImageGeneration } from '../module/gpt-image/venice-image'
@@ -85,6 +88,40 @@ const gptImageApi = new Hono()
         { success: false as const, error: '请先选择有效的图片生成端点' },
         400,
       )
+    }
+
+    if (endpoint.type === 'laozhang') {
+      if (!endpoint.balanceEnabled)
+        return c.json(
+          { success: false as const, error: '[服务] 该端点未开启余额查询' },
+          400,
+        )
+      try {
+        const balance = await fetchLaoZhangBalance(
+          endpoint.baseURL,
+          endpoint.balanceAccessToken || '',
+        )
+        return c.json({
+          success: true as const,
+          data: {
+            message: '',
+            data: {
+              ...balance,
+              name: endpoint.name,
+              expires_at: -1,
+              unlimited_quota: false,
+            },
+          },
+        })
+      } catch (error) {
+        return c.json(
+          {
+            success: false as const,
+            error: error instanceof Error ? error.message : '获取余额失败',
+          },
+          500,
+        )
+      }
     }
 
     if (endpoint.type === 'venice') {
@@ -398,6 +435,18 @@ const gptImageApi = new Hono()
           404,
         )
       }
+      if (usesLaoZhangImages(endpoint)) {
+        const result = await handleLaoZhangImageGeneration({
+          ...endpoint,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          originalPrompt,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
+      }
       if (endpoint.engine === 'chat-completions') {
         const result = await handleChatImageGeneration({
           apiKey: endpoint.apiKey,
@@ -540,6 +589,18 @@ const gptImageApi = new Hono()
         images: images || [],
         title: title?.trim() || TRIAL_TEMPLATE_TITLE,
         n,
+      }
+      if (usesLaoZhangImages(endpoint)) {
+        const result = await handleLaoZhangImageGeneration({
+          ...endpoint,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          originalPrompt,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
       }
       if (isChat) {
         const result = await handleChatImageGeneration({

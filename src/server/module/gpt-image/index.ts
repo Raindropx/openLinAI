@@ -9,7 +9,7 @@ import { logger } from '../utils/logger'
 import { fetchImageBill, getBillingRequestId } from './billing'
 import { GptImageQuality, GptImageSize } from './enum'
 import type { GenerationMetadataInput } from './generation-metadata'
-import { persistImageBuffers } from './image-files'
+import { decodeImageBase64, persistImageBuffers } from './image-files'
 import { estimatePollinationsImageBilling } from './pollinations-billing'
 
 interface GPTImageResponse {
@@ -223,9 +223,10 @@ export function buildPromptWithAspectRatio(template: TaskTemplate): string {
   let prompt = template.prompt
   const ratio = template.aspectRatio
   if (template.injectAspectRatio && ratio && ratio !== 'auto') {
-    prompt = template.generationLanguage === 'en-US'
-      ? `${prompt.trimEnd()}\nAspect ratio: ${ratio}`
-      : appendAspectRatioInstruction(prompt, ratio)
+    prompt =
+      template.generationLanguage === 'en-US'
+        ? `${prompt.trimEnd()}\nAspect ratio: ${ratio}`
+        : appendAspectRatioInstruction(prompt, ratio)
   }
   if (template.gpt2QualityOptimization) {
     prompt = appendPromptInstruction(prompt, GPT2_QUALITY_OPTIMIZATION_PROMPT)
@@ -351,7 +352,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
       let imageBuffer: Buffer | undefined
 
       if (item.b64_json) {
-        imageBuffer = Buffer.from(item.b64_json, 'base64')
+        imageBuffer = decodeImageBase64(item.b64_json)
       } else if (item.url) {
         const imageResponse = await fetch(item.url)
         if (!imageResponse.ok) {

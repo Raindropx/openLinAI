@@ -91,12 +91,15 @@ export function useGPTImageQuota() {
     selectedEndpoint?.type === 'yunwu' ||
     selectedEndpoint?.type === 'openrouter' ||
     selectedEndpoint?.type === 'venice' ||
-    (selectedEndpoint?.type === 'custom' && selectedEndpoint.balanceEnabled)
+    (selectedEndpoint?.type === 'custom' && selectedEndpoint.balanceEnabled) ||
+    (selectedEndpoint?.type === 'laozhang' &&
+      selectedEndpoint.balanceEnabled &&
+      selectedEndpoint.balanceAccessTokenConfigured)
       ? selectedEndpoint.id
       : null
   const customBalanceConfig =
-    selectedEndpoint?.type === 'custom'
-      ? `${selectedEndpoint.balanceEnabled}:${selectedEndpoint.balanceApiPath}:${selectedEndpoint.balanceResultJsonKey}`
+    selectedEndpoint?.type === 'custom' || selectedEndpoint?.type === 'laozhang'
+      ? `${selectedEndpoint.balanceEnabled}:${selectedEndpoint.balanceApiPath}:${selectedEndpoint.balanceResultJsonKey}:${selectedEndpoint.balanceAccessTokenConfigured}:${selectedEndpoint.baseURL}`
       : null
 
   const { data: tasks } = useTasks()
@@ -114,7 +117,7 @@ export function useGPTImageQuota() {
 
   useEffect(() => {
     fetchQuota(activeEndpointId, customBalanceConfig !== null)
-  }, [activeEndpointId, customBalanceConfig, fetchQuota])
+  }, [activeEndpointId, customBalanceConfig, selectedEndpoint, fetchQuota])
 
   useEffect(() => {
     if (!tasks || !activeEndpointId) return

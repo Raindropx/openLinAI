@@ -19,6 +19,178 @@ export interface GptImageEndpointPreset {
 
 export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
   {
+    id: 'laozhang-gpt-image-2-5-web',
+    label: '老张 GPT Image 2.5 Web',
+    name: '老张 GPT Image 2.5 Web',
+    baseURL: 'https://api.laozhang.ai/v1',
+    model: 'gpt-image-2.5-web',
+    type: 'laozhang',
+    engine: 'laozhang-images',
+    balanceEnabled: false,
+    website: 'https://docs.laozhang.ai',
+    get notes() {
+      return [
+        t('网页版支持尺寸设置；质量由服务端决定。'),
+        t('多图按单张请求生成；余额查询需要独立的系统 AccessToken'),
+      ]
+    },
+  },
+  {
+    id: 'laozhang-grok-2',
+    label: '老张 Grok Imagine Image 2.0',
+    name: '老张 Grok Imagine Image 2.0',
+    baseURL: 'https://api.laozhang.ai/v1',
+    model: 'grok-imagine-image-2.0',
+    type: 'laozhang',
+    engine: 'laozhang-images',
+    balanceEnabled: false,
+    website: 'https://docs.laozhang.ai',
+    get notes() {
+      return [
+        t(
+          'Grok 2.0 支持 1K、2K，生成质量默认 medium；编辑最多 3 张参考图，分辨率和质量由服务端决定。',
+        ),
+        t('多图按单张请求生成；余额查询需要独立的系统 AccessToken'),
+      ]
+    },
+  },
+  {
+    id: 'laozhang-gpt-image-2-vip',
+    label: '老张 GPT Image 2 VIP',
+    name: '老张 GPT Image 2 VIP',
+    baseURL: 'https://api.laozhang.ai/v1',
+    model: 'gpt-image-2-vip',
+    type: 'laozhang',
+    engine: 'laozhang-images',
+    balanceEnabled: false,
+    website: 'https://docs.laozhang.ai',
+    get notes() {
+      return [
+        t('支持文生图、参考图编辑与 1K、2K、4K 分辨率'),
+        t('多图按单张请求生成；余额查询需要独立的系统 AccessToken'),
+      ]
+    },
+  },
+  {
+    id: 'laozhang-gpt-image-2-5-flare-vip',
+    label: '老张 GPT Image 2.5 Flare VIP',
+    name: '老张 GPT Image 2.5 Flare VIP',
+    baseURL: 'https://api.laozhang.ai/v1',
+    model: 'gpt-image-2.5-flare-vip',
+    type: 'laozhang',
+    engine: 'laozhang-images',
+    balanceEnabled: false,
+    website: 'https://docs.laozhang.ai',
+    get notes() {
+      return [
+        t('支持生成、参考图编辑、透明背景及五档质量'),
+        t('多图按单张请求生成；余额查询需要独立的系统 AccessToken'),
+      ]
+    },
+  },
+  {
+    id: 'laozhang-gpt-image-2-5-sunburst-vip',
+    label: '老张 GPT Image 2.5 Sunburst VIP',
+    name: '老张 GPT Image 2.5 Sunburst VIP',
+    baseURL: 'https://api.laozhang.ai/v1',
+    model: 'gpt-image-2.5-sunburst-vip',
+    type: 'laozhang',
+    engine: 'laozhang-images',
+    balanceEnabled: false,
+    website: 'https://docs.laozhang.ai',
+    get notes() {
+      return [
+        t('支持生成、参考图编辑、透明背景及五档质量'),
+        t('多图按单张请求生成；余额查询需要独立的系统 AccessToken'),
+      ]
+    },
+  },
+  {
+    id: 'laozhang-nano-banana-2',
+    label: '老张 Nano Banana 2',
+    name: '老张 Nano Banana 2',
+    baseURL: 'https://api.laozhang.ai/v1',
+    model: 'gemini-3.1-flash-image',
+    type: 'laozhang',
+    engine: 'laozhang-images',
+    balanceEnabled: false,
+    website: 'https://docs.laozhang.ai',
+    get notes() {
+      return [
+        t('使用 Gemini 原生接口控制比例和 1K、2K、4K 分辨率'),
+        t('多图按单张请求生成；余额查询需要独立的系统 AccessToken'),
+      ]
+    },
+  },
+  {
+    id: 'laozhang-nano-banana-pro',
+    label: '老张 Nano Banana Pro',
+    name: '老张 Nano Banana Pro',
+    baseURL: 'https://api.laozhang.ai/v1',
+    model: 'gemini-3-pro-image',
+    type: 'laozhang',
+    engine: 'laozhang-images',
+    balanceEnabled: false,
+    website: 'https://docs.laozhang.ai',
+    get notes() {
+      return [
+        t('使用 Gemini 原生接口，支持最多 14 张参考图'),
+        t('多图按单张请求生成；余额查询需要独立的系统 AccessToken'),
+      ]
+    },
+  },
+  {
+    id: 'laozhang-nano-banana-2-lite',
+    label: '老张 Nano Banana 2 Lite',
+    name: '老张 Nano Banana 2 Lite',
+    baseURL: 'https://api.laozhang.ai/v1',
+    model: 'gemini-3.1-flash-lite-image',
+    type: 'laozhang',
+    engine: 'laozhang-images',
+    balanceEnabled: false,
+    website: 'https://docs.laozhang.ai',
+    get notes() {
+      return [
+        t('轻量生成与编辑；仅支持 1K 分辨率'),
+        t('多图按单张请求生成；余额查询需要独立的系统 AccessToken'),
+      ]
+    },
+  },
+  {
+    id: 'laozhang-seedream-5-flash',
+    label: '老张 Seedream 5.0 Flash',
+    name: '老张 Seedream 5.0 Flash',
+    baseURL: 'https://api.laozhang.ai/v1',
+    model: 'seedream-5-0-flash-260915',
+    type: 'laozhang',
+    engine: 'laozhang-images',
+    balanceEnabled: false,
+    website: 'https://docs.laozhang.ai',
+    get notes() {
+      return [
+        t('使用 JSON 生成与编辑接口，支持最多 10 张参考图'),
+        t('多图按单张请求生成；余额查询需要独立的系统 AccessToken'),
+      ]
+    },
+  },
+  {
+    id: 'laozhang-seedream-5-pro',
+    label: '老张 Seedream 5.0 Pro',
+    name: '老张 Seedream 5.0 Pro',
+    baseURL: 'https://api.laozhang.ai/v1',
+    model: 'seedream-5-0-pro-260628',
+    type: 'laozhang',
+    engine: 'laozhang-images',
+    balanceEnabled: false,
+    website: 'https://docs.laozhang.ai',
+    get notes() {
+      return [
+        t('使用 JSON 生成与编辑接口，支持最多 10 张参考图'),
+        t('多图按单张请求生成；余额查询需要独立的系统 AccessToken'),
+      ]
+    },
+  },
+  {
     id: 'apimart-gpt-image-2',
     label: 'APImart GPT Image 2',
     name: 'APImart GPT Image 2',
