@@ -1,4 +1,5 @@
 import type { GptImageEndpoint } from '../../../../server/common/config'
+import { GEMINI_BASE_URL, GEMINI_IMAGE_MODEL } from '../../../../shared/gemini'
 import {
   SPICY_API_BASE_URL,
   SPICY_QWEN_LORA_MODEL,
@@ -23,6 +24,23 @@ export interface GptImageEndpointPreset {
 }
 
 export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
+  {
+    id: 'google-gemini-native-image',
+    label: 'Google Gemini Nano Banana 2.1',
+    name: 'Google Gemini Nano Banana 2.1',
+    baseURL: GEMINI_BASE_URL,
+    model: GEMINI_IMAGE_MODEL,
+    type: 'custom',
+    engine: 'gemini-images',
+    balanceEnabled: false,
+    website: 'https://ai.google.dev/gemini-api/docs/image-generation',
+    get notes() {
+      return [
+        t('使用 Google Gemini API Key，支持文生图与参考图编辑'),
+        t('Nano Banana 2.1 / 2 / Pro 支持 1K、2K、4K；Lite / Standard 仅支持 1K。质量由模型决定，多图按单张请求生成。'),
+      ]
+    },
+  },
   {
     id: 'spicyapi-seedream-5-flash',
     label: 'SpicyAPI Seedream 5.0 Flash',

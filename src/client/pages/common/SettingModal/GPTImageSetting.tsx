@@ -18,6 +18,7 @@ import {
 } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { GptImageEndpoint } from '../../../../server/common/config'
+import { GEMINI_BASE_URL, GEMINI_IMAGE_MODEL } from '../../../../shared/gemini'
 import {
   getLaoZhangImageFamily,
   LAOZHANG_BASE_URL,
@@ -44,6 +45,7 @@ import {
   type GptImageEndpointPreset,
 } from './gptImageEndpointPresets'
 import { ModelIdInput } from './ModelIdInput'
+import { GeminiBalanceHelp, GeminiEndpointSettings } from './GeminiEndpointSettings'
 
 export interface GPTImageSettingRef {
   save: () => Promise<string | undefined>
@@ -203,24 +205,27 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
   const isNovelAIEndpoint = activeEndpoint?.engine === 'novelai-images'
   const isSpicyEndpoint = activeEndpoint?.engine === 'spicyapi-images'
   const isAPIMartEndpoint = activeEndpoint?.engine === 'apimart-images'
+  const isGeminiEndpoint = activeEndpoint?.engine === 'gemini-images'
   const isLaoZhangEndpoint =
     activeEndpoint && usesLaoZhangImages(activeEndpoint)
   const laoZhangModel = normalizeLaoZhangModel(activeEndpoint?.model || '')
   const laoZhangFamily = getLaoZhangImageFamily(laoZhangModel)
   const isOpenAIImagesEndpoint = activeEndpoint?.engine === 'openai-images'
-  const imageModelCatalog: EndpointModelCatalog = isSpicyEndpoint
-    ? 'spicyapi-image-generation'
-    : isLaoZhangEndpoint
-      ? 'laozhang-image'
-      : isVeniceEndpoint
-        ? 'venice-image'
-        : isNovelAIEndpoint
-          ? 'novelai-image'
-          : activeEndpoint?.engine === 'openrouter-images'
-            ? 'openrouter-images'
-            : isOpenAIImagesEndpoint || isAPIMartEndpoint
-              ? 'openai-image-generation'
-              : 'openai-image'
+  const imageModelCatalog: EndpointModelCatalog = isGeminiEndpoint
+    ? 'gemini-image'
+    : isSpicyEndpoint
+      ? 'spicyapi-image-generation'
+      : isLaoZhangEndpoint
+        ? 'laozhang-image'
+        : isVeniceEndpoint
+          ? 'venice-image'
+          : isNovelAIEndpoint
+            ? 'novelai-image'
+            : activeEndpoint?.engine === 'openrouter-images'
+              ? 'openrouter-images'
+              : isOpenAIImagesEndpoint || isAPIMartEndpoint
+                ? 'openai-image-generation'
+                : 'openai-image'
   const {
     models: imageModels,
     loading: loadingImageModels,
@@ -238,16 +243,19 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
     error: editModelsError,
     refresh: refreshEditModels,
   } = useEndpointModels({
-    catalog: isSpicyEndpoint
-      ? 'spicyapi-image-edit'
-      : isLaoZhangEndpoint
-        ? 'laozhang-image'
-        : isVeniceEndpoint
-          ? 'venice-inpaint'
-          : 'openai-image-edit',
+    catalog: isGeminiEndpoint
+      ? 'gemini-image'
+      : isSpicyEndpoint
+        ? 'spicyapi-image-edit'
+        : isLaoZhangEndpoint
+          ? 'laozhang-image'
+          : isVeniceEndpoint
+            ? 'venice-inpaint'
+            : 'openai-image-edit',
     baseURL: activeEndpoint?.baseURL,
     apiKey: activeEndpoint?.apiKey,
     enabled:
+      isGeminiEndpoint ||
       isLaoZhangEndpoint ||
       isVeniceEndpoint ||
       isOpenAIImagesEndpoint ||
@@ -570,7 +578,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   updateActiveEndpoint({ baseURL: e.target.value })
                 }
                 placeholder={
-                  isSpicyEndpoint
+                  isGeminiEndpoint
+                    ? GEMINI_BASE_URL
+                    : isSpicyEndpoint
                     ? SPICY_API_BASE_URL
                     : isLaoZhangEndpoint
                       ? LAOZHANG_BASE_URL
@@ -606,7 +616,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 error={imageModelsError}
                 onRefresh={refreshImageModels}
                 directoryLabel={
-                  isLaoZhangEndpoint
+                  isGeminiEndpoint
+                    ? t('Gemini 图片模型目录')
+                    : isLaoZhangEndpoint
                     ? t('老张图片模型目录')
                     : imageModelCatalog === 'openrouter-images'
                       ? t('OpenRouter Images 模型目录')
@@ -618,7 +630,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 }
                 waitingForKey={!activeEndpoint.apiKey.trim()}
                 placeholder={
-                  activeEndpoint.engine === 'chat-completions'
+                  isGeminiEndpoint
+                    ? t('搜索或输入模型 ID，如 gemini-nano-banana-2.1')
+                    : activeEndpoint.engine === 'chat-completions'
                     ? t('搜索或输入模型 ID，如 google/gemini-2.5-flash-image')
                     : activeEndpoint.engine === 'openrouter-images'
                       ? t('搜索或输入模型 ID，如 google/gemini-3.1-flash-image')
@@ -635,7 +649,8 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 )}
               </div>
             </Form.Item>
-            {(isLaoZhangEndpoint ||
+            {(isGeminiEndpoint ||
+              isLaoZhangEndpoint ||
               isVeniceEndpoint ||
               isOpenAIImagesEndpoint ||
               isAPIMartEndpoint ||
@@ -651,7 +666,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   error={editModelsError}
                   onRefresh={refreshEditModels}
                   directoryLabel={
-                    isLaoZhangEndpoint
+                    isGeminiEndpoint
+                      ? t('Gemini 图片模型目录')
+                      : isLaoZhangEndpoint
                       ? t('老张图片模型目录')
                       : isSpicyEndpoint
                         ? t('SpicyAPI 编辑模型目录')
@@ -663,7 +680,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   }
                   waitingForKey={!activeEndpoint.apiKey.trim()}
                   placeholder={
-                    isLaoZhangEndpoint
+                    isGeminiEndpoint || isLaoZhangEndpoint
                       ? t('搜索或输入参考图模型 ID；留空则沿用生成模型')
                       : isAPIMartEndpoint || isSpicyEndpoint
                         ? t('搜索或输入参考图模型 ID；留空则沿用生成模型')
@@ -693,6 +710,29 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                   const engine = e.target.value
                   updateActiveEndpoint({
                     engine,
+                    ...(isGeminiEndpoint &&
+                    ['openai-images', 'chat-completions', 'openrouter-images'].includes(engine)
+                      ? {
+                          baseURL: engine === 'openai-images'
+                            ? DEFAULT_OPENAI_IMAGES_BASE_URL : DEFAULT_OPENROUTER_BASE_URL,
+                          model: engine === 'openai-images'
+                            ? DEFAULT_MODEL : engine === 'chat-completions'
+                              ? DEFAULT_CHAT_MODEL : DEFAULT_OPENROUTER_MODEL,
+                          editModel: undefined,
+                          type: engine === 'openai-images'
+                            ? 'custom' as const : 'openrouter' as const,
+                          balanceEnabled: false,
+                        }
+                      : {}),
+                    ...(engine === 'gemini-images'
+                      ? {
+                          baseURL: GEMINI_BASE_URL,
+                          type: 'custom' as const,
+                          model: GEMINI_IMAGE_MODEL,
+                          editModel: undefined,
+                          balanceEnabled: false,
+                        }
+                      : {}),
                     ...(engine === 'laozhang-images'
                       ? {
                           baseURL: LAOZHANG_BASE_URL,
@@ -779,6 +819,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                     engine !== 'openai-images' &&
                     engine !== 'apimart-images' &&
                     engine !== 'spicyapi-images' &&
+                    engine !== 'gemini-images' &&
                     engine !== 'laozhang-images'
                       ? { editModel: undefined }
                       : {}),
@@ -823,10 +864,24 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 <Radio.Button value="laozhang-images">
                   {t('老张 API')}
                 </Radio.Button>
+                <Radio.Button value="gemini-images">
+                  {t('Gemini 原生')}
+                </Radio.Button>
                 <Radio.Button value="chat-completions">
                   {t('聊天式（Nano Banana 等）')}
                 </Radio.Button>
               </Radio.Group>
+              {isGeminiEndpoint && (
+                <div className="mt-1 text-xs text-slate-500">
+                  {t('使用 Google Gemini API Key，支持文生图与参考图编辑')}
+                  <br />
+                  {t(
+                    'Nano Banana 2.1 / 2 / Pro 支持 1K、2K、4K；Lite / Standard 仅支持 1K。质量由模型决定，多图按单张请求生成。',
+                  )}
+                  <br />
+                  {t('最多 14 张参考图，Standard 最多 3 张；不支持的比例或分辨率会在提交前提示。')}
+                </div>
+              )}
               {isAPIMartEndpoint && (
                 <div className="mt-1 text-xs text-slate-500">
                   {t(
@@ -840,6 +895,12 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 )}
               </div>
             </Form.Item>
+            {isGeminiEndpoint && (
+              <GeminiEndpointSettings
+                endpoint={activeEndpoint}
+                onChange={updateActiveEndpoint}
+              />
+            )}
             {isSpicyEndpoint && (
               <div className="mb-4 rounded-lg border border-slate-700 p-3">
                 <div className="mb-3 text-xs text-slate-500">
@@ -1152,6 +1213,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 )}
               </div>
             )}
+            {isGeminiEndpoint && <GeminiBalanceHelp />}
             {activeEndpoint.type === 'custom' && (
               <div className="rounded-md border border-white/10 bg-white/[0.03] p-3">
                 <div className="flex items-center justify-between gap-3">
@@ -1276,7 +1338,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
           <div className="mt-1 flex items-start gap-1 text-xs text-red-500">
             <ExclamationCircleOutlined className="mt-1" />
             <div>
-              {isPublic ? (
+              {isGeminiEndpoint ? (
+                <div>{t('Gemini 按模型支持的原生分辨率生成，不进行 GPT Image 的总像素缩放。')}</div>
+              ) : isPublic ? (
                 <div>{t('公用 API Key 无法使用 4K 画质')}</div>
               ) : (
                 <>
@@ -1302,7 +1366,9 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
           <div className="mt-1 flex items-start gap-1 text-xs text-red-500">
             <ExclamationCircleOutlined className="mt-1" />
             <div>
-              {isPublic ? (
+              {isGeminiEndpoint ? (
+                <div>{t('Gemini 的质量由模型决定，Medium / High 设置不会影响该端点。')}</div>
+              ) : isPublic ? (
                 <div>{t('公用 API Key 无法使用 High 画质')}</div>
               ) : (
                 <>

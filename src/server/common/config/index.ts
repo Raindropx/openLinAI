@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
+import type { GeminiSafetySettings } from '../../../shared/gemini'
 import type {
   LaoZhangGptImage2Mode,
   LaoZhangQuality,
@@ -35,6 +36,7 @@ export type GptImageEndpointEngine =
   | 'apimart-images'
   | 'spicyapi-images'
   | 'laozhang-images'
+  | 'gemini-images'
   | 'chat-completions'
 
 export interface GptImageEndpoint {
@@ -69,6 +71,8 @@ export interface GptImageEndpoint {
   /** 老张质量覆盖；GPT Image 留空沿用任务，Grok 留空使用 medium。 */
   laozhangQuality?: LaoZhangQuality
   laozhangTransparentBackground?: boolean
+  /** Gemini 原生端点的额外安全过滤；未设置的类别沿用模型默认。 */
+  geminiSafetySettings?: GeminiSafetySettings
   spicyLoras?: import('../../../shared/spicyapi').SpicyLora[]
   spicySeed?: number
   spicyResolution?: '1k' | '1.5k' | '2k'
@@ -83,6 +87,7 @@ export interface GptImageEndpoint {
    * - spicyapi-images：SpicyAPI 原生任务、参考图上传与结果查询
    * - apimart-images：APImart JSON 图片生成与异步任务查询
    * - laozhang-images：按模型选择 Images、Gemini 原生或 Seedream JSON 接口
+   * - gemini-images：Gemini 原生 generateContent，API Key 鉴权与参考图编辑
    * - chat-completions：OpenAI 兼容 /chat/completions（Nano Banana 等）
    */
   engine?: GptImageEndpointEngine

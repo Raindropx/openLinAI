@@ -1,6 +1,7 @@
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { GEMINI_SAFETY_CATEGORIES, GEMINI_SAFETY_THRESHOLDS } from '../../../shared/gemini'
 import { BACKEND_PORT } from '../..'
 import {
   DEFAULT_LLM_PROMPTS,
@@ -61,6 +62,9 @@ const configApi = new Hono()
                 .enum(['low', 'medium', 'high', 'xhigh', 'max'])
                 .optional(),
               laozhangTransparentBackground: z.boolean().optional(),
+              geminiSafetySettings: z
+                .partialRecord(z.enum(GEMINI_SAFETY_CATEGORIES), z.enum(GEMINI_SAFETY_THRESHOLDS))
+                .optional(),
               spicyLoras: z
                 .array(
                   z.object({
@@ -83,6 +87,7 @@ const configApi = new Hono()
                   'apimart-images',
                   'spicyapi-images',
                   'laozhang-images',
+                  'gemini-images',
                   'chat-completions',
                 ])
                 .optional(),

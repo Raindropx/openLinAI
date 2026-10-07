@@ -6,6 +6,7 @@ import {
 import { Button, Checkbox, Form, Input, InputNumber, Select } from 'antd'
 import classnames from 'classnames'
 import React, { useEffect, useState } from 'react'
+import { geminiImageCapabilities } from '../../../../../shared/gemini'
 import {
   resolveImageEndpointId,
   useEnabledImageEndpoints,
@@ -107,6 +108,19 @@ function TitleFormItem({ className }: { className?: string }) {
 
 function AspectRatioFormItem({ className }: { className?: string }) {
   useAppLanguage()
+  const endpoints = useEnabledImageEndpoints()
+  const form = Form.useFormInstance()
+  const endpointId = Form.useWatch('endpointId', form)
+  const images = Form.useWatch('images', form) as string[] | undefined
+  const endpoint = endpoints.find((item) => item.id === endpointId)
+  let geminiRatios: string[] | undefined
+  if (endpoint?.engine === 'gemini-images') {
+    try {
+      geminiRatios = geminiImageCapabilities(
+        images?.length ? endpoint.editModel || endpoint.model : endpoint.model,
+      ).ratios
+    } catch { /* An invalid manual model ID is reported on submission. */ }
+  }
 
   return (
     <Form.Item
@@ -128,8 +142,16 @@ function AspectRatioFormItem({ className }: { className?: string }) {
           { label: '9:16', value: '9:16' },
           { label: '1:2', value: '1:2' },
           { label: '9:21', value: '9:21' },
+          ...(geminiRatios
+            ? geminiRatios.filter((ratio) =>
+                ['4:5', '5:4', '1:4', '4:1', '1:8', '8:1'].includes(ratio),
+              ).map((ratio) => ({ label: ratio, value: ratio }))
+            : []),
           { label: 'Auto', value: 'auto' },
-        ]}
+        ].map((option) => ({
+          ...option,
+          disabled: Boolean(geminiRatios && option.value !== 'auto' && !geminiRatios.includes(option.value)),
+        }))}
       />
     </Form.Item>
   )

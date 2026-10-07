@@ -197,19 +197,41 @@ export function TaskItemMetrics({
   }
 
   const cost = showCost ? renderCost(task) : null
+  // Earlier native Gemini tasks stored the same response usage under `usage`.
+  const geminiUsage = showCost && /^gemini-/.test(task.source)
+    ? task.gptTokenUsage || task.usage
+    : undefined
+  const tokenCount = geminiUsage?.total_tokens
+  const hasGeminiUsage = typeof tokenCount === 'number' &&
+    Number.isFinite(tokenCount) && tokenCount >= 0
   const hasDuration =
     showDuration &&
     typeof task.duration === 'number' &&
     Number.isFinite(task.duration) &&
     task.duration > 0
 
-  if (!cost && !hasDuration) return null
+  if (!cost && !hasDuration && !hasGeminiUsage) return null
 
   return (
     <div
       className={`flex flex-wrap items-center gap-1 [&_.ant-tag]:m-0! ${className}`}
     >
       {cost}
+      {hasGeminiUsage && (
+        <Tooltip
+          title={
+            <div>
+              <div>{t('输入用量（提示词与参考图）:')} {geminiUsage.input_tokens?.toLocaleString() ?? t('未提供')} Token</div>
+              <div>{t('输出用量:')} {geminiUsage.output_tokens?.toLocaleString() ?? t('未提供')} Token</div>
+              <div>{t('仅统计本任务收到的用量，不包含其他任务或外部工具；不等于实际扣费。')}</div>
+            </div>
+          }
+        >
+          <Tag color="blue" style={{ cursor: 'help' }}>
+            {t('用量:')} {tokenCount.toLocaleString()} Token
+          </Tag>
+        </Tooltip>
+      )}
       {hasDuration && (
         <Tooltip title={t('生成耗时')}>
           <Tag color="lime">

@@ -1,10 +1,12 @@
 import crypto from 'crypto'
+import { geminiApiBaseURL } from '../../shared/gemini'
 import {
   getLaoZhangImageFamily,
   isLaoZhangBaseURL,
 } from '../../shared/laozhang'
 import { NOVELAI_IMAGE_MODELS } from '../../shared/studio-generation'
 import { isAPIMartBaseURL } from './apimart'
+import { requestGeminiJson } from './gpt-image/gemini-api'
 import { spicyRequest } from './gpt-image/spicyapi-api'
 import { fetchWithTimeout } from './utils/fetch'
 import { listVeniceModels, VeniceModelType } from './venice/models'
@@ -15,6 +17,7 @@ export type ModelCatalogType =
   | 'spicyapi-image-generation'
   | 'spicyapi-image-edit'
   | 'laozhang-image'
+  | 'gemini-image'
   | 'openai-image-generation'
   | 'openai-image-edit'
   | 'openai-vision-text'
@@ -303,6 +306,7 @@ export async function listModelCatalog(options: {
 }): Promise<ModelCatalogItem[]> {
   const { catalog, apiKey } = options
   let baseURL = normalizeBaseURL(options.baseURL)
+  if (catalog === 'gemini-image') baseURL = geminiApiBaseURL(baseURL)
   if (isLaoZhangBaseURL(baseURL) && new URL(baseURL).pathname === '/')
     baseURL += '/v1'
   const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex')
@@ -312,7 +316,42 @@ export async function listModelCatalog(options: {
 
   const veniceType = getVeniceType(catalog)
   let models: ModelCatalogItem[]
-  if (catalog === 'novelai-image') {
+  if (catalog === 'gemini-image') {
+    const seenIds = new Set<string>()
+    const seenPages = new Set<string>()
+    models = []
+    let pageToken = ''
+    do {
+      const query = new URLSearchParams({ pageSize: '1000' })
+      if (pageToken) query.set('pageToken', pageToken)
+      const payload = await requestGeminiJson(`${baseURL}/models?${query}`, apiKey)
+      if (!Array.isArray(payload.models))
+        throw new Error('Gemini 未返回有效的模型目录')
+      for (const model of payload.models) {
+        const id = typeof model?.name === 'string'
+          ? model.name.replace(/^models\//, '') : ''
+        if (
+          !/^gemini-[a-zA-Z0-9._-]+$/.test(id) ||
+          !/(?:image|nano-banana)/i.test(id) ||
+          !Array.isArray(model.supportedGenerationMethods) ||
+          !model.supportedGenerationMethods.includes('generateContent') ||
+          seenIds.has(id)
+        )
+          continue
+        seenIds.add(id)
+        models.push({
+          id,
+          name: typeof model.displayName === 'string' ? model.displayName : id,
+        })
+      }
+      pageToken = typeof payload.nextPageToken === 'string' ? payload.nextPageToken : ''
+      if (pageToken && (seenPages.has(pageToken) || seenPages.size >= 100))
+        throw new Error('Gemini 模型目录分页异常，请重试')
+      if (pageToken) seenPages.add(pageToken)
+    } while (pageToken)
+    if (!models.length)
+      throw new Error('目录中未找到 Gemini 图片模型；仍可手动输入模型 ID')
+  } else if (catalog === 'novelai-image') {
     models = [...NOVELAI_IMAGE_MODELS]
   } else if (catalog.startsWith('spicyapi-image-')) {
     const task =

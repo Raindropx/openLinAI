@@ -7,6 +7,7 @@ export type EndpointModelCatalog =
   | 'spicyapi-image-generation'
   | 'spicyapi-image-edit'
   | 'laozhang-image'
+  | 'gemini-image'
   | 'openai-image-generation'
   | 'openai-image-edit'
   | 'openai-vision-text'

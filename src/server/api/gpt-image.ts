@@ -12,6 +12,7 @@ import { handleImageGeneration } from '../module/gpt-image'
 import { handleAPIMartImageGeneration } from '../module/gpt-image/apimart-image'
 import { handleChatImageGeneration } from '../module/gpt-image/chat-image'
 import { GPT_IMAGE_OUTPUT_MAX_N } from '../module/gpt-image/enum'
+import { handleGeminiImageGeneration } from '../module/gpt-image/gemini-image'
 import { fetchLaoZhangBalance } from '../module/gpt-image/laozhang-api'
 import { handleLaoZhangImageGeneration } from '../module/gpt-image/laozhang-image'
 import { handleNovelAIImageGeneration } from '../module/gpt-image/novelai-image'
@@ -455,6 +456,19 @@ const gptImageApi = new Hono()
           404,
         )
       }
+      if (endpoint.engine === 'gemini-images') {
+        const result = await handleGeminiImageGeneration({
+          ...endpoint,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          originalPrompt,
+          folderId,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
+      }
       if (usesLaoZhangImages(endpoint)) {
         const result = await handleLaoZhangImageGeneration({
           ...endpoint,
@@ -640,6 +654,19 @@ const gptImageApi = new Hono()
         images: images || [],
         title: title?.trim() || TRIAL_TEMPLATE_TITLE,
         n,
+      }
+      if (endpoint.engine === 'gemini-images') {
+        const result = await handleGeminiImageGeneration({
+          ...endpoint,
+          template,
+          size,
+          quality,
+          endpointName: endpoint.name,
+          originalPrompt,
+          folderId,
+          writeMetadata,
+        })
+        return c.json(result.data, result.status as any)
       }
       if (usesLaoZhangImages(endpoint)) {
         const result = await handleLaoZhangImageGeneration({
