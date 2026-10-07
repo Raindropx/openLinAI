@@ -93,6 +93,7 @@ const configApi = new Hono()
           .array(
             z.object({
               id: z.string(),
+              disabled: z.boolean().optional(),
               name: z.string(),
               baseURL: z.string(),
               model: z.string(),

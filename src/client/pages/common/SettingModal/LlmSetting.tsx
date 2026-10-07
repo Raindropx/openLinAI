@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { LlmEndpoint, LlmPrompts } from '../../../../server/common/config'
+import { resolveLlmEndpointId } from '../../../hooks/useEnabledLlmEndpoints'
 import { useEndpointModels } from '../../../hooks/useEndpointModels'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../i18n'
@@ -67,7 +68,17 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
     setOptimizeEndpointId,
     charCardEndpointId,
     setCharCardEndpointId,
+    styleExtractEndpointId,
+    setStyleExtractEndpointId,
   } = useLocalSetting()
+
+  const updateSelectedEndpoints = (endpoints: LlmEndpoint[]) => {
+    setOptimizeEndpointId(resolveLlmEndpointId(endpoints, optimizeEndpointId))
+    setCharCardEndpointId(resolveLlmEndpointId(endpoints, charCardEndpointId))
+    setStyleExtractEndpointId(
+      resolveLlmEndpointId(endpoints, styleExtractEndpointId),
+    )
+  }
 
   // 本地编辑态
   const [draftEndpoints, setDraftEndpoints] = useState<LlmEndpoint[]>(
@@ -160,20 +171,43 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
       if (next.length === 0) {
         const fresh = createEmptyEndpoint()
         setActiveId(fresh.id)
+        updateSelectedEndpoints([])
         return [fresh]
       }
       if (id === activeId) {
         setActiveId(next[0].id)
       }
-      // 删除的端点若被指定为提示词优化/角色卡生成端点，回退到第一个
-      if (id === optimizeEndpointId) {
-        setOptimizeEndpointId(next[0].id)
-      }
-      if (id === charCardEndpointId) {
-        setCharCardEndpointId(next[0].id)
-      }
+      updateSelectedEndpoints(next)
       return next
     })
+  }
+
+  const handleToggleEndpoint = async () => {
+    if (!activeEndpoint) return
+    const { id } = activeEndpoint
+    const disabled = !activeEndpoint.disabled
+    const savedEndpoint = llmEndpoints.find((endpoint) => endpoint.id === id)
+
+    // 已保存的端点只更新停用状态，保留各端点尚未保存的编辑内容。
+    if (savedEndpoint) {
+      setUpdatingEndpoint(true)
+      skipNextEndpointSyncRef.current = true
+      try {
+        const next = llmEndpoints.map((endpoint) =>
+          endpoint.id === id ? { ...endpoint, disabled } : endpoint,
+        )
+        if (!(await saveLlmEndpoints(next))) {
+          skipNextEndpointSyncRef.current = false
+          message.error(t('端点状态更新失败'))
+          return
+        }
+        updateSelectedEndpoints(next)
+      } finally {
+        setUpdatingEndpoint(false)
+      }
+    }
+    updateActiveEndpoint({ disabled })
+    message.success(disabled ? t('端点已停用') : t('端点已启用'))
   }
 
   const handleUpdateEndpoint = async () => {
@@ -211,6 +245,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
       )
       setPendingPresetEndpoint(null)
       setActiveId(cleanedEndpoint.id)
+      updateSelectedEndpoints(nextEndpoints)
       message.success(t('当前 LLM 端点已更新'))
     } finally {
       setUpdatingEndpoint(false)
@@ -240,19 +275,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
       }
       setPendingPresetEndpoint(null)
       await saveLlmPrompts(canonicalizeLlmPrompts(draftPrompts, defaultLlmPrompts))
-      // 确保两个功能都有端点，缺失则默认用第一个
-      if (
-        !optimizeEndpointId ||
-        !cleaned.find((e) => e.id === optimizeEndpointId)
-      ) {
-        setOptimizeEndpointId(cleaned[0].id)
-      }
-      if (
-        !charCardEndpointId ||
-        !cleaned.find((e) => e.id === charCardEndpointId)
-      ) {
-        setCharCardEndpointId(cleaned[0].id)
-      }
+      updateSelectedEndpoints(cleaned)
       message.success(t('LLM 配置保存成功'))
     },
   }))
@@ -276,7 +299,7 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
             className="min-w-[120px] flex-1"
             options={draftEndpoints.map((e) => ({
               value: e.id,
-              label: e.name || t('未命名端点'),
+              label: `${e.name || t('未命名端点')}${e.disabled ? ` (${t('已停用')})` : ''}`,
             }))}
           />
           <Button icon={<PlusOutlined />} onClick={handleAddEndpoint}>
@@ -294,6 +317,12 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
           />
           <Button loading={updatingEndpoint} onClick={handleUpdateEndpoint}>
             {t('更新')}
+          </Button>
+          <Button
+            disabled={updatingEndpoint || !activeEndpoint}
+            onClick={handleToggleEndpoint}
+          >
+            {activeEndpoint?.disabled ? t('启用') : t('停用')}
           </Button>
           {!pendingPresetEndpoint && draftEndpoints.length > 1 && (
             <Button
@@ -384,7 +413,9 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="small"
-                disabled={Boolean(pendingPresetEndpoint)}
+                disabled={
+                  Boolean(pendingPresetEndpoint) || activeEndpoint.disabled
+                }
                 type={
                   optimizeEndpointId === activeEndpoint.id
                     ? 'primary'
@@ -398,7 +429,9 @@ export const LlmSetting = forwardRef<LlmSettingRef>((_props, ref) => {
               </Button>
               <Button
                 size="small"
-                disabled={Boolean(pendingPresetEndpoint)}
+                disabled={
+                  Boolean(pendingPresetEndpoint) || activeEndpoint.disabled
+                }
                 type={
                   charCardEndpointId === activeEndpoint.id
                     ? 'primary'

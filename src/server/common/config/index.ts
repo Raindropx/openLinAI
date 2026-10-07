@@ -91,6 +91,8 @@ export interface GptImageEndpoint {
 /** 纯文本 LLM 端点（提示词优化 / 角色卡生成用），走 OpenAI 兼容 chat/completions */
 export interface LlmEndpoint {
   id: string
+  /** 停用后保留配置，但不参与 LLM 请求；旧配置未设置时默认启用。 */
+  disabled?: boolean
   name: string
   baseURL: string
   model: string

@@ -24,6 +24,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AppType } from '../../../../../../server'
 import { requestChatCompletion } from '../../../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../../../hooks/useLocalSetting'
+import {
+  resolveLlmEndpointId,
+  useEnabledLlmEndpoints,
+} from '../../../../../hooks/useEnabledLlmEndpoints'
 import { t, useAppLanguage } from '../../../../../i18n'
 import { localizeLlmPrompt } from '../../../../../prompts/localize'
 import { useGlobalStore } from '../../../../../store/global'
@@ -236,7 +240,7 @@ export function StyleExtractModal({
 }) {
   const { language } = useAppLanguage()
 
-  const llmEndpoints = useGlobalStore((state) => state.llmEndpoints)
+  const llmEndpoints = useEnabledLlmEndpoints()
   const styleOptimizePrompt = useGlobalStore(
     (state) => state.llmPrompts.styleOptimizePrompt,
   )
@@ -247,11 +251,7 @@ export function StyleExtractModal({
     optimizeEndpointId,
     setOptimizeEndpointId,
   } = useLocalSetting()
-  const endpointId = llmEndpoints.some(
-    (endpoint) => endpoint.id === styleExtractEndpointId,
-  )
-    ? styleExtractEndpointId
-    : llmEndpoints[0]?.id
+  const endpointId = resolveLlmEndpointId(llmEndpoints, styleExtractEndpointId)
   const [imageUrl, setImageUrl] = useState('')
   const [previewUrl, setPreviewUrl] = useState('')
   const [busy, setBusy] = useState(false)
@@ -409,12 +409,12 @@ export function StyleExtractModal({
   const optimizeResult = async () => {
     const source = result.trim()
     if (!source) return message.warning(t('没有可优化的组合提示词'))
-    const optimizeId = optimizeEndpointId || llmEndpoints[0]?.id
+    const optimizeId = resolveLlmEndpointId(llmEndpoints, optimizeEndpointId)
     if (!optimizeId) return message.warning(t('请先在设置中配置 LLM 端点'))
     if (!styleOptimizePrompt.trim()) {
       return message.warning(t('请先在设置中配置风格优化系统提示词'))
     }
-    if (!optimizeEndpointId) setOptimizeEndpointId(optimizeId)
+    if (optimizeEndpointId !== optimizeId) setOptimizeEndpointId(optimizeId)
     setStyleOptimizing(true)
     try {
       const optimized = await optimizeStyleTemplate({

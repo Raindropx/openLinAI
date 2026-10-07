@@ -35,6 +35,10 @@ import {
   type ChatMessage,
 } from '../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import {
+  resolveLlmEndpointId,
+  useEnabledLlmEndpoints,
+} from '../../../hooks/useEnabledLlmEndpoints'
 import { t, useAppLanguage } from '../../../i18n'
 import { localizeLlmPrompt } from '../../../prompts/localize'
 import { useGlobalStore } from '../../../store/global'
@@ -84,7 +88,8 @@ function arrayBufferToDataUrl(buffer: ArrayBuffer) {
 export function CharacterCardPage() {
   const { language } = useAppLanguage()
 
-  const { llmEndpoints, llmPrompts, defaultLlmPrompts } = useGlobalStore()
+  const { llmPrompts, defaultLlmPrompts } = useGlobalStore()
+  const llmEndpoints = useEnabledLlmEndpoints()
   const { charCardEndpointId, setCharCardEndpointId } = useLocalSetting()
   const {
     data: storedCards = [],
@@ -121,7 +126,7 @@ export function CharacterCardPage() {
   const isAndroid =
     typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
 
-  const endpointId = charCardEndpointId || llmEndpoints[0]?.id
+  const endpointId = resolveLlmEndpointId(llmEndpoints, charCardEndpointId)
 
   const updateField = <K extends keyof CharacterCard>(
     key: K,
@@ -137,7 +142,7 @@ export function CharacterCardPage() {
       openSettingModal({ initialTab: 'llm-endpoints' })
       return null
     }
-    if (!charCardEndpointId) setCharCardEndpointId(endpointId)
+    if (charCardEndpointId !== endpointId) setCharCardEndpointId(endpointId)
     return endpointId
   }
 

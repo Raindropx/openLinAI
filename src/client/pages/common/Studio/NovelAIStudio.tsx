@@ -40,6 +40,10 @@ import {
   type ChatMessage,
 } from '../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import {
+  resolveLlmEndpointId,
+  useEnabledLlmEndpoints,
+} from '../../../hooks/useEnabledLlmEndpoints'
 import { t, useAppLanguage } from '../../../i18n'
 import { localizeLlmPrompt } from '../../../prompts/localize'
 import { useGlobalStore } from '../../../store/global'
@@ -189,7 +193,8 @@ export function NovelAIStudio({
   const touchedPresetFields = useRef(new Set<PresetField>())
   const { gptImageSettings, optimizeEndpointId, setOptimizeEndpointId } =
     useLocalSetting()
-  const { llmEndpoints, llmPrompts, defaultLlmPrompts } = useGlobalStore()
+  const { llmPrompts, defaultLlmPrompts } = useGlobalStore()
+  const llmEndpoints = useEnabledLlmEndpoints()
   const model = Form.useWatch('model', form) || settings.model
   const action = Form.useWatch('action', form) || 'generate'
   const focusedInpaint = Form.useWatch('focusedInpaint', form) ?? true
@@ -630,14 +635,12 @@ export function NovelAIStudio({
       message.warning(t('请填写提示词或添加参考图'))
       return
     }
-    const endpointId =
-      llmEndpoints.find((endpoint) => endpoint.id === optimizeEndpointId)?.id ||
-      llmEndpoints[0]?.id
+    const endpointId = resolveLlmEndpointId(llmEndpoints, optimizeEndpointId)
     if (!endpointId) {
       openSettingModal({ initialTab: 'llm-endpoints' })
       return
     }
-    if (!optimizeEndpointId) setOptimizeEndpointId(endpointId)
+    if (optimizeEndpointId !== endpointId) setOptimizeEndpointId(endpointId)
     const requestId = ++optimizeRequestId.current
     setOptimizeLoading(true)
     try {

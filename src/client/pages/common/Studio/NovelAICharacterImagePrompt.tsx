@@ -6,6 +6,10 @@ import {
   type ChatMessage,
 } from '../../../hooks/useChatCompletion'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import {
+  resolveLlmEndpointId,
+  useEnabledLlmEndpoints,
+} from '../../../hooks/useEnabledLlmEndpoints'
 import { t, useAppLanguage } from '../../../i18n'
 import { localizeLlmPrompt } from '../../../prompts/localize'
 import { useGlobalStore } from '../../../store/global'
@@ -56,7 +60,8 @@ export function NovelAICharacterImagePrompt({
   const [prompt, setPrompt] = useState('')
   const [uc, setUc] = useState('')
   const { optimizeEndpointId, setOptimizeEndpointId } = useLocalSetting()
-  const { llmEndpoints, llmPrompts, defaultLlmPrompts } = useGlobalStore()
+  const { llmPrompts, defaultLlmPrompts } = useGlobalStore()
+  const llmEndpoints = useEnabledLlmEndpoints()
 
   async function generateFromImage(file: File) {
     if (loading) return
@@ -68,14 +73,12 @@ export function NovelAICharacterImagePrompt({
       message.error(t('请选择图片文件'))
       return
     }
-    const endpointId =
-      llmEndpoints.find((endpoint) => endpoint.id === optimizeEndpointId)?.id ||
-      llmEndpoints[0]?.id
+    const endpointId = resolveLlmEndpointId(llmEndpoints, optimizeEndpointId)
     if (!endpointId) {
       openSettingModal({ initialTab: 'llm-endpoints' })
       return
     }
-    if (!optimizeEndpointId) setOptimizeEndpointId(endpointId)
+    if (optimizeEndpointId !== endpointId) setOptimizeEndpointId(endpointId)
 
     setLoading(true)
     try {

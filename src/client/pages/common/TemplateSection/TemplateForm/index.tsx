@@ -20,6 +20,10 @@ import {
   useEnabledImageEndpoints,
 } from '../../../../hooks/useEnabledImageEndpoints'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
+import {
+  resolveLlmEndpointId,
+  useEnabledLlmEndpoints,
+} from '../../../../hooks/useEnabledLlmEndpoints'
 import { t, useAppLanguage } from '../../../../i18n'
 import { localizeLlmPrompt } from '../../../../prompts/localize'
 import { useGlobalStore } from '../../../../store/global'
@@ -57,7 +61,6 @@ export function TemplateForm({
   const [dirty, setDirty] = useState(false)
   const saveIntentRef = useRef<'save' | 'save-as'>('save-as')
   const {
-    llmEndpoints,
     llmPrompts,
     defaultLlmPrompts,
     fillTemplateData,
@@ -67,7 +70,6 @@ export function TemplateForm({
     setFocusNewestTask,
   } = useGlobalStore(
     useShallow((state) => ({
-      llmEndpoints: state.llmEndpoints,
       llmPrompts: state.llmPrompts,
       defaultLlmPrompts: state.defaultLlmPrompts,
       fillTemplateData: state.fillTemplateData,
@@ -84,6 +86,7 @@ export function TemplateForm({
     setOptimizeEndpointId,
   } = useLocalSetting()
   const endpoints = useEnabledImageEndpoints()
+  const llmEndpoints = useEnabledLlmEndpoints()
   const preferredEndpointId = resolveImageEndpointId(
     endpoints,
     gptImageSettings.selectedEndpointId,
@@ -258,12 +261,12 @@ export function TemplateForm({
       return
     }
 
-    const endpointId = optimizeEndpointId || llmEndpoints[0]?.id
+    const endpointId = resolveLlmEndpointId(llmEndpoints, optimizeEndpointId)
     if (!endpointId) {
       openSettingModal({ initialTab: 'llm-endpoints' })
       return
     }
-    if (!optimizeEndpointId) {
+    if (optimizeEndpointId !== endpointId) {
       setOptimizeEndpointId(endpointId)
     }
 

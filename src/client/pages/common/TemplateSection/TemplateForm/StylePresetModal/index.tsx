@@ -24,6 +24,10 @@ import { useEffect, useMemo, useState } from 'react'
 import builtinData from '../../../../../../../styles_zh.json'
 import type { AppType } from '../../../../../../server'
 import { useLocalSetting } from '../../../../../hooks/useLocalSetting'
+import {
+  resolveLlmEndpointId,
+  useEnabledLlmEndpoints,
+} from '../../../../../hooks/useEnabledLlmEndpoints'
 import { t, useAppLanguage } from '../../../../../i18n'
 import { localizeLlmPrompt } from '../../../../../prompts/localize'
 import { useGlobalStore } from '../../../../../store/global'
@@ -83,7 +87,8 @@ export function StylePresetModal({
   const [editingPreset, setEditingPreset] = useState<StylePreset | null>(null)
   const [optimizing, setOptimizing] = useState(false)
   const [form] = Form.useForm<PresetFormValue>()
-  const { llmEndpoints, llmPrompts, defaultLlmPrompts } = useGlobalStore()
+  const { llmPrompts, defaultLlmPrompts } = useGlobalStore()
+  const llmEndpoints = useEnabledLlmEndpoints()
   const { optimizeEndpointId, setOptimizeEndpointId } = useLocalSetting()
 
   const allPresets = useMemo(
@@ -193,12 +198,12 @@ export function StylePresetModal({
   const optimizePresetPrompt = async () => {
     const source = form.getFieldValue('prompt')?.trim()
     if (!source) return message.warning(t('请先输入提示词模板或风格标签'))
-    const endpointId = optimizeEndpointId || llmEndpoints[0]?.id
+    const endpointId = resolveLlmEndpointId(llmEndpoints, optimizeEndpointId)
     if (!endpointId) return message.warning(t('请先在设置中配置 LLM 端点'))
     if (!llmPrompts.styleOptimizePrompt.trim()) {
       return message.warning(t('请先在设置中配置风格优化系统提示词'))
     }
-    if (!optimizeEndpointId) setOptimizeEndpointId(endpointId)
+    if (optimizeEndpointId !== endpointId) setOptimizeEndpointId(endpointId)
     setOptimizing(true)
     try {
       const result = await optimizeStyleTemplate({

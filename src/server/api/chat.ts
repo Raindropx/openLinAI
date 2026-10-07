@@ -148,6 +148,16 @@ const chatApi = new Hono().post(
       )
     }
 
+    if (endpoint.disabled) {
+      return c.json(
+        {
+          success: false as const,
+          error: '[配置] LLM 端点已停用，请先启用或选择其他端点',
+        },
+        400,
+      )
+    }
+
     const { endpointId: _endpointId, ...upstreamBody } = body
     const normalizedBody = {
       ...upstreamBody,
