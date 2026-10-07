@@ -1,4 +1,5 @@
 import {
+  BulbOutlined,
   CheckSquareOutlined,
   DeleteOutlined,
   FileAddOutlined,
@@ -115,11 +116,14 @@ export function TaskReviewPreview({
   canDelete,
   canAddToTemplate,
   canSelect,
+  canViewOriginalPrompt,
+  originalPromptOpen,
   deleting,
   onDelete,
   onAddToTemplate,
   onToggleSelection,
   onExitSelectionMode,
+  onViewOriginalPrompt,
 }: {
   images: ReviewImage[]
   current: number
@@ -131,11 +135,14 @@ export function TaskReviewPreview({
   canDelete: boolean
   canAddToTemplate: boolean
   canSelect: boolean
+  canViewOriginalPrompt: boolean
+  originalPromptOpen: boolean
   deleting: boolean
   onDelete: () => void
   onAddToTemplate: () => void
   onToggleSelection: () => void
   onExitSelectionMode: () => void
+  onViewOriginalPrompt: () => void
 }) {
   useAppLanguage()
 
@@ -189,7 +196,15 @@ export function TaskReviewPreview({
 
     window.addEventListener('keydown', handleKeyDown, true)
     return () => window.removeEventListener('keydown', handleKeyDown, true)
-  }, [canDelete, canSelect, deleting, onDelete, onToggleSelection, open, selectionMode])
+  }, [
+    canDelete,
+    canSelect,
+    deleting,
+    onDelete,
+    onToggleSelection,
+    open,
+    selectionMode,
+  ])
 
   return (
     <Image.PreviewGroup
@@ -197,6 +212,7 @@ export function TaskReviewPreview({
       classNames={{ popup: { root: 'task-review-preview' } }}
       preview={{
         open,
+        focusTrap: !originalPromptOpen,
         // Keep the last image visible throughout the closing animation.
         current: open
           ? current
@@ -222,6 +238,17 @@ export function TaskReviewPreview({
                 {t('· ← → 切图 · Enter 选中 · Del 删除 · 窄屏可左右滑动')}
               </div>
               <div className="task-review-preview-task-actions">
+                {canViewOriginalPrompt && (
+                  <Tooltip title={t('查看优化前的提示词')}>
+                    <Button
+                      size="small"
+                      icon={<BulbOutlined />}
+                      onClick={onViewOriginalPrompt}
+                      aria-label={t('查看优化前的提示词')}
+                      className="text-amber-300!"
+                    />
+                  </Tooltip>
+                )}
                 <Tooltip
                   title={
                     selectionMode

@@ -1268,7 +1268,9 @@ export function TaskList({
                           )}
                         </div>
 
-                        {((isMobile && managementMode) || !selectionMode) && (
+                        {((isMobile && managementMode) ||
+                          !selectionMode ||
+                          task.originalPrompt !== undefined) && (
                           <div
                             className={`task-list-card-actions flex min-w-0 items-center ${
                               panelMode || (isMobile && managementMode)
@@ -1294,110 +1296,115 @@ export function TaskList({
                                 </div>
                               </Tooltip>
                             )}
-                            {!selectionMode && (
-                              <div className="task-list-card-buttons flex items-center gap-0.5">
-                                {task.outputUrls.length > 0 && (
-                                  <CopyToStudioButton
-                                    taskId={task.id}
-                                    count={task.outputUrls.length}
+                            <div
+                              className={`task-list-card-buttons flex items-center gap-0.5 ${managementMode ? 'flex-wrap justify-end' : ''}`}
+                            >
+                              {task.originalPrompt !== undefined && (
+                                <Tooltip title={t('查看优化前的提示词')}>
+                                  <Button
+                                    type="text"
+                                    icon={<BulbOutlined />}
+                                    onClick={() =>
+                                      setOriginalPromptView({
+                                        text: task.originalPrompt || '',
+                                      })
+                                    }
+                                    aria-label={t('查看优化前的提示词')}
+                                    className="text-amber-300!"
                                   />
-                                )}
-                                {task.originalPrompt !== undefined && (
-                                  <Tooltip title={t('查看优化前的提示词')}>
-                                    <Button
-                                      type="text"
-                                      icon={<BulbOutlined />}
-                                      onClick={() =>
-                                        setOriginalPromptView({
-                                          text: task.originalPrompt || '',
-                                        })
-                                      }
-                                      aria-label={t('查看优化前的提示词')}
-                                      className="text-amber-300!"
+                                </Tooltip>
+                              )}
+                              {!selectionMode && (
+                                <>
+                                  {task.outputUrls.length > 0 && (
+                                    <CopyToStudioButton
+                                      taskId={task.id}
+                                      count={task.outputUrls.length}
                                     />
-                                  </Tooltip>
-                                )}
-                                {managementMode &&
-                                  task.rawTemplate &&
-                                  (!task.studioProvenance ||
-                                    task.studioProvenance.template) && (
-                                    <Tooltip title={t('添加到模板')}>
-                                      <Button
-                                        type="primary"
-                                        size="small"
-                                        icon={<FileAddOutlined />}
-                                        onClick={() =>
-                                          handleAddToTemplate(task)
-                                        }
-                                        aria-label={t('添加到模板')}
-                                        className="px-2! sm:px-3!"
-                                      >
-                                        <span className="hidden sm:inline">
-                                          {t('添加到模板')}
-                                        </span>
-                                      </Button>
-                                    </Tooltip>
                                   )}
-                                {task.rawTemplate &&
-                                  (!task.studioProvenance ||
-                                    task.studioProvenance.template ||
-                                    task.studioProvenance.novelai) && (
-                                    <Tooltip title={t('重新填入')}>
-                                      <Button
-                                        type="text"
-                                        icon={<VerticalAlignTopOutlined />}
-                                        onClick={() => handleRefill(task)}
-                                        aria-label={t('重新填入')}
-                                      />
-                                    </Tooltip>
-                                  )}
-                                {task.outputUrls.length > 0 && (
-                                  <TaskItemDownloadButton
-                                    folder={
-                                      folders.find(
-                                        (folder) => folder.id === task.folderId,
-                                      )?.name
-                                    }
-                                    outputUrls={task.outputUrls}
-                                    fileName={
-                                      task.rawTemplate?.title ||
-                                      task.rawTemplate?.prompt ||
-                                      `task_${task.id}`
-                                    }
-                                    endpointName={task.endpointName}
-                                    createdAt={task.createdAt}
-                                    onDownloaded={() => {
-                                      if (!downloadedIds?.includes(task.id)) {
-                                        setDownloadedIds([
-                                          ...(downloadedIds || []),
-                                          task.id,
-                                        ])
+                                  {managementMode &&
+                                    task.rawTemplate &&
+                                    (!task.studioProvenance ||
+                                      task.studioProvenance.template) && (
+                                      <Tooltip title={t('添加到模板')}>
+                                        <Button
+                                          type="primary"
+                                          size="small"
+                                          icon={<FileAddOutlined />}
+                                          onClick={() =>
+                                            handleAddToTemplate(task)
+                                          }
+                                          aria-label={t('添加到模板')}
+                                          className="px-2! sm:px-3!"
+                                        >
+                                          <span className="hidden sm:inline">
+                                            {t('添加到模板')}
+                                          </span>
+                                        </Button>
+                                      </Tooltip>
+                                    )}
+                                  {task.rawTemplate &&
+                                    (!task.studioProvenance ||
+                                      task.studioProvenance.template ||
+                                      task.studioProvenance.novelai) && (
+                                      <Tooltip title={t('重新填入')}>
+                                        <Button
+                                          type="text"
+                                          icon={<VerticalAlignTopOutlined />}
+                                          onClick={() => handleRefill(task)}
+                                          aria-label={t('重新填入')}
+                                        />
+                                      </Tooltip>
+                                    )}
+                                  {task.outputUrls.length > 0 && (
+                                    <TaskItemDownloadButton
+                                      folder={
+                                        folders.find(
+                                          (folder) =>
+                                            folder.id === task.folderId,
+                                        )?.name
                                       }
-                                    }}
-                                  />
-                                )}
-                                {(!task.studioProvenance ||
-                                  task.studioProvenance.novelai) &&
-                                  (task.endpointName !== 'NovelAI Studio' ||
-                                    task.novelaiSnapshots?.length ||
-                                    task.studioProvenance?.novelai) &&
-                                  task.rawTemplate?.title !==
-                                    TRIAL_TEMPLATE_TITLE && (
-                                    <Tooltip title={t('重试')}>
-                                      <Button
-                                        type="text"
-                                        icon={<RedoOutlined />}
-                                        onClick={() => handleRetry(task)}
-                                        loading={retryingTaskId === task.id}
-                                      />
-                                    </Tooltip>
+                                      outputUrls={task.outputUrls}
+                                      fileName={
+                                        task.rawTemplate?.title ||
+                                        task.rawTemplate?.prompt ||
+                                        `task_${task.id}`
+                                      }
+                                      endpointName={task.endpointName}
+                                      createdAt={task.createdAt}
+                                      onDownloaded={() => {
+                                        if (!downloadedIds?.includes(task.id)) {
+                                          setDownloadedIds([
+                                            ...(downloadedIds || []),
+                                            task.id,
+                                          ])
+                                        }
+                                      }}
+                                    />
                                   )}
-                                <TaskItemDeleteButton
-                                  id={task.id}
-                                  status={task.status}
-                                />
-                              </div>
-                            )}
+                                  {(!task.studioProvenance ||
+                                    task.studioProvenance.novelai) &&
+                                    (task.endpointName !== 'NovelAI Studio' ||
+                                      task.novelaiSnapshots?.length ||
+                                      task.studioProvenance?.novelai) &&
+                                    task.rawTemplate?.title !==
+                                      TRIAL_TEMPLATE_TITLE && (
+                                      <Tooltip title={t('重试')}>
+                                        <Button
+                                          type="text"
+                                          icon={<RedoOutlined />}
+                                          onClick={() => handleRetry(task)}
+                                          loading={retryingTaskId === task.id}
+                                        />
+                                      </Tooltip>
+                                    )}
+                                  <TaskItemDeleteButton
+                                    id={task.id}
+                                    status={task.status}
+                                  />
+                                </>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1602,10 +1609,12 @@ export function TaskList({
           images={presentedReviewImages}
           current={presentedReviewIndex}
           onChange={(index) => {
+            if (originalPromptView !== null) return
             const image = presentedReviewImages[index]
             if (image) showReviewImage(image)
           }}
           onClose={() => {
+            if (originalPromptView !== null) return
             setReviewOrphaned(false)
             setReviewImage(null)
           }}
@@ -1617,6 +1626,15 @@ export function TaskList({
           canDelete={Boolean(currentReviewTask) && !reviewOrphaned}
           canAddToTemplate={canAddCurrentReviewToTemplate && !reviewOrphaned}
           canSelect={Boolean(currentReviewTask) && !reviewOrphaned}
+          canViewOriginalPrompt={
+            currentReviewTask?.originalPrompt !== undefined && !reviewOrphaned
+          }
+          originalPromptOpen={originalPromptView !== null}
+          onViewOriginalPrompt={() => {
+            if (currentReviewTask?.originalPrompt !== undefined) {
+              setOriginalPromptView({ text: currentReviewTask.originalPrompt })
+            }
+          }}
           deleting={reviewDeleting}
           onDelete={handleDeleteReviewedItem}
           onAddToTemplate={() => {
