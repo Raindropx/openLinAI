@@ -14,6 +14,11 @@ import { t, useAppLanguage } from '../../../../i18n'
 import { AppThemeProvider } from '../../../../theme'
 import type { GalleryDeleteSuccessPayload } from './Footer'
 import { GalleryFooter } from './Footer'
+import {
+  collectGalleryImageReferences,
+  normalizeComparableUrl,
+  resolveGalleryReference,
+} from './references'
 
 const client = hc<AppType>('/')
 
@@ -24,21 +29,17 @@ interface GalleryModalProps {
   maxCount?: number
 }
 
-type ImageItem = {
+type ImageFile = {
   url: string
   type: 'input' | 'generated'
   createdAt: number
+}
+
+type ImageItem = ImageFile & {
   isReferenced: boolean
 }
 
 export type GalleryImageSelection = Pick<ImageItem, 'url' | 'type'>
-
-const normalizeComparableUrl = (url: string) =>
-  url
-    .replace(/^https?:\/\/[^/]+/i, '')
-    .split('?')[0]
-    .split('#')[0]
-    .trim()
 
 const isManagedGalleryUrl = (url: string) => {
   const normalizedUrl = normalizeComparableUrl(url)
@@ -57,7 +58,7 @@ function GalleryModal({
   useAppLanguage()
 
   const [activeKey, setActiveKey] = useState('recent')
-  const [images, setImages] = useState<ImageItem[]>([])
+  const [imageFiles, setImageFiles] = useState<ImageFile[]>([])
   const [loading, setLoading] = useState(false)
   const [imagesLoadSucceeded, setImagesLoadSucceeded] = useState(false)
   const [selectedUrls, setSelectedUrls] = useState<string[]>([])
@@ -82,38 +83,31 @@ function GalleryModal({
     return normalizedUrl
   }
 
-  const referencedInputUrls = useMemo(
-    () =>
-      new Set(
-        templates.flatMap((template) =>
-          Array.isArray(template.images)
-            ? template.images
-                .map((url) => getComparableImageUrl('input', url))
-                .filter((url): url is string => Boolean(url))
-            : [],
-        ),
-      ),
+  const templateReferencedUrls = useMemo(
+    () => collectGalleryImageReferences(templates),
     [templates],
   )
 
-  const referencedGeneratedUrls = useMemo(() => {
-    const urls = tasks.flatMap((task) => {
-      if (Array.isArray(task.outputUrls) && task.outputUrls.length > 0) {
-        return task.outputUrls
-          .map((url) => getComparableImageUrl('generated', url))
-          .filter((url): url is string => Boolean(url))
-      }
+  const taskReferencedUrls = useMemo(
+    () => collectGalleryImageReferences(tasks),
+    [tasks],
+  )
 
-      if (!task.outputUrl) {
-        return []
-      }
-
-      const normalizedUrl = getComparableImageUrl('generated', task.outputUrl)
-      return normalizedUrl ? [normalizedUrl] : []
-    })
-
-    return new Set(urls)
-  }, [tasks])
+  const images = useMemo<ImageItem[]>(
+    () =>
+      imageFiles.map((image) => ({
+        ...image,
+        isReferenced:
+          !referencesReady ||
+          !getComparableImageUrl(image.type, image.url) ||
+          resolveGalleryReference(
+            image.url,
+            templateReferencedUrls,
+            taskReferencedUrls,
+          ) !== 'none',
+      })),
+    [imageFiles, referencesReady, templateReferencedUrls, taskReferencedUrls],
+  )
 
   const imageByUrl = useMemo(
     () => new Map(images.map((image) => [image.url, image])),
@@ -161,15 +155,6 @@ function GalleryModal({
   }, [visible, referencesReady])
 
   useEffect(() => {
-    setImages((prev) =>
-      prev.map((image) => ({
-        ...image,
-        isReferenced: resolveIsReferenced(image),
-      })),
-    )
-  }, [referencesReady, referencedInputUrls, referencedGeneratedUrls])
-
-  useEffect(() => {
     if (invalidRecentImages.length === 0) {
       return
     }
@@ -179,37 +164,15 @@ function GalleryModal({
     setSelectedUrls((prev) => prev.filter((url) => !invalidUrlSet.has(url)))
   }, [invalidRecentImages, removeRecentImages])
 
-  const resolveIsReferenced = (
-    image: Pick<ImageItem, 'url' | 'type'>,
-  ): boolean => {
-    if (!referencesReady) {
-      return true
-    }
-
-    const comparableUrl = getComparableImageUrl(image.type, image.url)
-    if (!comparableUrl) {
-      return true
-    }
-
-    return image.type === 'input'
-      ? referencedInputUrls.has(comparableUrl)
-      : referencedGeneratedUrls.has(comparableUrl)
-  }
-
-  const fetchImages = async (): Promise<ImageItem[] | null> => {
+  const fetchImages = async (): Promise<ImageFile[] | null> => {
     setLoading(true)
     setImagesLoadSucceeded(false)
     try {
       const res = await client.api.static.images.list.$get()
       const data = await res.json()
       if (data.success) {
-        const nextImages = (
-          data.data as Array<Omit<ImageItem, 'isReferenced'>>
-        ).map((image) => ({
-          ...image,
-          isReferenced: resolveIsReferenced(image),
-        }))
-        setImages(nextImages)
+        const nextImages = data.data as ImageFile[]
+        setImageFiles(nextImages)
         setImagesLoadSucceeded(true)
         return nextImages
       }
@@ -284,6 +247,11 @@ function GalleryModal({
           (() => {
             const order = selectionOrderMap.get(url)
             const selected = typeof order === 'number'
+            const reference = resolveGalleryReference(
+              url,
+              templateReferencedUrls,
+              taskReferencedUrls,
+            )
 
             return (
               <div
@@ -301,12 +269,18 @@ function GalleryModal({
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
-                {referencesReady &&
+                {referencesReady && reference === 'task' ? (
+                  <div className="absolute top-1 left-1 z-10 rounded bg-blue-500 px-2 py-0.5 text-xs text-white shadow-sm">
+                    {t('已参考')}
+                  </div>
+                ) : (
+                  referencesReady &&
                   imageByUrl.get(url)?.isReferenced === false && (
                     <div className="absolute top-1 left-1 z-10 rounded bg-red-500 px-2 py-0.5 text-xs text-white shadow-sm">
                       {t('无引用')}
                     </div>
-                  )}
+                  )
+                )}
                 <div
                   className={`absolute inset-0 flex items-center justify-center transition-colors ${
                     selected ? 'bg-blue-500/45' : 'bg-black/0 hover:bg-black/5'
