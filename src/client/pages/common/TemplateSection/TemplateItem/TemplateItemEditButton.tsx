@@ -27,7 +27,7 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [uploadingCount, setUploadingCount] = useState(0)
   const [form] = Form.useForm()
-  const { refresh } = useTemplates()
+  const { refresh } = useTemplates({ manual: true })
   const endpoints = useEnabledImageEndpoints()
   const { gptImageSettings } = useLocalSetting()
 

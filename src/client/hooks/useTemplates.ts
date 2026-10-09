@@ -6,7 +6,7 @@ import { t } from '../i18n'
 
 const client = hc<AppType>('/')
 
-export function useTemplates() {
+export function useTemplates({ manual = false }: { manual?: boolean } = {}) {
   return useRequest(
     async () => {
       const res = await client.api.template.$get()
@@ -19,6 +19,7 @@ export function useTemplates() {
       }
     },
     {
+      manual,
       cacheKey: 'global-templates',
       onError: () => {
         message.error(t('请求失败'))

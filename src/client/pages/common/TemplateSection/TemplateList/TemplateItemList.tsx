@@ -50,7 +50,7 @@ export function TemplateItemList({
 }: TemplateItemListProps) {
   useAppLanguage()
 
-  const { refresh: refreshTemplates } = useTemplates()
+  const { refresh: refreshTemplates } = useTemplates({ manual: true })
   const [page, setPage] = useState(0)
   const [visibleCount, setVisibleCount] = useState(pageSize)
 

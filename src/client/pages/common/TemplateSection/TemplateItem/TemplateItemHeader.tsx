@@ -28,7 +28,7 @@ export const TemplateItemHeader = ({
 }) => {
   useAppLanguage()
 
-  const { refresh: refreshTemplates } = useTemplates()
+  const { refresh: refreshTemplates } = useTemplates({ manual: true })
 
   const handleDelete = async (id: string) => {
     try {
