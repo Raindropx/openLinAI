@@ -3,13 +3,16 @@ import { Button, Modal, message } from 'antd'
 import { useState } from 'react'
 import type { Task } from '../../../../../server/common/task-manager'
 import type { TaskFolder } from '../../../../../shared/task-folders'
+import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../../i18n'
 import {
   DOWNLOAD_ZIP_MAX_FILES,
   downloadFile,
   downloadFilesZip,
   formatTaskTimestamp,
+  getDownloadErrorMessage,
 } from '../../../../utils/download'
+import { downloadTaskZip } from '../../../../utils/taskDownload'
 
 interface TaskListDownloadButtonProps {
   tasks: Task[]
@@ -35,6 +38,8 @@ export function TaskListDownloadButton({
   useAppLanguage()
 
   const [downloading, setDownloading] = useState(false)
+  const { gptImageSettings } = useLocalSetting()
+  const streamDownloads = gptImageSettings.streamTaskDownloads ?? true
 
   const handleDownloadAll = () => {
     const tasksToDownload = tasks.filter(
@@ -77,6 +82,13 @@ export function TaskListDownloadButton({
             {t('图片数量：')}
             {filesToDownload.length}
           </p>
+          <p>
+            {t(
+              streamDownloads
+                ? '批量图片将下载为一个 ZIP，可在浏览器下载记录中查看进度。'
+                : '大批量下载按最多 100 张或约 128 MiB 分包，请允许浏览器下载多个文件。',
+            )}
+          </p>
         </div>
       ),
       okText: t('确认下载'),
@@ -88,18 +100,53 @@ export function TaskListDownloadButton({
         try {
           if (
             includeDownloaded ||
+            (streamDownloads && filesToDownload.length > 1) ||
             filesToDownload.some((file) => file.folder) ||
             filesToDownload.length > DOWNLOAD_ZIP_MAX_FILES
           ) {
-            message.loading({ content: t('正在打包压缩...'), key: 'download' })
-            const latestTaskCreatedAt = Math.max(
-              ...tasksToDownload.map((task) => task.createdAt),
+            const latestTaskCreatedAt = tasksToDownload.reduce(
+              (latest, task) => Math.max(latest, task.createdAt),
+              tasksToDownload[0].createdAt,
             )
-            await downloadFilesZip(
-              filesToDownload,
-              `${folder?.name || 'tasks'}_${formatTaskTimestamp(latestTaskCreatedAt)}`,
-            )
-            message.success({ content: t('打包下载完成'), key: 'download' })
+            const zipName = `${folder?.name || 'tasks'}_${formatTaskTimestamp(latestTaskCreatedAt)}`
+            if (streamDownloads) {
+              message.loading({
+                content: t('正在准备下载...'),
+                key: 'download',
+                duration: 0,
+              })
+              await downloadTaskZip(
+                tasksToDownload.map((task) => task.id),
+                zipName,
+                ({ completedFiles, totalFiles }) =>
+                  message.loading({
+                    content: t('正在下载：{0}/{1} 张', [
+                      completedFiles,
+                      totalFiles,
+                    ]),
+                    key: 'download',
+                    duration: 0,
+                  }),
+              )
+            } else
+              await downloadFilesZip(
+                filesToDownload,
+                zipName,
+                ({ completed, total, part }) =>
+                  message.loading({
+                    content: t('正在打包：{0}/{1} 张，第 {2} 包', [
+                      completed,
+                      total,
+                      part,
+                    ]),
+                    key: 'download',
+                    duration: 0,
+                  }),
+              )
+            message.success({
+              content: t('已发起打包下载，请查看浏览器下载记录'),
+              key: 'download',
+            })
           } else {
             message.loading({ content: t('正在下载...'), key: 'download' })
             await Promise.all(filesToDownload.map((file) => downloadFile(file)))
@@ -114,7 +161,11 @@ export function TaskListDownloadButton({
             ]),
           ])
         } catch (error) {
-          message.error({ content: t('下载失败'), key: 'download' })
+          message.error({
+            content: getDownloadErrorMessage(error),
+            key: 'download',
+            duration: 10,
+          })
         } finally {
           setDownloading(false)
         }

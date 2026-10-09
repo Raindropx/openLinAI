@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { Readable } from 'node:stream'
 import { studioFileUrl } from '../src/shared/studio'
 import {
   mapBackupImageUrls,
@@ -11,6 +12,7 @@ import {
 } from '../src/shared/task-backup'
 
 async function worker(mode: string, root: string, archivePath: string) {
+  const streaming = mode.endsWith('-stream')
   process.env.DATA_DIR = root
   await fs.mkdir(root, { recursive: true })
   const { taskManager, TaskManager } =
@@ -24,7 +26,21 @@ async function worker(mode: string, root: string, archivePath: string) {
   const { GENERATED_IMAGES_API_PATH, INPUT_IMAGES_API_PATH } =
     await import('../src/server/common/static/enum')
   const { studioManager } = await import('../src/server/common/studio-manager')
-  const { restoreTaskBackup } = await import('../src/server/common/task-backup')
+  const { restoreTaskBackup: restoreBuffer, restoreTaskBackupStream } =
+    await import('../src/server/common/task-backup')
+  const restoreTaskBackup = (archive: Buffer) =>
+    streaming
+      ? restoreTaskBackupStream(
+          Readable.toWeb(
+            Readable.from(
+              (function* () {
+                for (let index = 0; index < archive.length; index += 127)
+                  yield archive.subarray(index, index + 127)
+              })(),
+            ),
+          ) as ReadableStream<Uint8Array>,
+        )
+      : restoreBuffer(archive)
   const { default: api } = await import('../src/server/api/common/task')
   const sharp = (await import('sharp')).default
   const image = await sharp({
@@ -46,7 +62,7 @@ async function worker(mode: string, root: string, archivePath: string) {
     throw new Error('Unexpected network request')
   }) as typeof fetch
 
-  if (mode === 'source') {
+  if (mode.startsWith('source')) {
     updateConfig({
       endpoints: [
         {
@@ -194,14 +210,21 @@ async function worker(mode: string, root: string, archivePath: string) {
     await taskManager.updateTask(pending.id, {
       imageBilling: { status: 'pending' } as any,
     })
-    const response = await api.request('/backup', {
+    let response = await api.request(streaming ? '/backup-stream' : '/backup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ downloadedTaskIds: [first.id, 'stale'] }),
     })
     assert.equal(response.status, 200)
+    if (streaming) {
+      const { data } = await response.json()
+      response = await api.request(`/download/${data.token}`)
+    }
     assert.equal(response.headers.get('Content-Type'), 'application/zip')
-    assert.equal(response.headers.get('Cache-Control'), 'no-store')
+    assert.equal(
+      response.headers.get('Cache-Control'),
+      mode === 'source-stream' ? 'no-store, no-transform' : 'no-store',
+    )
     const archive = Buffer.from(await response.arrayBuffer())
     await fs.writeFile(archivePath, archive)
     const zip = await JSZip.loadAsync(archive)
@@ -229,7 +252,7 @@ async function worker(mode: string, root: string, archivePath: string) {
       )
     // A missing reference must fail the whole archive, not silently omit the file.
     await fs.unlink(path.join(INPUT_IMAGES_DIR, 'reference.png'))
-    const failed = await api.request('/backup', {
+    const failed = await api.request(streaming ? '/backup-stream' : '/backup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: '{}',
@@ -237,7 +260,7 @@ async function worker(mode: string, root: string, archivePath: string) {
     assert.equal(failed.status, 400)
     assert.match((await failed.json()).error, /图片已丢失/)
     console.log(
-      'Source: complete archive and missing-reference rejection passed',
+      `${mode}: complete archive and missing-reference rejection passed`,
     )
     return
   }
@@ -272,11 +295,14 @@ async function worker(mode: string, root: string, archivePath: string) {
   )
   let notifications = 0
   taskManager.on('tasks-updated', () => notifications++)
-  const response = await api.request('/restore', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/zip' },
-    body: new Uint8Array(archive),
-  })
+  const response = await api.request(
+    streaming ? '/restore-stream' : '/restore',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/zip' },
+      body: new Uint8Array(archive),
+    },
+  )
   assert.equal(response.status, 200, await response.clone().text())
   const result = await response.json()
   assert.equal(result.taskCount, 3)
@@ -469,7 +495,7 @@ async function worker(mode: string, root: string, archivePath: string) {
     'Repeated restore appends tasks without overwrites',
   )
   console.log(
-    'Destination: isolated round trip, references, collision handling, persistence, malformed ZIP rejection and rollback passed',
+    `${mode}: isolated round trip, references, collision handling, persistence, malformed ZIP rejection and rollback passed`,
   )
 }
 
@@ -478,10 +504,16 @@ async function main() {
   if (mode) return worker(mode, root, archive)
   const fixture = await fs.mkdtemp(path.join(os.tmpdir(), 'linai-task-backup-'))
   try {
-    const source = path.join(fixture, 'source')
-    const destination = path.join(fixture, 'destination')
     const archivePath = path.join(fixture, 'backup.zip')
-    for (const mode of ['source', 'destination']) {
+    for (const mode of [
+      'source',
+      'destination',
+      'destination-stream',
+      'source-stream',
+      'destination-from-stream',
+      'destination-again-stream',
+    ]) {
+      const root = path.join(fixture, mode)
       const result = spawnSync(
         process.execPath,
         [
@@ -489,7 +521,7 @@ async function main() {
           'tsx',
           path.resolve('scripts/test-task-backup.ts'),
           mode,
-          mode === 'source' ? source : destination,
+          root,
           archivePath,
         ],
         { encoding: 'utf8' },
@@ -497,9 +529,9 @@ async function main() {
       process.stdout.write(result.stdout)
       process.stderr.write(result.stderr)
       assert.equal(result.status, 0)
-      if (mode === 'source') {
-        assert.equal(path.dirname(source), fixture)
-        await fs.rm(source, { recursive: true, force: true })
+      if (mode.startsWith('source')) {
+        assert.equal(path.dirname(root), fixture)
+        await fs.rm(root, { recursive: true, force: true })
       }
     }
   } finally {

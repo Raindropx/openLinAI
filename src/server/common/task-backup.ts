@@ -1,9 +1,13 @@
 import fs from 'fs-extra'
 import JSZip from 'jszip'
 import crypto from 'node:crypto'
+import { createReadStream, createWriteStream } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
-import type { Readable } from 'node:stream'
+import { Readable, Transform } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import { v4 as uuidv4 } from 'uuid'
+import { openPromise, type Entry, type ZipFile } from 'yauzl'
 import { studioFileUrl, type StudioItem } from '../../shared/studio'
 import {
   mapBackupImageUrls,
@@ -11,6 +15,8 @@ import {
   TASK_BACKUP_MAX_BYTES,
   TASK_BACKUP_MAX_EXPANDED_BYTES,
   TASK_BACKUP_MAX_FILE_BYTES,
+  TASK_BACKUP_STREAM_MAX_BYTES,
+  TASK_BACKUP_STREAM_MAX_EXPANDED_BYTES,
   taskBackupSchema,
   type TaskBackup,
 } from '../../shared/task-backup'
@@ -24,6 +30,10 @@ import {
 import { GENERATED_IMAGES_DIR, INPUT_IMAGES_DIR } from './static'
 import { GENERATED_IMAGES_API_PATH, INPUT_IMAGES_API_PATH } from './static/enum'
 import { studioManager } from './studio-manager'
+import {
+  createZipDownloadSession,
+  type ZipDownloadEntry,
+} from './task-download'
 import { taskManager, type Task } from './task-manager'
 
 const MANIFEST_MAX_BYTES = 16 * 1024 * 1024
@@ -117,9 +127,10 @@ function validateReferences(backup: TaskBackup) {
 }
 
 /** Full-list archive. No provider calls or image re-encoding take place. */
-export function createTaskBackup(
+function buildTaskBackup(
   downloadedTaskIds: string[] = [],
-): Promise<Buffer> {
+  streaming = false,
+): Promise<ZipDownloadEntry[]> {
   return exclusive(async () => {
     const { tasks, folders } = await taskManager.getBackupSnapshot()
     const backup: TaskBackup = {
@@ -170,12 +181,12 @@ export function createTaskBackup(
       collect(item)
     }
 
-    const zip = new JSZip()
+    const entries: ZipDownloadEntry[] = []
     const packedPaths = new Set<string>()
     let expandedBytes = 0
     for (const url of urls) {
       const location = imageLocation(url)
-      let buffer: Buffer
+      let filePath: string
       let extension: string
       if (location) {
         const root = await fs.realpath(location.directory)
@@ -189,33 +200,51 @@ export function createTaskBackup(
         const stat = await fs.stat(file)
         if (!stat.isFile() || stat.size > TASK_BACKUP_MAX_FILE_BYTES)
           throw new Error('备份单个图片不能超过 64 MiB')
-        buffer = await fs.readFile(file)
+        filePath = file
         extension = path.extname(location.filename).slice(1).toLowerCase()
       } else {
         const id = studioIdFromUrl(url)
         if (!id) throw new Error('任务包含不支持的图片地址，无法创建完整备份')
-        const file = await studioManager.file(id)
-        buffer = file.buffer
+        const file = await studioManager.backupFile(id)
+        filePath = file.filePath
         extension = file.item.format === 'jpeg' ? 'jpg' : file.item.format
       }
       if (
         !/^(png|jpg|jpeg|webp|gif|avif|tif|tiff|bmp|svg|psd)$/.test(extension)
       )
         throw new Error('任务包含不支持的图片格式')
-      const sha256 = digest(buffer)
+      const { sha256, bytes } = await fingerprintFile(
+        filePath,
+        TASK_BACKUP_MAX_FILE_BYTES,
+      )
       const archivePath = `assets/${sha256}.${extension}`
       backup.assets.push({
         url,
         path: archivePath,
-        bytes: buffer.length,
+        bytes,
         sha256,
       })
       if (!packedPaths.has(archivePath)) {
-        expandedBytes += buffer.length
-        if (expandedBytes > TASK_BACKUP_MAX_EXPANDED_BYTES)
-          throw new Error('备份解压后不能超过 1 GiB')
+        expandedBytes += bytes
+        if (
+          expandedBytes >
+          (streaming
+            ? TASK_BACKUP_STREAM_MAX_EXPANDED_BYTES
+            : TASK_BACKUP_MAX_EXPANDED_BYTES)
+        )
+          throw new Error(
+            streaming
+              ? '流式备份解压后不能超过 32 GiB'
+              : '备份解压后不能超过 1 GiB',
+          )
         packedPaths.add(archivePath)
-        zip.file(archivePath, buffer)
+        entries.push({
+          filePath,
+          archivePath,
+          size: bytes,
+          mtime: new Date(),
+          sha256,
+        })
       }
     }
     taskBackupSchema.parse(backup)
@@ -223,15 +252,66 @@ export function createTaskBackup(
     const manifest = JSON.stringify(backup, null, 2)
     if (Buffer.byteLength(manifest) > MANIFEST_MAX_BYTES)
       throw new Error('备份任务信息不能超过 16 MiB')
-    zip.file(TASK_BACKUP_MANIFEST, manifest, { compression: 'DEFLATE' })
-    const archive = await zip.generateAsync({
-      type: 'nodebuffer',
-      compression: 'STORE',
+    const buffer = Buffer.from(manifest)
+    entries.push({
+      buffer,
+      archivePath: TASK_BACKUP_MANIFEST,
+      size: buffer.length,
+      mtime: new Date(),
     })
-    if (archive.length > TASK_BACKUP_MAX_BYTES)
-      throw new Error('备份 ZIP 不能超过 512 MiB')
-    return archive
+    if (
+      streaming &&
+      entries.reduce(
+        (size, entry) =>
+          size + entry.size + 2 * Buffer.byteLength(entry.archivePath) + 256,
+        512,
+      ) > TASK_BACKUP_STREAM_MAX_BYTES
+    )
+      throw new Error('流式备份 ZIP 不能超过 16 GiB')
+    return entries
   })
+}
+
+async function fingerprintFile(filePath: string, maxBytes: number) {
+  const hash = crypto.createHash('sha256')
+  let bytes = 0
+  for await (const chunk of createReadStream(filePath)) {
+    bytes += chunk.length
+    if (bytes > maxBytes) throw new Error('备份文件解压大小超出限制')
+    hash.update(chunk)
+  }
+  return { bytes, sha256: hash.digest('hex') }
+}
+
+export async function prepareTaskBackupDownload(
+  downloadedTaskIds: string[] = [],
+) {
+  return createZipDownloadSession(
+    await buildTaskBackup(downloadedTaskIds, true),
+    `openLinAI-tasks-${new Date().toISOString().replace(/[:.]/g, '-')}`,
+  )
+}
+
+export async function createTaskBackup(
+  downloadedTaskIds: string[] = [],
+): Promise<Buffer> {
+  const entries = await buildTaskBackup(downloadedTaskIds)
+  const zip = new JSZip()
+  for (const entry of entries) {
+    const buffer = entry.buffer ?? (await fs.readFile(entry.filePath!))
+    if (entry.sha256 && digest(buffer) !== entry.sha256)
+      throw new Error('备份图片校验失败（文件在打包过程中发生变化）')
+    zip.file(entry.archivePath, buffer, {
+      compression: entry.buffer ? 'DEFLATE' : 'STORE',
+    })
+  }
+  const archive = await zip.generateAsync({
+    type: 'nodebuffer',
+    compression: 'STORE',
+  })
+  if (archive.length > TASK_BACKUP_MAX_BYTES)
+    throw new Error('备份 ZIP 不能超过 512 MiB')
+  return archive
 }
 
 /** Bound inflation before accumulating bytes, including forged ZIP size headers. */
@@ -375,114 +455,283 @@ export function restoreTaskBackup(archive: Buffer) {
       if (asset.path.endsWith('.svg') && !sanitizeSvg(buffer).equals(buffer))
         throw new Error('备份 SVG 包含不安全内容')
     }
-    const maps = {
-      task: new Map(backup.tasks.map((task) => [task.id, uuidv4()])),
-      folder: new Map<string, string>(),
-      endpoint: new Map<string, string>(),
-      studio: new Map(backup.studioItems.map((item) => [item.id, uuidv4()])),
+    return applyTaskBackup(
+      backup,
+      new Map([...buffers].map(([key, buffer]) => [key, { buffer }])),
+    )
+  })
+}
+
+interface RestoredAssetSource {
+  buffer?: Buffer
+  sourcePath?: string
+}
+
+async function applyTaskBackup(
+  backup: TaskBackup,
+  sources: Map<string, RestoredAssetSource>,
+) {
+  const maps = {
+    task: new Map(backup.tasks.map((task) => [task.id, uuidv4()])),
+    folder: new Map<string, string>(),
+    endpoint: new Map<string, string>(),
+    studio: new Map(backup.studioItems.map((item) => [item.id, uuidv4()])),
+  }
+  const folders: TaskFolder[] = []
+  const currentFolders = await taskManager.getFolders()
+  for (const folder of backup.folders) {
+    const existing = currentFolders.find(
+      (item) =>
+        item.name.toLocaleLowerCase() === folder.name.toLocaleLowerCase(),
+    )
+    const id = existing?.id || uuidv4()
+    maps.folder.set(folder.id, id)
+    if (!existing) folders.push({ ...folder, id })
+  }
+  const urls = new Map<string, string>()
+  const files: Array<{ path: string } & RestoredAssetSource> = []
+  for (const asset of backup.assets) {
+    const location = imageLocation(asset.url)
+    if (location) {
+      const filename = `restored-${uuidv4()}${path.extname(asset.path)}`
+      urls.set(asset.url, `${location.prefix}/${filename}`)
+      files.push({
+        path: path.join(location.directory, filename),
+        ...sources.get(asset.path)!,
+      })
+    } else {
+      const studioId = studioIdFromUrl(asset.url)!
+      const restoredId = maps.studio.get(studioId)
+      if (!restoredId) throw new Error('备份缺少素材信息')
+      urls.set(asset.url, studioFileUrl(restoredId))
     }
-    const folders: TaskFolder[] = []
-    const currentFolders = await taskManager.getFolders()
-    for (const folder of backup.folders) {
-      const existing = currentFolders.find(
-        (item) =>
-          item.name.toLocaleLowerCase() === folder.name.toLocaleLowerCase(),
-      )
-      const id = existing?.id || uuidv4()
-      maps.folder.set(folder.id, id)
-      if (!existing) folders.push({ ...folder, id })
+  }
+  const restoreImageUrl = (url: string) => urls.get(url) || url
+  const tasks = mapBackupImageUrls(backup.tasks, restoreImageUrl) as Task[]
+  const items = mapBackupImageUrls(
+    backup.studioItems,
+    restoreImageUrl,
+  ) as StudioItem[]
+  for (const task of tasks) {
+    task.id = maps.task.get(task.id)!
+    if (task.status === 'pending' || task.status === 'running') {
+      task.status = 'failed'
+      task.error = '[服务] 从备份恢复，原生成任务已中断'
     }
-    const urls = new Map<string, string>()
-    const files: Array<{ path: string; buffer: Buffer }> = []
-    for (const asset of backup.assets) {
-      const location = imageLocation(asset.url)
-      if (location) {
-        const filename = `restored-${uuidv4()}${path.extname(asset.path)}`
-        urls.set(asset.url, `${location.prefix}/${filename}`)
-        files.push({
-          path: path.join(location.directory, filename),
-          buffer: buffers.get(asset.path)!,
-        })
-      } else {
-        const studioId = studioIdFromUrl(asset.url)!
-        const restoredId = maps.studio.get(studioId)
-        if (!restoredId) throw new Error('备份缺少素材信息')
-        urls.set(asset.url, studioFileUrl(restoredId))
+    if (task.imageBilling?.status === 'pending')
+      task.imageBilling.status = 'unavailable'
+  }
+  const studioEntries = items.map((item) => {
+    const asset = backup.assets.find(
+      (asset) => asset.url === studioFileUrl(item.id),
+    )!
+    item.id = maps.studio.get(item.id)!
+    return { item, ...sources.get(asset.path)! }
+  })
+  const written: string[] = []
+  let studioWritten = false
+  let addedEndpointIds = new Set<string>()
+  try {
+    // All ZIP/schema/path/hash/reference validation has finished before writing.
+    for (const file of files) {
+      if (file.sourcePath)
+        await fs.copyFile(
+          file.sourcePath,
+          file.path,
+          fs.constants.COPYFILE_EXCL,
+        )
+      else await fs.writeFile(file.path, file.buffer!, { flag: 'wx' })
+      written.push(file.path)
+    }
+    const endpoints = mergeEndpoints(backup.endpoints as GptImageEndpoint[])
+    maps.endpoint = endpoints.map
+    addedEndpointIds = endpoints.addedIds
+    remapRecords([tasks, items], maps)
+    if (studioEntries.length) {
+      await studioManager.restoreBackupItems(studioEntries)
+      studioWritten = true
+    }
+    await taskManager.restoreTasks(tasks, folders)
+  } catch (error) {
+    // Remove only this attempt's additions; never replace pre-existing state.
+    const rollbackErrors: unknown[] = []
+    if (studioWritten) {
+      await studioManager
+        .removeBackupItems(new Set(maps.studio.values()))
+        .catch((failure) => rollbackErrors.push(failure))
+    }
+    if (addedEndpointIds.size) {
+      try {
+        saveRestoredImageEndpoints(
+          getConfig().endpoints.filter(
+            (endpoint) => !addedEndpointIds.has(endpoint.id),
+          ),
+        )
+      } catch (failure) {
+        rollbackErrors.push(failure)
       }
     }
-    const restoreImageUrl = (url: string) => urls.get(url) || url
-    const tasks = mapBackupImageUrls(backup.tasks, restoreImageUrl) as Task[]
-    const items = mapBackupImageUrls(
-      backup.studioItems,
-      restoreImageUrl,
-    ) as StudioItem[]
-    for (const task of tasks) {
-      task.id = maps.task.get(task.id)!
-      if (task.status === 'pending' || task.status === 'running') {
-        task.status = 'failed'
-        task.error = '[服务] 从备份恢复，原生成任务已中断'
-      }
-      if (task.imageBilling?.status === 'pending')
-        task.imageBilling.status = 'unavailable'
-    }
-    const studioEntries = items.map((item) => {
-      const asset = backup.assets.find(
-        (asset) => asset.url === studioFileUrl(item.id),
-      )!
-      item.id = maps.studio.get(item.id)!
-      return { item, buffer: buffers.get(asset.path)! }
-    })
-    const written: string[] = []
-    let studioWritten = false
-    let addedEndpointIds = new Set<string>()
-    try {
-      // All ZIP/schema/path/hash/reference validation has finished before writing.
-      for (const file of files) {
-        await fs.writeFile(file.path, file.buffer, { flag: 'wx' })
-        written.push(file.path)
-      }
-      const endpoints = mergeEndpoints(backup.endpoints as GptImageEndpoint[])
-      maps.endpoint = endpoints.map
-      addedEndpointIds = endpoints.addedIds
-      remapRecords([tasks, items], maps)
-      if (studioEntries.length) {
-        await studioManager.restoreBackupItems(studioEntries)
-        studioWritten = true
-      }
-      await taskManager.restoreTasks(tasks, folders)
-    } catch (error) {
-      // Remove only this attempt's additions; never replace pre-existing state.
-      const rollbackErrors: unknown[] = []
-      if (studioWritten) {
-        await studioManager
-          .removeBackupItems(new Set(maps.studio.values()))
-          .catch((failure) => rollbackErrors.push(failure))
-      }
-      if (addedEndpointIds.size) {
-        try {
-          saveRestoredImageEndpoints(
-            getConfig().endpoints.filter(
-              (endpoint) => !addedEndpointIds.has(endpoint.id),
-            ),
+    for (const file of written)
+      await fs.unlink(file).catch((failure) => rollbackErrors.push(failure))
+    if (rollbackErrors.length)
+      throw new Error('恢复失败，部分新增数据未能清理，请检查磁盘状态')
+    throw error
+  }
+  return {
+    taskCount: tasks.length,
+    folderCount: folders.length,
+    imageCount: backup.assets.length,
+    endpointCount: addedEndpointIds.size,
+    downloadedTaskIds: backup.downloadedTaskIds.map((id) => maps.task.get(id)!),
+  }
+}
+
+/** Upload to a private staging file, then validate and import one asset at a time. */
+export async function restoreTaskBackupStream(
+  body: ReadableStream<Uint8Array>,
+) {
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'openlinai-task-restore-'),
+  )
+  try {
+    const archivePath = path.join(tempRoot, 'upload.zip')
+    let bytes = 0
+    await pipeline(
+      Readable.fromWeb(
+        body as import('node:stream/web').ReadableStream<Uint8Array>,
+      ),
+      new Transform({
+        transform(chunk: Buffer, _encoding, callback) {
+          bytes += chunk.length
+          callback(
+            bytes > TASK_BACKUP_STREAM_MAX_BYTES
+              ? new Error('流式备份 ZIP 不能超过 16 GiB')
+              : null,
+            chunk,
           )
-        } catch (failure) {
-          rollbackErrors.push(failure)
-        }
+        },
+      }),
+      createWriteStream(archivePath, { flags: 'wx', mode: 0o600 }),
+    )
+    if (!bytes) throw new Error('备份 ZIP 无效或版本不受支持')
+    return await exclusive(() => restoreStagedBackup(archivePath, tempRoot))
+  } finally {
+    if (
+      path.dirname(path.resolve(tempRoot)) !== path.resolve(os.tmpdir()) ||
+      !path.basename(tempRoot).startsWith('openlinai-task-restore-')
+    )
+      throw new Error('恢复临时目录路径无效')
+    await fs.rm(tempRoot, {
+      recursive: true,
+      force: true,
+      maxRetries: 3,
+      retryDelay: 100,
+    })
+  }
+}
+
+async function restoreStagedBackup(archivePath: string, tempRoot: string) {
+  let zip: ZipFile
+  try {
+    zip = await openPromise(archivePath, {
+      lazyEntries: true,
+      autoClose: false,
+      strictFileNames: true,
+      validateEntrySizes: true,
+    })
+  } catch {
+    throw new Error('备份 ZIP 无效或版本不受支持')
+  }
+  try {
+    if (zip.entryCount > 30002) throw new Error('备份文件数量超出限制')
+    const entries = new Map<string, Entry>()
+    try {
+      for await (const entry of zip.eachEntry()) {
+        if (entries.has(entry.fileName))
+          throw new Error('备份包含重复编号或图片地址')
+        if (entry.isEncrypted() || !entry.canDecodeFileData())
+          throw new Error('备份 ZIP 无效或版本不受支持')
+        entries.set(entry.fileName, entry)
       }
-      for (const file of written)
-        await fs.unlink(file).catch((failure) => rollbackErrors.push(failure))
-      if (rollbackErrors.length)
-        throw new Error('恢复失败，部分新增数据未能清理，请检查磁盘状态')
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        /invalid relative path|absolute path|backslash|invalid characters/.test(
+          error.message,
+        )
+      )
+        throw new Error('备份文件路径无效')
       throw error
     }
-    return {
-      taskCount: tasks.length,
-      folderCount: folders.length,
-      imageCount: backup.assets.length,
-      endpointCount: addedEndpointIds.size,
-      downloadedTaskIds: backup.downloadedTaskIds.map(
-        (id) => maps.task.get(id)!,
-      ),
+    const manifest = entries.get(TASK_BACKUP_MANIFEST)
+    let backup: TaskBackup
+    try {
+      if (!manifest || manifest.uncompressedSize > MANIFEST_MAX_BYTES)
+        throw new Error('Invalid manifest')
+      const chunks: Buffer[] = []
+      let bytes = 0
+      for await (const chunk of await zip.openReadStreamPromise(manifest)) {
+        bytes += chunk.length
+        if (bytes > MANIFEST_MAX_BYTES) throw new Error('Invalid manifest size')
+        chunks.push(chunk)
+      }
+      backup = taskBackupSchema.parse(
+        JSON.parse(Buffer.concat(chunks).toString('utf8')),
+      )
+    } catch {
+      throw new Error('备份 ZIP 无效或版本不受支持')
     }
-  })
+    validateReferences(backup)
+    const expectedPaths = new Set([
+      TASK_BACKUP_MANIFEST,
+      ...backup.assets.map((asset) => asset.path),
+    ])
+    for (const name of entries.keys()) {
+      if (name === 'assets/') continue
+      if (!expectedPaths.has(name)) throw new Error('备份文件路径无效')
+    }
+    const sources = new Map<string, RestoredAssetSource>()
+    const verified = new Map<string, { bytes: number; sha256: string }>()
+    let expandedBytes = 0
+    for (const asset of backup.assets) {
+      if (!sources.has(asset.path)) {
+        const entry = entries.get(asset.path)
+        if (!entry) throw new Error('备份缺少图片文件')
+        if (entry.uncompressedSize > asset.bytes)
+          throw new Error('备份文件解压大小超出限制')
+        expandedBytes += entry.uncompressedSize
+        if (expandedBytes > TASK_BACKUP_STREAM_MAX_EXPANDED_BYTES)
+          throw new Error('流式备份解压后不能超过 32 GiB')
+        const sourcePath = path.join(tempRoot, `asset-${sources.size}`)
+        const hash = crypto.createHash('sha256')
+        let bytes = 0
+        await pipeline(
+          await zip.openReadStreamPromise(entry),
+          new Transform({
+            transform(chunk: Buffer, _encoding, callback) {
+              bytes += chunk.length
+              if (bytes > asset.bytes)
+                return callback(new Error('备份文件解压大小超出限制'))
+              hash.update(chunk)
+              callback(null, chunk)
+            },
+          }),
+          createWriteStream(sourcePath, { flags: 'wx', mode: 0o600 }),
+        )
+        verified.set(asset.path, { bytes, sha256: hash.digest('hex') })
+        sources.set(asset.path, { sourcePath })
+        if (asset.path.endsWith('.svg')) {
+          const buffer = await fs.readFile(sourcePath)
+          if (!sanitizeSvg(buffer).equals(buffer))
+            throw new Error('备份 SVG 包含不安全内容')
+        }
+      }
+      const actual = verified.get(asset.path)!
+      if (actual.bytes !== asset.bytes || actual.sha256 !== asset.sha256)
+        throw new Error('备份图片校验失败')
+    }
+    return await applyTaskBackup(backup, sources)
+  } finally {
+    zip.close()
+  }
 }

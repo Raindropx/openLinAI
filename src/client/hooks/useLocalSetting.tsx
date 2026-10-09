@@ -16,6 +16,8 @@ export interface GPTImageSettings {
   /** 提示词优化时向 LLM 发送当前画面比例。 */
   sendAspectRatioToPromptOptimize?: boolean
   writeGenerationMetadata?: boolean
+  /** 批量图片使用服务端流式 ZIP 下载。 */
+  streamTaskDownloads?: boolean
   /** 工作台右侧的任务/模板列表使用无限滚动，否则使用分页。 */
   workspaceListInfiniteScroll?: boolean
   /** 工作台右侧列表每次加载或每页显示的条数。 */
@@ -50,6 +52,7 @@ export const defaultGPTImageSettings: GPTImageSettings = {
   autoSelectAspectRatioFromReference: true,
   sendAspectRatioToPromptOptimize: true,
   writeGenerationMetadata: true,
+  streamTaskDownloads: true,
   workspaceListInfiniteScroll: true,
   workspaceListPageSize: 8,
   taskManagerInfiniteScroll: true,

@@ -10,6 +10,14 @@ export function FeatureSetting() {
 
   const items = [
     {
+      key: 'streamTaskDownloads' as const,
+      label: t('流式打包下载'),
+      description: t(
+        '用于批量图片下载和任务列表备份/恢复。开启后，ZIP 下载由服务器边打包边发送，恢复时分块接收并逐项校验；关闭后使用普通下载和备份/恢复。此设置保存在当前浏览器。',
+      ),
+      checked: gptImageSettings.streamTaskDownloads ?? true,
+    },
+    {
       key: 'showImageSizeInTaskList' as const,
       label: t('显示图片实际尺寸'),
       description: t('在任务列表的图片左上角显示原始像素尺寸。'),
@@ -58,6 +66,7 @@ export function FeatureSetting() {
             </div>
           </div>
           <Switch
+            aria-label={item.label}
             checked={item.checked}
             onChange={(checked) =>
               setGptImageSettings((prev) => ({

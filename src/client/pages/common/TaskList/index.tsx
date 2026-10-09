@@ -1366,6 +1366,7 @@ export function TaskList({
                                     )}
                                   {task.outputUrls.length > 0 && (
                                     <TaskItemDownloadButton
+                                      taskId={task.id}
                                       folder={
                                         folders.find(
                                           (folder) =>

@@ -1,14 +1,19 @@
 import { DownloadOutlined } from '@ant-design/icons'
 import { Button, message, Tooltip } from 'antd'
+import { useState } from 'react'
+import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../../i18n'
 import {
   DOWNLOAD_ZIP_MAX_FILES,
   downloadFile,
   downloadFilesZip,
+  getDownloadErrorMessage,
   getTaskDownloadName,
 } from '../../../../utils/download'
+import { downloadTaskZip } from '../../../../utils/taskDownload'
 
 export const TaskItemDownloadButton = ({
+  taskId,
   outputUrls,
   fileName,
   endpointName,
@@ -16,6 +21,7 @@ export const TaskItemDownloadButton = ({
   folder,
   onDownloaded,
 }: {
+  taskId: string
   outputUrls: string[]
   fileName: string
   endpointName?: string
@@ -24,6 +30,8 @@ export const TaskItemDownloadButton = ({
   onDownloaded: () => void
 }) => {
   useAppLanguage()
+  const { gptImageSettings } = useLocalSetting()
+  const [downloading, setDownloading] = useState(false)
 
   const handleDownload = async () => {
     if (!outputUrls || outputUrls.length === 0) {
@@ -31,8 +39,11 @@ export const TaskItemDownloadButton = ({
       return
     }
 
+    setDownloading(true)
     try {
       if (
+        ((gptImageSettings.streamTaskDownloads ?? true) &&
+          outputUrls.length > 1) ||
         (folder && outputUrls.length > 1) ||
         outputUrls.length > DOWNLOAD_ZIP_MAX_FILES
       ) {
@@ -46,11 +57,40 @@ export const TaskItemDownloadButton = ({
           createdAt,
           folder,
         }))
-        await downloadFilesZip(
-          filesToDownload,
-          getTaskDownloadName(fileName, endpointName, createdAt),
-        )
-        message.success({ content: t('打包下载完成'), key: 'download' })
+        const zipName = getTaskDownloadName(fileName, endpointName, createdAt)
+        if (gptImageSettings.streamTaskDownloads ?? true) {
+          await downloadTaskZip(
+            [taskId],
+            zipName,
+            ({ completedFiles, totalFiles }) =>
+              message.loading({
+                content: t('正在下载：{0}/{1} 张', [
+                  completedFiles,
+                  totalFiles,
+                ]),
+                key: 'download',
+                duration: 0,
+              }),
+          )
+        } else
+          await downloadFilesZip(
+            filesToDownload,
+            zipName,
+            ({ completed, total, part }) =>
+              message.loading({
+                content: t('正在打包：{0}/{1} 张，第 {2} 包', [
+                  completed,
+                  total,
+                  part,
+                ]),
+                key: 'download',
+                duration: 0,
+              }),
+          )
+        message.success({
+          content: t('已发起打包下载，请查看浏览器下载记录'),
+          key: 'download',
+        })
       } else {
         message.loading({ content: t('正在下载...'), key: 'download' })
         await Promise.all(
@@ -70,7 +110,13 @@ export const TaskItemDownloadButton = ({
       }
       onDownloaded()
     } catch (err) {
-      message.error({ content: t('下载失败'), key: 'download' })
+      message.error({
+        content: getDownloadErrorMessage(err),
+        key: 'download',
+        duration: 10,
+      })
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -79,6 +125,7 @@ export const TaskItemDownloadButton = ({
       <Button
         type="text"
         icon={<DownloadOutlined />}
+        loading={downloading}
         onClick={() => handleDownload()}
       />
     </Tooltip>

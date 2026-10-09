@@ -7,13 +7,13 @@ import {
   type StudioItem,
   type StudioProvenance,
 } from '../../shared/studio'
+import type { NovelAIGenerationSnapshot } from '../../shared/studio-generation'
 import {
   embedPngTextMetadata,
   readPngGenerationText,
 } from '../module/gpt-image/generation-metadata'
 import { getDataDir } from './data-dir'
 import { SafeJsonStore } from './safe-json-store'
-import type { NovelAIGenerationSnapshot } from '../../shared/studio-generation'
 import { GENERATED_IMAGES_DIR, INPUT_IMAGES_DIR } from './static'
 import { GENERATED_IMAGES_API_PATH, INPUT_IMAGES_API_PATH } from './static/enum'
 import { taskManager, type Task } from './task-manager'
@@ -107,19 +107,40 @@ export class StudioManager {
     })
   }
 
+  backupFile(id: string) {
+    return this.run(async () => {
+      const item = this.find(await this.read(), id)
+      const filePath = this.filePath(item)
+      const root = await fs.realpath(this.files)
+      const resolved = await fs.realpath(filePath)
+      if (!resolved.startsWith(`${root}${path.sep}`))
+        throw new Error('备份图片地址无效')
+      return { item, filePath: resolved }
+    })
+  }
+
   /** Import dependency files byte-for-byte; metadata must not rewrite the backup. */
-  restoreBackupItems(entries: Array<{ item: StudioItem; buffer: Buffer }>) {
+  restoreBackupItems(
+    entries: Array<{ item: StudioItem; buffer?: Buffer; sourcePath?: string }>,
+  ) {
     return this.run(async () => {
       const state = await this.read()
       const written: string[] = []
       try {
-        for (const { item, buffer } of entries) {
+        for (const { item, buffer: supplied, sourcePath } of entries) {
+          const buffer = supplied ?? (await fs.readFile(sourcePath!))
           if (state.items.some((existing) => existing.id === item.id))
             throw new Error('恢复素材编号冲突，请重试')
           if (detectStudioFormat(buffer) !== item.format)
             throw new Error('备份素材格式不匹配')
           const destination = this.filePath(item)
-          await fs.writeFile(destination, buffer, { flag: 'wx' })
+          if (sourcePath)
+            await fs.copyFile(
+              sourcePath,
+              destination,
+              fs.constants.COPYFILE_EXCL,
+            )
+          else await fs.writeFile(destination, buffer, { flag: 'wx' })
           written.push(destination)
           state.items.push(item)
         }
@@ -199,33 +220,53 @@ export class StudioManager {
     })
   }
 
-  fromCivitai(buffer: Buffer, snapshot: NonNullable<StudioProvenance['civitai']>) {
+  fromCivitai(
+    buffer: Buffer,
+    snapshot: NonNullable<StudioProvenance['civitai']>,
+  ) {
     return this.run(async () => {
       const state = await this.read()
       // Recover safely even if the process stopped after the shelf write.
-      const existing = state.items.find((item) => item.provenance.civitai?.workflowId === snapshot.workflowId && item.provenance.civitai.imageIndex === snapshot.imageIndex)
+      const existing = state.items.find(
+        (item) =>
+          item.provenance.civitai?.workflowId === snapshot.workflowId &&
+          item.provenance.civitai.imageIndex === snapshot.imageIndex,
+      )
       if (existing) return existing
       return this.add(state, buffer, `Civitai-${snapshot.imageIndex + 1}.png`, {
-        origin: 'civitai', model: snapshot.request.model.name, civitai: snapshot,
-        template: { id: uuidv4(), title: 'Civitai Studio', prompt: snapshot.request.prompt, images: [], usageType: 'image', aspectRatio: `${snapshot.request.width}:${snapshot.request.height}`, n: 1, createdAt: Date.now() },
+        origin: 'civitai',
+        model: snapshot.request.model.name,
+        civitai: snapshot,
+        template: {
+          id: uuidv4(),
+          title: 'Civitai Studio',
+          prompt: snapshot.request.prompt,
+          images: [],
+          usageType: 'image',
+          aspectRatio: `${snapshot.request.width}:${snapshot.request.height}`,
+          n: 1,
+          createdAt: Date.now(),
+        },
         sourceMetadata: readPngGenerationText(buffer),
       })
     })
   }
 
   fromInpaintRaw(buffer: Buffer, snapshot: NovelAIGenerationSnapshot) {
-    return this.run(async () => this.add(
-      await this.read(),
-      buffer,
-      `${snapshot.request.title || 'NovelAI'}-${snapshot.imageIndex + 1}-上游原始结果.png`,
-      {
-        origin: 'novelai',
-        model: snapshot.request.model,
-        novelai: snapshot,
-        inpaintRaw: true,
-        sourceMetadata: readPngGenerationText(buffer),
-      },
-    ))
+    return this.run(async () =>
+      this.add(
+        await this.read(),
+        buffer,
+        `${snapshot.request.title || 'NovelAI'}-${snapshot.imageIndex + 1}-上游原始结果.png`,
+        {
+          origin: 'novelai',
+          model: snapshot.request.model,
+          novelai: snapshot,
+          inpaintRaw: true,
+          sourceMetadata: readPngGenerationText(buffer),
+        },
+      ),
+    )
   }
 
   fromTask(taskId: string, imageIndex: number, addedFromTask = false) {
@@ -256,49 +297,53 @@ export class StudioManager {
       const buffer = await fs.readFile(
         path.join(GENERATED_IMAGES_DIR, filename),
       )
-      const provenance: StudioProvenance = task.studioProvenance ? {
-        ...task.studioProvenance,
-        addedFromTask,
-        novelai: task.novelaiSnapshots?.[imageIndex] || task.studioProvenance.novelai,
-        sourceMetadata: readPngGenerationText(buffer),
-        template: task.studioProvenance.template || {
-          id: template.id,
-          title: template.title,
-          prompt: template.prompt,
-          images: [...(template.images || [])],
-          createdAt: template.createdAt,
-          usageType: template.usageType,
-          endpointId: template.endpointId,
-          aspectRatio: template.aspectRatio,
-          injectAspectRatio: template.injectAspectRatio,
-          gpt2QualityOptimization: template.gpt2QualityOptimization,
-          n: template.n,
-        },
-      } : {
-        origin: /novelai/i.test(task.endpointName || task.source)
-          ? 'novelai'
-          : /civitai/i.test(task.endpointName || task.source)
-            ? 'civitai'
-            : 'other',
-        sourceTaskId: task.id,
-        addedFromTask,
-        model: task.source,
-        endpointName: task.endpointName,
-        sourceMetadata: readPngGenerationText(buffer),
-        template: {
-          id: template.id,
-          title: template.title,
-          prompt: template.prompt,
-          images: [...(template.images || [])],
-          createdAt: template.createdAt,
-          usageType: template.usageType,
-          endpointId: template.endpointId,
-          aspectRatio: template.aspectRatio,
-          injectAspectRatio: template.injectAspectRatio,
-          gpt2QualityOptimization: template.gpt2QualityOptimization,
-          n: template.n,
-        },
-      }
+      const provenance: StudioProvenance = task.studioProvenance
+        ? {
+            ...task.studioProvenance,
+            addedFromTask,
+            novelai:
+              task.novelaiSnapshots?.[imageIndex] ||
+              task.studioProvenance.novelai,
+            sourceMetadata: readPngGenerationText(buffer),
+            template: task.studioProvenance.template || {
+              id: template.id,
+              title: template.title,
+              prompt: template.prompt,
+              images: [...(template.images || [])],
+              createdAt: template.createdAt,
+              usageType: template.usageType,
+              endpointId: template.endpointId,
+              aspectRatio: template.aspectRatio,
+              injectAspectRatio: template.injectAspectRatio,
+              gpt2QualityOptimization: template.gpt2QualityOptimization,
+              n: template.n,
+            },
+          }
+        : {
+            origin: /novelai/i.test(task.endpointName || task.source)
+              ? 'novelai'
+              : /civitai/i.test(task.endpointName || task.source)
+                ? 'civitai'
+                : 'other',
+            sourceTaskId: task.id,
+            addedFromTask,
+            model: task.source,
+            endpointName: task.endpointName,
+            sourceMetadata: readPngGenerationText(buffer),
+            template: {
+              id: template.id,
+              title: template.title,
+              prompt: template.prompt,
+              images: [...(template.images || [])],
+              createdAt: template.createdAt,
+              usageType: template.usageType,
+              endpointId: template.endpointId,
+              aspectRatio: template.aspectRatio,
+              injectAspectRatio: template.injectAspectRatio,
+              gpt2QualityOptimization: template.gpt2QualityOptimization,
+              n: template.n,
+            },
+          }
       return this.add(
         await this.read(),
         buffer,
@@ -312,7 +357,11 @@ export class StudioManager {
     return this.run(async () => {
       const state = await this.read()
       const provenance: StudioProvenance = itemId
-        ? { ...this.find(state, itemId).provenance, inpaintRaw: undefined, photopea: 'edited' }
+        ? {
+            ...this.find(state, itemId).provenance,
+            inpaintRaw: undefined,
+            photopea: 'edited',
+          }
         : external
           ? { origin: 'import', photopea: 'edited' }
           : { origin: 'photopea', photopea: 'created' }

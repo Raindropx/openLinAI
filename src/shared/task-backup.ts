@@ -3,6 +3,8 @@ import { taskFolderNameSchema } from './task-folders'
 
 export const TASK_BACKUP_MAX_BYTES = 512 * 1024 * 1024
 export const TASK_BACKUP_MAX_EXPANDED_BYTES = 1024 * 1024 * 1024
+export const TASK_BACKUP_STREAM_MAX_BYTES = 16 * 1024 * 1024 * 1024
+export const TASK_BACKUP_STREAM_MAX_EXPANDED_BYTES = 32 * 1024 * 1024 * 1024
 export const TASK_BACKUP_MAX_FILE_BYTES = 64 * 1024 * 1024
 export const TASK_BACKUP_MANIFEST = 'task-list.json'
 

@@ -2,10 +2,15 @@ import { ExportOutlined, ImportOutlined } from '@ant-design/icons'
 import { Button, Modal, Space, message } from 'antd'
 import { saveAs } from 'file-saver'
 import { useRef, useState } from 'react'
-import { TASK_BACKUP_MAX_BYTES } from '../../../../../shared/task-backup'
+import {
+  TASK_BACKUP_MAX_BYTES,
+  TASK_BACKUP_STREAM_MAX_BYTES,
+} from '../../../../../shared/task-backup'
+import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { t, translateError, useAppLanguage } from '../../../../i18n'
 import { useGlobalStore } from '../../../../store/global'
 import { formatTaskTimestamp } from '../../../../utils/download'
+import { downloadTaskBackup } from '../../../../utils/taskDownload'
 
 interface Props {
   downloadedIds: string[]
@@ -24,6 +29,8 @@ export function TaskListBackupActions({
   disabled,
 }: Props) {
   useAppLanguage()
+  const { gptImageSettings } = useLocalSetting()
+  const streamTransfers = gptImageSettings.streamTaskDownloads ?? true
   const input = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState<'backup' | 'restore'>()
   const working = useRef(false)
@@ -40,7 +47,11 @@ export function TaskListBackupActions({
           </p>
           <p>{t('备份包含端点 API Key 和余额令牌，请妥善保管。')}</p>
           <p>
-            {t('单个图片上限 64 MiB，ZIP 上限 512 MiB，解压后上限 1 GiB。')}
+            {t(
+              streamTransfers
+                ? '流式模式：单个图片上限 64 MiB，ZIP 上限 16 GiB，解压后上限 32 GiB。'
+                : '单个图片上限 64 MiB，ZIP 上限 512 MiB，解压后上限 1 GiB。',
+            )}
           </p>
         </div>
       ),
@@ -51,6 +62,30 @@ export function TaskListBackupActions({
         working.current = true
         setBusy('backup')
         try {
+          if (streamTransfers) {
+            message.loading({
+              content: t('正在准备备份...'),
+              key: 'task-backup',
+              duration: 0,
+            })
+            await downloadTaskBackup(
+              downloadedIds,
+              ({ completedFiles, totalFiles }) =>
+                message.loading({
+                  content: t('正在备份：{0}/{1} 个文件', [
+                    completedFiles,
+                    totalFiles,
+                  ]),
+                  key: 'task-backup',
+                  duration: 0,
+                }),
+            )
+            message.success({
+              content: t('备份已发送，请查看浏览器下载记录'),
+              key: 'task-backup',
+            })
+            return
+          }
           const response = await fetch('/api/task/backup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -64,9 +99,12 @@ export function TaskListBackupActions({
           )
           message.success(t('任务列表备份已下载'))
         } catch (error) {
-          message.error(
-            error instanceof Error ? error.message : t('备份任务列表失败'),
-          )
+          message.error({
+            content:
+              error instanceof Error ? error.message : t('备份任务列表失败'),
+            key: 'task-backup',
+            duration: 10,
+          })
         } finally {
           working.current = false
           setBusy(undefined)
@@ -80,8 +118,17 @@ export function TaskListBackupActions({
       message.error(t('请选择任务列表备份 ZIP'))
       return
     }
-    if (file.size > TASK_BACKUP_MAX_BYTES) {
-      message.error(t('备份 ZIP 不能超过 512 MiB'))
+    if (
+      file.size >
+      (streamTransfers ? TASK_BACKUP_STREAM_MAX_BYTES : TASK_BACKUP_MAX_BYTES)
+    ) {
+      message.error(
+        t(
+          streamTransfers
+            ? '流式备份 ZIP 不能超过 16 GiB'
+            : '备份 ZIP 不能超过 512 MiB',
+        ),
+      )
       return
     }
     Modal.confirm({
@@ -108,11 +155,19 @@ export function TaskListBackupActions({
         working.current = true
         setBusy('restore')
         try {
-          const response = await fetch('/api/task/restore', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/zip' },
-            body: file,
+          message.loading({
+            content: t('正在上传、校验并恢复备份...'),
+            key: 'task-restore',
+            duration: 0,
           })
+          const response = await fetch(
+            streamTransfers ? '/api/task/restore-stream' : '/api/task/restore',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/zip' },
+              body: file,
+            },
+          )
           const result = await response.json()
           if (!response.ok || !result.success)
             throw new Error(translateError(result.error || '恢复任务列表失败'))
@@ -121,17 +176,21 @@ export function TaskListBackupActions({
           ])
           await useGlobalStore.getState().fetchConfig()
           window.dispatchEvent(new Event('studio-changed'))
-          message.success(
-            t('已恢复 {0} 个任务、{1} 张图片，新增 {2} 个端点', [
+          message.success({
+            content: t('已恢复 {0} 个任务、{1} 张图片，新增 {2} 个端点', [
               result.taskCount,
               result.imageCount,
               result.endpointCount,
             ]),
-          )
+            key: 'task-restore',
+          })
         } catch (error) {
-          message.error(
-            error instanceof Error ? error.message : t('恢复任务列表失败'),
-          )
+          message.error({
+            content:
+              error instanceof Error ? error.message : t('恢复任务列表失败'),
+            key: 'task-restore',
+            duration: 10,
+          })
         } finally {
           working.current = false
           setBusy(undefined)
