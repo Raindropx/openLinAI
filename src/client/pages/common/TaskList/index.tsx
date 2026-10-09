@@ -27,6 +27,7 @@ import {
   Tooltip,
   Typography,
   message,
+  theme,
 } from 'antd'
 import copy from 'copy-to-clipboard'
 import dayjs from 'dayjs'
@@ -182,6 +183,7 @@ export function TaskList({
   onSelectTask,
 }: TaskListProps) {
   const { language } = useAppLanguage()
+  const { token } = theme.useToken()
 
   const panelMode = variant === 'panel'
   const managementMode = variant === 'management'
@@ -1552,6 +1554,8 @@ export function TaskList({
       <Modal
         title={t('优化前的提示词')}
         open={originalPromptView !== null}
+        // Image previews default to zIndexPopupBase + 80.
+        zIndex={token.zIndexPopupBase + 100}
         onCancel={() => setOriginalPromptView(null)}
         width={620}
         destroyOnHidden
@@ -1614,7 +1618,7 @@ export function TaskList({
             if (image) showReviewImage(image)
           }}
           onClose={() => {
-            if (originalPromptView !== null) return
+            setOriginalPromptView(null)
             setReviewOrphaned(false)
             setReviewImage(null)
           }}
