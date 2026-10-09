@@ -1,4 +1,4 @@
-import { ConfigProvider, theme, type ThemeConfig } from 'antd'
+import { App as AntdApp, ConfigProvider, theme, type ThemeConfig } from 'antd'
 import enUS from 'antd/locale/en_US'
 import zhCN from 'antd/locale/zh_CN'
 import {
@@ -341,6 +341,11 @@ function configureStaticTheme(
   language: AppLanguage = readStoredLanguage(),
 ) {
   const themeConfig = getThemeConfig(mode, accentColor, squareCorners)
+  // 触摸可能留下模拟鼠标悬停；仅纯鼠标设备允许暂停消息倒计时。
+  const pauseMessageOnHover =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
+    !window.matchMedia('(any-pointer: coarse)').matches
 
   ConfigProvider.config({
     theme: themeConfig,
@@ -349,7 +354,9 @@ function configureStaticTheme(
         locale={language === 'en-US' ? enUS : zhCN}
         theme={themeConfig}
       >
-        {children}
+        <AntdApp message={{ pauseOnHover: pauseMessageOnHover }}>
+          {children}
+        </AntdApp>
       </ConfigProvider>
     ),
   })
