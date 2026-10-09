@@ -287,16 +287,22 @@ export function TaskList({
     }
     const endpointId = resolveImageEndpointId(
       endpoints,
-      gptImageSettings.selectedEndpointId,
+      task.rawTemplate?.endpointId || gptImageSettings.selectedEndpointId,
       gptImageSettings.defaultEndpointId,
     )
     if (!endpointId) {
       message.warning(t('无可用端点，请到设置中添加或启用'))
       return
     }
-    const res = await client.api.gptImage.generate.$post({
+    const res = await client.api.gptImage.trial.$post({
       json: {
-        templateId: task.rawTemplate?.id || '',
+        prompt: task.rawTemplate.prompt,
+        title: task.rawTemplate.title,
+        images: task.rawTemplate.images,
+        aspectRatio: task.rawTemplate.aspectRatio,
+        injectAspectRatio: task.rawTemplate.injectAspectRatio,
+        gpt2QualityOptimization: task.rawTemplate.gpt2QualityOptimization,
+        n: task.rawTemplate.n,
         endpointId,
         size: (task.size as any) || '2k',
         quality: (task.quality as any) || 'medium',

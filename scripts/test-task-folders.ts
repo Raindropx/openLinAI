@@ -213,6 +213,11 @@ async function main() {
         `${route} forwards the generation destination`,
       )
       assert.equal(task?.status, 'completed')
+      assert.equal(
+        task?.rawTemplate.endpointId,
+        'fixture',
+        'Task snapshots retain the actual generation endpoint',
+      )
     }
     assert.ok(
       upstreamBodies.every((body) => !('folderId' in body)),

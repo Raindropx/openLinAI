@@ -124,7 +124,7 @@ function detectImageFormat(
 }
 
 /** 清除 SVG 中可能在同源站点执行脚本或加载外部资源的内容。 */
-function sanitizeSvg(buffer: Buffer): Buffer {
+export function sanitizeSvg(buffer: Buffer): Buffer {
   let svg = buffer.toString('utf8')
   svg = svg
     .replace(

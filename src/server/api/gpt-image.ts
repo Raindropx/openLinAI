@@ -448,6 +448,7 @@ const gptImageApi = new Hono()
       const storedTemplate = templates.find((t) => t.id === templateId)
       const template = storedTemplate && {
         ...storedTemplate,
+        endpointId,
         generationLanguage: language,
       }
       if (!template) {
@@ -644,6 +645,7 @@ const gptImageApi = new Hono()
       const isChat = endpoint.engine === 'chat-completions'
       const template: TaskTemplate = {
         id: uuidv4(),
+        endpointId,
         createdAt: Date.now(),
         prompt,
         aspectRatio,

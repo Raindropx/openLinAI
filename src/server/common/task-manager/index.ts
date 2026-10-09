@@ -204,6 +204,63 @@ export class TaskManager extends EventEmitter {
     this.notifyTasksUpdate(tasks)
   }
 
+  /** Append a validated backup without replacing existing tasks or folders. */
+  public async restoreTasks(
+    tasks: Task[],
+    folders: TaskFolder[],
+  ): Promise<void> {
+    return this.withFolders(async () => {
+      const addedFolderIds = new Set(folders.map((folder) => folder.id))
+      await this.folderStore.mutate((list) => {
+        if (
+          folders.some((folder) =>
+            list.some(
+              (item) =>
+                item.id === folder.id ||
+                item.name.toLocaleLowerCase() ===
+                  folder.name.toLocaleLowerCase(),
+            ),
+          )
+        )
+          throw new Error('恢复文件夹编号冲突，请重试')
+        const availableIds = new Set(
+          [...list, ...folders].map((folder) => folder.id),
+        )
+        if (
+          tasks.some(
+            (task) => task.folderId && !availableIds.has(task.folderId),
+          )
+        )
+          throw new Error('文件夹不存在')
+        return [...list, ...folders]
+      })
+      try {
+        const restored = await this.store.mutate((list) => {
+          const ids = new Set(list.map((task) => task.id))
+          if (tasks.some((task) => ids.has(task.id)))
+            throw new Error('恢复任务编号冲突，请重试')
+          return [...list, ...tasks]
+        })
+        await this.notifyTasksUpdate(restored)
+      } catch (error) {
+        await this.folderStore.mutate((list) =>
+          list.filter((folder) => !addedFolderIds.has(folder.id)),
+        )
+        throw error
+      }
+    })
+  }
+
+  public getBackupSnapshot(): Promise<{
+    tasks: Task[]
+    folders: TaskFolder[]
+  }> {
+    return this.withFolders(async () => ({
+      tasks: await this.getTasks(),
+      folders: await this.getFolders(),
+    }))
+  }
+
   public async createTaskFromTemplate(options: {
     template: TaskTemplate
     source: string

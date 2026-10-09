@@ -1,12 +1,72 @@
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
+import { TASK_BACKUP_MAX_BYTES } from '../../../shared/task-backup'
 import { taskFolderNameSchema } from '../../../shared/task-folders'
+import { createTaskBackup, restoreTaskBackup } from '../../common/task-backup'
 import { taskManager } from '../../common/task-manager'
 
 const taskApi = new Hono()
   // Chain route declarations so Hono keeps the full client route map in AppType.
+  .post(
+    '/backup',
+    zValidator(
+      'json',
+      z.object({
+        downloadedTaskIds: z.array(z.string()).max(10000).optional(),
+      }),
+    ),
+    async (c) => {
+      try {
+        const archive = await createTaskBackup(
+          c.req.valid('json').downloadedTaskIds,
+        )
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+        return c.body(new Uint8Array(archive), 200, {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="openLinAI-tasks-${timestamp}.zip"`,
+          'Cache-Control': 'no-store',
+        })
+      } catch (error) {
+        return c.json(
+          {
+            success: false as const,
+            error: error instanceof Error ? error.message : '备份任务列表失败',
+          },
+          400,
+        )
+      }
+    },
+  )
+  .post(
+    '/restore',
+    bodyLimit({
+      maxSize: TASK_BACKUP_MAX_BYTES,
+      onError: (c) =>
+        c.json(
+          { success: false as const, error: '备份 ZIP 不能超过 512 MiB' },
+          413,
+        ),
+    }),
+    async (c) => {
+      try {
+        const result = await restoreTaskBackup(
+          Buffer.from(await c.req.arrayBuffer()),
+        )
+        return c.json({ success: true as const, ...result })
+      } catch (error) {
+        return c.json(
+          {
+            success: false as const,
+            error: error instanceof Error ? error.message : '恢复任务列表失败',
+          },
+          400,
+        )
+      }
+    },
+  )
   .get('/', async (c) => {
     try {
       const tasks = await taskManager.getTasks()

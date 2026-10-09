@@ -308,6 +308,20 @@ export const getConfig = (): Config => {
   return currentConfig
 }
 
+/** Backup restoration must report disk failures and preserve the previous config. */
+export const saveRestoredImageEndpoints = (endpoints: GptImageEndpoint[]): void => {
+  const nextConfig = { ...currentConfig, endpoints }
+  fs.mkdirSync(CONFIG_DIR, { recursive: true })
+  const temporaryPath = `${CONFIG_FILE}.${uuidv4()}.tmp`
+  try {
+    fs.writeFileSync(temporaryPath, JSON.stringify(nextConfig, null, 2), 'utf-8')
+    fs.renameSync(temporaryPath, CONFIG_FILE)
+    currentConfig = nextConfig
+  } finally {
+    if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath)
+  }
+}
+
 export const updateConfig = (newConfig: Partial<Config>): Config => {
   currentConfig = { ...currentConfig, ...newConfig }
   try {

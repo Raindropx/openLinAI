@@ -13,6 +13,7 @@ import type { AppType } from '../../../../server'
 import type { Task } from '../../../../server/common/task-manager'
 import type { TaskFolder } from '../../../../shared/task-folders'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
+import { TaskListBackupActions } from './components/TaskListBackupActions'
 import { TaskListDownloadButton } from './components/TaskListDownloadButton'
 import { TaskListFinishedAlertButton } from './components/TaskListFinishedAlertButton'
 
@@ -33,6 +34,7 @@ export function TaskListHeader({
   tasks,
   downloadedIds,
   setDownloadedIds,
+  loading,
   compact = false,
   hideFinishedAlert = false,
   management = false,
@@ -45,6 +47,14 @@ export function TaskListHeader({
   const [deletingDownloaded, setDeletingDownloaded] = useState(false)
   const [clearingAll, setClearingAll] = useState(false)
   const isDeleting = deletingErrors || deletingDownloaded || clearingAll
+
+  const backupActions = management && (
+    <TaskListBackupActions
+      downloadedIds={downloadedIds}
+      setDownloadedIds={setDownloadedIds}
+      disabled={loading || isDeleting}
+    />
+  )
 
   const handleDeleteErrors = async () => {
     const errorTasks = tasks.filter((t) => t.status === 'failed')
@@ -433,6 +443,9 @@ export function TaskListHeader({
     <>
       {managementMobileHeader}
       {standardHeader}
+      {backupActions && (
+        <div className="mb-2 flex justify-end sm:mb-4">{backupActions}</div>
+      )}
     </>
   )
 }

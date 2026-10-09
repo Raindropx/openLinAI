@@ -107,6 +107,41 @@ export class StudioManager {
     })
   }
 
+  /** Import dependency files byte-for-byte; metadata must not rewrite the backup. */
+  restoreBackupItems(entries: Array<{ item: StudioItem; buffer: Buffer }>) {
+    return this.run(async () => {
+      const state = await this.read()
+      const written: string[] = []
+      try {
+        for (const { item, buffer } of entries) {
+          if (state.items.some((existing) => existing.id === item.id))
+            throw new Error('恢复素材编号冲突，请重试')
+          if (detectStudioFormat(buffer) !== item.format)
+            throw new Error('备份素材格式不匹配')
+          const destination = this.filePath(item)
+          await fs.writeFile(destination, buffer, { flag: 'wx' })
+          written.push(destination)
+          state.items.push(item)
+        }
+        await this.store.write(state)
+      } catch (error) {
+        for (const destination of written)
+          await fs.unlink(destination).catch(() => {})
+        throw error
+      }
+    })
+  }
+
+  removeBackupItems(ids: Set<string>) {
+    return this.run(async () => {
+      const state = await this.read()
+      const removed = state.items.filter((item) => ids.has(item.id))
+      state.items = state.items.filter((item) => !ids.has(item.id))
+      await this.store.write(state)
+      for (const item of removed) await fs.unlink(this.filePath(item))
+    })
+  }
+
   private async add(
     state: StudioState,
     buffer: Buffer,

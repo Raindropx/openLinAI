@@ -2,9 +2,11 @@ import { exec } from 'child_process'
 import crypto from 'crypto'
 import fs from 'fs-extra'
 import path from 'path'
+import { mapBackupImageUrls } from '../../../shared/task-backup'
 import { getDataDir } from '../data-dir'
 import { taskManager } from '../task-manager'
 import { templateManager } from '../template-manager'
+import { GENERATED_IMAGES_API_PATH, INPUT_IMAGES_API_PATH } from './enum'
 import {
   compressUploadImage,
   generateThumbnailFile,
@@ -12,7 +14,6 @@ import {
   getImageOutputMimeType,
   IMAGE_MAX_DIMENSION,
 } from './imageProcessor'
-import { GENERATED_IMAGES_API_PATH, INPUT_IMAGES_API_PATH } from './enum'
 
 export const IMAGES_ROOT_DIR = path.join(getDataDir(), 'images')
 export const GENERATED_IMAGES_DIR = path.join(IMAGES_ROOT_DIR, 'generated')
@@ -204,43 +205,20 @@ function getFilenameFromUrl(type: ImageDirectoryType, url: string) {
 
 async function getReferencedImageFilenames(type: ImageDirectoryType) {
   const referencedImages = new Set<string>()
-
-  if (type === 'input') {
-    const templates = await templateManager.getTemplates()
-
-    for (const template of templates) {
-      if (!Array.isArray(template.images)) {
-        continue
-      }
-
-      for (const imageUrl of template.images) {
-        const filename = getFilenameFromUrl(type, imageUrl)
-        if (filename) {
-          referencedImages.add(filename)
-        }
-      }
-    }
-
-    return referencedImages
-  }
-
-  const tasks = await taskManager.getTasks()
-
-  for (const task of tasks) {
-    const imageUrls = Array.isArray(task.outputUrls)
-      ? task.outputUrls
-      : task.outputUrl
-        ? [task.outputUrl]
-        : []
-
-    for (const imageUrl of imageUrls) {
-      const filename = getFilenameFromUrl(type, imageUrl)
-      if (filename) {
-        referencedImages.add(filename)
-      }
-    }
-  }
-
+  const { studioManager } = await import('../studio-manager')
+  // Task snapshots and shelf provenance remain references even without a saved template.
+  mapBackupImageUrls(
+    [
+      await templateManager.getTemplates(),
+      await taskManager.getTasks(),
+      await studioManager.list(),
+    ],
+    (url) => {
+      const filename = getFilenameFromUrl(type, url)
+      if (filename) referencedImages.add(filename)
+      return url
+    },
+  )
   return referencedImages
 }
 
