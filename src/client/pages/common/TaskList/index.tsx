@@ -1273,14 +1273,14 @@ export function TaskList({
                                 </Typography.Text>
                               </div>
                             ) : task.outputUrls.length === 0 ? (
-                              <div className="flex flex-col items-center justify-center p-2">
+                              <div className="flex w-full flex-col items-center justify-center gap-1 p-2 text-center">
                                 <Typography.Text
                                   strong
-                                  className="mb-1 text-amber-400!"
+                                  className="text-amber-400!"
                                 >
                                   {t('运行中')}
-                                  <SyncOutlined className="ml-1" spin />
                                 </Typography.Text>
+                                <SyncOutlined className="text-amber-400" spin />
                               </div>
                             ) : task.outputUrls.length > 1 ? (
                               <div className="flex h-full w-full items-center justify-center">
