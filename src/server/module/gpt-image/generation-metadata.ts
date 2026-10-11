@@ -838,27 +838,32 @@ function getSvgDimensions(buffer: Buffer): { width?: number; height?: number } {
 
 function getWebpCanvas(
   buffer: Buffer,
+  allowPartial = false,
 ): { width: number; height: number } | null {
   let offset = 12
   while (offset + 8 <= buffer.length) {
     const type = buffer.toString('ascii', offset, offset + 4)
     const length = buffer.readUInt32LE(offset + 4)
     const dataOffset = offset + 8
-    if (dataOffset + length > buffer.length) return null
-
-    if (type === 'VP8X' && length >= 10) {
+    if (!allowPartial && dataOffset + length > buffer.length) return null
+    if (type === 'VP8X' && length >= 10 && dataOffset + 10 <= buffer.length) {
       return {
         width: 1 + buffer.readUIntLE(dataOffset + 4, 3),
         height: 1 + buffer.readUIntLE(dataOffset + 7, 3),
       }
     }
-    if (type === 'VP8 ' && length >= 10) {
+    if (type === 'VP8 ' && length >= 10 && dataOffset + 10 <= buffer.length) {
       return {
         width: buffer.readUInt16LE(dataOffset + 6) & 0x3fff,
         height: buffer.readUInt16LE(dataOffset + 8) & 0x3fff,
       }
     }
-    if (type === 'VP8L' && length >= 5 && buffer[dataOffset] === 0x2f) {
+    if (
+      type === 'VP8L' &&
+      length >= 5 &&
+      dataOffset + 5 <= buffer.length &&
+      buffer[dataOffset] === 0x2f
+    ) {
       const bits = buffer.readUInt32LE(dataOffset + 1)
       return {
         width: 1 + (bits & 0x3fff),
@@ -868,6 +873,24 @@ function getWebpCanvas(
     offset = dataOffset + length + (length % 2)
   }
   return null
+}
+
+/** Read dimensions from a bounded file header without decoding image pixels. */
+export function readImageHeaderDimensions(buffer: Buffer): {
+  width?: number
+  height?: number
+} {
+  const raster =
+    getPngDimensions(buffer) ||
+    getJpegDimensions(buffer) ||
+    getGifDimensions(buffer)
+  if (raster) return raster
+  if (
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  )
+    return getWebpCanvas(buffer, true) || {}
+  return getSvgDimensions(buffer)
 }
 
 function embedWebpMetadata(

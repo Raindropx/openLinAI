@@ -1639,5 +1639,14 @@
   "恢复任务编号冲突，请重试": "Task ID conflict during restoration; please try again",
   "恢复素材编号冲突，请重试": "Asset ID conflict during restoration; please try again",
   "恢复失败，部分新增数据未能清理，请检查磁盘状态": "Restoration failed and some added data could not be removed. Check disk health.",
-  "[服务] 从备份恢复，原生成任务已中断": "[Service] Restored from backup; the original generation was interrupted"
+  "[服务] 从备份恢复，原生成任务已中断": "[Service] Restored from backup; the original generation was interrupted",
+  "缩略图缓存": "Thumbnail cache",
+  "清理服务器上的缩略图缓存，并逐张重新生成。原图、任务记录和设置会保留；图片较多时需要一些时间，关闭设置后仍会继续。": "Clear the server's thumbnail cache and regenerate thumbnails one at a time. Original images, task records, and settings are preserved. Large libraries may take some time; processing continues after closing settings.",
+  "清理缓存并重新生成缩略图": "Clear cache and regenerate thumbnails",
+  "暂时无法获取缓存任务状态，正在重试。": "Unable to check cache processing status. Retrying…",
+  "正在清理缩略图缓存…": "Clearing thumbnail cache…",
+  "正在重新生成缩略图：{0}/{1}": "Regenerating thumbnails: {0}/{1}",
+  "缓存处理完成：清理 {0} 个文件，生成 {1} 张，失败 {2} 张，跳过 {3} 张。": "Cache processing complete: {0} files cleared, {1} thumbnails generated, {2} failed, {3} skipped.",
+  "缩略图缓存重建失败，请检查服务日志": "Thumbnail cache rebuild failed. Check the server logs.",
+  "openLinAI v2.1.0 更新内容 🐱：\n🖼️ 任务列表与参考图按需加载缩略图，预览仍使用原图；图片尺寸信息改为轻量读取\n⚡ 原图响应改为流式传输，合并重复缩略图请求，降低内存与 CPU 开销\n🧹 删除原图时同步清理缩略图，并定期清理孤立缓存与过期临时文件\n⚙️ 功能设置新增「清理缓存并重新生成缩略图」，支持后台逐张重建与进度显示，保留原图、任务记录和设置": "openLinAI v2.1.0 update 🐱:\n🖼️ Task lists and reference images load thumbnails on demand while previews retain original quality; image dimensions use lightweight reads\n⚡ Stream original images and share duplicate thumbnail requests to reduce memory and CPU usage\n🧹 Remove thumbnails when deleting originals, and periodically clean orphaned cache and expired temporary files\n⚙️ Added “Clear cache and regenerate thumbnails” in Feature settings, with sequential background processing and progress tracking; original images, task records, and settings are preserved"
 }

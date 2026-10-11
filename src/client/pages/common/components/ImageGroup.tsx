@@ -1,5 +1,6 @@
 import { Image } from 'antd'
 import { t, useAppLanguage } from '../../../i18n'
+import { ThumbnailImage } from './ThumbnailImage'
 
 interface ImageGroupProps {
   images: string[]
@@ -24,7 +25,6 @@ export function ImageGroup({
   if (!images || images.length === 0) return null
 
   const visibleImages = images.slice(0, MAX_VISIBLE_IMAGES)
-  const hiddenImages = images.slice(MAX_VISIBLE_IMAGES)
   const rows = visibleImages.length > WARP_MAX_IMAGE_COUNT ? 2 : 1
   const rowCounts =
     rows === 1
@@ -42,7 +42,7 @@ export function ImageGroup({
       className="relative shrink-0 rounded-lg bg-[#111318]"
       style={{ width: `${width}px`, height: `${height}px` }}
     >
-      <Image.PreviewGroup preview={onPreview ? false : preview}>
+      <Image.PreviewGroup items={images} preview={onPreview ? false : preview}>
         {visibleImages.map((url, index) => {
           const rowIndex = rows === 1 ? 0 : index < rowCounts[0] ? 0 : 1
           const colIndex =
@@ -85,10 +85,10 @@ export function ImageGroup({
                 transformOrigin: 'bottom center',
               }}
             >
-              <Image
+              <ThumbnailImage
                 src={url}
                 alt={`image-${index}`}
-                preview={onPreview ? false : preview}
+                preview={onPreview || !preview ? false : { src: url }}
                 onClick={
                   onPreview
                     ? (event) => {
@@ -105,18 +105,6 @@ export function ImageGroup({
             </div>
           )
         })}
-        {hiddenImages.length > 0 && (
-          <div style={{ display: 'none' }}>
-            {hiddenImages.map((url, index) => (
-              <Image
-                key={`hidden-${index}`}
-                src={url}
-                alt={`image-hidden-${index}`}
-                preview={preview}
-              />
-            ))}
-          </div>
-        )}
       </Image.PreviewGroup>
       <div className="absolute right-1 bottom-0 z-20 rounded bg-black/50 px-1 text-[10px] text-white">
         {images.length}

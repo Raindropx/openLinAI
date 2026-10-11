@@ -11,8 +11,10 @@ import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
 import type { Task } from '../../../../server/common/task-manager'
 import { useRecentImages } from '../../../hooks/useRecentImages'
+import { useThumbnailCacheVersion } from '../../../hooks/useThumbnailCacheVersion'
 import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
+import { imageThumbnailUrl } from '../../../utils/imageUrls'
 import { uploadInputImageFromUrl } from '../../../utils/uploadInputImage'
 import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
 
@@ -28,10 +30,6 @@ function getOutputUrls(task: Task) {
   return task.outputUrl ? [task.outputUrl] : []
 }
 
-function getThumbUrl(url: string) {
-  return `${url}${url.includes('?') ? '&' : '?'}thumb=true`
-}
-
 export function WorkspaceCanvas({
   imageTasks,
   loading,
@@ -39,6 +37,8 @@ export function WorkspaceCanvas({
   onSelectTask,
 }: WorkspaceCanvasProps) {
   useAppLanguage()
+  const thumbnailVersion = useThumbnailCacheVersion()
+  const getThumbUrl = (url: string) => imageThumbnailUrl(url, thumbnailVersion)
 
   const { addRecentImages } = useRecentImages()
   const addReferenceImage = useGlobalStore((state) => state.addReferenceImage)

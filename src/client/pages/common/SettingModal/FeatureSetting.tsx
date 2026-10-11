@@ -1,6 +1,7 @@
 import { Switch } from 'antd'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../i18n'
+import { ThumbnailCacheSetting } from './ThumbnailCacheSetting'
 import { UploadImageSetting } from './UploadImageSetting'
 
 export function FeatureSetting() {
@@ -54,6 +55,9 @@ export function FeatureSetting() {
   return (
     <div className="space-y-6 px-4 py-2">
       <UploadImageSetting />
+
+      <div className="border-t border-[#303640]" />
+      <ThumbnailCacheSetting />
 
       <div className="border-t border-[#303640]" />
 

@@ -18,7 +18,6 @@ import {
   Checkbox,
   Empty,
   Form,
-  Image,
   Input,
   Modal,
   Pagination,
@@ -51,12 +50,14 @@ import { useTasks } from '../../../hooks/useTasks'
 import { t, useAppLanguage } from '../../../i18n'
 import { ImageGroup } from '../../../pages/common/components/ImageGroup'
 import { useGlobalStore } from '../../../store/global'
+import { localImageVariant } from '../../../utils/imageUrls'
 import { InfiniteScrollSentinel } from '../components/InfiniteScrollSentinel'
 import {
   ListToolbar,
   sortListItems,
   type ListSortMode,
 } from '../components/ListToolbar'
+import { ThumbnailImage } from '../components/ThumbnailImage'
 import { generateNovelAIStudioImages } from '../Studio/api'
 import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
 import { TaskFolderCard } from './components/TaskFolderCard'
@@ -101,55 +102,53 @@ function TaskImage({
 }) {
   useAppLanguage()
 
-  const [size, setSize] = useState<{ width: number; height: number } | null>(
-    null,
+  const [info, setInfo] = useState<{
+    src: string
+    width?: number
+    height?: number
+    bytes?: number
+  } | null>(null)
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
+  const metadataUrl = localImageVariant(src, 'metadata')
+  const currentInfo = info?.src === src ? info : null
+
+  const handleLoaded = useCallback(
+    (image: HTMLImageElement) => {
+      setLoadedSrc(src)
+      // External images have no local metadata endpoint. Never label thumbnail
+      // dimensions as the original dimensions.
+      if (!metadataUrl && image.naturalWidth && image.naturalHeight)
+        setInfo({ src, width: image.naturalWidth, height: image.naturalHeight })
+    },
+    [src, metadataUrl],
   )
-  const [fileSize, setFileSize] = useState<number | null>(null)
-  const rootRef = useRef<HTMLDivElement | null>(null)
-  const width = size?.width ?? 0
-  const height = size?.height ?? 0
-
-  const handleLoaded = useCallback((image: HTMLImageElement) => {
-    if (!image.naturalWidth || !image.naturalHeight) return
-    setSize({
-      width: image.naturalWidth,
-      height: image.naturalHeight,
-    })
-  }, [])
 
   useEffect(() => {
-    setSize(null)
-    const image = rootRef.current?.querySelector('img')
-    if (image?.complete) {
-      handleLoaded(image)
-    }
-  }, [handleLoaded, src])
-
-  useEffect(() => {
-    setFileSize(null)
-    if (!showSize || !width || !height) return
+    if (!showSize || loadedSrc !== src || !metadataUrl) return
 
     const controller = new AbortController()
-    fetch(src, { signal: controller.signal })
+    fetch(metadataUrl, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`)
         }
-        return response.blob()
+        return response.json()
       })
-      .then((blob) => setFileSize(blob.size))
+      .then((metadata) => {
+        if (!controller.signal.aborted) setInfo({ ...metadata, src })
+      })
       .catch(() => {})
 
     return () => controller.abort()
-  }, [height, showSize, src, width])
+  }, [loadedSrc, showSize, src, metadataUrl])
 
   return (
     <>
-      <div ref={rootRef} className="contents">
-        <Image
+      <div className="contents">
+        <ThumbnailImage
           src={src}
           alt="result"
-          preview={onPreview ? false : preview}
+          preview={onPreview || !preview ? false : { src }}
           onClick={
             onPreview
               ? (event) => {
@@ -167,10 +166,13 @@ function TaskImage({
           }}
         />
       </div>
-      {showSize && size && (
+      {showSize && currentInfo && (
         <div className="pointer-events-none absolute top-0 left-0 z-10 rounded-br bg-black/55 px-1 text-[10px] leading-4 text-white">
-          {size.width}×{size.height}
-          {fileSize !== null && ` · ${formatFileSize(fileSize)}`}
+          {currentInfo.width && currentInfo.height
+            ? `${currentInfo.width}×${currentInfo.height}`
+            : ''}
+          {currentInfo.bytes !== undefined &&
+            `${currentInfo.width && currentInfo.height ? ' · ' : ''}${formatFileSize(currentInfo.bytes)}`}
         </div>
       )}
     </>

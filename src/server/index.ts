@@ -17,6 +17,7 @@ import studioApi from './api/studio'
 import styleAnalyzeApi from './api/style-analyze'
 import veniceApi from './api/venice'
 import yunwuTokenApi from './api/yunwu-token'
+import { startThumbnailCacheMaintenance } from './common/static'
 import './polyfills'
 import './startup-migrations'
 
@@ -75,6 +76,7 @@ serve(
   },
   (info) => {
     console.log(`Server is running on http://localhost:${info.port}`)
+    startThumbnailCacheMaintenance()
     if (
       process.env.NODE_ENV === 'production' &&
       process.env.OPEN_BROWSER !== 'false'

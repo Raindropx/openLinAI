@@ -6,13 +6,27 @@ import {
   IMAGE_UPLOAD_REQUEST_MAX_BYTES,
   ImageUploadTooLargeError,
   deleteUnreferencedImages,
+  getImageInfo,
+  getThumbnailCacheStatus,
   listImages,
   openImageDirectory,
   serveImage,
+  startThumbnailCacheRebuild,
   uploadInputImage,
 } from '../../common/static'
 
 const staticApi = new Hono()
+  .get('/images/thumbnail-cache', (c) => {
+    c.header('Cache-Control', 'no-store')
+    return c.json({ success: true as const, data: getThumbnailCacheStatus() })
+  })
+  .post('/images/thumbnail-cache/rebuild', (c) => {
+    c.header('Cache-Control', 'no-store')
+    return c.json(
+      { success: true as const, data: startThumbnailCacheRebuild() },
+      202,
+    )
+  })
   .post(
     '/images/upload',
     bodyLimit({
@@ -60,53 +74,69 @@ const staticApi = new Hono()
   .get(
     '/images/generated/:filename',
     zValidator('param', z.object({ filename: z.string() })),
-    zValidator('query', z.object({ thumb: z.string().optional() })),
+    zValidator(
+      'query',
+      z.object({
+        thumb: z.string().optional(),
+        metadata: z.string().optional(),
+      }),
+    ),
     async (c) => {
       const { filename } = c.req.valid('param')
-      const { thumb } = c.req.valid('query')
+      const { thumb, metadata } = c.req.valid('query')
+      if (metadata === 'true') {
+        const info = await getImageInfo('generated', filename)
+        if (!info) return c.notFound()
+        c.header('Cache-Control', 'public, max-age=86400, immutable')
+        return c.json(info)
+      }
 
       const result = await serveImage({
         type: 'generated',
         filename,
         thumb: thumb === 'true',
+        headOnly: c.req.method === 'HEAD',
       })
 
       if (!result) {
         return c.notFound()
       }
 
-      return new Response(new Uint8Array(result.file), {
-        headers: {
-          'Content-Type': result.contentType,
-          'Cache-Control': 'public, max-age=86400, immutable',
-        },
-      })
+      return result
     },
   )
   .get(
     '/images/input/:filename',
     zValidator('param', z.object({ filename: z.string() })),
-    zValidator('query', z.object({ thumb: z.string().optional() })),
+    zValidator(
+      'query',
+      z.object({
+        thumb: z.string().optional(),
+        metadata: z.string().optional(),
+      }),
+    ),
     async (c) => {
       const { filename } = c.req.valid('param')
-      const { thumb } = c.req.valid('query')
+      const { thumb, metadata } = c.req.valid('query')
+      if (metadata === 'true') {
+        const info = await getImageInfo('input', filename)
+        if (!info) return c.notFound()
+        c.header('Cache-Control', 'public, max-age=86400, immutable')
+        return c.json(info)
+      }
 
       const result = await serveImage({
         type: 'input',
         filename,
         thumb: thumb === 'true',
+        headOnly: c.req.method === 'HEAD',
       })
 
       if (!result) {
         return c.notFound()
       }
 
-      return new Response(new Uint8Array(result.file), {
-        headers: {
-          'Content-Type': result.contentType,
-          'Cache-Control': 'public, max-age=86400, immutable',
-        },
-      })
+      return result
     },
   )
   .post('/images/generated/open-dir', async (c) => {

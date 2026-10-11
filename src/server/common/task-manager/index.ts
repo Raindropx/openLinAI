@@ -13,7 +13,7 @@ import { GptImageQuality, GptImageSize } from '../../module/gpt-image/enum'
 import { Logger } from '../../module/utils/logger'
 import { getDataDir } from '../data-dir'
 import { SafeJsonStore } from '../safe-json-store'
-import { GENERATED_IMAGES_DIR } from '../static'
+import { deleteImageFile } from '../static'
 import { GENERATED_IMAGES_API_PATH } from '../static/enum'
 import { TaskTemplate } from '../template-manager'
 
@@ -403,16 +403,10 @@ export class TaskManager extends EventEmitter {
     if (!outputUrl.startsWith(prefix)) return
 
     try {
-      const relativePath = outputUrl.slice(prefix.length)
-      const rootPath = path.resolve(GENERATED_IMAGES_DIR)
-      const filepath = path.resolve(rootPath, relativePath)
-      if (!filepath.startsWith(`${rootPath}${path.sep}`)) {
-        this.logger.error('Refused to delete image outside generated directory')
-        return
-      }
-      if (await fs.pathExists(filepath)) {
-        await fs.unlink(filepath)
-      }
+      const filename = decodeURIComponent(
+        outputUrl.slice(prefix.length).split(/[?#]/)[0],
+      )
+      await deleteImageFile('generated', filename)
     } catch (error: any) {
       this.logger.error('Failed to delete task file:', error)
     }

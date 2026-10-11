@@ -10,8 +10,10 @@ import {
 import { useRecentImages } from '../../../../hooks/useRecentImages'
 import { useTasks } from '../../../../hooks/useTasks'
 import { useTemplates } from '../../../../hooks/useTemplates'
+import { useThumbnailCacheVersion } from '../../../../hooks/useThumbnailCacheVersion'
 import { t, useAppLanguage } from '../../../../i18n'
 import { AppThemeProvider } from '../../../../theme'
+import { imageThumbnailUrl } from '../../../../utils/imageUrls'
 import type { GalleryDeleteSuccessPayload } from './Footer'
 import { GalleryFooter } from './Footer'
 import {
@@ -56,6 +58,7 @@ function GalleryModal({
   maxCount,
 }: GalleryModalProps) {
   useAppLanguage()
+  const thumbnailVersion = useThumbnailCacheVersion()
 
   const [activeKey, setActiveKey] = useState('recent')
   const [imageFiles, setImageFiles] = useState<ImageFile[]>([])
@@ -264,7 +267,7 @@ function GalleryModal({
                 onClick={() => handleSelect(url)}
               >
                 <img
-                  src={`${url}${url.includes('?') ? '&' : '?'}thumb=true`}
+                  src={imageThumbnailUrl(url, thumbnailVersion)}
                   alt="gallery item"
                   className="h-full w-full object-cover"
                   loading="lazy"

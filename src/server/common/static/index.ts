@@ -1,8 +1,12 @@
 import { exec } from 'child_process'
 import crypto from 'crypto'
 import fs from 'fs-extra'
+import { open } from 'node:fs/promises'
+import { Readable } from 'node:stream'
 import path from 'path'
 import { mapBackupImageUrls } from '../../../shared/task-backup'
+import type { ThumbnailCacheStatus } from '../../../shared/thumbnail-cache'
+import { readImageHeaderDimensions } from '../../module/gpt-image/generation-metadata'
 import { getDataDir } from '../data-dir'
 import { taskManager } from '../task-manager'
 import { templateManager } from '../template-manager'
@@ -36,11 +40,7 @@ interface ServeImageOptions {
   type: ImageDirectoryType
   filename: string
   thumb?: boolean
-}
-
-interface ImageResponseData {
-  file: Buffer
-  contentType: string
+  headOnly?: boolean
 }
 
 interface ListedImageInfo {
@@ -90,26 +90,98 @@ function getImageMimeType(filename: string) {
   return `image/${ext}`
 }
 
+const thumbnailJobs = new Map<string, Promise<boolean>>()
+const thumbnailLocks = new Map<string, Promise<unknown>>()
+
+// Both backends use the same source stem. Serialize generation, deletion and
+// maintenance for that stem so a pending encoder cannot resurrect deleted cache.
+async function withThumbnailLock<T>(
+  thumbPath: string,
+  action: () => Promise<T>,
+) {
+  const key = path.join(path.dirname(thumbPath), path.parse(thumbPath).name)
+  const previous = thumbnailLocks.get(key) ?? Promise.resolve()
+  const current = previous.catch(() => {}).then(action)
+  thumbnailLocks.set(key, current)
+  try {
+    return await current
+  } finally {
+    if (thumbnailLocks.get(key) === current) thumbnailLocks.delete(key)
+  }
+}
+
 async function ensureThumbnail(
   sourcePath: string,
   thumbPath: string,
-): Promise<Buffer | null> {
+): Promise<boolean> {
+  const pending = thumbnailJobs.get(thumbPath)
+  if (pending) return pending
+  const job = withThumbnailLock(thumbPath, async () => {
+    if (!(await fs.pathExists(sourcePath))) return false
+    if (await fs.pathExists(thumbPath)) return true
+    return writeThumbnail(sourcePath, thumbPath)
+  })
+  thumbnailJobs.set(thumbPath, job)
+  try {
+    return await job
+  } finally {
+    thumbnailJobs.delete(thumbPath)
+  }
+}
+
+/** Caller holds the per-image lock. */
+async function writeThumbnail(
+  sourcePath: string,
+  thumbPath: string,
+): Promise<boolean> {
   await fs.ensureDir(path.dirname(thumbPath))
-
-  if (!(await fs.pathExists(thumbPath))) {
-    try {
-      await generateThumbnailFile(sourcePath, thumbPath)
-    } catch (error) {
-      // 编码失败时跳过缩略图，回退到原图
-      return null
-    }
+  // Publish only complete files; another request must never read a partial JPEG.
+  const temporary = `${thumbPath}.${crypto.randomUUID()}${getImageOutputExtension()}`
+  try {
+    await generateThumbnailFile(sourcePath, temporary)
+    if (!(await fs.pathExists(temporary)) || !(await fs.pathExists(sourcePath)))
+      return false
+    await fs.rename(temporary, thumbPath)
+    return true
+  } catch {
+    return false
+  } finally {
+    await fs.remove(temporary).catch(() => {})
   }
+}
 
-  if (!(await fs.pathExists(thumbPath))) {
+function imageSourcePath(type: ImageDirectoryType, filename: string) {
+  if (
+    !filename ||
+    /[\\/\x00]/.test(filename) ||
+    filename === '.' ||
+    filename === '..'
+  )
     return null
-  }
+  return path.join(getImageDirectory(type), filename)
+}
 
-  return await fs.readFile(thumbPath)
+/** File size always refers to the original. Unknown dimensions are omitted. */
+export async function getImageInfo(type: ImageDirectoryType, filename: string) {
+  const sourcePath = imageSourcePath(type, filename)
+  if (!sourcePath) return null
+  const file = await open(sourcePath, 'r').catch((error) => {
+    if (error.code === 'ENOENT') return null
+    throw error
+  })
+  if (!file) return null
+  try {
+    const stat = await file.stat()
+    if (!stat.isFile()) return null
+    const header = Buffer.alloc(Math.min(stat.size, 256 * 1024))
+    const { bytesRead } = await file.read(header, 0, header.length, 0)
+    return {
+      bytes: stat.size,
+      ...readImageHeaderDimensions(header.subarray(0, bytesRead)),
+    }
+  } finally {
+    await file.close()
+  }
 }
 
 export async function uploadInputImage(
@@ -149,29 +221,57 @@ export async function uploadInputImage(
 
 export async function serveImage(
   options: ServeImageOptions,
-): Promise<ImageResponseData | null> {
-  const { filename, thumb = false, type } = options
-  const sourceDir = getImageDirectory(type)
-  const sourcePath = path.join(sourceDir, filename)
+): Promise<Response | null> {
+  const { filename, thumb = false, type, headOnly = false } = options
+  const sourcePath = imageSourcePath(type, filename)
 
-  if (!(await fs.pathExists(sourcePath))) {
+  if (!sourcePath || !(await fs.pathExists(sourcePath))) {
     return null
   }
 
+  let filePath = sourcePath
+  let contentType = getImageMimeType(filename)
   if (thumb) {
     const thumbPath = getThumbnailPath(type, filename)
-    const thumbFile = await ensureThumbnail(sourcePath, thumbPath)
-    if (thumbFile) {
-      return {
-        file: thumbFile,
-        contentType: getImageOutputMimeType(),
-      }
+    if (await ensureThumbnail(sourcePath, thumbPath)) {
+      filePath = thumbPath
+      contentType = getImageOutputMimeType()
     }
   }
 
-  return {
-    file: await fs.readFile(sourcePath),
-    contentType: getImageMimeType(filename),
+  const file = await open(filePath, 'r').catch((error) => {
+    if (error.code === 'ENOENT') return null
+    throw error
+  })
+  if (!file) return null
+  try {
+    const stat = await file.stat()
+    if (!stat.isFile()) {
+      await file.close()
+      return null
+    }
+    const headers = {
+      'Content-Type': contentType,
+      'Content-Length': String(stat.size),
+      'Cache-Control': 'public, max-age=86400, immutable',
+    }
+    if (headOnly) {
+      await file.close()
+      return new Response(null, { headers })
+    }
+    const stream = file.createReadStream({ highWaterMark: 64 * 1024 })
+    return new Response(
+      Readable.toWeb(stream, {
+        strategy: {
+          highWaterMark: 64 * 1024,
+          size: (chunk: Uint8Array) => chunk.byteLength,
+        },
+      }) as ReadableStream<Uint8Array>,
+      { headers },
+    )
+  } catch (error) {
+    await file.close().catch(() => {})
+    throw error
   }
 }
 
@@ -222,17 +322,214 @@ async function getReferencedImageFilenames(type: ImageDirectoryType) {
   return referencedImages
 }
 
-async function deleteImageFile(type: ImageDirectoryType, filename: string) {
-  const filePath = path.join(getImageDirectory(type), filename)
+export async function deleteImageFile(
+  type: ImageDirectoryType,
+  filename: string,
+) {
+  const filePath = imageSourcePath(type, filename)
+  if (!filePath) throw new Error('Invalid image filename')
   const thumbPath = getThumbnailPath(type, filename)
+  await withThumbnailLock(thumbPath, async () => {
+    await unlinkIfPresent(filePath)
+    // Include old caches left by switching between Sharp and FFmpeg.
+    for (const extension of ['.jpg', '.webp'])
+      await unlinkIfPresent(
+        path.join(
+          path.dirname(thumbPath),
+          `${path.parse(thumbPath).name}${extension}`,
+        ),
+      )
+  })
+}
 
-  if (await fs.pathExists(filePath)) {
-    await fs.remove(filePath)
-  }
+async function unlinkIfPresent(filename: string) {
+  await fs.unlink(filename).catch((error) => {
+    if (error.code !== 'ENOENT') throw error
+  })
+}
 
-  if (await fs.pathExists(thumbPath)) {
-    await fs.remove(thumbPath)
+const THUMBNAIL_SWEEP_INTERVAL = 6 * 60 * 60 * 1000
+const TEMP_THUMBNAIL_MAX_AGE = 24 * 60 * 60 * 1000
+const TEMP_THUMBNAIL_PATTERN =
+  /^(.*\.(?:jpg|webp))\.[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}\.(?:jpg|webp)$/i
+let thumbnailSweep: Promise<{ removed: number }> | undefined
+
+/** Only cache files are removed. Original images and task records are untouched. */
+export function cleanupThumbnailCache(): Promise<{ removed: number }> {
+  if (thumbnailSweep) return thumbnailSweep
+  thumbnailSweep = sweepThumbnailCache().finally(() => {
+    thumbnailSweep = undefined
+  })
+  return thumbnailSweep
+}
+
+async function sweepThumbnailCache() {
+  let removed = 0
+  for (const type of ['generated', 'input'] as const) {
+    const sourceDir = getImageDirectory(type)
+    // Fail closed if the source directory is unavailable (e.g. disconnected disk).
+    let sourceDirectoryMtime = (await fs.stat(sourceDir)).mtimeMs
+    const sources = await fs.readdir(sourceDir)
+    const sourceStems = new Set(sources.map((name) => path.parse(name).name))
+    const thumbDir = path.join(THUMB_IMAGES_DIR, type)
+    if (!(await fs.pathExists(thumbDir))) continue
+    const entries = await fs.readdir(thumbDir, { withFileTypes: true })
+    for (const entry of entries) {
+      if (!entry.isFile()) continue
+      const temporary = TEMP_THUMBNAIL_PATTERN.exec(entry.name)
+      if (!temporary && !/\.(jpg|webp)$/i.test(entry.name)) continue
+      const cacheName = temporary?.[1] ?? entry.name
+      const stem = path.parse(cacheName).name
+      if (!temporary && sourceStems.has(stem)) continue
+      const cachePath = path.join(thumbDir, cacheName)
+      const key = path.join(thumbDir, stem)
+      // Do not wait for or disturb an active/queued image operation.
+      if (thumbnailLocks.has(key) || thumbnailJobs.has(cachePath)) continue
+      await withThumbnailLock(cachePath, async () => {
+        const target = path.join(thumbDir, entry.name)
+        const stat = await fs.lstat(target).catch((error) => {
+          if (error.code === 'ENOENT') return null
+          throw error
+        })
+        if (!stat?.isFile()) return
+        if (temporary && Date.now() - stat.mtimeMs < TEMP_THUMBNAIL_MAX_AGE)
+          return
+        // A source may have been restored since the directory snapshot. Refresh
+        // only when its directory changes, not once for every orphan thumbnail.
+        const currentSourceStat = await fs.stat(sourceDir)
+        if (currentSourceStat.mtimeMs !== sourceDirectoryMtime) {
+          sourceStems.clear()
+          for (const name of await fs.readdir(sourceDir))
+            sourceStems.add(path.parse(name).name)
+          sourceDirectoryMtime = currentSourceStat.mtimeMs
+        }
+        if (!temporary && sourceStems.has(stem)) return
+        await unlinkIfPresent(target)
+        removed++
+      })
+    }
   }
+  return { removed }
+}
+
+let thumbnailMaintenanceTimer: ReturnType<typeof setTimeout> | undefined
+
+let thumbnailRebuild: ThumbnailCacheStatus = {
+  state: 'idle',
+  phase: 'clearing',
+  total: 0,
+  processed: 0,
+  regenerated: 0,
+  failed: 0,
+  skipped: 0,
+  removed: 0,
+}
+
+export function getThumbnailCacheStatus(): ThumbnailCacheStatus {
+  return { ...thumbnailRebuild }
+}
+
+/** Idempotent while running, including requests from another settings window. */
+export function startThumbnailCacheRebuild(): ThumbnailCacheStatus {
+  if (thumbnailRebuild.state === 'running') return getThumbnailCacheStatus()
+  const job: ThumbnailCacheStatus = {
+    id: crypto.randomUUID(),
+    state: 'running',
+    phase: 'clearing',
+    total: 0,
+    processed: 0,
+    regenerated: 0,
+    failed: 0,
+    skipped: 0,
+    removed: 0,
+  }
+  thumbnailRebuild = job
+  void rebuildThumbnailCache(job)
+    .then(() => {
+      job.state = 'completed'
+    })
+    .catch((error) => {
+      job.state = 'failed'
+      job.error = '缩略图缓存重建失败，请检查服务日志'
+      console.error('Thumbnail cache rebuild failed:', error)
+    })
+  return getThumbnailCacheStatus()
+}
+
+async function rebuildThumbnailCache(job: ThumbnailCacheStatus) {
+  const plans: { type: ImageDirectoryType; filename: string }[] = []
+  // Read both source directories before deleting any cache. An unavailable disk
+  // is an error, never an empty library. Do not follow symlinks or recurse.
+  for (const type of ['generated', 'input'] as const) {
+    for (const file of await fs.readdir(getImageDirectory(type), {
+      withFileTypes: true,
+    })) {
+      if (
+        file.isFile() &&
+        /\.(png|jpe?g|webp|gif|avif|tiff?|bmp|svg)$/i.test(file.name)
+      )
+        plans.push({ type, filename: file.name })
+    }
+  }
+  job.total = plans.length
+  for (const type of ['generated', 'input'] as const) {
+    const directory = path.join(THUMB_IMAGES_DIR, type)
+    if (!(await fs.pathExists(directory))) continue
+    for (const file of await fs.readdir(directory, { withFileTypes: true })) {
+      if (!file.isFile() || !/\.(jpg|webp)$/i.test(file.name)) continue
+      const target = path.join(directory, file.name)
+      const cacheName = TEMP_THUMBNAIL_PATTERN.exec(file.name)?.[1] ?? file.name
+      await withThumbnailLock(path.join(directory, cacheName), async () => {
+        if (
+          !(
+            await fs.lstat(target).catch((error) => {
+              if (error.code === 'ENOENT') return null
+              throw error
+            })
+          )?.isFile()
+        )
+          return
+        await unlinkIfPresent(target)
+        job.removed++
+      })
+    }
+  }
+  job.phase = 'rebuilding'
+  // Process one source at a time on both backends. No image buffers accumulate
+  // in a job queue, and existing FFmpeg concurrency limits still apply.
+  for (const { type, filename } of plans) {
+    const source = imageSourcePath(type, filename)!
+    const thumbnail = getThumbnailPath(type, filename)
+    await withThumbnailLock(thumbnail, async () => {
+      if (!(await fs.pathExists(source))) {
+        job.skipped++
+        return
+      }
+      // A viewer may have warmed this cache during the clearing phase.
+      await unlinkIfPresent(thumbnail)
+      if (await writeThumbnail(source, thumbnail)) job.regenerated++
+      else job.failed++
+    })
+    job.processed++
+  }
+}
+
+/** One delayed startup sweep, then six hours after each completed sweep. */
+export function startThumbnailCacheMaintenance() {
+  if (thumbnailMaintenanceTimer) return
+  const schedule = (delay: number) => {
+    thumbnailMaintenanceTimer = setTimeout(async () => {
+      try {
+        await cleanupThumbnailCache()
+      } catch (error) {
+        console.error('Thumbnail cache maintenance failed:', error)
+      } finally {
+        schedule(THUMBNAIL_SWEEP_INTERVAL)
+      }
+    }, delay)
+    thumbnailMaintenanceTimer.unref()
+  }
+  schedule(60 * 1000)
 }
 
 export async function deleteUnreferencedImages(
