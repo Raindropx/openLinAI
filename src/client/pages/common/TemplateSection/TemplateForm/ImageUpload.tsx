@@ -1,3 +1,4 @@
+import { changePendingImages } from '../../../../hooks/usePendingImages'
 import { PictureOutlined, UploadOutlined } from '@ant-design/icons'
 import { Button, message, Upload } from 'antd'
 import { useEffect, useRef } from 'react'
@@ -221,6 +222,9 @@ export function ImageUpload({
                   latestValueRef.current = newUrls
                   onChange?.(newUrls)
                   addRecentImages(processedUrls)
+                  try {
+                    await changePendingImages('remove', images.filter(({ type }) => type === 'input').map(({ url }) => url))
+                  } catch (error) { message.error(error instanceof Error ? t(error.message) : t('请求失败')) }
                 } catch (error) {
                   message.error(
                     error instanceof Error

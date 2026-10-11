@@ -1,3 +1,4 @@
+import { assertInputImagesExist, withImageLifecycle } from '../image-lifecycle'
 import fs from 'fs-extra'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
@@ -83,6 +84,8 @@ class TemplateManager {
   public async addTemplate(
     template: Omit<TaskTemplate, 'id' | 'createdAt'>,
   ): Promise<TaskTemplate> {
+    return withImageLifecycle(async () => {
+      await assertInputImagesExist(template.images || [])
     const newTemplate: TaskTemplate = {
       ...template,
       images: template.images || [],
@@ -94,6 +97,7 @@ class TemplateManager {
       return list
     })
     return newTemplate
+    })
   }
 
   public async deleteTemplate(id: string): Promise<boolean> {
@@ -124,6 +128,8 @@ class TemplateManager {
       >
     >,
   ): Promise<TaskTemplate | null> {
+    return withImageLifecycle(async () => {
+      if (updates.images) await assertInputImagesExist(updates.images)
     let result: TaskTemplate | null = null
     await this.store.mutate((list) => {
       const index = list.findIndex((t) => t.id === id)
@@ -140,6 +146,7 @@ class TemplateManager {
       return list
     })
     return result
+    })
   }
 
   public async reorderTemplates(orderedIds: string[]): Promise<boolean> {

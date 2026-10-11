@@ -28,7 +28,7 @@ import {
   Tooltip,
 } from 'antd'
 import { saveAs } from 'file-saver'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   studioFileUrl,
@@ -61,6 +61,8 @@ import {
 } from './studio-presets'
 import './studio.css'
 import { PHOTOPEA_URL, usePhotopea } from './usePhotopea'
+
+const PerlerBead = lazy(() => import('../../module/PerlerBead').then((module) => ({ default: module.PerlerBead })))
 
 function StudioShelfImage({ item }: { item: StudioItem }) {
   useAppLanguage()
@@ -112,6 +114,8 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [tab, setTab] = useState('novelai')
+  const [perlerVisited, setPerlerVisited] = useState(false)
+  const [perlerImage, setPerlerImage] = useState<{ id: number; url: string }>()
   const [shelfTab, setShelfTab] = useState<'files' | 'presets'>('files')
   const [presets, setPresets] = useState(readStudioPresets)
   const [novelaiPreset, setNovelaiPreset] = useState<{
@@ -202,15 +206,20 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   useEffect(() => {
     const state = location.state as {
       novelaiRequest?: NovelAIStudioGenerateRequest
+      studioTool?: string
     } | null
-    if (!active || !state?.novelaiRequest) return
-    setNovelaiRequest({ id: Date.now(), request: state.novelaiRequest })
-    setTab('novelai')
+    if (!active || (!state?.novelaiRequest && state?.studioTool !== 'perler-bead')) return
+    if (state.novelaiRequest) {
+      setNovelaiRequest({ id: Date.now(), request: state.novelaiRequest })
+      setTab('novelai')
+      setNovelaiPanel('parameters')
+    } else setTab('perler-bead')
     setMobileShelf(false)
-    setNovelaiPanel('parameters')
-    const { novelaiRequest: _request, ...rest } = state
+    const { novelaiRequest: _request, studioTool: _tool, ...rest } = state
     navigate(location.pathname, { replace: true, state: rest })
   }, [active, location.pathname, location.state, navigate])
+
+  useEffect(() => { if (tab === 'perler-bead') setPerlerVisited(true) }, [tab])
 
   useEffect(() => {
     if (active) {
@@ -274,6 +283,11 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const sendItemToPanel = (item: StudioItem) => {
     if (tab === 'photopea') return openItem(item)
     if (item.format === 'psd') return
+    if (tab === 'perler-bead') {
+      setPerlerImage({ id: ++signal.current, url: studioFileUrl(item.id) })
+      setMobileShelf(false)
+      return
+    }
     const payload = { id: ++signal.current, itemId: item.id }
     if (tab === 'novelai') {
       setNovelaiReference(payload)
@@ -432,6 +446,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             ['novelai', 'NovelAI Image'],
             ['civitai', 'Civitai Image'],
             ['photopea', 'Photopea'],
+            ['perler-bead', t('拼豆 / 像素图')],
           ].map(([key, label]) => (
             <button
               key={key}
@@ -446,6 +461,19 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             </button>
           ))}
         </div>
+        {(perlerVisited || tab === 'perler-bead') && (
+          <div
+            className="studio-perler-panel"
+            style={{ display: tab === 'perler-bead' ? 'block' : 'none' }}
+            role="tabpanel"
+            id="studio-panel-perler-bead"
+            aria-labelledby="studio-tab-perler-bead"
+          >
+            <Suspense fallback={<div className="flex h-full items-center justify-center"><Spin /></div>}>
+              <PerlerBead incomingImage={perlerImage} />
+            </Suspense>
+          </div>
+        )}
         {active && providerSettings && tab === 'novelai' && (
           <ProviderBalance
             provider="novelai"
@@ -774,6 +802,8 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                           title={
                             tab === 'photopea'
                               ? t('在 Photopea 打开')
+                              : tab === 'perler-bead'
+                                ? t('在拼豆 / 像素图打开')
                               : t('放入图生图参考图')
                           }
                         >
@@ -783,6 +813,8 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                             aria-label={
                               tab === 'photopea'
                                 ? t('在 Photopea 打开 {0}', [item.name])
+                                : tab === 'perler-bead'
+                                  ? t('在拼豆 / 像素图打开 {0}', [item.name])
                                 : t('将 {0} 放入图生图参考图', [item.name])
                             }
                             disabled={
@@ -805,7 +837,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                             />
                           </Tooltip>
                         ) : (
-                          (item.provenance.sourceTaskId ||
+                          (tab === 'novelai' || tab === 'civitai') && (item.provenance.sourceTaskId ||
                             item.provenance.civitai) && (
                             <Tooltip title={t('将生成参数填入左侧')}>
                               <Button

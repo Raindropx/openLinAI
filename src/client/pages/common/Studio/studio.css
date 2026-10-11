@@ -22,9 +22,11 @@
   flex-shrink: 0;
   padding: 0 12px;
   gap: 16px;
+  overflow-x: auto;
   border-bottom: 1px solid var(--studio-border);
 }
 .studio-tabs button {
+  flex-shrink: 0;
   padding: 16px 2px 13px;
   border: 0;
   border-bottom: 3px solid transparent;
@@ -107,6 +109,24 @@
   min-height: 0;
   overflow-y: auto;
   padding: 16px;
+}
+.studio-perler-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  container-type: inline-size;
+}
+@container (min-width: 850px) and (max-width: 1050px) {
+  .studio-perler-panel .perler-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+  .studio-perler-panel .perler-tools { grid-column: 2; grid-row: 1 / span 2; width: 100%; }
+  .studio-perler-panel .perler-result { border-left-width: 0; border-top-width: 1px; }
+}
+@container (max-width: 849px) {
+  .studio-perler-panel .perler-page { height: auto; overflow: visible; }
+  .studio-perler-panel .perler-body { flex-direction: column; overflow: visible; }
+  .studio-perler-panel .perler-preview { flex: none; height: 320px; min-height: 320px; }
+  .studio-perler-panel .perler-result,
+  .studio-perler-panel .perler-tools { width: 100%; border-left-width: 0; border-top-width: 1px; }
 }
 .studio-provider-panel {
   width: min(100%, 1080px);

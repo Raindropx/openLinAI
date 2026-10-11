@@ -8,6 +8,8 @@
  * @param options fetch 配置（原有 signal 会被合并）
  * @param timeoutMs 超时毫秒，默认 60s
  */
+import { generationFetch } from '../../common/image-lifecycle'
+
 export async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
@@ -16,22 +18,8 @@ export async function fetchWithTimeout(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
-  // 合并外部 signal（如果调用方传了的话）
-  const externalSignal = options.signal
-  if (externalSignal) {
-    if (externalSignal.aborted) {
-      controller.abort()
-    } else {
-      externalSignal.addEventListener(
-        'abort',
-        () => controller.abort(),
-        { once: true },
-      )
-    }
-  }
-
   try {
-    return await fetch(url, { ...options, signal: controller.signal })
+    return await generationFetch(url, { ...options, signal: options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal })
   } finally {
     clearTimeout(timer)
   }

@@ -11,9 +11,10 @@ export default defineConfig({
   publicDir: 'src/client/public',
   server: {
     port: 5174,
+    watch: { ignored: ['**/data/**'] },
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.LINAI_DEV_API_TARGET || 'http://127.0.0.1:3000',
         changeOrigin: true
       }
     }

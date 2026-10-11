@@ -7,6 +7,7 @@ import {
   ImageUploadTooLargeError,
   deleteUnreferencedImages,
   getImageInfo,
+  getGalleryReferences,
   getThumbnailCacheStatus,
   listImages,
   openImageDirectory,
@@ -16,6 +17,11 @@ import {
 } from '../../common/static'
 
 const staticApi = new Hono()
+  .get('/images/references', async (c) => {
+    c.header('Cache-Control', 'no-store')
+    try { return c.json({ success: true as const, data: await getGalleryReferences() }) }
+    catch (error) { return c.json({ success: false as const, error: (error as Error).message }, 500) }
+  })
   .get('/images/thumbnail-cache', (c) => {
     c.header('Cache-Control', 'no-store')
     return c.json({ success: true as const, data: getThumbnailCacheStatus() })

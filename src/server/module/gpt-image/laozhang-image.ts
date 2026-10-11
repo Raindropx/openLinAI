@@ -1,3 +1,4 @@
+import { withImageGeneration } from '../../common/image-lifecycle'
 import fs from 'fs-extra'
 import path from 'path'
 import {
@@ -18,7 +19,7 @@ import {
   generateLaoZhangImage,
 } from './laozhang-api'
 
-export async function handleLaoZhangImageGeneration(
+async function runHandleLaoZhangImageGeneration(
   options: GptImageEndpoint & {
     template: TaskTemplate
     size: GptImageSize
@@ -150,4 +151,10 @@ export async function handleLaoZhangImageGeneration(
     })
     return { status: 500, data: { success: false as const, error: message } }
   }
+}
+
+export function handleLaoZhangImageGeneration(options: Parameters<typeof runHandleLaoZhangImageGeneration>[0]) {
+  return withImageGeneration(() => runHandleLaoZhangImageGeneration(options)).catch((error: unknown) => ({
+    status: 500, data: { success: false as const, error: `[服务] ${error instanceof Error ? error.message : String(error)}` },
+  }))
 }

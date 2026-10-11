@@ -1,3 +1,4 @@
+import { withImageGeneration } from '../../common/image-lifecycle'
 import fs from 'fs-extra'
 import path from 'path'
 import type { SpicyLora } from '../../../shared/spicyapi'
@@ -16,7 +17,7 @@ import {
   uploadSpicyImage,
 } from './spicyapi-api'
 
-export async function handleSpicyImageGeneration(options: {
+async function runHandleSpicyImageGeneration(options: {
   apiKey: string
   baseURL: string
   model: string
@@ -220,4 +221,10 @@ export async function handleSpicyImageGeneration(options: {
     })
     return { status: 500, data: { success: false as const, error: message } }
   }
+}
+
+export function handleSpicyImageGeneration(options: Parameters<typeof runHandleSpicyImageGeneration>[0]) {
+  return withImageGeneration(() => runHandleSpicyImageGeneration(options)).catch((error: unknown) => ({
+    status: 500, data: { success: false as const, error: `[服务] ${error instanceof Error ? error.message : String(error)}` },
+  }))
 }

@@ -1,3 +1,4 @@
+import { withImageGeneration } from '../../common/image-lifecycle'
 import fs from 'fs-extra'
 import path from 'path'
 import { normalizeGeminiModel } from '../../../shared/gemini'
@@ -21,7 +22,7 @@ import {
 import { persistImageBuffers } from './image-files'
 import { buildPromptWithAspectRatio } from './index'
 
-export async function handleGeminiImageGeneration(options: GptImageEndpoint & {
+async function runHandleGeminiImageGeneration(options: GptImageEndpoint & {
   template: TaskTemplate
   size: GptImageSize
   quality: GptImageQuality
@@ -151,4 +152,10 @@ export async function handleGeminiImageGeneration(options: GptImageEndpoint & {
       data: { success: false as const, error: message },
     }
   }
+}
+
+export function handleGeminiImageGeneration(options: Parameters<typeof runHandleGeminiImageGeneration>[0]) {
+  return withImageGeneration(() => runHandleGeminiImageGeneration(options)).catch((error: unknown) => ({
+    status: 500, data: { success: false as const, error: `[服务] ${error instanceof Error ? error.message : String(error)}` },
+  }))
 }

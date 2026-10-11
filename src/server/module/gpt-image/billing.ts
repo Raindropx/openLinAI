@@ -1,3 +1,4 @@
+import { generationFetch, checkGenerationCancelled } from '../../common/image-lifecycle'
 /** A snapshot of the provider's bill, never recomputed using today's prices. */
 export interface ImageBilling {
   status: 'pending' | 'actual' | 'estimated' | 'unavailable'
@@ -273,6 +274,7 @@ export async function fetchImageBill(options: {
   if (!options.requestIds.length) return unavailable
   // Poll briefly for asynchronous log writes, without delaying the generated image.
   for (const delay of [0, 1500, 3500]) {
+    checkGenerationCancelled()
     if (delay) await new Promise((resolve) => setTimeout(resolve, delay))
     try {
       const url = new URL(options.baseURL)
@@ -287,7 +289,7 @@ export async function fetchImageBill(options: {
         if (url.protocol !== 'https:') return unavailable
         url.searchParams.set('key', options.apiKey.replace(/^sk-/, ''))
       }
-      const response = await fetch(url, {
+      const response = await generationFetch(url, {
         headers: { Authorization: `Bearer ${options.apiKey}` },
         redirect: 'error',
         signal: AbortSignal.timeout(5000),

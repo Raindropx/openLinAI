@@ -1,15 +1,13 @@
-import { Modal, Spin, Tabs } from 'antd'
-import { hc } from 'hono/client'
+import { Modal, Spin, Tabs, message, Button } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import type { AppType } from '../../../../../server'
 import {
   GENERATED_IMAGES_API_PATH,
   INPUT_IMAGES_API_PATH,
 } from '../../../../../server/common/static/enum'
 import { useRecentImages } from '../../../../hooks/useRecentImages'
-import { useTasks } from '../../../../hooks/useTasks'
-import { useTemplates } from '../../../../hooks/useTemplates'
+import { useGalleryResources } from '../../../../hooks/useGalleryResources'
+import { usePendingImages } from '../../../../hooks/usePendingImages'
 import { useThumbnailCacheVersion } from '../../../../hooks/useThumbnailCacheVersion'
 import { t, useAppLanguage } from '../../../../i18n'
 import { AppThemeProvider } from '../../../../theme'
@@ -17,12 +15,9 @@ import { imageThumbnailUrl } from '../../../../utils/imageUrls'
 import type { GalleryDeleteSuccessPayload } from './Footer'
 import { GalleryFooter } from './Footer'
 import {
-  collectGalleryImageReferences,
   normalizeComparableUrl,
   resolveGalleryReference,
 } from './references'
-
-const client = hc<AppType>('/')
 
 interface GalleryModalProps {
   visible: boolean
@@ -60,16 +55,16 @@ function GalleryModal({
   useAppLanguage()
   const thumbnailVersion = useThumbnailCacheVersion()
 
-  const [activeKey, setActiveKey] = useState('recent')
-  const [imageFiles, setImageFiles] = useState<ImageFile[]>([])
-  const [loading, setLoading] = useState(false)
-  const [imagesLoadSucceeded, setImagesLoadSucceeded] = useState(false)
+  const [activeKey, setActiveKey] = useState('pending')
+  const { files, refs } = useGalleryResources(visible)
+  const { data: pendingUrls } = usePendingImages(visible)
+  const imageFiles = files.data
+  const loading = files.loading
+  const imagesLoadSucceeded = files.loaded
+  const referencesReady = refs.loaded && !refs.error
+  const currentActiveKey = activeKey === 'pending' && !pendingUrls.length ? 'recent' : activeKey
   const [selectedUrls, setSelectedUrls] = useState<string[]>([])
   const { recentImages, removeRecentImages } = useRecentImages()
-  const { data: templates = [], loading: templatesLoading } = useTemplates()
-  const { data: tasks = [], loading: tasksLoading } = useTasks()
-
-  const referencesReady = !templatesLoading && !tasksLoading
 
   const getComparableImageUrl = (
     type: ImageItem['type'],
@@ -86,15 +81,9 @@ function GalleryModal({
     return normalizedUrl
   }
 
-  const templateReferencedUrls = useMemo(
-    () => collectGalleryImageReferences(templates),
-    [templates],
-  )
-
-  const taskReferencedUrls = useMemo(
-    () => collectGalleryImageReferences(tasks),
-    [tasks],
-  )
+  const templateReferencedUrls = useMemo(() => new Set(refs.data.templateUrls), [refs.data])
+  const taskReferencedUrls = useMemo(() => new Set(refs.data.taskUrls), [refs.data])
+  const protectedUrls = useMemo(() => new Set(refs.data.protectedUrls), [refs.data])
 
   const images = useMemo<ImageItem[]>(
     () =>
@@ -103,13 +92,14 @@ function GalleryModal({
         isReferenced:
           !referencesReady ||
           !getComparableImageUrl(image.type, image.url) ||
+          protectedUrls.has(normalizeComparableUrl(image.url)) ||
           resolveGalleryReference(
             image.url,
             templateReferencedUrls,
             taskReferencedUrls,
           ) !== 'none',
       })),
-    [imageFiles, referencesReady, templateReferencedUrls, taskReferencedUrls],
+    [imageFiles, referencesReady, templateReferencedUrls, taskReferencedUrls, protectedUrls],
   )
 
   const imageByUrl = useMemo(
@@ -152,12 +142,6 @@ function GalleryModal({
   )
 
   useEffect(() => {
-    if (visible && referencesReady) {
-      fetchImages()
-    }
-  }, [visible, referencesReady])
-
-  useEffect(() => {
     if (invalidRecentImages.length === 0) {
       return
     }
@@ -167,25 +151,9 @@ function GalleryModal({
     setSelectedUrls((prev) => prev.filter((url) => !invalidUrlSet.has(url)))
   }, [invalidRecentImages, removeRecentImages])
 
-  const fetchImages = async (): Promise<ImageFile[] | null> => {
-    setLoading(true)
-    setImagesLoadSucceeded(false)
-    try {
-      const res = await client.api.static.images.list.$get()
-      const data = await res.json()
-      if (data.success) {
-        const nextImages = data.data as ImageFile[]
-        setImageFiles(nextImages)
-        setImagesLoadSucceeded(true)
-        return nextImages
-      }
-    } catch (e) {
-      console.error('Failed to fetch images', e)
-    } finally {
-      setLoading(false)
-    }
-
-    return null
+  const fetchImages = async () => {
+    try { await Promise.all([files.refreshAsync(), refs.refreshAsync()]) }
+    catch (error) { message.error(error instanceof Error ? t(error.message) : t('请求失败')) }
   }
 
   const handleSelect = (url: string) => {
@@ -226,17 +194,10 @@ function GalleryModal({
 
     return undefined
   }
-  const handleDeleteImages = async ({ urls }: GalleryDeleteSuccessPayload) => {
-    const nextImages = await fetchImages()
-    if (!nextImages) {
-      return
-    }
-    const existingUrlSet = new Set(nextImages.map((image) => image.url))
-
-    setSelectedUrls((prev) =>
-      prev.filter((url) => !urls.includes(url) || existingUrlSet.has(url)),
-    )
-  }
+  const handleDeleteImages = async (_payload: GalleryDeleteSuccessPayload) => { await fetchImages() }
+  useEffect(() => {
+    if (imagesLoadSucceeded) setSelectedUrls((urls) => urls.filter((url) => availableComparableUrlSet.has(normalizeComparableUrl(url))))
+  }, [availableComparableUrlSet, imagesLoadSucceeded])
 
   const renderImageGrid = (urls: string[]) => {
     if (urls.length === 0) {
@@ -311,9 +272,10 @@ function GalleryModal({
       footer={
         referencesReady ? (
           <GalleryFooter
-            activeKey={activeKey}
+            activeKey={currentActiveKey}
             selectedUrls={selectedUrls}
             images={images}
+            pendingUrls={pendingUrls}
             onCancel={onClose}
             onConfirm={handleConfirm}
             onDelete={handleDeleteImages}
@@ -323,10 +285,12 @@ function GalleryModal({
       width={800}
       destroyOnHidden
     >
+      {(files.error || refs.error) && <Button onClick={fetchImages}>{t('请求失败')} · {t('重试')}</Button>}
       <Tabs
-        activeKey={activeKey}
+        activeKey={currentActiveKey}
         onChange={setActiveKey}
         items={[
+          ...(pendingUrls.length ? [{ key: 'pending', label: t('待使用'), children: loading ? <div className="p-8 text-center"><Spin /></div> : renderImageGrid(pendingUrls.filter((url) => imageByUrl.has(url))) }] : []),
           {
             key: 'recent',
             label: t('最近使用'),

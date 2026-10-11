@@ -1,8 +1,7 @@
 import crypto from 'crypto'
 import fs from 'fs-extra'
-import { writeFile } from 'fs/promises'
+import { writeGenerationImage } from '../../common/image-lifecycle'
 import path from 'path'
-import { GENERATED_IMAGES_DIR } from '../../common/static'
 import { fetchWithTimeout } from '../utils/fetch'
 import { logger } from '../utils/logger'
 import {
@@ -179,7 +178,7 @@ async function persistImageBuffer(
   }
   const hash = crypto.createHash('md5').update(outputBuffer).digest('hex')
   const filename = `${hash}.${normalized.format.extension}`
-  await writeFile(path.join(GENERATED_IMAGES_DIR, filename), outputBuffer)
+  await writeGenerationImage(filename, outputBuffer)
   return filename
 }
 

@@ -17,8 +17,28 @@ import {
   streamTaskDownload,
 } from '../../common/task-download'
 import { taskManager } from '../../common/task-manager'
+import { getTaskPage, summarizeTask, taskSnapshot } from '../../common/task-pages'
 
 const taskApi = new Hono()
+  .get('/catalog', async (c) => {
+    c.header('Cache-Control', 'no-store')
+    const snapshot = await taskSnapshot()
+    return c.json({ success: true as const, data: { tasks: snapshot.tasks.map(summarizeTask), folders: snapshot.folders, revision: snapshot.revision } })
+  })
+  .get('/page', zValidator('query', z.object({
+    page: z.coerce.number().int().min(0).default(0), pageSize: z.coerce.number().int().min(1).max(100).default(12),
+    folderId: z.string().optional(), search: z.string().max(1000).optional(), sort: z.enum(['default', 'time-asc', 'time-desc', 'title-asc', 'title-desc']).optional(),
+  })), async (c) => {
+    c.header('Cache-Control', 'no-store')
+    return c.json({ success: true as const, data: await getTaskPage(c.req.valid('query')) })
+  })
+  .post('/page', zValidator('json', z.object({
+    ids: z.array(z.string().min(1).max(100)).min(1).max(100),
+    page: z.number().int().min(0).default(0), pageSize: z.number().int().min(1).max(100).default(100),
+  })), async (c) => {
+    c.header('Cache-Control', 'no-store')
+    return c.json({ success: true as const, data: await getTaskPage(c.req.valid('json')) })
+  })
   // Chain route declarations so Hono keeps the full client route map in AppType.
   .post(
     '/backup-stream',

@@ -1,3 +1,4 @@
+import { withImageGeneration } from '../../common/image-lifecycle'
 import fs from 'fs-extra'
 import path from 'path'
 import { INPUT_IMAGES_DIR } from '../../common/static'
@@ -288,7 +289,7 @@ async function requestVeniceEdit(options: {
   return Buffer.from(await response.arrayBuffer())
 }
 
-export async function handleVeniceImageGeneration(options: {
+async function runHandleVeniceImageGeneration(options: {
   apiKey: string
   baseURL: string
   model: string
@@ -482,4 +483,10 @@ export async function handleVeniceImageGeneration(options: {
       data: { success: false as const, error: message },
     }
   }
+}
+
+export function handleVeniceImageGeneration(options: Parameters<typeof runHandleVeniceImageGeneration>[0]) {
+  return withImageGeneration(() => runHandleVeniceImageGeneration(options)).catch((error: unknown) => ({
+    status: 500, data: { success: false as const, error: `[服务] ${error instanceof Error ? error.message : String(error)}` },
+  }))
 }

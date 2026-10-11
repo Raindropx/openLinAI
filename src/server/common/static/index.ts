@@ -5,6 +5,8 @@ import { open } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import path from 'path'
 import { mapBackupImageUrls } from '../../../shared/task-backup'
+import { activeGeneratedFiles, withImageLifecycle } from '../image-lifecycle'
+import { publishResource } from '../resource-events'
 import type { ThumbnailCacheStatus } from '../../../shared/thumbnail-cache'
 import { readImageHeaderDimensions } from '../../module/gpt-image/generation-metadata'
 import { getDataDir } from '../data-dir'
@@ -212,6 +214,7 @@ export async function uploadInputImage(
 
   if (!(await fs.pathExists(filepath))) {
     await fs.writeFile(filepath, outputBuffer)
+    publishResource('images')
   }
 
   return {
@@ -288,30 +291,32 @@ export function openImageDirectory(type: ImageDirectoryType) {
 }
 
 function getFilenameFromUrl(type: ImageDirectoryType, url: string) {
-  const apiPath = getImageApiPath(type)
-
-  if (!url.startsWith(apiPath)) {
+  const apiPath = `${getImageApiPath(type)}/`
+  const normalized = url.replace(/^https?:\/\/[^/]+/i, '').replace(/^\/api\/static\/(input|generated)\//, '/api/static/images/$1/')
+  if (!normalized.startsWith(apiPath)) {
     return null
   }
 
-  const filename = url
-    .slice(apiPath.length + 1)
+  const filename = normalized
+    .slice(apiPath.length)
     .split('?')[0]
     .split('#')[0]
     .trim()
 
-  return filename ? path.basename(filename) : null
+  return filename && path.basename(filename) === filename ? filename : null
 }
 
-async function getReferencedImageFilenames(type: ImageDirectoryType) {
+export async function getReferencedImageFilenames(type: ImageDirectoryType) {
   const referencedImages = new Set<string>()
   const { studioManager } = await import('../studio-manager')
+  const { getPendingImages } = await import('../pending-images')
   // Task snapshots and shelf provenance remain references even without a saved template.
   mapBackupImageUrls(
     [
       await templateManager.getTemplates(),
       await taskManager.getTasks(),
       await studioManager.list(),
+      (await getPendingImages()).map((url) => ({ images: [url] })),
     ],
     (url) => {
       const filename = getFilenameFromUrl(type, url)
@@ -319,7 +324,27 @@ async function getReferencedImageFilenames(type: ImageDirectoryType) {
       return url
     },
   )
+  if (type === 'generated') for (const filename of activeGeneratedFiles.keys()) referencedImages.add(filename)
   return referencedImages
+}
+
+export async function getGalleryReferences() {
+  const { studioManager } = await import('../studio-manager')
+  const { getPendingImages } = await import('../pending-images')
+  const [templates, tasks, studio, pending] = await Promise.all([
+    templateManager.getTemplates(), taskManager.getTasks(), studioManager.list(), getPendingImages(),
+  ])
+  const collect = (value: unknown) => {
+    const urls = new Set<string>()
+    mapBackupImageUrls(value, (url) => {
+      urls.add(url.replace(/^https?:\/\/[^/]+/i, '').replace(/^\/api\/static\/(input|generated)\//, '/api/static/images/$1/').split('?')[0].split('#')[0].trim())
+      return url
+    })
+    return [...urls]
+  }
+  const templateUrls = collect(templates)
+  const taskUrls = collect([tasks, studio])
+  return { templateUrls, taskUrls, protectedUrls: [...new Set([...templateUrls, ...taskUrls, ...pending, ...[...activeGeneratedFiles.keys()].map((filename) => `${GENERATED_IMAGES_API_PATH}/${filename}`)])] }
 }
 
 export async function deleteImageFile(
@@ -535,12 +560,18 @@ export function startThumbnailCacheMaintenance() {
 export async function deleteUnreferencedImages(
   options: DeleteUnreferencedImagesOptions,
 ) {
+  return withImageLifecycle(() => deleteUnreferencedImagesUnlocked(options))
+}
+
+export async function deleteUnreferencedImagesUnlocked(
+  options: DeleteUnreferencedImagesOptions,
+) {
   const { type, urls } = options
   const referencedImages = await getReferencedImageFilenames(type)
   const targetDir = getImageDirectory(type)
   const targetFilenames = new Set<string>()
 
-  if (Array.isArray(urls) && urls.length > 0) {
+  if (Array.isArray(urls)) {
     for (const url of urls) {
       const filename = getFilenameFromUrl(type, url)
       if (filename) {
@@ -572,6 +603,7 @@ export async function deleteUnreferencedImages(
     deletedCount++
   }
 
+  if (deletedCount) publishResource('images')
   return { deletedCount, skippedCount }
 }
 

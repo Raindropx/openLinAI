@@ -1,3 +1,4 @@
+import { withImageGeneration } from '../../common/image-lifecycle'
 import fs from 'fs-extra'
 import path from 'path'
 import { INPUT_IMAGES_DIR } from '../../common/static'
@@ -173,7 +174,7 @@ function extractImageUrls(
  * - chat-completions 没有统一的 n 参数，多图通过多个独立请求实现。
  * - 返回结构与 handleImageGeneration 一致。
  */
-export async function handleChatImageGeneration(options: {
+async function runHandleChatImageGeneration(options: {
   apiKey: string
   baseURL: string
   model: string
@@ -400,4 +401,10 @@ export async function handleChatImageGeneration(options: {
       data: { success: false as const, error: error.message },
     }
   }
+}
+
+export function handleChatImageGeneration(options: Parameters<typeof runHandleChatImageGeneration>[0]) {
+  return withImageGeneration(() => runHandleChatImageGeneration(options)).catch((error: unknown) => ({
+    status: 500, data: { success: false as const, error: `[服务] ${error instanceof Error ? error.message : String(error)}` },
+  }))
 }

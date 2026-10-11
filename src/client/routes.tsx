@@ -1,3 +1,4 @@
+import { Navigate } from 'react-router-dom'
 import { t } from './i18n'
 import { CharacterCardPage } from './pages/common/CharacterCard'
 import { Home } from './pages/common/Home'
@@ -6,6 +7,7 @@ import { TemplateEditorPage } from './pages/common/TemplateEditor'
 import { TemplateManagementPage } from './pages/common/TemplateManagement'
 
 export const appRoutes = [
+  { path: '/perler-bead', get label() { return t('拼豆 / 像素图') }, element: <Navigate to="/studio" state={{ studioTool: 'perler-bead' }} replace />, key: 'perler-bead' },
   {
     path: '/',
     get label() {

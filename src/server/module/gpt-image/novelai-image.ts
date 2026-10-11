@@ -1,3 +1,4 @@
+import { withImageGeneration } from '../../common/image-lifecycle'
 import fs from 'fs-extra'
 import JSZip from 'jszip'
 import path from 'path'
@@ -354,7 +355,7 @@ export async function manualNovelAIInpaintImage(
   return manualFocusedInpaintLayer(raw, width, height, focus)
 }
 
-export async function handleNovelAIImageGeneration(options: {
+async function runHandleNovelAIImageGeneration(options: {
   apiKey: string
   baseURL: string
   model: string
@@ -594,4 +595,10 @@ export async function handleNovelAIImageGeneration(options: {
       },
     }
   }
+}
+
+export function handleNovelAIImageGeneration(options: Parameters<typeof runHandleNovelAIImageGeneration>[0]) {
+  return withImageGeneration(() => runHandleNovelAIImageGeneration(options)).catch((error: unknown) => ({
+    status: 500, data: { success: false as const, error: `[服务] ${error instanceof Error ? error.message : String(error)}`, taskId: undefined },
+  }))
 }

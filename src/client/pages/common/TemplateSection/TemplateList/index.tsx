@@ -82,7 +82,7 @@ function TemplateListComponent(
     ? (gptImageSettings.templateManagerPageSize ?? 12)
     : (gptImageSettings.workspaceListPageSize ?? 8)
 
-  const { data: templates = [], loading, refresh } = useTemplates()
+  const { data: templates = [], loading, error, refresh } = useTemplates()
 
   useImperativeHandle(ref, () => ({ refresh }))
 
@@ -334,6 +334,7 @@ function TemplateListComponent(
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
+          {error && <Button className="mb-2" onClick={refresh}>{t('请求失败')} · {t('重试')}</Button>}
           {loading ? (
             <div className="flex h-40 items-center justify-center">
               <Spin />

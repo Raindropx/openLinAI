@@ -1,3 +1,4 @@
+import { withImageGeneration } from '../../common/image-lifecycle'
 import fs from 'fs-extra'
 import path from 'path'
 import { INPUT_IMAGES_DIR } from '../../common/static'
@@ -10,7 +11,7 @@ import type { GptImageQuality, GptImageSize } from './enum'
 import { persistImages, readImageAsDataUrl } from './image-files'
 import { buildPromptWithAspectRatio } from './index'
 
-export async function handleAPIMartImageGeneration(options: {
+async function runHandleAPIMartImageGeneration(options: {
   apiKey: string
   baseURL: string
   model: string
@@ -173,4 +174,10 @@ export async function handleAPIMartImageGeneration(options: {
     })
     return { status: 500, data: { success: false as const, error: message } }
   }
+}
+
+export function handleAPIMartImageGeneration(options: Parameters<typeof runHandleAPIMartImageGeneration>[0]) {
+  return withImageGeneration(() => runHandleAPIMartImageGeneration(options)).catch((error: unknown) => ({
+    status: 500, data: { success: false as const, error: `[服务] ${error instanceof Error ? error.message : String(error)}` },
+  }))
 }

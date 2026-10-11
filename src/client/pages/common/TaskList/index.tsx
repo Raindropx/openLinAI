@@ -54,7 +54,7 @@ import {
 } from '../../../hooks/useEnabledImageEndpoints'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { usePlatform } from '../../../hooks/usePlatform'
-import { useTasks } from '../../../hooks/useTasks'
+import { useTasks, useTaskDetails } from '../../../hooks/useTasks'
 import { t, useAppLanguage } from '../../../i18n'
 import { ImageGroup } from '../../../pages/common/components/ImageGroup'
 import { useGlobalStore } from '../../../store/global'
@@ -207,7 +207,7 @@ export function TaskList({
   const managementMode = variant === 'management'
   const { isMobile } = usePlatform()
   const navigate = useNavigate()
-  const { data: tasks = [], folders, loading } = useTasks()
+  const { data: tasks = [], folders, loading, revision, error: catalogError, refresh: refreshCatalog } = useTasks()
   const folderId = useGlobalStore((state) => state.taskFolderId)
   const setFolderId = useGlobalStore((state) => state.setTaskFolderId)
   const currentFolder = folders.find((folder) => folder.id === folderId)
@@ -598,9 +598,8 @@ export function TaskList({
     }
   }, [reviewImage, reviewImages, reviewIndex, reviewOrphaned])
 
-  const currentReviewTask = reviewImage
-    ? gptImageTasks.find((task) => task.id === reviewImage.taskId)
-    : undefined
+  const reviewDetails = useTaskDetails(reviewImage ? [reviewImage.taskId] : [], revision)
+  const currentReviewTask = reviewImage ? reviewDetails.data.get(reviewImage.taskId) : undefined
   const canAddCurrentReviewToTemplate = Boolean(
     currentReviewTask?.rawTemplate &&
     (!currentReviewTask.studioProvenance ||
@@ -677,6 +676,7 @@ export function TaskList({
         ),
       }))
     : [{ key: 'page', index: 0, start: 0, tasks: visibleTasks }]
+  const rowDetails = useTaskDetails(renderedRows.flatMap((row) => row.tasks.map((task) => task.id)), revision)
 
   useEffect(() => {
     if (reviewIndex < 0 || !reviewImage) return
@@ -1123,6 +1123,8 @@ export function TaskList({
           <div className="flex justify-center py-12">
             <Spin size="large" />
           </div>
+        ) : catalogError ? (
+          <Button onClick={refreshCatalog}>{t('请求失败')} · {t('重试')}</Button>
         ) : filteredTasks.length === 0 ? (
           <div className="flex min-h-64 items-center justify-center">
             <Empty
@@ -1167,7 +1169,10 @@ export function TaskList({
                       : undefined
                   }
                 >
-                  {row.tasks.map((task) => {
+                  {row.tasks.map((summary) => {
+                    const detail = rowDetails.data.get(summary.id)
+                    const task = detail ? { ...detail, status: summary.status, folderId: summary.folderId, outputUrls: summary.outputUrls } : undefined
+                    if (!task) return <Card key={summary.id} size="small" className="min-h-[168px]"><div className="flex min-h-[140px] items-center justify-center">{rowDetails.error ? <Button onClick={rowDetails.retry}>{t('请求失败')} · {t('重试')}</Button> : <Spin />}</div></Card>
                     const active = task.id === selectedTaskId
                     const reviewing =
                       managementMode && task.id === reviewedTaskId

@@ -1,3 +1,4 @@
+import { checkGenerationCancelled } from '../../common/image-lifecycle'
 import crypto from 'crypto'
 import type { SpicyLora } from '../../../shared/spicyapi'
 import { spicyBaseURL } from '../../../shared/spicyapi'
@@ -290,6 +291,7 @@ export async function generateSpicyImage(options: {
   let failures = 0
   let polls = 0
   while (Date.now() < deadline) {
+    checkGenerationCancelled()
     try {
       const task = (
         await spicyRequest(

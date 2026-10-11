@@ -1,3 +1,4 @@
+import { assertInputImagesExist, generationSignal, cancelGenerationTask, registerGenerationTask, withImageLifecycle, checkGenerationCancelled } from '../image-lifecycle'
 import { EventEmitter } from 'events'
 import fs from 'fs-extra'
 import path from 'path'
@@ -13,7 +14,7 @@ import { GptImageQuality, GptImageSize } from '../../module/gpt-image/enum'
 import { Logger } from '../../module/utils/logger'
 import { getDataDir } from '../data-dir'
 import { SafeJsonStore } from '../safe-json-store'
-import { deleteImageFile } from '../static'
+import { deleteUnreferencedImagesUnlocked } from '../static'
 import { GENERATED_IMAGES_API_PATH } from '../static/enum'
 import { TaskTemplate } from '../template-manager'
 
@@ -100,6 +101,7 @@ export class TaskManager extends EventEmitter {
 
   private async notifyTasksUpdate(tasks?: Task[]) {
     try {
+      if (!this.listenerCount('tasks-updated')) return
       const list = tasks ?? (await this.getTasks())
       this.emit('tasks-updated', list)
     } catch (error) {
@@ -107,8 +109,8 @@ export class TaskManager extends EventEmitter {
     }
   }
 
-  public async getTasks(): Promise<Task[]> {
-    const tasks = await this.store.read()
+  public async getTasks(shared = false): Promise<Task[]> {
+    const tasks = await this.store.read(shared)
     return tasks ?? []
   }
 
@@ -200,7 +202,7 @@ export class TaskManager extends EventEmitter {
 
   public async addCompletedTask(task: Task): Promise<void> {
     if (task.status !== 'completed') throw new Error('只能归档已完成的作品')
-    const tasks = await this.store.mutate((list) => [...list, task])
+    const tasks = await withImageLifecycle(() => this.store.mutate((list) => [...list, task]))
     this.notifyTasksUpdate(tasks)
   }
 
@@ -209,7 +211,7 @@ export class TaskManager extends EventEmitter {
     tasks: Task[],
     folders: TaskFolder[],
   ): Promise<void> {
-    return this.withFolders(async () => {
+    return withImageLifecycle(() => this.withFolders(async () => {
       const addedFolderIds = new Set(folders.map((folder) => folder.id))
       await this.folderStore.mutate((list) => {
         if (
@@ -248,7 +250,7 @@ export class TaskManager extends EventEmitter {
         )
         throw error
       }
-    })
+    }))
   }
 
   public getBackupSnapshot(): Promise<{
@@ -270,7 +272,8 @@ export class TaskManager extends EventEmitter {
     originalPrompt?: string
     folderId?: string
   }): Promise<Task> {
-    return this.withFolders(async () => {
+    return withImageLifecycle(() => this.withFolders(async () => {
+      if (generationSignal()) await assertInputImagesExist(options.template.images)
       if (
         options.folderId &&
         !(await this.getFolders()).some(
@@ -297,79 +300,47 @@ export class TaskManager extends EventEmitter {
         list.push(newTask)
         return list
       })
+      registerGenerationTask(newTask.id)
       this.notifyTasksUpdate(tasks)
       return newTask
-    })
+    }))
   }
 
-  public async deleteTask(
-    id: string,
-    keepImage?: boolean,
-  ): Promise<{ success: boolean; error?: string }> {
+  public async deleteTask(id: string, keepImage = false): Promise<{ success: boolean; error?: string }> {
     try {
-      let target: Task | undefined
-      const tasks = await this.store.mutate((list) => {
-        target = list.find((t) => t.id === id)
-        if (!target) return list
-        return list.filter((t) => t.id !== id)
-      })
-
-      if (!target) {
-        return { success: false, error: 'Task not found' }
-      }
-
-      this.notifyTasksUpdate(tasks)
-
-      if (!keepImage) {
-        const urlsToDelete = target.outputUrls
-          ? target.outputUrls
-          : target.outputUrl
-            ? [target.outputUrl]
-            : []
-
-        for (const outputUrl of urlsToDelete) {
-          await this.deleteGeneratedImageFile(outputUrl)
-        }
-      }
-      return { success: true }
-    } catch (error: any) {
-      this.logger.error('Failed to delete task:', error)
-      return {
-        success: false,
-        error: `Failed to delete task: ${error.message}`,
-      }
-    }
+      const count = await this.deleteTasks([id], keepImage)
+      return { success: count === 1 }
+    } catch (error) { return { success: false, error: (error as Error).message } }
   }
 
   public async deleteTasks(ids: string[], keepImage = false): Promise<number> {
     const selected = new Set(ids)
-    if (selected.size === 0) throw new Error('请先选择要删除的任务')
-
-    let removed: Task[] = []
-    const tasks = await this.store.mutate((list) => {
-      const existing = new Set(list.map((task) => task.id))
-      if ([...selected].some((id) => !existing.has(id)))
-        throw new Error('任务不存在')
-      removed = list.filter((task) => selected.has(task.id))
-      return list.filter((task) => !selected.has(task.id))
+    if (!selected.size) throw new Error('请先选择要删除的任务')
+    const existing = new Set((await this.getTasks()).map((task) => task.id))
+    if ([...selected].some((id) => !existing.has(id))) throw new Error('任务不存在')
+    // Do not hold the image lock while awaiting generators: they need it to finish.
+    await Promise.all([...selected].map(cancelGenerationTask))
+    return withImageLifecycle(async () => {
+      let removed: Task[] = []
+      const tasks = await this.store.mutate((list) => {
+        // A concurrent delete may already have removed a validated task.
+        removed = list.filter((task) => selected.has(task.id))
+        return list.filter((task) => !selected.has(task.id))
+      })
+      await this.notifyTasksUpdate(tasks)
+      if (!keepImage) {
+        const urls = [...new Set(removed.flatMap((task) => task.outputUrls ?? (task.outputUrl ? [task.outputUrl] : [])))]
+        if (urls.length) await deleteUnreferencedImagesUnlocked({ type: 'generated', urls })
+      }
+      return removed.length
     })
-
-    await this.notifyTasksUpdate(tasks)
-    if (!keepImage) {
-      const urls = new Set(
-        removed.flatMap(
-          (task) => task.outputUrls ?? (task.outputUrl ? [task.outputUrl] : []),
-        ),
-      )
-      for (const url of urls) await this.deleteGeneratedImageFile(url)
-    }
-    return removed.length
   }
 
   public async deleteTaskImage(
     id: string,
     imageIndex: number,
   ): Promise<{ success: boolean; error?: string }> {
+    return withImageLifecycle(async () => {
     try {
       let outputUrl: string | undefined
       let error: string | undefined
@@ -421,6 +392,7 @@ export class TaskManager extends EventEmitter {
         error: `Failed to delete task image: ${error.message}`,
       }
     }
+    })
   }
 
   private async deleteGeneratedImageFile(outputUrl: string) {
@@ -431,7 +403,7 @@ export class TaskManager extends EventEmitter {
       const filename = decodeURIComponent(
         outputUrl.slice(prefix.length).split(/[?#]/)[0],
       )
-      await deleteImageFile('generated', filename)
+      await deleteUnreferencedImagesUnlocked({ type: 'generated', urls: [`${GENERATED_IMAGES_API_PATH}/${filename}`] })
     } catch (error: any) {
       this.logger.error('Failed to delete task file:', error)
     }
@@ -441,6 +413,8 @@ export class TaskManager extends EventEmitter {
     id: string,
     updates: Partial<Task>,
   ): Promise<boolean> {
+    return withImageLifecycle(async () => {
+      if (updates.outputUrls || updates.status === 'completed') checkGenerationCancelled()
     let found = false
     const tasks = await this.store.mutate((list) => {
       const index = list.findIndex((t) => t.id === id)
@@ -454,6 +428,7 @@ export class TaskManager extends EventEmitter {
       this.notifyTasksUpdate(tasks)
     }
     return found
+    })
   }
 
   public async updateTaskStatus(

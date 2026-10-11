@@ -1,6 +1,8 @@
 import { Button, message, Modal } from 'antd'
 import { hc } from 'hono/client'
 import type { AppType } from '../../../../../server'
+import { useState } from 'react'
+import { changePendingImages } from '../../../../hooks/usePendingImages'
 import { t, useAppLanguage } from '../../../../i18n'
 
 type GalleryImageType = 'input' | 'generated'
@@ -16,6 +18,7 @@ const client = hc<AppType>('/')
 interface GalleryFooterProps {
   activeKey: string
   selectedUrls: string[]
+  pendingUrls: string[]
   images: Array<{
     url: string
     type: GalleryImageType
@@ -32,12 +35,22 @@ const getTabType = (activeKey: string): GalleryImageType | null =>
 export function GalleryFooter({
   activeKey,
   selectedUrls,
+  pendingUrls,
   images,
   onCancel,
   onConfirm,
   onDelete,
 }: GalleryFooterProps) {
   useAppLanguage()
+  const [pendingBusy, setPendingBusy] = useState(false)
+  const updatePending = async () => {
+    setPendingBusy(true)
+    try {
+      await changePendingImages(activeKey === 'pending' ? 'remove' : 'add', selectedUrls)
+      message.success(t(activeKey === 'pending' ? '已移出待使用图库' : '已加入待使用图库'))
+    } catch (error) { message.error(error instanceof Error ? t(error.message) : t('请求失败')) }
+    finally { setPendingBusy(false) }
+  }
 
   const currentTabType = getTabType(activeKey)
   const currentTabImages = currentTabType
@@ -145,7 +158,10 @@ export function GalleryFooter({
   }
 
   return (
-    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+    <div className="flex flex-wrap items-stretch gap-2 sm:items-center">
+      <Button onClick={updatePending} loading={pendingBusy} disabled={!selectedUrls.length || (activeKey === 'pending' && !selectedUrls.some((url) => pendingUrls.includes(url)))}>
+        {t(activeKey === 'pending' ? '移出待使用' : '加入待使用')}
+      </Button>
       {currentTabType && (
         <div className="w-full sm:w-auto">
           <Button danger onClick={handleDeleteImages}>

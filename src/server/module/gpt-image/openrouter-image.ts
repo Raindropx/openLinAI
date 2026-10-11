@@ -1,3 +1,4 @@
+import { withImageGeneration } from '../../common/image-lifecycle'
 import fs from 'fs-extra'
 import path from 'path'
 import { INPUT_IMAGES_DIR } from '../../common/static'
@@ -164,7 +165,7 @@ function validateReferenceCount(model: OpenRouterImageModel, count: number) {
   }
 }
 
-export async function handleOpenRouterImageGeneration(options: {
+async function runHandleOpenRouterImageGeneration(options: {
   apiKey: string
   baseURL: string
   model: string
@@ -362,4 +363,10 @@ export async function handleOpenRouterImageGeneration(options: {
       data: { success: false as const, error: message },
     }
   }
+}
+
+export function handleOpenRouterImageGeneration(options: Parameters<typeof runHandleOpenRouterImageGeneration>[0]) {
+  return withImageGeneration(() => runHandleOpenRouterImageGeneration(options)).catch((error: unknown) => ({
+    status: 500, data: { success: false as const, error: `[服务] ${error instanceof Error ? error.message : String(error)}` },
+  }))
 }

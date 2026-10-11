@@ -10,7 +10,7 @@ interface ImageEditorModalProps {
   src: string | null
   onCancel: () => void
   onConfirm: (dataUrl: string) => Promise<void>
-  onConfirmCopy: (dataUrl: string) => Promise<void>
+  onConfirmCopy?: (dataUrl: string) => Promise<void>
 }
 
 export function ImageEditorModal({
@@ -26,7 +26,7 @@ export function ImageEditorModal({
     open,
     src,
     onConfirm,
-    onConfirmCopy,
+    onConfirmCopy: onConfirmCopy ?? onConfirm,
   })
 
   return (
@@ -47,13 +47,13 @@ export function ImageEditorModal({
             {t('取消')}
           </Button>
           <div className="flex gap-2">
-            <Button
+            {onConfirmCopy && <Button
               loading={editor.modal.submittingAction === 'copy'}
               disabled={editor.modal.submitting || !editor.modal.canConfirm}
               onClick={editor.modal.onConfirmCopy}
             >
               {t('提交副本')}
-            </Button>
+            </Button>}
             <Button
               type="primary"
               loading={editor.modal.submittingAction === 'replace'}

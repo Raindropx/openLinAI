@@ -1,5 +1,6 @@
 import fs from 'fs-extra'
 import path from 'path'
+import { publishResource, type ResourceName } from './resource-events'
 
 /**
  * 安全的 JSON 文件存储，解决三个核心问题：
@@ -15,6 +16,21 @@ export class SafeJsonStore<T> {
   private filePath: string
   private corruptBackupDir: string
   private writeQueue: Promise<void> = Promise.resolve()
+  private cached?: { stamp: string; data: T }
+  private epoch = 0
+  private reading?: { epoch: number; promise: Promise<T | null> }
+
+  private changed() {
+    this.epoch++
+    this.cached = undefined
+    const resources: Record<string, ResourceName> = {
+      'tasks.json': 'tasks', 'task-folders.json': 'tasks',
+      'templates.json': 'templates', 'pending-images.json': 'pending-images',
+      'studio.json': 'studio',
+    }
+    const resource = resources[path.basename(this.filePath)]
+    if (resource) publishResource(resource)
+  }
 
   constructor(filePath: string, corruptBackupDir?: string) {
     this.filePath = filePath
@@ -27,10 +43,27 @@ export class SafeJsonStore<T> {
    * - 文件不存在 → 返回 null
    * - 文件存在但解析失败 → 备份损坏文件后返回 null
    */
-  async read(): Promise<T | null> {
+  async read(shared = false): Promise<T | null> {
+    const epoch = this.epoch
+    if (!this.reading || this.reading.epoch !== epoch)
+      this.reading = { epoch, promise: this.readSnapshot(epoch) }
+    const reading = this.reading
     try {
+      const value = await reading.promise
+      if (epoch !== this.epoch) return this.read(shared)
+      return value === null || shared ? value : structuredClone(value)
+    } finally { if (this.reading === reading) this.reading = undefined }
+  }
+
+  private async readSnapshot(epoch: number): Promise<T | null> {
+    try {
+      const stat = await fs.stat(this.filePath)
+      const stamp = `${stat.mtimeMs}:${stat.ctimeMs}:${stat.size}`
+      if (this.cached?.stamp === stamp) return this.cached.data
       const data = await fs.readFile(this.filePath, 'utf-8')
-      return JSON.parse(data) as T
+      const parsed = JSON.parse(data) as T
+      if (epoch === this.epoch) this.cached = { stamp, data: parsed }
+      return parsed
     } catch (error: any) {
       if (error.code === 'ENOENT') {
         return null
@@ -52,6 +85,7 @@ export class SafeJsonStore<T> {
         const tmp = this.filePath + '.tmp'
         await fs.writeFile(tmp, JSON.stringify(data), 'utf-8')
         await fs.rename(tmp, this.filePath)
+        this.changed()
       })
       .catch((e) => {
         // 捕获错误以保持队列健康，但记录下来重新抛给调用方
@@ -77,6 +111,7 @@ export class SafeJsonStore<T> {
         const tmp = this.filePath + '.tmp'
         await fs.writeFile(tmp, JSON.stringify(result), 'utf-8')
         await fs.rename(tmp, this.filePath)
+        this.changed()
       })
       .catch((e) => {
         thrownError = e

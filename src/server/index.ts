@@ -7,6 +7,8 @@ import chatApi from './api/chat'
 import characterCardApi from './api/common/character-card'
 import configApi from './api/common/config'
 import logApi from './api/common/log'
+import resourcesApi from './api/common/resources'
+import pendingImagesApi from './api/common/pending-images'
 import staticApi from './api/common/static'
 import stylePresetApi from './api/common/style-preset'
 import taskApi from './api/common/task'
@@ -38,6 +40,8 @@ const routes = app
   .route('/api/template', templateApi)
   .route('/api/style-preset', stylePresetApi)
   .route('/api/log', logApi)
+  .route('/api/resources', resourcesApi)
+  .route('/api/pending-images', pendingImagesApi)
   .route('/api/static', staticApi)
   .route('/api/config', configApi)
 export type AppType = typeof routes

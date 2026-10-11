@@ -1,3 +1,5 @@
+import { generationSignal, generationFetch } from '../../common/image-lifecycle'
+import { withImageGeneration } from '../../common/image-lifecycle'
 import fs from 'fs-extra'
 import OpenAI, { toFile } from 'openai'
 import path from 'path'
@@ -326,7 +328,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
         n,
         size: size as any,
         quality,
-      })
+      }, { signal: generationSignal() })
       .withResponse()
     res = response.data
     requestId = getBillingRequestId(response.response.headers)
@@ -339,7 +341,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
         size: size as any,
         quality,
         moderation: 'low',
-      })
+      }, { signal: generationSignal() })
       .withResponse()
     res = response.data
     requestId = getBillingRequestId(response.response.headers)
@@ -354,7 +356,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
       if (item.b64_json) {
         imageBuffer = decodeImageBase64(item.b64_json)
       } else if (item.url) {
-        const imageResponse = await fetch(item.url)
+        const imageResponse = await generationFetch(item.url)
         if (!imageResponse.ok) {
           throw new Error(
             `Failed to download generated image: ${imageResponse.status} ${imageResponse.statusText}`,
@@ -378,7 +380,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
   }
 }
 
-export async function handleImageGeneration(options: {
+async function runHandleImageGeneration(options: {
   apiKey: string
   baseURL: string
   model: string
@@ -611,4 +613,10 @@ export async function handleImageGeneration(options: {
       data: { success: false as const, error: `[服务] ${error.message}` },
     }
   }
+}
+
+export function handleImageGeneration(options: Parameters<typeof runHandleImageGeneration>[0]) {
+  return withImageGeneration(() => runHandleImageGeneration(options)).catch((error: unknown) => ({
+    status: 500, data: { success: false as const, error: `[服务] ${error instanceof Error ? error.message : String(error)}` },
+  }))
 }

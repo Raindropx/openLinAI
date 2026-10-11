@@ -1,3 +1,4 @@
+import { generationFetch, checkGenerationCancelled } from '../../common/image-lifecycle'
 import type { GptImageQuality, GptImageSize } from './enum'
 
 type JsonObject = Record<string, any>
@@ -20,7 +21,7 @@ async function requestJson(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch(url, {
+    const response = await generationFetch(url, {
       method: body ? 'POST' : 'GET',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -211,6 +212,7 @@ export async function generateAPIMartImage(options: {
   const deadline = Date.now() + (options.timeoutMs ?? 10 * 60 * 1000)
   let consecutiveFailures = 0
   while (Date.now() < deadline) {
+    checkGenerationCancelled()
     let response: JsonObject
     try {
       response = await requestJson(
