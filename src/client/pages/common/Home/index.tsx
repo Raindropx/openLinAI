@@ -117,6 +117,7 @@ export const Home = () => {
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <TemplateForm
             showHeading={false}
+            showQualitySetting
             onSuccess={() => templateListRef.current?.refresh()}
           />
         </div>

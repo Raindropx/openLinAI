@@ -491,6 +491,8 @@
   "图片将按比例缩放到总像素不超过 8294400": "Images are scaled proportionally to at most 8,294,400 pixels",
   "更容易失败或命中高倍率的分组": "More likely to fail or use a group with a high multiplier",
   "画质设置": "Quality settings",
+  "中画质": "Medium",
+  "高画质": "High",
   "公用 API Key 无法使用 High 画质": "Shared API keys cannot use High quality",
   "High 画质处理小字扭曲等细节效果更好": "High quality handles details such as small text distortion better",
   "但 Token 消耗大约变为 4倍，整体性价比远不如提升画面尺寸": "However, it uses about 4× as many tokens and is much less cost-effective than increasing image size",

@@ -4,13 +4,16 @@ import {
   PlusOutlined,
   SaveOutlined,
 } from '@ant-design/icons'
-import { Button, Form, message } from 'antd'
+import { Button, Form, message, Segmented } from 'antd'
 import { hc } from 'hono/client'
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/shallow'
 import type { AppType } from '../../../../../server'
 import type { TaskTemplate } from '../../../../../server/common/template-manager'
-import type { GptImageSize } from '../../../../../server/module/gpt-image/enum'
+import type {
+  GptImageQuality,
+  GptImageSize,
+} from '../../../../../server/module/gpt-image/enum'
 import {
   requestChatCompletion,
   type ChatMessage,
@@ -19,6 +22,7 @@ import {
   resolveImageEndpointId,
   useEnabledImageEndpoints,
 } from '../../../../hooks/useEnabledImageEndpoints'
+import { useGPTImageQuota } from '../../../../hooks/useGPTImageQuota'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import {
   resolveLlmEndpointId,
@@ -37,15 +41,65 @@ const client = hc<AppType>('/')
 interface TemplateFormProps {
   onSuccess: () => void
   showHeading?: boolean
+  showQualitySetting?: boolean
   editorMode?: boolean
   activeTemplateId?: string | null
   onTemplateLoaded?: (template: Partial<TaskTemplate>) => void
   onEditingTemplateChange?: (template: TaskTemplate | null) => void
 }
 
+function GenerationQualitySetting() {
+  const form = Form.useFormInstance()
+  const endpointId = Form.useWatch('endpointId', form)
+  const endpoints = useEnabledImageEndpoints()
+  const isGeminiEndpoint = endpoints.some(
+    (endpoint) => endpoint.id === endpointId && endpoint.engine === 'gemini-images',
+  )
+  const { isPublic } = useGPTImageQuota()
+  const { gptImageSettings, setGptImageSettings } = useLocalSetting()
+
+  const qualityHint = isGeminiEndpoint
+    ? t('Gemini 的质量由模型决定，Medium / High 设置不会影响该端点。')
+    : isPublic
+      ? t('公用 API Key 无法使用 High 画质')
+      : gptImageSettings.quality === 'high'
+        ? t('但 Token 消耗大约变为 4倍，整体性价比远不如提升画面尺寸')
+        : null
+
+  return (
+    <>
+      <div className="flex min-w-0 items-center" title={t('画质设置')}>
+        <Segmented<GptImageQuality>
+          aria-label={t('画质设置')}
+          block
+          className="w-full min-w-0 [&_.ant-segmented-item]:min-w-0 [&_.ant-segmented-item-label]:px-1!"
+          options={[
+            { label: t('中画质'), value: 'medium' },
+            { label: t('高画质'), value: 'high', disabled: isPublic },
+          ]}
+          size="middle"
+          value={gptImageSettings.quality}
+          onChange={(quality) =>
+            setGptImageSettings((prev) => ({
+              ...prev,
+              quality,
+            }))
+          }
+        />
+      </div>
+      {qualityHint && (
+        <div className="col-span-2 text-xs text-slate-400">
+          {qualityHint}
+        </div>
+      )}
+    </>
+  )
+}
+
 export function TemplateForm({
   onSuccess,
   showHeading = true,
+  showQualitySetting = false,
   editorMode = false,
   activeTemplateId = null,
   onTemplateLoaded,
@@ -515,6 +569,7 @@ export function TemplateForm({
                   {t('生成4K图')}
                 </Button>
               )}
+              {showQualitySetting && <GenerationQualitySetting />}
               <Button
                 type="primary"
                 htmlType="submit"
