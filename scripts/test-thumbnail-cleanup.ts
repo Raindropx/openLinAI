@@ -74,6 +74,40 @@ async function main() {
     assert.ok(await exists(path.join(generated, 'keep.png')))
     assert.ok(await exists(path.join(thumbs, 'keep.jpg')))
 
+    await addTask('batch-first', [await fixture('batch-first')])
+    await addTask('batch-second', [await fixture('batch-second')])
+    const beforeInvalidBatch = await fs.readFile(path.join(root, 'tasks.json'))
+    await assert.rejects(
+      taskManager.deleteTasks(['batch-first', 'missing']),
+      /任务不存在/,
+    )
+    assert.deepEqual(
+      await fs.readFile(path.join(root, 'tasks.json')),
+      beforeInvalidBatch,
+    )
+    let notifications = 0
+    const onTasksUpdated = () => {
+      notifications++
+    }
+    taskManager.on('tasks-updated', onTasksUpdated)
+    assert.equal(
+      await taskManager.deleteTasks([
+        'batch-first',
+        'batch-second',
+        'batch-first',
+      ]),
+      2,
+    )
+    taskManager.off('tasks-updated', onTasksUpdated)
+    assert.equal(notifications, 1)
+    for (const name of ['batch-first', 'batch-second']) {
+      assert.equal(await exists(path.join(generated, `${name}.png`)), false)
+      assert.equal(await exists(path.join(thumbs, `${name}.jpg`)), false)
+    }
+    await addTask('batch-keep', [await fixture('batch-keep')])
+    assert.equal(await taskManager.deleteTasks(['batch-keep'], true), 1)
+    assert.ok(await exists(path.join(generated, 'batch-keep.png')))
+
     await addTask('multi', [await fixture('first'), await fixture('second')])
     assert.equal((await taskManager.deleteTaskImage('multi', 0)).success, true)
     assert.equal(await exists(path.join(thumbs, 'first.webp')), false)
@@ -220,7 +254,7 @@ async function main() {
       globalThis.setTimeout = setTimeoutBefore
     }
     console.log(
-      `${process.env.IMAGE_BACKEND}: task/single-image deletion, keep-image, both cache formats, orphan/temporary cleanup, source outage, active generation race, task/source integrity and maintenance scheduling passed`,
+      `${process.env.IMAGE_BACKEND}: task/batch/single-image deletion, keep-image, both cache formats, orphan/temporary cleanup, source outage, active generation race, task/source integrity and maintenance scheduling passed`,
     )
   } finally {
     fse.rename = originalRename

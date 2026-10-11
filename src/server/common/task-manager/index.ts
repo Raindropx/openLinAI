@@ -341,6 +341,31 @@ export class TaskManager extends EventEmitter {
     }
   }
 
+  public async deleteTasks(ids: string[], keepImage = false): Promise<number> {
+    const selected = new Set(ids)
+    if (selected.size === 0) throw new Error('请先选择要删除的任务')
+
+    let removed: Task[] = []
+    const tasks = await this.store.mutate((list) => {
+      const existing = new Set(list.map((task) => task.id))
+      if ([...selected].some((id) => !existing.has(id)))
+        throw new Error('任务不存在')
+      removed = list.filter((task) => selected.has(task.id))
+      return list.filter((task) => !selected.has(task.id))
+    })
+
+    await this.notifyTasksUpdate(tasks)
+    if (!keepImage) {
+      const urls = new Set(
+        removed.flatMap(
+          (task) => task.outputUrls ?? (task.outputUrl ? [task.outputUrl] : []),
+        ),
+      )
+      for (const url of urls) await this.deleteGeneratedImageFile(url)
+    }
+    return removed.length
+  }
+
   public async deleteTaskImage(
     id: string,
     imageIndex: number,

@@ -301,6 +301,28 @@ const taskApi = new Hono()
     },
   )
   .delete(
+    '/batch',
+    bodyLimit({ maxSize: 1024 * 1024 }),
+    zValidator(
+      'json',
+      z.object({
+        ids: z.array(z.string().min(1)).min(1).max(10000),
+        keepImage: z.boolean().default(false),
+      }),
+    ),
+    async (c) => {
+      try {
+        const { ids, keepImage } = c.req.valid('json')
+        return c.json({
+          success: true as const,
+          count: await taskManager.deleteTasks(ids, keepImage),
+        })
+      } catch (error: any) {
+        return c.json({ success: false as const, error: error.message }, 400)
+      }
+    },
+  )
+  .delete(
     '/:id/images/:index',
     zValidator(
       'param',

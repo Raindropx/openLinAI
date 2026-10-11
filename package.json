@@ -52,6 +52,7 @@
   "dependencies": {
     "@hono/node-server": "^1.19.14",
     "@hono/zod-validator": "^0.7.6",
+    "@tanstack/react-virtual": "^3.14.14",
     "classnames": "^2.5.1",
     "copy-to-clipboard": "^4.0.2",
     "dayjs": "^1.11.20",

@@ -11,6 +11,7 @@ import {
   SyncOutlined,
   VerticalAlignTopOutlined,
 } from '@ant-design/icons'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLocalStorageState } from 'ahooks'
 import {
   Button,
@@ -31,7 +32,14 @@ import {
 import copy from 'copy-to-clipboard'
 import dayjs from 'dayjs'
 import { hc } from 'hono/client'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { AppType } from '../../../../server'
 import type { Task } from '../../../../server/common/task-manager'
@@ -51,7 +59,6 @@ import { t, useAppLanguage } from '../../../i18n'
 import { ImageGroup } from '../../../pages/common/components/ImageGroup'
 import { useGlobalStore } from '../../../store/global'
 import { localImageVariant } from '../../../utils/imageUrls'
-import { InfiniteScrollSentinel } from '../components/InfiniteScrollSentinel'
 import {
   ListToolbar,
   sortListItems,
@@ -87,6 +94,15 @@ function formatFileSize(bytes: number) {
     return `${Math.round(bytes / 1024)}KB`
   }
   return `${bytes}B`
+}
+
+function findScrollContainer(element: HTMLElement): HTMLElement {
+  let parent = element.parentElement
+  while (parent) {
+    if (/auto|scroll/.test(getComputedStyle(parent).overflowY)) return parent
+    parent = parent.parentElement
+  }
+  return document.scrollingElement as HTMLElement
 }
 
 function TaskImage({
@@ -220,7 +236,6 @@ export function TaskList({
   const pageSize = panelMode
     ? (gptImageSettings.workspaceListPageSize ?? 8)
     : (gptImageSettings.taskManagerPageSize ?? 12)
-  const [visibleCount, setVisibleCount] = useState(pageSize)
   const [searchText, setSearchText] = useState('')
   const [sortMode, setSortMode] = useState<ListSortMode>('default')
   const [selectionMode, setSelectionMode] = useState(false)
@@ -237,7 +252,13 @@ export function TaskList({
     text: string
   } | null>(null)
   const taskCardRefs = useRef(new Map<string, HTMLDivElement>())
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const virtualListRef = useRef<HTMLDivElement>(null)
+  const [virtualScrollElement, setVirtualScrollElement] =
+    useState<HTMLElement | null>(null)
+  const [listWidth, setListWidth] = useState(0)
+  const [spaciousLayout, setSpaciousLayout] = useState(false)
+  const [wideLayout, setWideLayout] = useState(false)
+  const [scrollMargin, setScrollMargin] = useState(0)
   const lastReviewIndexRef = useRef(0)
   const focusNewestTaskSignal = useGlobalStore(
     (state) => state.focusNewestTaskSignal,
@@ -377,6 +398,68 @@ export function TaskList({
       ),
     [searchedTasks, folderId, folders],
   )
+  useLayoutEffect(() => {
+    if (!infiniteScroll || !filteredTasks.length) return
+    const list = virtualListRef.current
+    if (!list) return
+    const scrollElement = findScrollContainer(list)
+    setVirtualScrollElement(scrollElement)
+    const measure = () => {
+      setListWidth(list.clientWidth)
+      setSpaciousLayout(window.matchMedia('(min-width: 640px)').matches)
+      setWideLayout(window.matchMedia('(min-width: 768px)').matches)
+      setScrollMargin(
+        scrollElement.scrollTop +
+          list.getBoundingClientRect().top -
+          scrollElement.getBoundingClientRect().top,
+      )
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(scrollElement)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [
+    infiniteScroll,
+    filteredTasks.length,
+    panelMode,
+    folders.length,
+    folderId,
+    searchText,
+  ])
+
+  const columnCount = panelMode
+    ? 1
+    : managementMode
+      ? Math.max(
+          1,
+          Math.floor(
+            (listWidth + (spaciousLayout ? 16 : 8)) /
+              (360 + (spaciousLayout ? 16 : 8)),
+          ),
+        )
+      : wideLayout
+        ? 2
+        : 1
+  const rowCount = Math.ceil(filteredTasks.length / columnCount)
+  const rowGap = panelMode ? 8 : managementMode ? (spaciousLayout ? 16 : 8) : 16
+  const virtualOptions = {
+    count: rowCount,
+    estimateSize: () => (panelMode ? 168 : isMobile ? 200 : 170),
+    gap: rowGap,
+    overscan: 3,
+    getItemKey: (index: number) =>
+      filteredTasks[index * columnCount]?.id ?? index,
+    scrollMargin,
+  }
+  const taskVirtualizer = useVirtualizer({
+    ...virtualOptions,
+    getScrollElement: () => virtualScrollElement,
+    enabled: infiniteScroll && Boolean(virtualScrollElement),
+  })
   const visibleFolders = folderId
     ? []
     : folders
@@ -532,16 +615,29 @@ export function TaskList({
 
   const scrollToReviewedTask = useCallback(() => {
     if (!reviewedTaskId) return
-    taskCardRefs.current.get(reviewedTaskId)?.scrollIntoView({
-      block: 'nearest',
-      inline: 'nearest',
-      behavior: 'instant',
+    const taskIndex = filteredTasks.findIndex(
+      (task) => task.id === reviewedTaskId,
+    )
+    if (taskIndex < 0) return
+    if (infiniteScroll)
+      taskVirtualizer.scrollToIndex(Math.floor(taskIndex / columnCount))
+    requestAnimationFrame(() => {
+      taskCardRefs.current.get(reviewedTaskId)?.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest',
+        behavior: 'instant',
+      })
     })
-  }, [reviewedTaskId])
+  }, [
+    reviewedTaskId,
+    filteredTasks,
+    infiniteScroll,
+    taskVirtualizer,
+    columnCount,
+  ])
 
   useEffect(() => {
     setPage(0)
-    setVisibleCount(pageSize)
   }, [infiniteScroll, pageSize, searchText, sortMode, folderId])
 
   useEffect(() => {
@@ -561,34 +657,33 @@ export function TaskList({
     if (focusNewestTaskSignal === lastFocusSignalRef.current) return
     lastFocusSignalRef.current = focusNewestTaskSignal
     setPage(0)
-    setVisibleCount(pageSize)
     requestAnimationFrame(() => {
-      if (panelMode && scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' })
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-      }
+      virtualScrollElement?.scrollTo({ top: 0, behavior: 'smooth' })
     })
-  }, [focusNewestTaskSignal, pageSize, panelMode])
+  }, [focusNewestTaskSignal, virtualScrollElement])
 
-  const visibleTasks = infiniteScroll
-    ? filteredTasks.slice(0, visibleCount)
-    : filteredTasks.slice(page * pageSize, page * pageSize + pageSize)
-  const hasMoreTasks = infiniteScroll && visibleCount < filteredTasks.length
-  const loadMoreTasks = useCallback(() => {
-    setVisibleCount((count) => Math.min(count + pageSize, filteredTasks.length))
-  }, [filteredTasks.length, pageSize])
+  const visibleTasks = filteredTasks.slice(
+    page * pageSize,
+    page * pageSize + pageSize,
+  )
+  const renderedRows = infiniteScroll
+    ? taskVirtualizer.getVirtualItems().map((row) => ({
+        key: row.key,
+        index: row.index,
+        start: row.start,
+        tasks: filteredTasks.slice(
+          row.index * columnCount,
+          (row.index + 1) * columnCount,
+        ),
+      }))
+    : [{ key: 'page', index: 0, start: 0, tasks: visibleTasks }]
 
   useEffect(() => {
     if (reviewIndex < 0 || !reviewImage) return
     const taskIndex = filteredTasks.findIndex(
       (task) => task.id === reviewImage.taskId,
     )
-    if (infiniteScroll) {
-      setVisibleCount((count) => Math.max(count, taskIndex + 1))
-    } else {
-      setPage(Math.floor(taskIndex / pageSize))
-    }
+    if (!infiniteScroll) setPage(Math.floor(taskIndex / pageSize))
     const frame = requestAnimationFrame(scrollToReviewedTask)
     return () => cancelAnimationFrame(frame)
   }, [
@@ -598,7 +693,6 @@ export function TaskList({
     infiniteScroll,
     pageSize,
     page,
-    visibleCount,
     scrollToReviewedTask,
   ])
 
@@ -823,41 +917,27 @@ export function TaskList({
       okType: 'danger',
       onOk: async () => {
         setBatchDeleting(true)
-        let successCount = 0
-        const deletedIds = new Set<string>()
-        for (const task of tasksToDelete) {
-          try {
-            const response = await client.api.task[':id'].$delete({
-              param: { id: task.id },
-              query: {
-                keepImage: gptImageSettings.keepImageWhenDeleteTask
-                  ? 'true'
-                  : 'false',
-              },
-            })
-            const result = await response.json()
-            if (result.success) {
-              successCount += 1
-              deletedIds.add(task.id)
-            }
-          } catch {
-            // 继续处理剩余任务。
-          }
-        }
-        setBatchDeleting(false)
-        setDownloadedIds(
-          (downloadedIds || []).filter((id) => !deletedIds.has(id)),
-        )
-        exitSelectionMode()
-        if (successCount === tasksToDelete.length) {
-          message.success(t('已删除 {0} 个任务', [successCount]))
-        } else {
-          message.warning(
-            t('已删除 {0} 个任务，{1} 个删除失败', [
-              successCount,
-              tasksToDelete.length - successCount,
-            ]),
+        try {
+          const response = await client.api.task.batch.$delete({
+            json: {
+              ids: tasksToDelete.map((task) => task.id),
+              keepImage: Boolean(gptImageSettings.keepImageWhenDeleteTask),
+            },
+          })
+          const result = await response.json()
+          if (!result.success) throw new Error(result.error)
+          const deletedIds = new Set(tasksToDelete.map((task) => task.id))
+          setDownloadedIds(
+            (downloadedIds || []).filter((id) => !deletedIds.has(id)),
           )
+          exitSelectionMode()
+          message.success(t('已删除 {0} 个任务', [result.count]))
+        } catch (error) {
+          message.error(
+            error instanceof Error ? t(error.message) : t('删除失败'),
+          )
+        } finally {
+          setBatchDeleting(false)
         }
       },
     })
@@ -996,7 +1076,6 @@ export function TaskList({
       </div>
 
       <div
-        ref={scrollContainerRef}
         className={
           panelMode ? 'min-h-0 flex-1 overflow-y-auto py-3 pr-1' : undefined
         }
@@ -1054,396 +1133,431 @@ export function TaskList({
         ) : (
           <>
             <div
-              className={
-                panelMode
-                  ? 'grid grid-cols-1 gap-2'
-                  : managementMode
-                    ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))] gap-2 sm:gap-4'
-                    : 'grid grid-cols-1 gap-4 md:grid-cols-2'
+              ref={virtualListRef}
+              className="relative"
+              style={
+                infiniteScroll
+                  ? { height: taskVirtualizer.getTotalSize() }
+                  : undefined
               }
             >
-              {visibleTasks.map((task) => {
-                const active = task.id === selectedTaskId
-                const reviewing = managementMode && task.id === reviewedTaskId
-                const selected = selectedIds.includes(task.id)
-                return (
-                  <Card
-                    key={task.id}
-                    ref={(node) => {
-                      if (node) taskCardRefs.current.set(task.id, node)
-                      else taskCardRefs.current.delete(task.id)
-                    }}
-                    size="small"
-                    draggable={!isMobile && !moving}
-                    onDragStart={(event) => {
-                      event.dataTransfer.effectAllowed = 'move'
-                      event.dataTransfer.setData(
-                        'application/x-linai-task',
-                        JSON.stringify(
-                          selectionMode && selected ? selectedIds : [task.id],
-                        ),
-                      )
-                    }}
-                    aria-current={reviewing ? 'true' : undefined}
-                    onClick={() =>
-                      selectionMode
-                        ? toggleTaskSelection(task.id)
-                        : onSelectTask?.(task.id)
-                    }
-                    className={`task-list-card w-full transition-all ${
-                      onSelectTask || selectionMode ? 'cursor-pointer' : ''
-                    } ${
-                      active || selected ? 'task-list-card-active' : 'shadow-sm'
-                    } ${reviewing ? 'task-list-card-reviewing' : ''}`}
-                    classNames={{
-                      body: 'task-list-card-body p-2! transition-colors duration-100 md:p-[10px]!',
-                    }}
-                  >
-                    {(selectionMode || reviewing) && (
-                      <div
-                        className="mb-2 flex items-center gap-2 text-xs text-slate-400"
-                        onClick={(event) => event.stopPropagation()}
+              {renderedRows.map((row) => (
+                <div
+                  key={row.key}
+                  data-index={row.index}
+                  ref={
+                    infiniteScroll ? taskVirtualizer.measureElement : undefined
+                  }
+                  className={
+                    panelMode
+                      ? 'grid grid-cols-1 gap-2'
+                      : managementMode
+                        ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))] gap-2 sm:gap-4'
+                        : 'grid grid-cols-1 gap-4 md:grid-cols-2'
+                  }
+                  style={
+                    infiniteScroll
+                      ? {
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          transform: `translateY(${row.start - scrollMargin}px)`,
+                        }
+                      : undefined
+                  }
+                >
+                  {row.tasks.map((task) => {
+                    const active = task.id === selectedTaskId
+                    const reviewing =
+                      managementMode && task.id === reviewedTaskId
+                    const selected = selectedIds.includes(task.id)
+                    return (
+                      <Card
+                        key={task.id}
+                        ref={(node) => {
+                          if (node) taskCardRefs.current.set(task.id, node)
+                          else taskCardRefs.current.delete(task.id)
+                        }}
+                        size="small"
+                        draggable={!isMobile && !moving}
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = 'move'
+                          event.dataTransfer.setData(
+                            'application/x-linai-task',
+                            JSON.stringify(
+                              selectionMode && selected
+                                ? selectedIds
+                                : [task.id],
+                            ),
+                          )
+                        }}
+                        aria-current={reviewing ? 'true' : undefined}
+                        onClick={() =>
+                          selectionMode
+                            ? toggleTaskSelection(task.id)
+                            : onSelectTask?.(task.id)
+                        }
+                        className={`task-list-card w-full transition-all ${
+                          onSelectTask || selectionMode ? 'cursor-pointer' : ''
+                        } ${
+                          active || selected
+                            ? 'task-list-card-active'
+                            : 'shadow-sm'
+                        } ${reviewing ? 'task-list-card-reviewing' : ''}`}
+                        classNames={{
+                          body: 'task-list-card-body p-2! transition-colors duration-100 md:p-[10px]!',
+                        }}
                       >
-                        {selectionMode && (
-                          <>
-                            <Checkbox
-                              checked={selected}
-                              onChange={() => toggleTaskSelection(task.id)}
-                            />
-                            {t('选择任务')}
-                          </>
-                        )}
-                        {reviewing && (
-                          <span className="task-list-review-badge ml-auto">
-                            <EyeOutlined />
-                            {t('当前审阅')}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <div
-                      className={
-                        panelMode
-                          ? 'task-list-card-layout flex gap-3'
-                          : managementMode
-                            ? 'task-list-card-layout flex gap-2 sm:gap-4'
-                            : 'task-list-card-layout flex gap-4'
-                      }
-                    >
-                      <div
-                        className={`task-list-card-media relative flex shrink-0 items-center justify-center overflow-hidden rounded-md border ${
-                          panelMode
-                            ? 'h-[120px] w-[90px]'
-                            : managementMode
-                              ? 'h-[108px] w-[84px] sm:h-[130px] sm:w-[100px]'
-                              : 'h-[130px] w-[100px]'
-                        }`}
-                      >
-                        {task.status === 'failed' && task.error ? (
-                          <div className="flex w-full flex-col items-center justify-center p-2">
-                            <Typography.Text
-                              type="danger"
-                              strong
-                              className="mb-1"
-                            >
-                              {t('生成失败')}
-                            </Typography.Text>
-                            <Typography.Text
-                              type="danger"
-                              className="w-full cursor-pointer text-center text-xs transition-colors hover:text-red-400!"
-                              ellipsis={{ tooltip: task.error }}
-                              onClick={() => {
-                                if (task.error) {
-                                  copy(task.error)
-                                  message.success(t('错误信息已复制'))
-                                }
-                              }}
-                            >
-                              {task.error}
-                            </Typography.Text>
-                          </div>
-                        ) : task.outputUrls.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center p-2">
-                            <Typography.Text
-                              strong
-                              className="mb-1 text-amber-400!"
-                            >
-                              {t('运行中')}
-                              <SyncOutlined className="ml-1" spin />
-                            </Typography.Text>
-                          </div>
-                        ) : task.outputUrls.length > 1 ? (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <ImageGroup
-                              images={task.outputUrls}
-                              width={panelMode ? 90 : 100}
-                              height={panelMode ? 120 : 130}
-                              onPreview={
-                                managementMode
-                                  ? (imageIndex) =>
-                                      showReviewImage({
-                                        taskId: task.id,
-                                        imageIndex,
-                                        src: task.outputUrls[imageIndex],
-                                      })
-                                  : undefined
-                              }
-                            />
-                          </div>
-                        ) : (
-                          <TaskImage
-                            src={task.outputUrls[0]}
-                            onPreview={
-                              managementMode
-                                ? () =>
-                                    showReviewImage({
-                                      taskId: task.id,
-                                      imageIndex: 0,
-                                      src: task.outputUrls[0],
-                                    })
-                                : undefined
-                            }
-                            showSize={
-                              gptImageSettings.showImageSizeInTaskList ?? true
-                            }
-                          />
-                        )}
-                      </div>
-
-                      <div className="task-list-card-details flex min-w-0 grow flex-col justify-between overflow-hidden">
-                        <div className="task-list-card-summary">
+                        {(selectionMode || reviewing) && (
                           <div
-                            className={`task-list-card-tags ${isMobile ? 'flex items-start justify-between gap-2' : ''}`}
+                            className="mb-2 flex items-center gap-2 text-xs text-slate-400"
+                            onClick={(event) => event.stopPropagation()}
                           >
-                            <TaskItemTags
-                              task={task}
-                              downloadedIds={downloadedIds || []}
-                              compact={panelMode || managementMode}
-                              dense={panelMode}
-                              showEndpoint={!panelMode}
-                              showMetrics={!isMobile}
-                              showDuration={isMobile && panelMode}
-                            />
-                            {isMobile && panelMode && (
-                              <TaskItemMetrics
-                                task={task}
-                                className="task-list-card-panel-metrics"
-                                showDuration={false}
+                            {selectionMode && (
+                              <>
+                                <Checkbox
+                                  checked={selected}
+                                  onChange={() => toggleTaskSelection(task.id)}
+                                />
+                                {t('选择任务')}
+                              </>
+                            )}
+                            {reviewing && (
+                              <span className="task-list-review-badge ml-auto">
+                                <EyeOutlined />
+                                {t('当前审阅')}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <div
+                          className={
+                            panelMode
+                              ? 'task-list-card-layout flex gap-3'
+                              : managementMode
+                                ? 'task-list-card-layout flex gap-2 sm:gap-4'
+                                : 'task-list-card-layout flex gap-4'
+                          }
+                        >
+                          <div
+                            className={`task-list-card-media relative flex shrink-0 items-center justify-center overflow-hidden rounded-md border ${
+                              panelMode
+                                ? 'h-[120px] w-[90px]'
+                                : managementMode
+                                  ? 'h-[108px] w-[84px] sm:h-[130px] sm:w-[100px]'
+                                  : 'h-[130px] w-[100px]'
+                            }`}
+                          >
+                            {task.status === 'failed' && task.error ? (
+                              <div className="flex w-full flex-col items-center justify-center p-2">
+                                <Typography.Text
+                                  type="danger"
+                                  strong
+                                  className="mb-1"
+                                >
+                                  {t('生成失败')}
+                                </Typography.Text>
+                                <Typography.Text
+                                  type="danger"
+                                  className="w-full cursor-pointer text-center text-xs transition-colors hover:text-red-400!"
+                                  ellipsis={{ tooltip: task.error }}
+                                  onClick={() => {
+                                    if (task.error) {
+                                      copy(task.error)
+                                      message.success(t('错误信息已复制'))
+                                    }
+                                  }}
+                                >
+                                  {task.error}
+                                </Typography.Text>
+                              </div>
+                            ) : task.outputUrls.length === 0 ? (
+                              <div className="flex flex-col items-center justify-center p-2">
+                                <Typography.Text
+                                  strong
+                                  className="mb-1 text-amber-400!"
+                                >
+                                  {t('运行中')}
+                                  <SyncOutlined className="ml-1" spin />
+                                </Typography.Text>
+                              </div>
+                            ) : task.outputUrls.length > 1 ? (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <ImageGroup
+                                  images={task.outputUrls}
+                                  width={panelMode ? 90 : 100}
+                                  height={panelMode ? 120 : 130}
+                                  onPreview={
+                                    managementMode
+                                      ? (imageIndex) =>
+                                          showReviewImage({
+                                            taskId: task.id,
+                                            imageIndex,
+                                            src: task.outputUrls[imageIndex],
+                                          })
+                                      : undefined
+                                  }
+                                />
+                              </div>
+                            ) : (
+                              <TaskImage
+                                src={task.outputUrls[0]}
+                                onPreview={
+                                  managementMode
+                                    ? () =>
+                                        showReviewImage({
+                                          taskId: task.id,
+                                          imageIndex: 0,
+                                          src: task.outputUrls[0],
+                                        })
+                                    : undefined
+                                }
+                                showSize={
+                                  gptImageSettings.showImageSizeInTaskList ??
+                                  true
+                                }
                               />
                             )}
                           </div>
-                          <div className="task-list-card-heading flex min-w-0 flex-col gap-1">
-                            <div className="task-list-card-title flex min-w-0 items-center gap-2">
-                              {task.rawTemplate?.title && (
-                                <Typography.Text
-                                  strong
-                                  className="min-w-0 flex-1 truncate"
-                                  title={task.rawTemplate.title}
-                                >
-                                  {task.rawTemplate.title}
-                                </Typography.Text>
-                              )}
-                              {(!isMobile || !managementMode) && (
-                                <div className="shrink-0 text-[11px] text-slate-500">
-                                  {dayjs(task.createdAt).format(
-                                    'YY/MM/DD HH:mm',
+
+                          <div className="task-list-card-details flex min-w-0 grow flex-col justify-between overflow-hidden">
+                            <div className="task-list-card-summary">
+                              <div
+                                className={`task-list-card-tags ${isMobile ? 'flex items-start justify-between gap-2' : ''}`}
+                              >
+                                <TaskItemTags
+                                  task={task}
+                                  downloadedIds={downloadedIds || []}
+                                  compact={panelMode || managementMode}
+                                  dense={panelMode}
+                                  showEndpoint={!panelMode}
+                                  showMetrics={!isMobile}
+                                  showDuration={isMobile && panelMode}
+                                />
+                                {isMobile && panelMode && (
+                                  <TaskItemMetrics
+                                    task={task}
+                                    className="task-list-card-panel-metrics"
+                                    showDuration={false}
+                                  />
+                                )}
+                              </div>
+                              <div className="task-list-card-heading flex min-w-0 flex-col gap-1">
+                                <div className="task-list-card-title flex min-w-0 items-center gap-2">
+                                  {task.rawTemplate?.title && (
+                                    <Typography.Text
+                                      strong
+                                      className="min-w-0 flex-1 truncate"
+                                      title={task.rawTemplate.title}
+                                    >
+                                      {task.rawTemplate.title}
+                                    </Typography.Text>
+                                  )}
+                                  {(!isMobile || !managementMode) && (
+                                    <div className="shrink-0 text-[11px] text-slate-500">
+                                      {dayjs(task.createdAt).format(
+                                        'YY/MM/DD HH:mm',
+                                      )}
+                                    </div>
                                   )}
                                 </div>
+                                {isMobile && !panelMode && (
+                                  <TaskItemMetrics task={task} />
+                                )}
+                              </div>
+                              {task.rawTemplate?.prompt && (
+                                <Typography.Paragraph
+                                  type="secondary"
+                                  className="task-list-card-prompt app-accent-hover mb-0! cursor-pointer text-xs transition-colors"
+                                  ellipsis={{
+                                    rows: 2,
+                                    tooltip: {
+                                      title: task.rawTemplate.prompt,
+                                      placement: 'top',
+                                    },
+                                  }}
+                                  onClick={() => {
+                                    if (task.rawTemplate?.prompt) {
+                                      copy(task.rawTemplate.prompt)
+                                      message.success(t('提示词已复制'))
+                                    }
+                                  }}
+                                >
+                                  {task.rawTemplate.prompt}
+                                </Typography.Paragraph>
                               )}
                             </div>
-                            {isMobile && !panelMode && (
-                              <TaskItemMetrics task={task} />
-                            )}
-                          </div>
-                          {task.rawTemplate?.prompt && (
-                            <Typography.Paragraph
-                              type="secondary"
-                              className="task-list-card-prompt app-accent-hover mb-0! cursor-pointer text-xs transition-colors"
-                              ellipsis={{
-                                rows: 2,
-                                tooltip: {
-                                  title: task.rawTemplate.prompt,
-                                  placement: 'top',
-                                },
-                              }}
-                              onClick={() => {
-                                if (task.rawTemplate?.prompt) {
-                                  copy(task.rawTemplate.prompt)
-                                  message.success(t('提示词已复制'))
-                                }
-                              }}
-                            >
-                              {task.rawTemplate.prompt}
-                            </Typography.Paragraph>
-                          )}
-                        </div>
 
-                        {((isMobile && managementMode) ||
-                          !selectionMode ||
-                          task.originalPrompt !== undefined) && (
-                          <div
-                            className={`task-list-card-actions flex min-w-0 items-center ${
-                              panelMode || (isMobile && managementMode)
-                                ? 'justify-between gap-2'
-                                : 'justify-end'
-                            }`}
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            {isMobile && managementMode && (
-                              <div className="mr-auto shrink-0 text-[11px] whitespace-nowrap text-slate-500">
-                                {dayjs(task.createdAt).format('YY/MM/DD HH:mm')}
+                            {((isMobile && managementMode) ||
+                              !selectionMode ||
+                              task.originalPrompt !== undefined) && (
+                              <div
+                                className={`task-list-card-actions flex min-w-0 items-center ${
+                                  panelMode || (isMobile && managementMode)
+                                    ? 'justify-between gap-2'
+                                    : 'justify-end'
+                                }`}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                {isMobile && managementMode && (
+                                  <div className="mr-auto shrink-0 text-[11px] whitespace-nowrap text-slate-500">
+                                    {dayjs(task.createdAt).format(
+                                      'YY/MM/DD HH:mm',
+                                    )}
+                                  </div>
+                                )}
+                                {panelMode && (
+                                  <Tooltip
+                                    title={task.endpointName || t('未记录端点')}
+                                  >
+                                    <div className="task-list-card-endpoint flex min-w-0 items-center gap-1 text-[11px] text-violet-300/80">
+                                      <GlobalOutlined className="shrink-0" />
+                                      <span className="truncate">
+                                        {task.endpointName || t('未知端点')}
+                                      </span>
+                                    </div>
+                                  </Tooltip>
+                                )}
+                                <div
+                                  className={`task-list-card-buttons flex items-center gap-0.5 ${managementMode ? 'flex-wrap justify-end' : ''}`}
+                                >
+                                  {task.originalPrompt !== undefined && (
+                                    <Tooltip title={t('查看优化前的提示词')}>
+                                      <Button
+                                        type="text"
+                                        icon={<BulbOutlined />}
+                                        onClick={() =>
+                                          setOriginalPromptView({
+                                            text: task.originalPrompt || '',
+                                          })
+                                        }
+                                        aria-label={t('查看优化前的提示词')}
+                                        className="text-amber-300!"
+                                      />
+                                    </Tooltip>
+                                  )}
+                                  {!selectionMode && (
+                                    <>
+                                      {task.outputUrls.length > 0 && (
+                                        <CopyToStudioButton
+                                          taskId={task.id}
+                                          count={task.outputUrls.length}
+                                        />
+                                      )}
+                                      {managementMode &&
+                                        task.rawTemplate &&
+                                        (!task.studioProvenance ||
+                                          task.studioProvenance.template) && (
+                                          <Tooltip title={t('添加到模板')}>
+                                            <Button
+                                              type="primary"
+                                              size="small"
+                                              icon={<FileAddOutlined />}
+                                              onClick={() =>
+                                                handleAddToTemplate(task)
+                                              }
+                                              aria-label={t('添加到模板')}
+                                              className="px-2! sm:px-3!"
+                                            >
+                                              <span className="hidden sm:inline">
+                                                {t('添加到模板')}
+                                              </span>
+                                            </Button>
+                                          </Tooltip>
+                                        )}
+                                      {task.rawTemplate &&
+                                        (!task.studioProvenance ||
+                                          task.studioProvenance.template ||
+                                          task.studioProvenance.novelai) && (
+                                          <Tooltip title={t('重新填入')}>
+                                            <Button
+                                              type="text"
+                                              icon={
+                                                <VerticalAlignTopOutlined />
+                                              }
+                                              onClick={() => handleRefill(task)}
+                                              aria-label={t('重新填入')}
+                                            />
+                                          </Tooltip>
+                                        )}
+                                      {task.outputUrls.length > 0 && (
+                                        <TaskItemDownloadButton
+                                          taskId={task.id}
+                                          folder={
+                                            folders.find(
+                                              (folder) =>
+                                                folder.id === task.folderId,
+                                            )?.name
+                                          }
+                                          outputUrls={task.outputUrls}
+                                          fileName={
+                                            task.rawTemplate?.title ||
+                                            task.rawTemplate?.prompt ||
+                                            `task_${task.id}`
+                                          }
+                                          endpointName={task.endpointName}
+                                          createdAt={task.createdAt}
+                                          onDownloaded={() => {
+                                            if (
+                                              !downloadedIds?.includes(task.id)
+                                            ) {
+                                              setDownloadedIds([
+                                                ...(downloadedIds || []),
+                                                task.id,
+                                              ])
+                                            }
+                                          }}
+                                        />
+                                      )}
+                                      {(!task.studioProvenance ||
+                                        task.studioProvenance.novelai) &&
+                                        (task.endpointName !==
+                                          'NovelAI Studio' ||
+                                          task.novelaiSnapshots?.length ||
+                                          task.studioProvenance?.novelai) &&
+                                        task.rawTemplate?.title !==
+                                          TRIAL_TEMPLATE_TITLE && (
+                                          <Tooltip title={t('重试')}>
+                                            <Button
+                                              type="text"
+                                              icon={<RedoOutlined />}
+                                              onClick={() => handleRetry(task)}
+                                              loading={
+                                                retryingTaskId === task.id
+                                              }
+                                            />
+                                          </Tooltip>
+                                        )}
+                                      <TaskItemDeleteButton
+                                        id={task.id}
+                                        status={task.status}
+                                      />
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             )}
-                            {panelMode && (
-                              <Tooltip
-                                title={task.endpointName || t('未记录端点')}
-                              >
-                                <div className="task-list-card-endpoint flex min-w-0 items-center gap-1 text-[11px] text-violet-300/80">
-                                  <GlobalOutlined className="shrink-0" />
-                                  <span className="truncate">
-                                    {task.endpointName || t('未知端点')}
-                                  </span>
-                                </div>
-                              </Tooltip>
-                            )}
-                            <div
-                              className={`task-list-card-buttons flex items-center gap-0.5 ${managementMode ? 'flex-wrap justify-end' : ''}`}
-                            >
-                              {task.originalPrompt !== undefined && (
-                                <Tooltip title={t('查看优化前的提示词')}>
-                                  <Button
-                                    type="text"
-                                    icon={<BulbOutlined />}
-                                    onClick={() =>
-                                      setOriginalPromptView({
-                                        text: task.originalPrompt || '',
-                                      })
-                                    }
-                                    aria-label={t('查看优化前的提示词')}
-                                    className="text-amber-300!"
-                                  />
-                                </Tooltip>
-                              )}
-                              {!selectionMode && (
-                                <>
-                                  {task.outputUrls.length > 0 && (
-                                    <CopyToStudioButton
-                                      taskId={task.id}
-                                      count={task.outputUrls.length}
-                                    />
-                                  )}
-                                  {managementMode &&
-                                    task.rawTemplate &&
-                                    (!task.studioProvenance ||
-                                      task.studioProvenance.template) && (
-                                      <Tooltip title={t('添加到模板')}>
-                                        <Button
-                                          type="primary"
-                                          size="small"
-                                          icon={<FileAddOutlined />}
-                                          onClick={() =>
-                                            handleAddToTemplate(task)
-                                          }
-                                          aria-label={t('添加到模板')}
-                                          className="px-2! sm:px-3!"
-                                        >
-                                          <span className="hidden sm:inline">
-                                            {t('添加到模板')}
-                                          </span>
-                                        </Button>
-                                      </Tooltip>
-                                    )}
-                                  {task.rawTemplate &&
-                                    (!task.studioProvenance ||
-                                      task.studioProvenance.template ||
-                                      task.studioProvenance.novelai) && (
-                                      <Tooltip title={t('重新填入')}>
-                                        <Button
-                                          type="text"
-                                          icon={<VerticalAlignTopOutlined />}
-                                          onClick={() => handleRefill(task)}
-                                          aria-label={t('重新填入')}
-                                        />
-                                      </Tooltip>
-                                    )}
-                                  {task.outputUrls.length > 0 && (
-                                    <TaskItemDownloadButton
-                                      taskId={task.id}
-                                      folder={
-                                        folders.find(
-                                          (folder) =>
-                                            folder.id === task.folderId,
-                                        )?.name
-                                      }
-                                      outputUrls={task.outputUrls}
-                                      fileName={
-                                        task.rawTemplate?.title ||
-                                        task.rawTemplate?.prompt ||
-                                        `task_${task.id}`
-                                      }
-                                      endpointName={task.endpointName}
-                                      createdAt={task.createdAt}
-                                      onDownloaded={() => {
-                                        if (!downloadedIds?.includes(task.id)) {
-                                          setDownloadedIds([
-                                            ...(downloadedIds || []),
-                                            task.id,
-                                          ])
-                                        }
-                                      }}
-                                    />
-                                  )}
-                                  {(!task.studioProvenance ||
-                                    task.studioProvenance.novelai) &&
-                                    (task.endpointName !== 'NovelAI Studio' ||
-                                      task.novelaiSnapshots?.length ||
-                                      task.studioProvenance?.novelai) &&
-                                    task.rawTemplate?.title !==
-                                      TRIAL_TEMPLATE_TITLE && (
-                                      <Tooltip title={t('重试')}>
-                                        <Button
-                                          type="text"
-                                          icon={<RedoOutlined />}
-                                          onClick={() => handleRetry(task)}
-                                          loading={retryingTaskId === task.id}
-                                        />
-                                      </Tooltip>
-                                    )}
-                                  <TaskItemDeleteButton
-                                    id={task.id}
-                                    status={task.status}
-                                  />
-                                </>
-                              )}
-                            </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                )
-              })}
+                        </div>
+                      </Card>
+                    )
+                  })}
+                </div>
+              ))}
             </div>
 
-            {hasMoreTasks ? (
-              <InfiniteScrollSentinel
-                hasMore={hasMoreTasks}
-                onLoadMore={loadMoreTasks}
-              />
-            ) : (
-              !infiniteScroll &&
-              filteredTasks.length > pageSize && (
-                <div className="mt-4 flex justify-center">
-                  <Pagination
-                    current={page + 1}
-                    pageSize={pageSize}
-                    showSizeChanger={false}
-                    simple={panelMode}
-                    total={filteredTasks.length}
-                    onChange={(nextPage) => setPage(nextPage - 1)}
-                  />
-                </div>
-              )
+            {!infiniteScroll && filteredTasks.length > pageSize && (
+              <div className="mt-4 flex justify-center">
+                <Pagination
+                  current={page + 1}
+                  pageSize={pageSize}
+                  showSizeChanger={false}
+                  simple={panelMode}
+                  total={filteredTasks.length}
+                  onChange={(nextPage) => setPage(nextPage - 1)}
+                />
+              </div>
             )}
           </>
         )}
