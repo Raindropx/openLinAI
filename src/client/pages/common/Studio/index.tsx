@@ -1,6 +1,8 @@
 import {
   ArrowLeftOutlined,
   ArrowUpOutlined,
+  CaretLeftOutlined,
+  CaretRightOutlined,
   DeleteOutlined,
   DownloadOutlined,
   InboxOutlined,
@@ -50,6 +52,7 @@ import {
   uploadStudioFile,
 } from './api'
 import { CivitaiStudio } from './CivitaiStudio'
+import { GeneratedImageShelf } from './GeneratedImageShelf'
 import { NovelAIStudio } from './NovelAIStudio'
 import { ProviderBalance } from './ProviderBalance'
 import type { StudioGenerationParameters } from './studio-parameters'
@@ -116,6 +119,10 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const [tab, setTab] = useState('novelai')
   const [perlerVisited, setPerlerVisited] = useState(false)
   const [perlerImage, setPerlerImage] = useState<{ id: number; url: string }>()
+  const [perlerShelfExpanded, setPerlerShelfExpanded] = useState(false)
+  const [perlerShelfTab, setPerlerShelfTab] = useState<'files' | 'generated'>(
+    'files',
+  )
   const [shelfTab, setShelfTab] = useState<'files' | 'presets'>('files')
   const [presets, setPresets] = useState(readStudioPresets)
   const [novelaiPreset, setNovelaiPreset] = useState<{
@@ -284,8 +291,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
     if (tab === 'photopea') return openItem(item)
     if (item.format === 'psd') return
     if (tab === 'perler-bead') {
-      setPerlerImage({ id: ++signal.current, url: studioFileUrl(item.id) })
-      setMobileShelf(false)
+      sendImageToPerler(studioFileUrl(item.id))
       return
     }
     const payload = { id: ++signal.current, itemId: item.id }
@@ -293,6 +299,12 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       setNovelaiReference(payload)
       setNovelaiPanel('parameters')
     } else setCivitaiReference(payload)
+    setMobileShelf(false)
+  }
+  const sendImageToPerler = (url: string) => {
+    setPerlerImage({ id: ++signal.current, url })
+    if (window.matchMedia('(max-width: 1023px)').matches)
+      setPerlerShelfExpanded(false)
     setMobileShelf(false)
   }
   const refillFromItem = (item: StudioItem) => {
@@ -375,7 +387,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   }
   return (
     <div
-      className={`studio-layout ${tab === 'novelai' || tab === 'civitai' ? 'studio-layout-novelai' : ''}`}
+      className={`studio-layout ${tab === 'novelai' || tab === 'civitai' ? 'studio-layout-novelai' : ''} ${tab === 'perler-bead' ? `studio-layout-perler ${perlerShelfExpanded ? 'studio-perler-shelf-expanded' : 'studio-perler-shelf-collapsed'}` : ''}`}
       style={
         {
           color: token.colorText,
@@ -400,7 +412,10 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           if (files.length) void importFiles(files, openAfterImport.current)
         }}
       />
-      <div className="studio-mobile-switch">
+      <div
+        className="studio-mobile-switch"
+        style={tab === 'perler-bead' ? { display: 'none' } : undefined}
+      >
         <Segmented
           block
           value={
@@ -434,7 +449,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
         />
       </div>
       <section
-        className={`studio-workspace ${mobileShelf ? 'studio-mobile-hidden' : ''}`}
+        className={`studio-workspace ${tab !== 'perler-bead' && mobileShelf ? 'studio-mobile-hidden' : ''}`}
         aria-label={t('工作室工具')}
       >
         <div
@@ -470,7 +485,26 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             aria-labelledby="studio-tab-perler-bead"
           >
             <Suspense fallback={<div className="flex h-full items-center justify-center"><Spin /></div>}>
-              <PerlerBead incomingImage={perlerImage} />
+              <PerlerBead
+                incomingImage={perlerImage}
+                toolbarExtra={
+                  <Tooltip title={perlerShelfExpanded ? t('收起暂存台') : t('展开暂存台')}>
+                    <Button
+                      size="small"
+                      className="studio-perler-shelf-button"
+                      icon={perlerShelfExpanded ? <CaretRightOutlined /> : <CaretLeftOutlined />}
+                      aria-expanded={perlerShelfExpanded}
+                      aria-controls="studio-shelf"
+                      aria-label={perlerShelfExpanded ? t('收起暂存台') : t('展开暂存台')}
+                      onClick={() => setPerlerShelfExpanded((expanded) => !expanded)}
+                    >
+                      <span className="studio-perler-shelf-label">
+                        {perlerShelfExpanded ? t('收起暂存台') : t('展开暂存台')}
+                      </span>
+                    </Button>
+                  </Tooltip>
+                }
+              />
             </Suspense>
           </div>
         )}
@@ -590,9 +624,39 @@ export function StudioPage({ active = true }: { active?: boolean }) {
         </div>
       </section>
       <aside
-        className={`studio-shelf ${mobileShelf ? '' : 'studio-mobile-hidden'}`}
+        id="studio-shelf"
+        style={
+          tab === 'perler-bead' && !perlerShelfExpanded
+            ? { display: 'none' }
+            : undefined
+        }
+        className={`studio-shelf ${(tab === 'perler-bead' ? perlerShelfExpanded : mobileShelf) ? '' : 'studio-mobile-hidden'}`}
         aria-label={t('暂存台')}
       >
+        {tab === 'perler-bead' && (
+          <div
+            className="studio-shelf-tabs"
+            role="tablist"
+            aria-label={t('右侧工作区')}
+          >
+            <button
+              role="tab"
+              aria-selected={perlerShelfTab === 'files'}
+              className={perlerShelfTab === 'files' ? 'is-active' : ''}
+              onClick={() => setPerlerShelfTab('files')}
+            >
+              {t('暂存台')}
+            </button>
+            <button
+              role="tab"
+              aria-selected={perlerShelfTab === 'generated'}
+              className={perlerShelfTab === 'generated' ? 'is-active' : ''}
+              onClick={() => setPerlerShelfTab('generated')}
+            >
+              {t('生成图片')}
+            </button>
+          </div>
+        )}
         {(tab === 'novelai' || tab === 'civitai') && (
           <div
             className="studio-shelf-tabs"
@@ -618,7 +682,11 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             </button>
           </div>
         )}
-        {shelfTab === 'presets' && (tab === 'novelai' || tab === 'civitai') ? (
+        {tab === 'perler-bead' && perlerShelfTab === 'generated' ? (
+          perlerShelfExpanded && (
+            <GeneratedImageShelf onSendImage={sendImageToPerler} />
+          )
+        ) : shelfTab === 'presets' && (tab === 'novelai' || tab === 'civitai') ? (
           <StudioPresetShelf
             presets={presets}
             currentProvider={tab}

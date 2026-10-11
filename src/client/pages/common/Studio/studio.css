@@ -17,6 +17,9 @@
   display: flex;
   flex-direction: column;
 }
+.studio-layout.studio-perler-shelf-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
 .studio-tabs {
   display: flex;
   flex-shrink: 0;
@@ -115,6 +118,9 @@
   min-height: 0;
   overflow: auto;
   container-type: inline-size;
+}
+@container (max-width: 580px) {
+  .studio-perler-shelf-label { display: none; }
 }
 @container (min-width: 850px) and (max-width: 1050px) {
   .studio-perler-panel .perler-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
@@ -377,6 +383,9 @@
   min-height: 0;
   padding: 0 10px 12px;
 }
+.studio-generated-list {
+  padding-top: 12px;
+}
 .studio-shelf-tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--studio-border); padding: 5px; gap: 4px; }
 .studio-shelf-tabs button { border: 0; border-radius: 7px; padding: 8px; color: var(--studio-muted); background: transparent; cursor: pointer; font: inherit; }
 .studio-shelf-tabs button.is-active { color: var(--app-accent); background: color-mix(in srgb, var(--app-accent) 12%, transparent); font-weight: 600; }
@@ -529,6 +538,18 @@
     flex: 1;
   }
   .studio-mobile-hidden {
+    display: none;
+  }
+  .studio-perler-shelf-expanded .studio-workspace {
+    flex: 0 0 auto;
+  }
+  .studio-perler-shelf-expanded .studio-perler-panel {
+    flex: none;
+  }
+  .studio-perler-shelf-expanded .perler-page {
+    min-height: 0;
+  }
+  .studio-perler-shelf-expanded .perler-content {
     display: none;
   }
   .studio-tabs {

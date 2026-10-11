@@ -1,7 +1,7 @@
 import { t, useAppLanguage } from '../../../i18n'
 import { EditOutlined, RedoOutlined, UndoOutlined } from '@ant-design/icons'
 import { Button, message, Spin } from 'antd'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ImageEditorModal } from '../../common/TemplateSection/TemplateForm/ImageEdit/ImageEditorModal'
 import { GridPreview } from './components/GridPreview'
 import { ImageSource } from './components/ImageSource'
@@ -16,7 +16,10 @@ import {
 import { usePerlerBeadStore } from './store'
 import type { CellOverride, CellResult } from './types'
 
-export function PerlerBead({ incomingImage }: { incomingImage?: { id: number; url: string } }) {
+export function PerlerBead({ incomingImage, toolbarExtra }: {
+  incomingImage?: { id: number; url: string }
+  toolbarExtra?: ReactNode
+}) {
   useAppLanguage()
   const loadSequence = useRef(0)
   const [editingSource, setEditingSource] = useState<string | null>(null)
@@ -187,11 +190,31 @@ export function PerlerBead({ incomingImage }: { incomingImage?: { id: number; ur
     return cellOverrides[`${selectedCell.row},${selectedCell.column}`]
   }, [cellOverrides, selectedCell])
 
+  const toolbar = (
+    <div className="perler-toolbar flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center gap-3">
+        <span className="font-semibold text-slate-800 dark:text-slate-100">{t('拼豆图处理')}</span>
+        {imageElement && (
+          <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            {t('原图')}{imageElement.naturalWidth} × {imageElement.naturalHeight}
+          </span>
+        )}
+      </div>
+      <div className="perler-toolbar-actions flex flex-wrap items-center justify-end gap-2">
+        <ImageSource compact disabled={loadingImage || !!editingSource} onSelectImage={handleSelectImage} />
+        {toolbarExtra}
+      </div>
+    </div>
+  )
+
   // 如果没有选择图片，展示欢迎与导入页面
   if (!imageUrl) {
     return (
-      <div className="perler-page flex min-h-full w-full items-center justify-center bg-slate-50 lg:h-full dark:bg-slate-950">
-        <ImageSource onSelectImage={handleSelectImage} />
+      <div className="perler-page flex min-h-full w-full flex-col bg-slate-50 lg:h-full dark:bg-slate-950">
+        {toolbarExtra && toolbar}
+        <div className="perler-content flex flex-1 items-center justify-center">
+          <ImageSource onSelectImage={handleSelectImage} />
+        </div>
       </div>
     )
   }
@@ -199,22 +222,10 @@ export function PerlerBead({ incomingImage }: { incomingImage?: { id: number; ur
   return (
     <div className="perler-page flex min-h-full w-full flex-col bg-slate-50 lg:h-full lg:min-h-0 lg:overflow-hidden dark:bg-slate-950">
       {/* 顶部轻量工具栏 */}
-      <div className="flex min-h-12 shrink-0 flex-wrap gap-2 py-2 items-center justify-between border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-3">
-          <span className="font-semibold text-slate-800 dark:text-slate-100">
-            {t("拼豆图处理")}</span>
-          {imageElement && (
-            <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-              {t("原图")}{imageElement.naturalWidth} × {imageElement.naturalHeight}
-            </span>
-          )}
-        </div>
-
-        <ImageSource compact disabled={loadingImage || !!editingSource} onSelectImage={handleSelectImage} />
-      </div>
+      {toolbar}
 
       {/* 主体三栏工作区 */}
-      <div className="perler-body relative flex flex-1 flex-col lg:min-h-0 lg:overflow-hidden lg:flex-row">
+      <div className="perler-body perler-content relative flex flex-1 flex-col lg:min-h-0 lg:overflow-hidden lg:flex-row">
         {loadingImage && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-xs dark:bg-slate-950/70">
             <Spin tip={t("正在处理图片与分析网格...")} />
