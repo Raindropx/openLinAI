@@ -5,6 +5,7 @@ import {
   useState,
   type PointerEvent,
   type SyntheticEvent,
+  type RefObject,
 } from 'react'
 import type { PixelCrop } from 'react-image-crop'
 import { t } from '../../../../../i18n'
@@ -29,6 +30,8 @@ interface UseImageEditorOptions {
   src: string | null
   onConfirm: (dataUrl: string) => Promise<void>
   onConfirmCopy: (dataUrl: string) => Promise<void>
+  onPreview?: (canvas: HTMLCanvasElement, hasEdits: boolean) => void
+  keyboardScope?: RefObject<HTMLElement | null>
 }
 
 type SubmitAction = 'replace' | 'copy'
@@ -43,7 +46,11 @@ export function useImageEditor({
   src,
   onConfirm,
   onConfirmCopy,
+  onPreview,
+  keyboardScope,
 }: UseImageEditorOptions) {
+  const previewCallbackRef = useRef(onPreview)
+  previewCallbackRef.current = onPreview
   const imageRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -157,6 +164,8 @@ export function useImageEditor({
     if (!canvas || !image || !imageSize || !image.complete) return
     try {
       renderEditedImage(image, currentOperations, canvas)
+      if (currentStrokeRef.current) drawStroke(canvas.getContext('2d')!, currentStrokeRef.current)
+      else previewCallbackRef.current?.(canvas, historyIndex > 0)
     } catch (error) {
       setLoadError(
         error instanceof Error ? t(error.message) : t('图片编辑失败'),
@@ -173,16 +182,21 @@ export function useImageEditor({
       availableWidth / size.width,
       availableHeight / size.height,
     )
-    setBaseDisplaySize({
-      width: size.width * scale,
-      height: size.height * scale,
-    })
+    const nextSize = { width: size.width * scale, height: size.height * scale }
+    setBaseDisplaySize((current) => current?.width === nextSize.width && current.height === nextSize.height ? current : nextSize)
   }
 
   useEffect(() => {
     if (!imageSize) return
-    const frame = requestAnimationFrame(() => fitImageInViewport(imageSize))
-    return () => cancelAnimationFrame(frame)
+    const viewport = viewportRef.current
+    if (!viewport) return
+    let frame = requestAnimationFrame(() => fitImageInViewport(imageSize))
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => fitImageInViewport(imageSize))
+    })
+    observer.observe(viewport)
+    return () => { cancelAnimationFrame(frame); observer.disconnect() }
   }, [imageSize?.width, imageSize?.height])
 
   const centerViewport = () => {
@@ -325,6 +339,9 @@ export function useImageEditor({
   useEffect(() => {
     if (!open) return
     const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (keyboardScope && (!target || !keyboardScope.current?.contains(target))) return
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
       if (!(event.ctrlKey || event.metaKey)) return
       const key = event.key.toLowerCase()
       if (key === 'z') {
@@ -338,7 +355,7 @@ export function useImageEditor({
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [historyIndex, open, operations.length, submitting])
+  }, [historyIndex, open, operations.length, submitting, keyboardScope])
 
   useEffect(() => {
     const canvas = canvasRef.current

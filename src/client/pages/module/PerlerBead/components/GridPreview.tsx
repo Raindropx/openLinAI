@@ -9,9 +9,10 @@ import {
 import { Button, Tooltip } from 'antd'
 import React, { useEffect, useRef, useState } from 'react'
 import type { CellResult, GridSize } from '../types'
+import { getSourceImageSize, type SourceImage } from '../types'
 
 interface GridPreviewProps {
-  image: HTMLImageElement | null
+  image: SourceImage | null
   grid: GridSize
   cells: CellResult[][] | null
   selectedCell: { row: number; column: number } | null
@@ -81,8 +82,7 @@ export function GridPreview({
   }, [])
 
   // 计算图片适应容器的基础宽高
-  const imgWidth = image?.naturalWidth || image?.width || 1
-  const imgHeight = image?.naturalHeight || image?.height || 1
+  const { width: imgWidth, height: imgHeight } = image ? getSourceImageSize(image) : { width: 1, height: 1 }
   const imgAspect = imgWidth / imgHeight
 
   // 容器宽高比与适应尺寸
@@ -363,7 +363,7 @@ export function GridPreview({
   }
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900/60">
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900/60">
       {/* 头部标题与视图工具栏 */}
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-slate-200 px-3 dark:border-slate-800">
         <div className="flex items-center gap-2">

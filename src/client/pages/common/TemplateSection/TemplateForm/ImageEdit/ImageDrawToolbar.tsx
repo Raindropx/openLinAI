@@ -57,6 +57,8 @@ interface ImageDrawToolbarProps {
   onUndo: () => void
   onRedo: () => void
   onReset: () => void
+  presetColors?: string[]
+  compact?: boolean
 }
 
 export function ImageDrawToolbar({
@@ -74,12 +76,16 @@ export function ImageDrawToolbar({
   onUndo,
   onRedo,
   onReset,
+  presetColors,
+  compact = false,
 }: ImageDrawToolbarProps) {
   useAppLanguage()
 
   return (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto rounded-lg border border-[#343a44] bg-[#20252d] p-2">
-      {DRAW_COLOR_PRESETS.map((preset) => (
+    <div className={compact
+      ? 'flex flex-wrap items-center gap-1.5 border-b border-slate-200 px-2 py-1.5 dark:border-slate-800'
+      : 'flex flex-nowrap items-center gap-2 overflow-x-auto rounded-lg border border-[#343a44] bg-[#20252d] p-2'}>
+      {presetColors === undefined && DRAW_COLOR_PRESETS.map((preset) => (
         <Tooltip key={preset.color} title={preset.label}>
           <button
             type="button"
@@ -111,23 +117,28 @@ export function ImageDrawToolbar({
           value={color}
           disabled={submitting}
           disabledAlpha
+          format={compact ? 'hex' : undefined}
+          size={compact ? 'small' : undefined}
+          aria-label={t('自定义画笔颜色')}
+          presets={presetColors === undefined ? undefined : [{ label: t('拼豆常用色'), colors: presetColors, defaultOpen: true }]}
           onChange={(value) => onColorChange(value.toHexString())}
         />
       </Tooltip>
       <Divider orientation="vertical" className="h-7!" />
-      <span className="shrink-0 text-sm">{t('画笔大小')}</span>
+      <span className={compact ? 'shrink-0 text-xs' : 'shrink-0 text-sm'}>{t('画笔大小')}</span>
       <Slider
         min={4}
         max={64}
         step={2}
         value={brushSize}
         disabled={submitting}
-        className="w-32 shrink-0"
+        className={compact ? 'mx-1! w-20 shrink-0' : 'w-32 shrink-0'}
         onChange={onBrushSizeChange}
       />
-      <span className="w-12 shrink-0 text-sm tabular-nums">{brushSize} px</span>
+      <span className={compact ? 'w-10 shrink-0 text-xs tabular-nums' : 'w-12 shrink-0 text-sm tabular-nums'}>{brushSize} px</span>
       <Tooltip title={t('滚轮缩放，点击恢复 100%')}>
         <Button
+          size={compact ? 'small' : undefined}
           type="text"
           disabled={submitting || zoomDisabled}
           onClick={onRestoreZoom}
@@ -140,6 +151,7 @@ export function ImageDrawToolbar({
         <Button
           type="text"
           aria-label={t('撤销')}
+          size={compact ? 'small' : undefined}
           icon={<UndoOutlined />}
           disabled={submitting || !canUndo}
           onClick={onUndo}
@@ -149,6 +161,7 @@ export function ImageDrawToolbar({
         <Button
           type="text"
           aria-label={t('重做')}
+          size={compact ? 'small' : undefined}
           icon={<RedoOutlined />}
           disabled={submitting || !canRedo}
           onClick={onRedo}
@@ -158,6 +171,7 @@ export function ImageDrawToolbar({
         <Button
           type="text"
           aria-label={t('还原原图')}
+          size={compact ? 'small' : undefined}
           icon={<DeleteOutlined />}
           disabled={submitting || !canReset}
           onClick={onReset}

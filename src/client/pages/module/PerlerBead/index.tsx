@@ -2,7 +2,7 @@ import { t, useAppLanguage } from '../../../i18n'
 import { EditOutlined, RedoOutlined, UndoOutlined } from '@ant-design/icons'
 import { Button, message, Spin } from 'antd'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ImageEditorModal } from '../../common/TemplateSection/TemplateForm/ImageEdit/ImageEditorModal'
+import { InlineImageEditor } from './components/InlineImageEditor'
 import { GridPreview } from './components/GridPreview'
 import { ImageSource } from './components/ImageSource'
 import { ToolPanel } from './components/ToolPanel'
@@ -23,6 +23,7 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
   useAppLanguage()
   const loadSequence = useRef(0)
   const [editingSource, setEditingSource] = useState<string | null>(null)
+  const [draft, setDraft] = useState<{ source: string; image: HTMLCanvasElement; data: ImageData } | null>(null)
   const {
     imageUrl,
     imageElement,
@@ -95,7 +96,15 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
     if (incomingImage) void handleSelectImage(incomingImage.url)
   }, [incomingImage, handleSelectImage])
 
-  useEffect(() => setEditingSource(null), [imageUrl])
+  useEffect(() => { setEditingSource(null); setDraft(null) }, [imageUrl])
+
+  const previewDraft = editingSource === imageUrl && draft?.source === imageUrl ? draft : null
+  const previewImage = previewDraft?.image ?? imageElement
+  const previewData = previewDraft?.data ?? imageData
+  const handleDraftPreview = useCallback((canvas: HTMLCanvasElement, hasEdits: boolean) => {
+    if (!editingSource || usePerlerBeadStore.getState().imageUrl !== editingSource) return
+    setDraft(hasEdits ? { source: editingSource, image: canvas, data: getImageDataFromImage(canvas, 1200).imageData } : null)
+  }, [editingSource])
 
   const handleEditConfirm = async (dataUrl: string) => {
     if (!editingSource || usePerlerBeadStore.getState().imageUrl !== editingSource) throw new Error(t('原图已变化，请重新编辑'))
@@ -131,10 +140,10 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
 
   // 手动点击重新识别网格
   const handleManualAutoDetect = useCallback(() => {
-    if (!imageElement) return
+    if (!previewImage) return
     setIsDetecting(true)
     try {
-      const autoResult = detectGridSize(imageElement)
+      const autoResult = detectGridSize(previewImage)
       setGridSize(autoResult.gridSize)
       if (autoResult.confidence >= 0.45) {
         message.success(
@@ -151,7 +160,7 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
     } finally {
       setIsDetecting(false)
     }
-  }, [imageElement, setIsDetecting, setGridSize])
+  }, [previewImage, setIsDetecting, setGridSize])
 
   // 单格覆盖更新
   const handleCellOverride = useCallback(
@@ -169,9 +178,17 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
 
   // 高性能计算拼豆处理结果（带缓存）
   const cells: CellResult[][] | null = useMemo(() => {
-    if (!imageData) return null
-    return computeAllCells(imageData, gridSize, globalRule, cellOverrides)
-  }, [imageData, gridSize, globalRule, cellOverrides])
+    if (!previewData) return null
+    return computeAllCells(previewData, gridSize, globalRule, cellOverrides)
+  }, [previewData, gridSize, globalRule, cellOverrides])
+
+  const presetColors = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const row of cells ?? []) for (const cell of row) {
+      counts.set(cell.color, (counts.get(cell.color) ?? 0) + 1)
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([color]) => color)
+  }, [cells])
 
   // 当前选中单元格的结果
   const selectedCellResult = useMemo(() => {
@@ -233,7 +250,18 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
         )}
 
         {/* 左栏：原图与网格对齐 */}
-        <div className="perler-preview min-h-[300px] flex-1 overflow-hidden p-3 lg:min-h-0">
+        <div className={`perler-preview ${editingSource ? 'perler-source-editing h-[420px]' : 'h-[320px]'} min-h-[300px] flex-1 overflow-hidden p-3 lg:h-auto lg:min-h-0`}>
+          {editingSource ? <InlineImageEditor
+            key={editingSource}
+            src={editingSource}
+            grid={gridSize}
+            offsetX={globalRule.offsetX ?? 0.5}
+            offsetY={globalRule.offsetY ?? 0.5}
+            presetColors={presetColors}
+            onPreview={handleDraftPreview}
+            onConfirm={handleEditConfirm}
+            onCancel={() => { setEditingSource(null); setDraft(null) }}
+          /> :
           <GridPreview
             mode="source"
             image={imageElement}
@@ -250,13 +278,14 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
               <Button size="small" icon={<RedoOutlined />} aria-label={t('重做已提交的原图编辑')} disabled={loadingImage || sourceHistoryIndex >= sourceHistory.length - 1} onClick={() => void restoreSource(1)}>{t('重做')}</Button>
             </>}
           />
+          }
         </div>
 
         {/* 中栏：拼豆效果预览 */}
-        <div className="perler-preview perler-result min-h-[300px] flex-1 overflow-hidden border-t border-slate-200 p-3 lg:min-h-0 lg:border-t-0 lg:border-l dark:border-slate-800">
+        <div className="perler-preview perler-result h-[320px] min-h-[300px] flex-1 overflow-hidden border-t border-slate-200 p-3 lg:h-auto lg:min-h-0 lg:border-t-0 lg:border-l dark:border-slate-800">
           <GridPreview
             mode="result"
-            image={imageElement}
+            image={previewImage}
             grid={gridSize}
             cells={cells}
             selectedCell={selectedCell}
@@ -274,8 +303,8 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
             cellOverride={currentCellOverride}
             selectedCellResult={selectedCellResult}
             cells={cells}
-            image={imageElement}
-            imageData={imageData}
+            image={previewImage}
+            imageData={previewData}
             modifiedCount={modifiedCount}
             isDetecting={isDetecting}
             onGridSizeChange={setGridSize}
@@ -286,7 +315,6 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
           />
         </div>
       </div>
-      <ImageEditorModal open={!!editingSource} src={editingSource} onCancel={() => setEditingSource(null)} onConfirm={handleEditConfirm} />
     </div>
   )
 }

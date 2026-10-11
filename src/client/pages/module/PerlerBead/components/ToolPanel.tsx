@@ -22,6 +22,7 @@ import {
 import { useMemo, useState } from 'react'
 import { analyzeSelectedCellDetails } from '../processing'
 import type { CellOverride, CellResult, ColorRule, GridSize } from '../types'
+import { getSourceImageSize, type SourceImage } from '../types'
 import { OffsetPad } from './OffsetPad'
 
 interface ToolPanelProps {
@@ -31,7 +32,7 @@ interface ToolPanelProps {
   cellOverride?: CellOverride
   selectedCellResult?: CellResult | null
   cells: CellResult[][] | null
-  image: HTMLImageElement | null
+  image: SourceImage | null
   imageData: ImageData | null
   modifiedCount: number
   isDetecting: boolean
@@ -69,10 +70,9 @@ export function ToolPanel({
   // 原始图片宽高比
   const imgAspect = useMemo(() => {
     if (!image) return 1
-    const w = image.naturalWidth || image.width || 1
-    const h = image.naturalHeight || image.height || 1
+    const { width: w, height: h } = getSourceImageSize(image)
     return w / h
-  }, [image])
+  }, [image, image?.width, image?.height])
 
   // 处理列数修改
   const handleColumnsChange = (val: number | null) => {

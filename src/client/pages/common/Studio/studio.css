@@ -131,6 +131,7 @@
   .studio-perler-panel .perler-page { height: auto; overflow: visible; }
   .studio-perler-panel .perler-body { flex-direction: column; overflow: visible; }
   .studio-perler-panel .perler-preview { flex: none; height: 320px; min-height: 320px; }
+  .studio-perler-panel .perler-preview.perler-source-editing { height: 420px; min-height: 420px; }
   .studio-perler-panel .perler-result,
   .studio-perler-panel .perler-tools { width: 100%; border-left-width: 0; border-top-width: 1px; }
 }

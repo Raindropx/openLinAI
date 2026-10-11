@@ -1,3 +1,12 @@
+export type SourceImage = HTMLImageElement | HTMLCanvasElement
+
+export function getSourceImageSize(image: SourceImage) {
+  return {
+    width: ('naturalWidth' in image && image.naturalWidth) || image.width,
+    height: ('naturalHeight' in image && image.naturalHeight) || image.height,
+  }
+}
+
 export interface GridSize {
   columns: number
   rows: number

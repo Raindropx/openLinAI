@@ -18,6 +18,7 @@ interface ImageTransformToolbarProps {
   onStartCrop: () => void
   onCancelCrop: () => void
   onApplyCrop: () => void
+  compact?: boolean
 }
 
 export function ImageTransformToolbar({
@@ -31,13 +32,16 @@ export function ImageTransformToolbar({
   onStartCrop,
   onCancelCrop,
   onApplyCrop,
+  compact = false,
 }: ImageTransformToolbarProps) {
   useAppLanguage()
 
   const transformDisabled = disabled || cropMode
 
   return (
-    <div className="flex min-h-12 flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-[#343a44] bg-[#20252d] px-2 py-1.5">
+    <div className={compact
+      ? 'flex shrink-0 flex-wrap items-center gap-1 border-t border-slate-200 px-2 py-1 dark:border-slate-800 [&_.ant-btn]:h-6 [&_.ant-btn]:px-1.5 [&_.ant-btn]:text-xs'
+      : 'flex min-h-12 flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-[#343a44] bg-[#20252d] px-2 py-1.5'}>
       <Tooltip title={t('向左旋转 90°')}>
         <Button
           type="text"

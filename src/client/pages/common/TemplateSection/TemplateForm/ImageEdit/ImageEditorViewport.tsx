@@ -4,6 +4,7 @@ import type {
   PointerEvent,
   RefObject,
   SyntheticEvent,
+  ReactNode,
 } from 'react'
 import ReactCrop, { type PixelCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
@@ -40,6 +41,9 @@ interface ImageEditorViewportProps {
   onPointerFinish: (pointerId: number) => void
   onPointerEnter: (event: PointerEvent<HTMLCanvasElement>) => void
   onPointerLeave: () => void
+  inline?: boolean
+  overlay?: ReactNode
+  panMode?: boolean
 }
 
 export function ImageEditorViewport({
@@ -66,6 +70,9 @@ export function ImageEditorViewport({
   onPointerFinish,
   onPointerEnter,
   onPointerLeave,
+  inline = false,
+  overlay,
+  panMode = false,
 }: ImageEditorViewportProps) {
   useAppLanguage()
 
@@ -79,10 +86,11 @@ export function ImageEditorViewport({
       width={imageSize.width}
       height={imageSize.height}
       aria-label={cropMode ? t('图片裁剪画布') : t('图片涂抹画布')}
+      tabIndex={inline ? 0 : undefined}
       className={
         cropMode
           ? 'block select-none'
-          : 'block cursor-none touch-none select-none'
+          : panMode ? 'block cursor-grab touch-none select-none active:cursor-grabbing' : 'block cursor-none touch-none select-none'
       }
       style={canvasStyle}
       onPointerDown={cropMode ? undefined : onPointerDown}
@@ -101,7 +109,7 @@ export function ImageEditorViewport({
   return (
     <div
       ref={viewportRef}
-      className="relative h-[min(42vh,360px)] min-h-72 overflow-auto rounded-lg bg-slate-900 sm:h-[min(60vh,560px)]"
+      className={inline ? 'relative min-h-0 flex-1 overflow-auto bg-slate-50/50 dark:bg-slate-950/40' : 'relative h-[min(42vh,360px)] min-h-72 overflow-auto rounded-lg bg-slate-900 sm:h-[min(60vh,560px)]'}
     >
       {objectUrl && (
         <img
@@ -146,7 +154,8 @@ export function ImageEditorViewport({
             ) : (
               canvas
             )}
-            {!cropMode && preview.visible && (
+            {!cropMode && overlay}
+            {!cropMode && !panMode && preview.visible && (
               <span
                 className="pointer-events-none absolute z-10 rounded-full border border-white shadow-[0_0_0_1px_#000]"
                 style={{

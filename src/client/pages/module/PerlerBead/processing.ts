@@ -1,4 +1,5 @@
 import { t } from '../../../i18n'
+import { getSourceImageSize, type SourceImage } from './types'
 import type {
   AutoGridResult,
   CellColor,
@@ -21,11 +22,10 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 export function getImageDataFromImage(
-  img: HTMLImageElement,
+  img: SourceImage,
   maxDimension = 1200,
 ): { imageData: ImageData; width: number; height: number } {
-  let width = img.naturalWidth || img.width
-  let height = img.naturalHeight || img.height
+  let { width, height } = getSourceImageSize(img)
 
   if (maxDimension && (width > maxDimension || height > maxDimension)) {
     if (width >= height) {
@@ -442,9 +442,8 @@ export function getDefaultGridSize(origW: number, origH: number): GridSize {
   }
 }
 
-export function detectGridSize(img: HTMLImageElement): AutoGridResult {
-  const origW = img.naturalWidth || img.width
-  const origH = img.naturalHeight || img.height
+export function detectGridSize(img: SourceImage): AutoGridResult {
+  const { width: origW, height: origH } = getSourceImageSize(img)
 
   try {
     const { imageData, width, height } = getImageDataFromImage(img, 400)
