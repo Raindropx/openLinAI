@@ -43,7 +43,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import type { AppType } from '../../../../server'
 import type { Task } from '../../../../server/common/task-manager'
-import { TRIAL_TEMPLATE_TITLE } from '../../../../server/common/template-manager/enum'
+import { taskListActions, type TaskListActions } from '../../../../shared/task-list'
 import {
   taskFolderNameSchema,
   type TaskFolder,
@@ -54,7 +54,7 @@ import {
 } from '../../../hooks/useEnabledImageEndpoints'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { usePlatform } from '../../../hooks/usePlatform'
-import { useTasks, useTaskDetails } from '../../../hooks/useTasks'
+import { loadTask, useTasks, useTaskDetails } from '../../../hooks/useTasks'
 import { t, useAppLanguage } from '../../../i18n'
 import { ImageGroup } from '../../../pages/common/components/ImageGroup'
 import { useGlobalStore } from '../../../store/global'
@@ -242,6 +242,10 @@ export function TaskList({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [batchDeleting, setBatchDeleting] = useState(false)
   const [retryingTaskId, setRetryingTaskId] = useState<string>()
+  const pendingActions = useRef(new Set<string>())
+  const [loadingActions, setLoadingActions] = useState(
+    new Map<string, keyof TaskListActions>(),
+  )
   const [reviewImage, setReviewImage] = useState<ReviewImage | null>(null)
   const [reviewedTaskId, setReviewedTaskId] = useState<string | null>(null)
   const [reviewOrphaned, setReviewOrphaned] = useState(false)
@@ -258,12 +262,38 @@ export function TaskList({
   const [listWidth, setListWidth] = useState(0)
   const [spaciousLayout, setSpaciousLayout] = useState(false)
   const [wideLayout, setWideLayout] = useState(false)
+  const [desktopWorkbench, setDesktopWorkbench] = useState(false)
   const [scrollMargin, setScrollMargin] = useState(0)
   const lastReviewIndexRef = useRef(0)
   const focusNewestTaskSignal = useGlobalStore(
     (state) => state.focusNewestTaskSignal,
   )
   const lastFocusSignalRef = useRef(0)
+
+  const runTaskAction = async (
+    summary: Task,
+    action: keyof TaskListActions,
+    run: (task: Task) => void | Promise<void>,
+  ) => {
+    if (pendingActions.current.has(summary.id)) return
+    pendingActions.current.add(summary.id)
+    setLoadingActions((current) => new Map(current).set(summary.id, action))
+    try {
+      // Catalog records intentionally omit reference images and provider snapshots.
+      const task = summary.summaryOnly ? await loadTask(summary.id) : summary
+      if (!taskListActions(task)[action]) return
+      await run(task)
+    } catch (error) {
+      message.error(error instanceof Error ? t(error.message) : t('请求失败'))
+    } finally {
+      pendingActions.current.delete(summary.id)
+      setLoadingActions((current) => {
+        const next = new Map(current)
+        next.delete(summary.id)
+        return next
+      })
+    }
+  }
 
   const handleAddToTemplate = (task: Task) => {
     if (!task.rawTemplate) return
@@ -402,12 +432,19 @@ export function TaskList({
     if (!infiniteScroll || !filteredTasks.length) return
     const list = virtualListRef.current
     if (!list) return
-    const scrollElement = findScrollContainer(list)
+    // On narrow workbenches the panel grows with its content; the outer page
+    // scrolls. Treating the panel as the viewport mounts the entire history.
+    const scrollRoot =
+      panelMode && !window.matchMedia('(min-width: 1024px)').matches
+        ? list.closest<HTMLElement>('.workbench-panel') ?? list
+        : list
+    const scrollElement = findScrollContainer(scrollRoot)
     setVirtualScrollElement(scrollElement)
     const measure = () => {
       setListWidth(list.clientWidth)
       setSpaciousLayout(window.matchMedia('(min-width: 640px)').matches)
       setWideLayout(window.matchMedia('(min-width: 768px)').matches)
+      setDesktopWorkbench(window.matchMedia('(min-width: 1024px)').matches)
       setScrollMargin(
         scrollElement.scrollTop +
           list.getBoundingClientRect().top -
@@ -415,12 +452,31 @@ export function TaskList({
       )
     }
     measure()
-    const observer = new ResizeObserver(measure)
+    let measureFrame: number | undefined
+    const scheduleMeasure = () => {
+      if (measureFrame !== undefined) return
+      measureFrame = requestAnimationFrame(() => {
+        measureFrame = undefined
+        measure()
+      })
+    }
+    const observer = new ResizeObserver(scheduleMeasure)
     observer.observe(scrollElement)
-    window.addEventListener('resize', measure)
+    // Hidden mobile panels start at width zero. Remeasure when they are shown,
+    // while ignoring virtual-list height changes to avoid measurement loops.
+    let measuredWidth = list.clientWidth
+    const listObserver = new ResizeObserver(() => {
+      if (list.clientWidth === measuredWidth) return
+      measuredWidth = list.clientWidth
+      scheduleMeasure()
+    })
+    listObserver.observe(list)
+    window.addEventListener('resize', scheduleMeasure)
     return () => {
       observer.disconnect()
-      window.removeEventListener('resize', measure)
+      listObserver.disconnect()
+      if (measureFrame !== undefined) cancelAnimationFrame(measureFrame)
+      window.removeEventListener('resize', scheduleMeasure)
     }
   }, [
     infiniteScroll,
@@ -429,6 +485,9 @@ export function TaskList({
     folders.length,
     folderId,
     searchText,
+    spaciousLayout,
+    wideLayout,
+    desktopWorkbench,
   ])
 
   const columnCount = panelMode
@@ -451,6 +510,7 @@ export function TaskList({
     estimateSize: () => (panelMode ? 168 : isMobile ? 200 : 170),
     gap: rowGap,
     overscan: 3,
+    useAnimationFrameWithResizeObserver: true,
     getItemKey: (index: number) =>
       filteredTasks[index * columnCount]?.id ?? index,
     scrollMargin,
@@ -676,7 +736,6 @@ export function TaskList({
         ),
       }))
     : [{ key: 'page', index: 0, start: 0, tasks: visibleTasks }]
-  const rowDetails = useTaskDetails(renderedRows.flatMap((row) => row.tasks.map((task) => task.id)), revision)
 
   useEffect(() => {
     if (reviewIndex < 0 || !reviewImage) return
@@ -1169,10 +1228,8 @@ export function TaskList({
                       : undefined
                   }
                 >
-                  {row.tasks.map((summary) => {
-                    const detail = rowDetails.data.get(summary.id)
-                    const task = detail ? { ...detail, status: summary.status, folderId: summary.folderId, outputUrls: summary.outputUrls } : undefined
-                    if (!task) return <Card key={summary.id} size="small" className="min-h-[168px]"><div className="flex min-h-[140px] items-center justify-center">{rowDetails.error ? <Button onClick={rowDetails.retry}>{t('请求失败')} · {t('重试')}</Button> : <Spin />}</div></Card>
+                  {row.tasks.map((task) => {
+                    const actions = taskListActions(task)
                     const active = task.id === selectedTaskId
                     const reviewing =
                       managementMode && task.id === reviewedTaskId
@@ -1450,42 +1507,48 @@ export function TaskList({
                                           count={task.outputUrls.length}
                                         />
                                       )}
-                                      {managementMode &&
-                                        task.rawTemplate &&
-                                        (!task.studioProvenance ||
-                                          task.studioProvenance.template) && (
-                                          <Tooltip title={t('添加到模板')}>
-                                            <Button
-                                              type="primary"
-                                              size="small"
-                                              icon={<FileAddOutlined />}
-                                              onClick={() =>
-                                                handleAddToTemplate(task)
-                                              }
-                                              aria-label={t('添加到模板')}
-                                              className="px-2! sm:px-3!"
-                                            >
-                                              <span className="hidden sm:inline">
-                                                {t('添加到模板')}
-                                              </span>
-                                            </Button>
-                                          </Tooltip>
-                                        )}
-                                      {task.rawTemplate &&
-                                        (!task.studioProvenance ||
-                                          task.studioProvenance.template ||
-                                          task.studioProvenance.novelai) && (
-                                          <Tooltip title={t('重新填入')}>
-                                            <Button
-                                              type="text"
-                                              icon={
-                                                <VerticalAlignTopOutlined />
-                                              }
-                                              onClick={() => handleRefill(task)}
-                                              aria-label={t('重新填入')}
-                                            />
-                                          </Tooltip>
-                                        )}
+                                      {managementMode && actions.addToTemplate && (
+                                        <Tooltip title={t('添加到模板')}>
+                                          <Button
+                                            type="primary"
+                                            size="small"
+                                            icon={<FileAddOutlined />}
+                                            onClick={() =>
+                                              runTaskAction(
+                                                task,
+                                                'addToTemplate',
+                                                handleAddToTemplate,
+                                              )
+                                            }
+                                            loading={
+                                              loadingActions.get(task.id) === 'addToTemplate'
+                                            }
+                                            disabled={loadingActions.has(task.id)}
+                                            aria-label={t('添加到模板')}
+                                            className="px-2! sm:px-3!"
+                                          >
+                                            <span className="hidden sm:inline">
+                                              {t('添加到模板')}
+                                            </span>
+                                          </Button>
+                                        </Tooltip>
+                                      )}
+                                      {actions.refill && (
+                                        <Tooltip title={t('重新填入')}>
+                                          <Button
+                                            type="text"
+                                            icon={
+                                              <VerticalAlignTopOutlined />
+                                            }
+                                            onClick={() =>
+                                              runTaskAction(task, 'refill', handleRefill)
+                                            }
+                                            loading={loadingActions.get(task.id) === 'refill'}
+                                            disabled={loadingActions.has(task.id)}
+                                            aria-label={t('重新填入')}
+                                          />
+                                        </Tooltip>
+                                      )}
                                       {task.outputUrls.length > 0 && (
                                         <TaskItemDownloadButton
                                           taskId={task.id}
@@ -1515,25 +1578,22 @@ export function TaskList({
                                           }}
                                         />
                                       )}
-                                      {(!task.studioProvenance ||
-                                        task.studioProvenance.novelai) &&
-                                        (task.endpointName !==
-                                          'NovelAI Studio' ||
-                                          task.novelaiSnapshots?.length ||
-                                          task.studioProvenance?.novelai) &&
-                                        task.rawTemplate?.title !==
-                                          TRIAL_TEMPLATE_TITLE && (
-                                          <Tooltip title={t('重试')}>
-                                            <Button
-                                              type="text"
-                                              icon={<RedoOutlined />}
-                                              onClick={() => handleRetry(task)}
-                                              loading={
-                                                retryingTaskId === task.id
-                                              }
-                                            />
-                                          </Tooltip>
-                                        )}
+                                      {actions.retry && (
+                                        <Tooltip title={t('重试')}>
+                                          <Button
+                                            type="text"
+                                            icon={<RedoOutlined />}
+                                            onClick={() =>
+                                              runTaskAction(task, 'retry', handleRetry)
+                                            }
+                                            disabled={loadingActions.has(task.id)}
+                                            loading={
+                                              retryingTaskId === task.id ||
+                                              loadingActions.get(task.id) === 'retry'
+                                            }
+                                          />
+                                        </Tooltip>
+                                      )}
                                       <TaskItemDeleteButton
                                         id={task.id}
                                         status={task.status}

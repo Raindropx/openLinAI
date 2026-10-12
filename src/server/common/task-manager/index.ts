@@ -5,6 +5,7 @@ import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import type { StudioProvenance } from '../../../shared/studio'
 import type { NovelAIGenerationSnapshot } from '../../../shared/studio-generation'
+import type { TaskListActions } from '../../../shared/task-list'
 import {
   taskFolderNameSchema,
   type TaskFolder,
@@ -41,6 +42,8 @@ export interface Task {
   studioItemId?: string
   studioProvenance?: StudioProvenance
   novelaiSnapshots?: NovelAIGenerationSnapshot[]
+  /** Lightweight catalog records carry action availability without snapshots. */
+  listActions?: TaskListActions
   [key: string]: any
 }
 

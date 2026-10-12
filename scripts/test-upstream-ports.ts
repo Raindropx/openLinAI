@@ -122,6 +122,9 @@ async function main() {
       id: `history-${i}`, createdAt: i + 1, source: 'fixture', status: 'completed' as const,
       folderId: i % 2 ? folder.id : undefined, outputUrls: [],
       rawTemplate: { ...template, title: `Title ${i}`, prompt: i === 100 ? 'needle' : 'fixture', images: [input], privateSnapshot: 'x'.repeat(10000) },
+      duration: 1200, error: 'One image failed', providerQuality: 'auto',
+      imageBilling: { status: 'actual', cost: 0.02, currency: 'USD', requestIds: ['fixture'] },
+      gptTokenUsage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 },
       novelaiSnapshots: [{ request: { prompt: 'large snapshot', characters: ['x'.repeat(10000)] } }],
     }))
     await taskManager.restoreTasks(records as any, [])
@@ -130,6 +133,32 @@ async function main() {
     assert.ok(catalog.tasks.every((task: any) => task.summaryOnly && !task.novelaiSnapshots && !task.rawTemplate.images.length && !task.rawTemplate.privateSnapshot))
     const full = await taskManager.getTasks()
     assert.ok(JSON.stringify(catalog).length < JSON.stringify(full).length / 10, 'Catalog omits large historical snapshots')
+    const summary = catalog.tasks.find((task: any) => task.id === 'history-0')
+    assert.equal(summary.duration, 1200, 'Cards show duration without a detail request')
+    assert.equal(summary.error, 'One image failed')
+    assert.equal(summary.providerQuality, 'auto')
+    assert.equal(summary.imageBilling.cost, 0.02)
+    assert.equal(summary.gptTokenUsage.total_tokens, 30)
+    assert.deepEqual(summary.listActions, { addToTemplate: true, refill: true, retry: true })
+    const { summarizeTask } = await import('../src/server/common/task-pages')
+    const { taskListActions } = await import('../src/shared/task-list')
+    for (const overrides of [
+      { rawTemplate: { ...template, title: 'Trial Template' } },
+      { endpointName: 'NovelAI Studio', novelaiSnapshots: undefined },
+      { endpointName: 'NovelAI Studio' },
+      { studioProvenance: { origin: 'import', sourceMetadata: { data: 'x'.repeat(10000) } } },
+      { studioProvenance: { origin: 'photopea', photopea: 'edited', template: { ...template, images: [input] } } },
+      { studioProvenance: { origin: 'novelai', novelai: records[0].novelaiSnapshots[0] } },
+      { rawTemplate: { ...template, aspectRatio: '3:4' } },
+    ]) {
+      const task = { ...records[0], ...overrides } as any
+      const light = summarizeTask(task)
+      assert.deepEqual(taskListActions(light), taskListActions(task), 'Catalog preserves provider-specific action availability')
+      assert.equal(light.rawTemplate.aspectRatio, task.rawTemplate.aspectRatio)
+      assert.equal(light.studioProvenance?.origin, task.studioProvenance?.origin)
+      assert.equal(light.studioProvenance?.photopea, task.studioProvenance?.photopea)
+      assert.ok(!light.studioProvenance?.template && !light.studioProvenance?.novelai && !light.studioProvenance?.sourceMetadata, 'Catalog strips nested snapshots')
+    }
     const pageResponse = await tasksApi.request('/page?page=0&pageSize=12&folderId=' + folder.id + '&sort=time-asc')
     const page = (await pageResponse.json()).data
     assert.equal(page.items.length, 12)

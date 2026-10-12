@@ -5,6 +5,7 @@ import { getDataDir } from './data-dir'
 import type { Task } from './task-manager'
 import { taskManager } from './task-manager'
 import { resourceRevision } from './resource-events'
+import { taskListActions } from '../../shared/task-list'
 
 const epoch = randomUUID()
 let cached: { revision: string; tasks: Task[]; byId: Map<string, Task>; folders: Awaited<ReturnType<typeof taskManager.getFolders>> } | undefined
@@ -37,11 +38,19 @@ export function summarizeTask(task: Task): Task {
     status: task.status, createdAt: task.createdAt,
     outputUrl: task.outputUrl, outputUrls: task.outputUrls,
     size: task.size, quality: task.quality, endpointName: task.endpointName,
+    error: task.error, duration: task.duration, providerQuality: task.providerQuality,
+    imageBilling: task.imageBilling, gptTokenUsage: task.gptTokenUsage, usage: task.usage,
+    studioProvenance: task.studioProvenance ? {
+      origin: task.studioProvenance.origin, photopea: task.studioProvenance.photopea,
+      inpaintRaw: task.studioProvenance.inpaintRaw,
+    } : undefined,
+    listActions: taskListActions(task),
     originalPrompt: task.originalPrompt,
     rawTemplate: {
       id: task.rawTemplate?.id ?? '', title: task.rawTemplate?.title,
       prompt: task.rawTemplate?.prompt ?? '', images: [],
       folder: task.rawTemplate?.folder, usageType: task.rawTemplate?.usageType ?? 'image',
+      aspectRatio: task.rawTemplate?.aspectRatio,
       createdAt: task.rawTemplate?.createdAt ?? task.createdAt,
     },
     summaryOnly: true,

@@ -7,7 +7,7 @@ import { Segmented } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import type { TaskTemplate } from '../../../../server/common/template-manager'
-import { useTasks, useTaskDetails } from '../../../hooks/useTasks'
+import { useTasks } from '../../../hooks/useTasks'
 import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { TaskList } from '../TaskList'
@@ -32,7 +32,7 @@ export const Home = () => {
   const focusNewestTaskSignal = useGlobalStore(
     (state) => state.focusNewestTaskSignal,
   )
-  const { data: tasks = [], folders, loading, revision } = useTasks()
+  const { data: tasks = [], folders, loading } = useTasks()
   const folderId = useGlobalStore((state) => state.taskFolderId)
   const [resourcePanel, setResourcePanel] = useState<ResourcePanel>('tasks')
   const [mobilePanel, setMobilePanel] = useState<MobileWorkspacePanel>(() =>
@@ -55,9 +55,6 @@ export const Home = () => {
       ),
     [tasks, folderId, folders],
   )
-
-  const selectedDetails = useTaskDetails([selectedTaskId || imageTasks[0]?.id].filter((id): id is string => Boolean(id)), revision)
-  const canvasTasks = imageTasks.map((task) => selectedDetails.data.get(task.id) ?? task)
 
   // 生成新任务后让画布自动聚焦到最新任务
   const pendingFocusRef = useRef(false)
@@ -130,7 +127,7 @@ export const Home = () => {
         className={`min-h-[calc(100dvh-9.5rem)] lg:block lg:h-full lg:min-h-0 ${mobilePanel === 'canvas' ? 'block' : 'hidden'}`}
       >
         <WorkspaceCanvas
-          imageTasks={canvasTasks}
+          imageTasks={imageTasks}
           loading={loading}
           selectedTaskId={selectedTaskId}
           onSelectTask={setSelectedTaskId}
