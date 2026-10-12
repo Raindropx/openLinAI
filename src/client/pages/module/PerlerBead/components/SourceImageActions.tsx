@@ -15,8 +15,8 @@ interface SourceImageActionsProps {
 export function SourceImageActions({ disabled, comparing, onCompare, onRestore, getImageData, onReduced }: SourceImageActionsProps) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<ColorReductionOptions['mode']>('count')
-  const [count, setCount] = useState<number | null>(128)
-  const [threshold, setThreshold] = useState<number | null>(12)
+  const [count, setCount] = useState<number | null>(18)
+  const [threshold, setThreshold] = useState<number | null>(36)
   const [busy, setBusy] = useState(false)
   const workerRef = useRef<Worker | null>(null)
   const value = mode === 'count' ? count : threshold
