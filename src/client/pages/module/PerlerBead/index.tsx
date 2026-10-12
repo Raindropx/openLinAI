@@ -6,8 +6,10 @@ import { InlineImageEditor } from './components/InlineImageEditor'
 import { GridPreview } from './components/GridPreview'
 import { ImageSource } from './components/ImageSource'
 import { ToolPanel } from './components/ToolPanel'
+import { SourceImageActions } from './components/SourceImageActions'
 import {
   computeAllCells,
+  createPaletteMatcher,
   detectGridSize,
   getDefaultGridSize,
   getImageDataFromImage,
@@ -23,7 +25,8 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
   useAppLanguage()
   const loadSequence = useRef(0)
   const [editingSource, setEditingSource] = useState<string | null>(null)
-  const [draft, setDraft] = useState<{ source: string; image: HTMLCanvasElement; data: ImageData } | null>(null)
+  const [comparing, setComparing] = useState(false)
+  const [draft, setDraft] = useState<{ source: string; image: HTMLCanvasElement; data: ImageData; palette: readonly string[] | null } | null>(null)
   const {
     imageUrl,
     imageElement,
@@ -47,6 +50,8 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
     sourceHistoryIndex,
     commitEditedImage,
     restoreSourceImage,
+    originalSource,
+    sourcePalette,
   } = usePerlerBeadStore()
 
   // 处理图片选择与自动网格识别
@@ -96,17 +101,19 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
     if (incomingImage) void handleSelectImage(incomingImage.url)
   }, [incomingImage, handleSelectImage])
 
-  useEffect(() => { setEditingSource(null); setDraft(null) }, [imageUrl])
+  useEffect(() => { setEditingSource(null); setDraft(null); setComparing(false) }, [imageUrl])
 
   const previewDraft = editingSource === imageUrl && draft?.source === imageUrl ? draft : null
   const previewImage = previewDraft?.image ?? imageElement
   const previewData = previewDraft?.data ?? imageData
-  const handleDraftPreview = useCallback((canvas: HTMLCanvasElement, hasEdits: boolean) => {
+  const previewPalette = previewDraft ? previewDraft.palette : sourcePalette
+  const matchPalette = useMemo(() => createPaletteMatcher(previewPalette), [previewPalette])
+  const handleDraftPreview = useCallback((canvas: HTMLCanvasElement, hasEdits: boolean, palette: readonly string[] | null) => {
     if (!editingSource || usePerlerBeadStore.getState().imageUrl !== editingSource) return
-    setDraft(hasEdits ? { source: editingSource, image: canvas, data: getImageDataFromImage(canvas, 1200).imageData } : null)
+    setDraft(hasEdits ? { source: editingSource, image: canvas, data: getImageDataFromImage(canvas, 1200).imageData, palette } : null)
   }, [editingSource])
 
-  const handleEditConfirm = async (dataUrl: string) => {
+  const handleEditConfirm = async (dataUrl: string, palette?: readonly string[] | null) => {
     if (!editingSource || usePerlerBeadStore.getState().imageUrl !== editingSource) throw new Error(t('原图已变化，请重新编辑'))
     const sequence = ++loadSequence.current
     const blob = await (await fetch(dataUrl)).blob()
@@ -115,7 +122,7 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
       const img = await loadImage(url)
       const { imageData: data } = getImageDataFromImage(img, 1200)
       if (sequence !== loadSequence.current || usePerlerBeadStore.getState().imageUrl !== editingSource) throw new Error(t('原图已变化，请重新编辑'))
-      commitEditedImage(url, img, data)
+      commitEditedImage(url, img, data, palette)
       setEditingSource(null)
       message.success(t('图片编辑成功'))
     } catch (error) { URL.revokeObjectURL(url); throw error }
@@ -136,6 +143,29 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
     } catch (error) {
       if (sequence === loadSequence.current) message.error(error instanceof Error ? error.message : t('加载图片失败'))
     } finally { if (sequence === loadSequence.current) setLoadingImage(false) }
+  }
+
+  const handleReduceSource = async (data: ImageData, palette: readonly string[]) => {
+    const source = imageUrl
+    if (!source || usePerlerBeadStore.getState().loadingImage || usePerlerBeadStore.getState().imageUrl !== source) throw new Error(t('原图已变化，请重新编辑'))
+    const sequence = ++loadSequence.current
+    setLoadingImage(true)
+    let url: string | null = null
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = data.width
+      canvas.height = data.height
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error(t('无法创建图片编辑画布'))
+      context.putImageData(data, 0, 0)
+      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((result) => result ? resolve(result) : reject(new Error(t('图片编辑导出失败'))), 'image/png'))
+      url = URL.createObjectURL(blob)
+      const img = await loadImage(url)
+      const processed = getImageDataFromImage(img, 1200).imageData
+      if (sequence !== loadSequence.current || usePerlerBeadStore.getState().imageUrl !== source) throw new Error(t('原图已变化，请重新编辑'))
+      commitEditedImage(url, img, processed, palette)
+    } catch (error) { if (url) URL.revokeObjectURL(url); throw error }
+    finally { if (sequence === loadSequence.current) setLoadingImage(false) }
   }
 
   // 手动点击重新识别网格
@@ -165,9 +195,9 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
   // 单格覆盖更新
   const handleCellOverride = useCallback(
     (row: number, col: number, override: CellOverride | null) => {
-      setCellOverride(row, col, override)
+      setCellOverride(row, col, override?.color ? { ...override, color: matchPalette(override.color) } : override)
     },
-    [setCellOverride],
+    [setCellOverride, matchPalette],
   )
 
   // 清除全部单格覆盖
@@ -179,8 +209,8 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
   // 高性能计算拼豆处理结果（带缓存）
   const cells: CellResult[][] | null = useMemo(() => {
     if (!previewData) return null
-    return computeAllCells(previewData, gridSize, globalRule, cellOverrides)
-  }, [previewData, gridSize, globalRule, cellOverrides])
+    return computeAllCells(previewData, gridSize, globalRule, cellOverrides, previewPalette)
+  }, [previewData, gridSize, globalRule, cellOverrides, previewPalette])
 
   const presetColors = useMemo(() => {
     const counts = new Map<string, number>()
@@ -204,8 +234,9 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
   // 当前选中单元格的覆盖配置
   const currentCellOverride = useMemo(() => {
     if (!selectedCell) return undefined
-    return cellOverrides[`${selectedCell.row},${selectedCell.column}`]
-  }, [cellOverrides, selectedCell])
+    const override = cellOverrides[`${selectedCell.row},${selectedCell.column}`]
+    return override?.color ? { ...override, color: matchPalette(override.color) } : override
+  }, [cellOverrides, selectedCell, matchPalette])
 
   const toolbar = (
     <div className="perler-toolbar flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
@@ -254,6 +285,8 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
           {editingSource ? <InlineImageEditor
             key={editingSource}
             src={editingSource}
+            originalImage={originalSource?.image ?? imageElement!}
+            initialPalette={sourcePalette}
             grid={gridSize}
             offsetX={globalRule.offsetX ?? 0.5}
             offsetY={globalRule.offsetY ?? 0.5}
@@ -264,7 +297,7 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
           /> :
           <GridPreview
             mode="source"
-            image={imageElement}
+            image={comparing ? originalSource?.image ?? imageElement : imageElement}
             grid={gridSize}
             cells={cells}
             selectedCell={selectedCell}
@@ -273,9 +306,15 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
             onSelectCell={setSelectedCell}
             title={t("原图网格对照")}
             actions={<>
-              <Button size="small" icon={<EditOutlined />} disabled={loadingImage} onClick={() => setEditingSource(imageUrl)}>{t('编辑图片')}</Button>
-              <Button size="small" icon={<UndoOutlined />} aria-label={t('撤销已提交的原图编辑')} disabled={loadingImage || sourceHistoryIndex <= 0} onClick={() => void restoreSource(-1)}>{t('撤销')}</Button>
-              <Button size="small" icon={<RedoOutlined />} aria-label={t('重做已提交的原图编辑')} disabled={loadingImage || sourceHistoryIndex >= sourceHistory.length - 1} onClick={() => void restoreSource(1)}>{t('重做')}</Button>
+              <Button size="small" icon={<EditOutlined />} disabled={loadingImage || comparing} onClick={() => setEditingSource(imageUrl)}>{t('编辑图片')}</Button>
+              <Button size="small" icon={<UndoOutlined />} aria-label={t('撤销已提交的原图编辑')} disabled={loadingImage || comparing || sourceHistoryIndex <= 0} onClick={() => void restoreSource(-1)}>{t('撤销')}</Button>
+              <Button size="small" icon={<RedoOutlined />} aria-label={t('重做已提交的原图编辑')} disabled={loadingImage || comparing || sourceHistoryIndex >= sourceHistory.length - 1} onClick={() => void restoreSource(1)}>{t('重做')}</Button>
+              <SourceImageActions disabled={loadingImage || !originalSource} comparing={comparing} onCompare={setComparing}
+                onRestore={() => { if (originalSource && imageUrl !== originalSource.url) commitEditedImage(originalSource.url, originalSource.image, originalSource.data) }}
+                getImageData={() => {
+                  if (!imageElement) throw new Error(t('图片加载失败'))
+                  return getImageDataFromImage(imageElement, 0).imageData
+                }} onReduced={handleReduceSource} />
             </>}
           />
           }

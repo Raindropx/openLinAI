@@ -20,7 +20,9 @@ interface PerlerBeadState {
   loadingImage: boolean
   sourceHistory: string[]
   sourceHistoryIndex: number
-  commitEditedImage: (url: string, img: HTMLImageElement, data: ImageData) => void
+  originalSource: { url: string; image: HTMLImageElement; data: ImageData } | null
+  sourcePalette: readonly string[] | null
+  commitEditedImage: (url: string, img: HTMLImageElement, data: ImageData, palette?: readonly string[] | null) => void
   restoreSourceImage: (index: number, img: HTMLImageElement, data: ImageData) => void
 
   // Actions
@@ -45,9 +47,13 @@ interface PerlerBeadState {
 }
 
 const MAX_SOURCE_HISTORY = 10
+const sourcePalettes = new Map<string, readonly string[]>()
 function releaseSources(urls: string[], retained: string[] = []) {
   const keep = new Set(retained)
-  for (const url of new Set(urls)) if (url.startsWith('blob:') && !keep.has(url)) URL.revokeObjectURL(url)
+  for (const url of new Set(urls)) if (!keep.has(url)) {
+    sourcePalettes.delete(url)
+    if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+  }
 }
 
 export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
@@ -62,9 +68,12 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
   loadingImage: false,
   sourceHistory: [],
   sourceHistoryIndex: -1,
+  originalSource: null,
+  sourcePalette: null,
 
   setImage: (url, img, data, detectedGrid) => {
-    releaseSources(get().sourceHistory, [url])
+    releaseSources([...get().sourceHistory, get().originalSource?.url ?? ''], [url])
+    sourcePalettes.delete(url)
 
     const initialGrid =
       detectedGrid ||
@@ -83,20 +92,24 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
       loadingImage: false,
       sourceHistory: [url],
       sourceHistoryIndex: 0,
+      originalSource: { url, image: img, data },
+      sourcePalette: null,
     })
   },
 
-  commitEditedImage: (url, img, data) => {
+  commitEditedImage: (url, img, data, palette) => {
     const previous = get()
     const history = [...previous.sourceHistory.slice(0, previous.sourceHistoryIndex + 1), url].slice(-MAX_SOURCE_HISTORY)
-    releaseSources(previous.sourceHistory, history)
-    set({ imageUrl: url, imageElement: img, imageData: data, sourceHistory: history, sourceHistoryIndex: history.length - 1, loadingImage: false })
+    releaseSources(previous.sourceHistory, [...history, previous.originalSource?.url ?? ''])
+    if (palette?.length) sourcePalettes.set(url, [...palette])
+    else sourcePalettes.delete(url)
+    set({ imageUrl: url, imageElement: img, imageData: data, sourcePalette: sourcePalettes.get(url) ?? null, sourceHistory: history, sourceHistoryIndex: history.length - 1, loadingImage: false })
   },
 
   restoreSourceImage: (index, img, data) => {
     const url = get().sourceHistory[index]
     if (!url) throw new Error(t('原图编辑历史已变化，请重试'))
-    set({ imageUrl: url, imageElement: img, imageData: data, sourceHistoryIndex: index, loadingImage: false })
+    set({ imageUrl: url, imageElement: img, imageData: data, sourcePalette: sourcePalettes.get(url) ?? null, sourceHistoryIndex: index, loadingImage: false })
   },
 
   setGridSize: (size) => {
@@ -148,7 +161,7 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
   setLoadingImage: (loadingImage) => set({ loadingImage }),
 
   reset: () => {
-    releaseSources(get().sourceHistory)
+    releaseSources([...get().sourceHistory, get().originalSource?.url ?? ''])
 
     set({
       imageUrl: null,
@@ -162,6 +175,8 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
       loadingImage: false,
       sourceHistory: [],
       sourceHistoryIndex: -1,
+      originalSource: null,
+      sourcePalette: null,
     })
   },
 }))

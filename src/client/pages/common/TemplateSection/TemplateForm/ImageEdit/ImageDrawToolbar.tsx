@@ -59,6 +59,7 @@ interface ImageDrawToolbarProps {
   onReset: () => void
   presetColors?: string[]
   compact?: boolean
+  resetLabel?: string
 }
 
 export function ImageDrawToolbar({
@@ -78,6 +79,7 @@ export function ImageDrawToolbar({
   onReset,
   presetColors,
   compact = false,
+  resetLabel = t('还原原图'),
 }: ImageDrawToolbarProps) {
   useAppLanguage()
 
@@ -167,10 +169,10 @@ export function ImageDrawToolbar({
           onClick={onRedo}
         />
       </Tooltip>
-      <Tooltip title={t('还原原图')}>
+      <Tooltip title={resetLabel}>
         <Button
           type="text"
-          aria-label={t('还原原图')}
+          aria-label={resetLabel}
           size={compact ? 'small' : undefined}
           icon={<DeleteOutlined />}
           disabled={submitting || !canReset}

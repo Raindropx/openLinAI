@@ -1771,5 +1771,21 @@
   "应用编辑": "Apply edits",
   "拼豆常用色": "Frequent bead colors",
   "拖拽平移": "Pan image",
-  "每笔编辑后自动预览拼豆效果": "Bead preview updates after each edit"
+  "每笔编辑后自动预览拼豆效果": "Bead preview updates after each edit",
+  "原图对照": "Compare original",
+  "恢复原图": "Restore original",
+  "重置本次编辑": "Reset this edit session",
+  "减少颜色": "Reduce colors",
+  "应用": "Apply",
+  "按住查看刚载入的原图，松开返回当前图片": "Hold to view the image as loaded; release to return to the current image",
+  "指定颜色数量": "Color count",
+  "自动优化": "Auto optimize",
+  "目标颜色数": "Target colors",
+  "颜色合并阈值": "Merge threshold",
+  "将当前图片缩减至不超过指定数量的颜色；原有颜色更少时保持不变。": "Reduce the current image to at most this many colors. Images with fewer colors stay unchanged.",
+  "阈值使用 RGB 色差（0–442），越大合并越多；0 保持原色。相近颜色归并到出现最多的代表色，不进行连锁合并。": "RGB distance (0–442): higher values merge more colors; 0 keeps every color. Similar colors merge into the most frequent representative, without chained merging.",
+  "处理当前图片，保留尺寸和透明度；应用后可撤销，也可恢复刚载入的原图。": "Processes the current image and preserves its dimensions and alpha. You can undo the result or restore the image as loaded.",
+  "拼豆预览、用量清单和导出沿用减色后的调色板，缩放、透明边缘和单格取色不会增加颜色。": "The bead preview, quantities and exports use the reduced palette. Resizing, transparent edges and cell sampling cannot add colors.",
+  "减少颜色失败，请重试": "Could not reduce colors. Please try again.",
+  "颜色数量：{0} → {1}": "Colors: {0} → {1}"
 }

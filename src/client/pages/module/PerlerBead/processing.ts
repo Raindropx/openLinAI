@@ -45,6 +45,8 @@ export function getImageDataFromImage(
     throw new Error(t("无法创建 Canvas 2D 绘图上下文"))
   }
 
+  // Sampling must not invent colors between palette entries when a large pixel image is resized.
+  ctx.imageSmoothingEnabled = false
   ctx.drawImage(img, 0, 0, width, height)
   return {
     imageData: ctx.getImageData(0, 0, width, height),
@@ -78,6 +80,31 @@ export function hexToRgb(
   }
   const num = parseInt(h, 16)
   return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 }
+}
+
+export function createPaletteMatcher(palette?: readonly string[] | null) {
+  const exact = new Set(palette ?? [])
+  let colors: Array<{ color: string; r: number; g: number; b: number }> | null = null
+  const cache = new Map<string, string>()
+  return (color: string) => {
+    if (!exact.size || exact.has(color)) return color
+    const cached = cache.get(color)
+    if (cached) return cached
+    colors ??= [...exact].flatMap((entry) => {
+      const rgb = hexToRgb(entry)
+      return rgb ? [{ color: entry, ...rgb }] : []
+    })
+    if (!colors.length) return color
+    const rgb = hexToRgb(color)
+    if (!rgb) return color
+    let best = colors[0], distance = Infinity
+    for (const candidate of colors) {
+      const delta = (rgb.r - candidate.r) ** 2 + (rgb.g - candidate.g) ** 2 + (rgb.b - candidate.b) ** 2
+      if (delta < distance) { best = candidate; distance = delta }
+    }
+    cache.set(color, best.color)
+    return best.color
+  }
 }
 
 /** 混合透明像素到白色底色 */
@@ -316,12 +343,14 @@ export function computeAllCells(
   gridSize: GridSize,
   globalRule: ColorRule,
   overrides: CellOverrideMap,
+  palette?: readonly string[] | null,
 ): CellResult[][] {
   const rows = Math.max(1, Math.min(200, gridSize.rows || 50))
   const cols = Math.max(1, Math.min(200, gridSize.columns || 50))
   const imgW = imageData.width
   const imgH = imageData.height
   const results: CellResult[][] = []
+  const matchPalette = createPaletteMatcher(palette)
 
   const defaultOffX = globalRule.offsetX ?? 0.5
   const defaultOffY = globalRule.offsetY ?? 0.5
@@ -375,7 +404,7 @@ export function computeAllCells(
       rowList.push({
         row: r,
         column: c,
-        color: cellColor,
+        color: matchPalette(cellColor),
         sourceColors: [], // 按需由 analyzeSelectedCellDetails 填充
       })
     }

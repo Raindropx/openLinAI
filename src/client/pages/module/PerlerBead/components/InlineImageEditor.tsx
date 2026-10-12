@@ -7,28 +7,34 @@ import { ImageEditorViewport } from '../../../common/TemplateSection/TemplateFor
 import { ImageTransformToolbar } from '../../../common/TemplateSection/TemplateForm/ImageEdit/ImageTransformToolbar'
 import { useImageEditor } from '../../../common/TemplateSection/TemplateForm/ImageEdit/useImageEditor'
 import type { GridSize } from '../types'
+import { getImageDataFromImage } from '../processing'
+import { SourceImageActions } from './SourceImageActions'
 
 interface InlineImageEditorProps {
   src: string
+  originalImage: HTMLImageElement
+  initialPalette: readonly string[] | null
   grid: GridSize
   offsetX: number
   offsetY: number
   presetColors: string[]
-  onPreview: (canvas: HTMLCanvasElement, hasEdits: boolean) => void
-  onConfirm: (dataUrl: string) => Promise<void>
+  onPreview: (canvas: HTMLCanvasElement, hasEdits: boolean, palette: readonly string[] | null) => void
+  onConfirm: (dataUrl: string, palette?: readonly string[] | null) => Promise<void>
   onCancel: () => void
 }
 
-export function InlineImageEditor({ src, grid, offsetX, offsetY, presetColors, onPreview, onConfirm, onCancel }: InlineImageEditorProps) {
+export function InlineImageEditor({ src, originalImage, initialPalette, grid, offsetX, offsetY, presetColors, onPreview, onConfirm, onCancel }: InlineImageEditorProps) {
   const rootRef = useRef<HTMLDivElement>(null)
-  const editor = useImageEditor({ open: true, src, onConfirm, onConfirmCopy: onConfirm, onPreview, keyboardScope: rootRef })
+  const editor = useImageEditor({ open: true, src, onConfirm, onConfirmCopy: onConfirm, onPreview, initialPalette, keyboardScope: rootRef })
   const [showGrid, setShowGrid] = useState(true)
   const [panMode, setPanMode] = useState(false)
+  const [comparing, setComparing] = useState(false)
   const panRef = useRef<{ id: number; x: number; y: number; left: number; top: number } | null>(null)
   const viewport = editor.viewportProps
   const disabled = editor.modal.submitting || viewport.loading || !!viewport.loadError
 
   const onPointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (comparing) return
     event.currentTarget.focus({ preventScroll: true })
     if (panRef.current || (event.button !== 0 && event.button !== 1)) return
     const container = viewport.viewportRef.current
@@ -39,6 +45,7 @@ export function InlineImageEditor({ src, grid, offsetX, offsetY, presetColors, o
     } else viewport.onPointerDown(event)
   }
   const onPointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (comparing) return
     const pan = panRef.current
     const container = viewport.viewportRef.current
     if (pan && pan.id === event.pointerId && container) {
@@ -84,12 +91,22 @@ export function InlineImageEditor({ src, grid, offsetX, offsetY, presetColors, o
             <Button size="small" type={panMode ? 'primary' : 'text'} aria-label={t('拖拽平移')} aria-pressed={panMode} disabled={disabled || viewport.cropMode} icon={<DragOutlined />} onClick={() => setPanMode(!panMode)} />
           </Tooltip>
           <Button size="small" disabled={editor.modal.submitting} onClick={onCancel}>{t('取消')}</Button>
-          <Button size="small" type="primary" loading={editor.modal.submitting} disabled={!editor.modal.canConfirm || disabled} onClick={editor.modal.onConfirm}>{t('应用编辑')}</Button>
+          <Button size="small" type="primary" loading={editor.modal.submitting} disabled={!editor.modal.canConfirm || disabled || comparing} onClick={editor.modal.onConfirm}>{t('应用编辑')}</Button>
         </div>
       </div>
-      <ImageDrawToolbar {...editor.drawToolbarProps} submitting={disabled} compact presetColors={presetColors} />
-      <ImageEditorViewport {...viewport} inline overlay={overlay} panMode={panMode} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerFinish={onPointerFinish} />
-      <ImageTransformToolbar {...editor.transformToolbarProps} disabled={disabled || editor.transformToolbarProps.disabled} compact />
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2 dark:border-slate-800">
+        <SourceImageActions disabled={disabled || viewport.cropMode} comparing={comparing} onCompare={setComparing}
+          onRestore={() => editor.applySnapshot(getImageDataFromImage(originalImage, 0).imageData)}
+          getImageData={() => {
+            const canvas = viewport.canvasRef.current
+            const context = canvas?.getContext('2d')
+            if (!canvas || !context) throw new Error(t('无法创建图片编辑画布'))
+            return context.getImageData(0, 0, canvas.width, canvas.height)
+          }} onReduced={editor.applySnapshot} />
+      </div>
+      <ImageDrawToolbar {...editor.drawToolbarProps} submitting={disabled || comparing} compact presetColors={presetColors} resetLabel={t('重置本次编辑')} />
+      <ImageEditorViewport {...viewport} inline overlay={<>{overlay}{comparing && <div className="pointer-events-none absolute inset-0 z-20 bg-slate-50 dark:bg-slate-950"><img src={originalImage.src} alt={t('原图对照')} className="h-full w-full object-contain" /></div>}</>} panMode={panMode || comparing} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerFinish={onPointerFinish} />
+      <ImageTransformToolbar {...editor.transformToolbarProps} disabled={disabled || comparing || editor.transformToolbarProps.disabled} compact />
       <div className="shrink-0 px-2 py-1 text-[11px] text-slate-500 dark:text-slate-400">{t('每笔编辑后自动预览拼豆效果')}</div>
     </div>
   )

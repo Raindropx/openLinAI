@@ -15,6 +15,7 @@ import {
   exportEditedImage,
   getCanvasPoint,
   getEditedImageSize,
+  getEditedPalette,
   renderEditedImage,
   type DrawStroke,
   type ImageEditOperation,
@@ -28,9 +29,10 @@ const MAX_ZOOM = 4
 interface UseImageEditorOptions {
   open: boolean
   src: string | null
-  onConfirm: (dataUrl: string) => Promise<void>
-  onConfirmCopy: (dataUrl: string) => Promise<void>
-  onPreview?: (canvas: HTMLCanvasElement, hasEdits: boolean) => void
+  onConfirm: (dataUrl: string, palette?: readonly string[] | null) => Promise<void>
+  onConfirmCopy: (dataUrl: string, palette?: readonly string[] | null) => Promise<void>
+  onPreview?: (canvas: HTMLCanvasElement, hasEdits: boolean, palette: readonly string[] | null) => void
+  initialPalette?: readonly string[] | null
   keyboardScope?: RefObject<HTMLElement | null>
 }
 
@@ -48,6 +50,7 @@ export function useImageEditor({
   onConfirmCopy,
   onPreview,
   keyboardScope,
+  initialPalette = null,
 }: UseImageEditorOptions) {
   const previewCallbackRef = useRef(onPreview)
   previewCallbackRef.current = onPreview
@@ -88,6 +91,7 @@ export function useImageEditor({
   })
 
   const currentOperations = operations.slice(0, historyIndex)
+  const currentPalette = getEditedPalette(initialPalette, currentOperations)
   const imageSize = originalSize
     ? getEditedImageSize(originalSize, currentOperations)
     : null
@@ -165,13 +169,13 @@ export function useImageEditor({
     try {
       renderEditedImage(image, currentOperations, canvas)
       if (currentStrokeRef.current) drawStroke(canvas.getContext('2d')!, currentStrokeRef.current)
-      else previewCallbackRef.current?.(canvas, historyIndex > 0)
+      else previewCallbackRef.current?.(canvas, historyIndex > 0, currentPalette)
     } catch (error) {
       setLoadError(
         error instanceof Error ? t(error.message) : t('图片编辑失败'),
       )
     }
-  }, [baseDisplaySize, cropMode, historyIndex, operations, originalSize])
+  }, [baseDisplaySize, cropMode, historyIndex, operations, originalSize, initialPalette])
 
   const fitImageInViewport = (size: ImageSize) => {
     const viewport = viewportRef.current
@@ -492,7 +496,7 @@ export function useImageEditor({
     setPreview((current) => ({ ...current, visible: false }))
     try {
       const dataUrl = await exportEditedImage(image, currentOperations)
-      await (action === 'copy' ? onConfirmCopy : onConfirm)(dataUrl)
+      await (action === 'copy' ? onConfirmCopy : onConfirm)(dataUrl, currentPalette)
     } catch (error) {
       message.error(
         error instanceof Error ? t(error.message) : t('图片编辑失败'),
@@ -510,6 +514,11 @@ export function useImageEditor({
     : null
 
   return {
+    applySnapshot: (data: ImageData, palette: readonly string[] | null = null) => {
+      if (submitting || loading || loadError || activePointerRef.current !== null) return
+      commitOperation({ type: 'snapshot', data, palette })
+      resetViewAfterTransform()
+    },
     modal: {
       submitting,
       submittingAction,

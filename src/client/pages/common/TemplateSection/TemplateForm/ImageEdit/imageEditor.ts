@@ -22,10 +22,20 @@ export type ImageEditOperation =
   | { type: 'rotate'; direction: 'left' | 'right' }
   | { type: 'flip'; axis: 'horizontal' | 'vertical' }
   | { type: 'crop'; rectangle: CropRectangle }
+  | { type: 'snapshot'; data: ImageData; palette?: readonly string[] | null }
 
 export interface ImageSize {
   width: number
   height: number
+}
+
+export function getEditedPalette(initialPalette: readonly string[] | null, operations: ImageEditOperation[]) {
+  let palette = initialPalette
+  for (const operation of operations) {
+    if (operation.type === 'snapshot') palette = operation.palette ?? null
+    else if (operation.type === 'stroke') palette = null // A new brush stroke may deliberately introduce new colors.
+  }
+  return palette
 }
 
 export function getCanvasPoint(
@@ -147,7 +157,9 @@ export function getEditedImageSize(
 ) {
   let size = { ...originalSize }
   for (const operation of operations) {
-    if (operation.type === 'rotate') {
+    if (operation.type === 'snapshot') {
+      size = { width: operation.data.width, height: operation.data.height }
+    } else if (operation.type === 'rotate') {
       size = { width: size.height, height: size.width }
     } else if (operation.type === 'crop') {
       const x = Math.max(
@@ -188,7 +200,10 @@ export function renderEditedImage(
   )
 
   for (const operation of operations) {
-    if (operation.type === 'stroke') {
+    if (operation.type === 'snapshot') {
+      workingCanvas = createCanvas(operation.data.width, operation.data.height)
+      getContext(workingCanvas).putImageData(operation.data, 0, 0)
+    } else if (operation.type === 'stroke') {
       drawStroke(getContext(workingCanvas), operation.stroke)
     } else if (operation.type === 'rotate') {
       workingCanvas = applyRotate(workingCanvas, operation.direction)
