@@ -12,7 +12,7 @@ const NEW_API_QUOTA_PER_USD = 500_000
 export function GPTImageQuota({
   variant = 'header',
 }: {
-  variant?: 'header' | 'sidebar' | 'pull'
+  variant?: 'header' | 'sidebar' | 'pull' | 'inline'
 }) {
   useAppLanguage()
 
@@ -32,6 +32,7 @@ export function GPTImageQuota({
     selectedEndpoint.type === 'yunwu' ||
     selectedEndpoint.type === 'openrouter' ||
     selectedEndpoint.type === 'venice' ||
+    selectedEndpoint.type === 'novelai' ||
     (selectedEndpoint.type === 'custom' && selectedEndpoint.balanceEnabled) ||
     (selectedEndpoint.type === 'laozhang' &&
       selectedEndpoint.balanceEnabled &&
@@ -40,10 +41,45 @@ export function GPTImageQuota({
   const isLaoZhang = selectedEndpoint.type === 'laozhang'
   const isNewApi = selectedEndpoint.type === 'yunwu'
   const isVenice = selectedEndpoint.type === 'venice'
+  const isNovelAI = selectedEndpoint.type === 'novelai'
   const endpointName =
     selectedEndpoint.name || selectedEndpoint.model || t('未命名端点')
   const sidebar = variant === 'sidebar'
   const pull = variant === 'pull'
+  const balanceText = quota
+    ? quota.unlimited_quota
+      ? t('不限')
+      : isNovelAI
+        ? `${(quota.balances?.Anlas ?? quota.total_available).toLocaleString()} Anlas`
+        : isVenice
+          ? [
+              quota.balances?.USD !== undefined
+                ? `$${quota.balances.USD.toFixed(2)}`
+                : null,
+              quota.balances?.DIEM !== undefined
+                ? `${quota.balances.DIEM.toFixed(2)} DIEM`
+                : null,
+            ].filter(Boolean).join(' / ')
+          : isOpenRouter || isLaoZhang
+            ? `$${quota.total_available.toFixed(2)}`
+            : isNewApi
+              ? `$${(quota.total_available / NEW_API_QUOTA_PER_USD).toFixed(2)}`
+              : quota.total_available.toFixed(2)
+    : ''
+
+  if (variant === 'inline') {
+    if (!supportsQuota || loading || error || !quota) return null
+    return (
+      <span
+        className="hidden min-w-0 truncate text-xs text-slate-400 lg:block"
+        aria-live="polite"
+        title={`${t('余额：')}${balanceText}`}
+      >
+        {t('余额：')}
+        <span className="font-semibold text-slate-100">{balanceText}</span>
+      </span>
+    )
+  }
 
   return (
     <Tooltip
@@ -89,26 +125,7 @@ export function GPTImageQuota({
               <span className="shrink-0">
                 {t('余额：')}
                 <span className="font-semibold text-slate-100">
-                  {quota.unlimited_quota
-                    ? t('不限')
-                    : isVenice
-                      ? [
-                          quota.balances?.USD !== undefined
-                            ? `$${quota.balances.USD.toFixed(2)}`
-                            : null,
-                          quota.balances?.DIEM !== undefined
-                            ? `${quota.balances.DIEM.toFixed(2)} DIEM`
-                            : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' / ')
-                      : isOpenRouter || isLaoZhang
-                        ? `$${quota.total_available.toFixed(2)}`
-                        : isNewApi
-                          ? `$${(
-                              quota.total_available / NEW_API_QUOTA_PER_USD
-                            ).toFixed(2)}`
-                          : quota.total_available.toFixed(2)}
+                  {balanceText}
                 </span>
               </span>
             ) : null}

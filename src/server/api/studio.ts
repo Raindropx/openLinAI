@@ -20,6 +20,7 @@ import { taskManager } from '../common/task-manager'
 import { INPUT_IMAGES_DIR } from '../common/static'
 import { INPUT_IMAGES_API_PATH } from '../common/static/enum'
 import { handleNovelAIImageGeneration, manualNovelAIInpaintImage } from '../module/gpt-image/novelai-image'
+import { fetchNovelAIAnlas } from '../module/gpt-image/novelai-balance'
 import { fetchWithTimeout } from '../module/utils/fetch'
 import { civitaiGenerateSchema, civitaiGenerationManager } from '../module/civitai-generation'
 
@@ -238,23 +239,8 @@ const studioApi = new Hono()
   })
   .get('/providers/novelai/balance', async (c) => {
     const { apiKey } = await studioProviderSettings.novelai()
-    const response = await fetchWithTimeout(
-      `${NOVELAI_IMAGE_API_BASE_URL}/user/subscription`,
-      { headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` } },
-      15000,
-    )
-    const data = await readJson(response)
-    if (!response.ok)
-      throw new Error(apiError(data, `NovelAI 余额读取失败 (${response.status})`))
-    const steps = data && typeof data === 'object'
-      ? (data as { trainingStepsLeft?: { fixedTrainingStepsLeft?: unknown; purchasedTrainingSteps?: unknown } }).trainingStepsLeft
-      : undefined
-    const fixed = steps?.fixedTrainingStepsLeft
-    const purchased = steps?.purchasedTrainingSteps
-    if (typeof fixed !== 'number' || typeof purchased !== 'number' ||
-      !Number.isFinite(fixed + purchased))
-      throw new Error('NovelAI 余额响应格式不正确')
-    return c.json({ success: true as const, data: { anlas: fixed + purchased } })
+    const anlas = await fetchNovelAIAnlas(NOVELAI_IMAGE_API_BASE_URL, apiKey)
+    return c.json({ success: true as const, data: { anlas } })
   })
   .get('/providers/civitai/balance', async (c) => {
     const { apiKey } = await studioProviderSettings.civitai()

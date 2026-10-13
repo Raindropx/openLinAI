@@ -17,6 +17,7 @@ interface QuotaStore {
   loading: boolean
   lastKey: string | null
   fetchPromise: Promise<void> | null
+  requestId: number
   fetchQuota: (endpointId: string | null, force?: boolean) => Promise<void>
 }
 
@@ -26,9 +27,17 @@ const useQuotaStore = create<QuotaStore>((set, get) => ({
   loading: false,
   lastKey: null,
   fetchPromise: null,
+  requestId: 0,
   fetchQuota: async (endpointId, force = false) => {
     if (!endpointId) {
-      set({ data: null, error: null, lastKey: null })
+      set({
+        data: null,
+        error: null,
+        lastKey: null,
+        loading: false,
+        fetchPromise: null,
+        requestId: get().requestId + 1,
+      })
       return
     }
 
@@ -45,8 +54,9 @@ const useQuotaStore = create<QuotaStore>((set, get) => ({
       return state.fetchPromise || Promise.resolve()
     }
 
+    const requestId = state.requestId + 1
     const promise = (async () => {
-      set({ loading: true, error: null, lastKey: endpointId })
+      set({ loading: true, error: null, data: null, lastKey: endpointId, requestId })
       try {
         const response = await client.api.gptImage.quota.$get({
           query: { endpointId },
@@ -55,6 +65,7 @@ const useQuotaStore = create<QuotaStore>((set, get) => ({
         if (!json.success) {
           throw new Error(t(json.error || '') || t('获取余额失败'))
         }
+        if (get().requestId !== requestId) return
         set({
           data: json.data.data,
           error: null,
@@ -62,6 +73,7 @@ const useQuotaStore = create<QuotaStore>((set, get) => ({
           fetchPromise: null,
         })
       } catch (error: any) {
+        if (get().requestId !== requestId) return
         console.error(error)
         set({ error: t(error.message), loading: false, fetchPromise: null })
       }
@@ -91,6 +103,7 @@ export function useGPTImageQuota() {
     selectedEndpoint?.type === 'yunwu' ||
     selectedEndpoint?.type === 'openrouter' ||
     selectedEndpoint?.type === 'venice' ||
+    selectedEndpoint?.type === 'novelai' ||
     (selectedEndpoint?.type === 'custom' && selectedEndpoint.balanceEnabled) ||
     (selectedEndpoint?.type === 'laozhang' &&
       selectedEndpoint.balanceEnabled &&
@@ -106,6 +119,7 @@ export function useGPTImageQuota() {
   const knownCompletedTasks = useRef<Set<string> | null>(null)
 
   const data = useQuotaStore((state) => state.data)
+  const lastKey = useQuotaStore((state) => state.lastKey)
   const loading = useQuotaStore((state) => state.loading)
   const error = useQuotaStore((state) => state.error)
   const fetchQuota = useQuotaStore((state) => state.fetchQuota)
@@ -152,7 +166,7 @@ export function useGPTImageQuota() {
   }, [tasks, activeEndpointId, fetchQuota])
 
   return {
-    quota: data,
+    quota: activeEndpointId && lastKey === activeEndpointId ? data : null,
     loading,
     error,
     isPublic,

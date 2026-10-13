@@ -48,6 +48,7 @@ const configApi = new Hono()
                 'yunwu',
                 'openrouter',
                 'venice',
+                'novelai',
                 'laozhang',
                 'custom',
               ]),

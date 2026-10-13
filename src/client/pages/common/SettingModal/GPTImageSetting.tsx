@@ -790,7 +790,7 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                     ...(engine === 'novelai-images'
                       ? {
                           baseURL: DEFAULT_NOVELAI_BASE_URL,
-                          type: 'custom' as const,
+                          type: 'novelai' as const,
                           model: DEFAULT_NOVELAI_MODEL,
                           editModel: undefined,
                         }
@@ -1135,12 +1135,13 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 <Radio.Button value="yunwu">New API</Radio.Button>
                 <Radio.Button value="openrouter">OpenRouter</Radio.Button>
                 <Radio.Button value="venice">Venice</Radio.Button>
+                <Radio.Button value="novelai">NovelAI</Radio.Button>
                 <Radio.Button value="laozhang">{t('老张 API')}</Radio.Button>
                 <Radio.Button value="custom">{t('自定义')}</Radio.Button>
               </Radio.Group>
               <div className="mt-1 text-xs text-slate-500">
                 {t(
-                  'New API 使用当前站点的 /api/usage/token/；OpenRouter 使用官方余额接口；Venice 同时读取 USD 与 DIEM；其他端点可在“自定义”中配置余额路径。',
+                  'New API 使用当前站点的 /api/usage/token/；OpenRouter 使用官方余额接口；Venice 同时读取 USD 与 DIEM；NovelAI 查询 Anlas；其他端点可在“自定义”中配置余额路径。',
                 )}
               </div>
             </Form.Item>

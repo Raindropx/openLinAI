@@ -35,7 +35,7 @@ const endpointSchema = z
     model: z.string(),
     editModel: z.string().optional(),
     apiKey: z.string(),
-    type: z.enum(['yunwu', 'openrouter', 'venice', 'laozhang', 'custom']),
+    type: z.enum(['yunwu', 'openrouter', 'venice', 'novelai', 'laozhang', 'custom']),
     engine: z
       .enum([
         'openai-images',

@@ -299,14 +299,14 @@ export const GPT_IMAGE_ENDPOINT_PRESETS: GptImageEndpointPreset[] = [
     name: 'NovelAI Diffusion V5 Full',
     baseURL: 'https://image.novelai.net',
     model: 'nai-diffusion-5-full',
-    type: 'custom',
+    type: 'novelai',
     engine: 'novelai-images',
     website: 'https://novelai.net',
     get notes() {
       return [
         t('使用 NovelAI 原生 /ai/generate-image 接口'),
         t('支持基础生成与单张参考图 img2img'),
-        t('请填写 NovelAI Persistent API Token；余额查询默认关闭'),
+        t('请填写 NovelAI Persistent API Token；支持查询 Anlas 余额'),
       ]
     },
   },

@@ -16,6 +16,7 @@ import { handleGeminiImageGeneration } from '../module/gpt-image/gemini-image'
 import { fetchLaoZhangBalance } from '../module/gpt-image/laozhang-api'
 import { handleLaoZhangImageGeneration } from '../module/gpt-image/laozhang-image'
 import { handleNovelAIImageGeneration } from '../module/gpt-image/novelai-image'
+import { fetchNovelAIAnlas } from '../module/gpt-image/novelai-balance'
 import { handleOpenRouterImageGeneration } from '../module/gpt-image/openrouter-image'
 import { handleSpicyImageGeneration } from '../module/gpt-image/spicyapi-image'
 import { handleVeniceImageGeneration } from '../module/gpt-image/venice-image'
@@ -33,6 +34,7 @@ export interface GPTImageQuotaResponse {
     balances?: {
       USD?: number
       DIEM?: number
+      Anlas?: number
     }
   }
 }
@@ -92,6 +94,30 @@ const gptImageApi = new Hono()
         { success: false as const, error: '请先选择有效的图片生成端点' },
         400,
       )
+    }
+
+    if (endpoint.type === 'novelai') {
+      try {
+        const anlas = await fetchNovelAIAnlas(endpoint.baseURL, endpoint.apiKey)
+        const normalized: GPTImageQuotaResponse = {
+          message: '',
+          data: {
+            expires_at: -1,
+            name: endpoint.name,
+            total_granted: anlas,
+            total_used: 0,
+            total_available: anlas,
+            unlimited_quota: false,
+            balances: { Anlas: anlas },
+          },
+        }
+        return c.json({ success: true as const, data: normalized })
+      } catch (error) {
+        return c.json({
+          success: false as const,
+          error: error instanceof Error ? error.message : '获取余额失败',
+        }, 500)
+      }
     }
 
     if (endpoint.type === 'laozhang') {

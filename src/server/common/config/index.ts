@@ -24,6 +24,7 @@ export type GptImageEndpointType =
   | 'yunwu'
   | 'openrouter'
   | 'venice'
+  | 'novelai'
   | 'laozhang'
   | 'custom'
 
@@ -54,6 +55,7 @@ export interface GptImageEndpoint {
    * - yunwu：New API /api/usage/token/ 查余额（字段名为兼容旧配置保留）
    * - openrouter：OpenRouter /api/v1/credits 查余额
    * - venice：Venice /api/v1/api_keys/rate_limits 查 USD 与 DIEM
+   * - novelai：NovelAI /user/subscription 查 Anlas
    * - laozhang：独立系统 AccessToken 查询 /api/user/self
    * - custom：可按下方自定义配置查询余额
    */

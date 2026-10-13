@@ -13,6 +13,7 @@ import {
 } from '../../../../hooks/useEnabledImageEndpoints'
 import { useLocalSetting } from '../../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../../i18n'
+import { GPTImageQuota } from '../../Header/GPTImageQuota'
 import { FolderFormItem } from './FolderSelectInput'
 import { ImageUpload } from './ImageUpload'
 import { StyleExtractModal } from './StyleExtractModal'
@@ -62,8 +63,20 @@ function EndpointSelectFormItem({
   return (
     <Form.Item
       name="endpointId"
-      label={t('生成端点')}
-      className={className}
+      label={
+        <span className="flex w-full min-w-0 items-center justify-between gap-2">
+          <span className="shrink-0">{t('生成端点')}</span>
+          {syncSelectedEndpoint &&
+            endpointId === gptImageSettings.selectedEndpointId && (
+              <GPTImageQuota variant="inline" />
+            )}
+        </span>
+      }
+      className={classnames(
+        className,
+        'lg:[&_.ant-form-item-label>label]:w-full',
+        'lg:[&_.ant-form-item-label>label]:min-w-0',
+      )}
       rules={[{ required: true, message: t('请先在设置中添加端点') }]}
     >
       <Select
