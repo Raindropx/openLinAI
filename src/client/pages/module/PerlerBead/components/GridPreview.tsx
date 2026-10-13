@@ -10,6 +10,8 @@ import { Button, Tooltip } from 'antd'
 import React, { useEffect, useRef, useState } from 'react'
 import type { CellResult, GridSize } from '../types'
 import { getSourceImageSize, type SourceImage } from '../types'
+import { usePerlerBeadStore } from '../store'
+import { renderBeadPreview } from '../renderBeadPreview'
 
 interface GridPreviewProps {
   image: SourceImage | null
@@ -48,6 +50,13 @@ export function GridPreview({
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const offsetStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const [showGridLines, setShowGridLines] = useState<boolean>(true)
+  const beadPreview = usePerlerBeadStore((state) => state.beadPreview)
+  const showPegboard = usePerlerBeadStore((state) => state.showPegboard)
+  const setBeadPreview = usePerlerBeadStore((state) => state.setBeadPreview)
+  const setShowPegboard = usePerlerBeadStore((state) => state.setShowPegboard)
+  const renderBeads = mode === 'result' && beadPreview
+  const showOverlay = renderBeads ? showPegboard : showGridLines
+  const overlayLabel = renderBeads ? t('显示底板（钉板）') : t('显示网格线')
 
   // 渲染区域逻辑尺寸与原始比例
   const [viewportSize, setViewportSize] = useState<{
@@ -83,7 +92,7 @@ export function GridPreview({
 
   // 计算图片适应容器的基础宽高
   const { width: imgWidth, height: imgHeight } = image ? getSourceImageSize(image) : { width: 1, height: 1 }
-  const imgAspect = imgWidth / imgHeight
+  const imgAspect = renderBeads ? grid.columns / grid.rows : imgWidth / imgHeight
 
   // 容器宽高比与适应尺寸
   let baseDrawWidth = viewportSize.width - 24
@@ -130,6 +139,8 @@ export function GridPreview({
     if (mode === 'source') {
       // 绘制原始图像
       ctx.drawImage(image, drawX, drawY, drawW, drawH)
+    } else if (renderBeads && cells && cells.length > 0) {
+      renderBeadPreview(ctx, cells, grid, { x: drawX, y: drawY, width: drawW, height: drawH }, showPegboard)
     } else if (mode === 'result' && cells && cells.length > 0) {
       // 绘制拼豆结果色块
       const cols = grid.columns
@@ -166,7 +177,7 @@ export function GridPreview({
         : 0
 
     // 2. 绘制网格线
-    if (showGridLines && grid.columns > 0 && grid.rows > 0) {
+    if (!renderBeads && showGridLines && grid.columns > 0 && grid.rows > 0) {
       const cols = grid.columns
       const rows = grid.rows
 
@@ -266,6 +277,8 @@ export function GridPreview({
     zoom,
     offset,
     showGridLines,
+    renderBeads,
+    showPegboard,
     viewportSize,
     baseDrawWidth,
     baseDrawHeight,
@@ -365,7 +378,7 @@ export function GridPreview({
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900/60">
       {/* 头部标题与视图工具栏 */}
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-slate-200 px-3 dark:border-slate-800">
+      <div className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-y-1 border-b border-slate-200 px-3 py-1 dark:border-slate-800">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
             {title || (mode === 'source' ? t("原图与网格对齐") : t("拼豆效果预览"))}
@@ -376,15 +389,28 @@ export function GridPreview({
         </div>
 
         <div className="flex items-center gap-1">
-          <Tooltip title={showGridLines ? t("隐藏网格线") : t("显示网格线")}>
+          <Tooltip title={renderBeads ? (showPegboard ? t('隐藏底板（钉板）') : overlayLabel) : (showGridLines ? t('隐藏网格线') : overlayLabel)}>
             <Button
-              type={showGridLines ? 'primary' : 'text'}
-              ghost={showGridLines}
+              type={showOverlay ? 'primary' : 'text'}
+              ghost={showOverlay}
               size="small"
+              aria-label={overlayLabel}
+              aria-pressed={showOverlay}
               icon={<BorderOutlined />}
-              onClick={() => setShowGridLines((v) => !v)}
+              onClick={() => renderBeads ? setShowPegboard(!showPegboard) : setShowGridLines((v) => !v)}
             />
           </Tooltip>
+          {mode === 'result' && <Tooltip title={t('拼豆渲染')}>
+            <Button
+              type={beadPreview ? 'primary' : 'text'}
+              ghost={beadPreview}
+              size="small"
+              aria-label={t('拼豆渲染')}
+              aria-pressed={beadPreview}
+              icon={<span aria-hidden="true" className="text-lg leading-none">☉</span>}
+              onClick={() => setBeadPreview(!beadPreview)}
+            />
+          </Tooltip>}
 
           <Tooltip title={t("放大")}>
             <Button

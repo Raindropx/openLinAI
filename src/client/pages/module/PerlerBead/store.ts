@@ -25,6 +25,10 @@ interface PerlerBeadState {
   sourcePalette: readonly string[] | null
   beadConversion: BeadConversion | null
   beadConversionHistory: (BeadConversion | null)[]
+  beadPreview: boolean
+  showPegboard: boolean
+  setBeadPreview: (enabled: boolean) => void
+  setShowPegboard: (enabled: boolean) => void
   applyBeadConversion: (conversion: BeadConversion) => void
   undoBeadConversion: () => void
   commitEditedImage: (url: string, img: HTMLImageElement, data: ImageData, palette?: readonly string[] | null) => void
@@ -77,6 +81,10 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
   sourcePalette: null,
   beadConversion: null,
   beadConversionHistory: [],
+  beadPreview: false,
+  showPegboard: true,
+  setBeadPreview: (beadPreview) => set({ beadPreview }),
+  setShowPegboard: (showPegboard) => set({ showPegboard }),
 
   applyBeadConversion: (conversion) => {
     const state = get()

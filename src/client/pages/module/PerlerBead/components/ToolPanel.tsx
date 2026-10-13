@@ -27,6 +27,8 @@ import { BEAD_ALGORITHM_NAMES, BEAD_PALETTE_NAMES, getBeadStats } from '../beadP
 import type { BeadConversion, BeadMatchAlgorithm, BeadPaletteId, CellOverride, CellResult, ColorRule, GridSize } from '../types'
 import { getSourceImageSize, type SourceImage } from '../types'
 import { OffsetPad } from './OffsetPad'
+import { usePerlerBeadStore } from '../store'
+import { renderBeadPreview } from '../renderBeadPreview'
 
 interface ToolPanelProps {
   gridSize: GridSize
@@ -83,6 +85,7 @@ export function ToolPanel({
   const [lockAspect, setLockAspect] = useState(true)
   const [paletteId, setPaletteId] = useState<BeadPaletteId>(() => beadConversion?.paletteId ?? 'mard221')
   const [algorithm, setAlgorithm] = useState<BeadMatchAlgorithm>(() => beadConversion?.algorithm ?? 'oklab')
+  const showPegboard = usePerlerBeadStore((state) => state.showPegboard)
 
   // 原始图片宽高比
   const imgAspect = useMemo(() => {
@@ -185,6 +188,20 @@ export function ToolPanel({
         ? t("像素图_1to1_{0}x{1}.png", [cols, rows])
         : t("像素图_高清_{0}x{1}.png", [cols, rows])
     canvas.toBlob((blob) => { if (blob) saveAs(blob, filename) }, 'image/png')
+  }
+
+  const handleExportBeadPreview = () => {
+    if (exportDisabled || !cells?.length) return
+    const { columns, rows } = gridSize
+    // At least 16 px per bead keeps the opening clear even at the 200 x 200 limit.
+    const scale = Math.max(16, Math.floor(1200 / Math.max(columns, rows)))
+    const canvas = document.createElement('canvas')
+    canvas.width = columns * scale
+    canvas.height = rows * scale
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    renderBeadPreview(ctx, cells, gridSize, { x: 0, y: 0, width: canvas.width, height: canvas.height }, showPegboard)
+    canvas.toBlob((blob) => { if (blob) saveAs(blob, t('拼豆预览图_{0}x{1}.png', [columns, rows])) }, 'image/png')
   }
 
   // 导出豆子用量清单为 TXT
@@ -568,6 +585,11 @@ export function ToolPanel({
                     key: '1to1',
                     label: t("导出 1:1 原始像素图（无网格，1像素/格）"),
                     onClick: () => handleExportPNG('1to1'),
+                  },
+                  {
+                    key: 'bead-preview',
+                    label: t('导出拼豆预览图'),
+                    onClick: handleExportBeadPreview,
                   },
                 ],
               }}
