@@ -15,6 +15,7 @@ import {
   ColorPicker,
   Dropdown,
   InputNumber,
+  message,
   Popconfirm,
   Radio,
   Select,
@@ -29,6 +30,7 @@ import { getSourceImageSize, type SourceImage } from '../types'
 import { OffsetPad } from './OffsetPad'
 import { usePerlerBeadStore } from '../store'
 import { renderBeadPreview } from '../renderBeadPreview'
+import { createBeadPatternCanvas } from '../renderBeadPattern'
 
 interface ToolPanelProps {
   gridSize: GridSize
@@ -86,6 +88,7 @@ export function ToolPanel({
   const [paletteId, setPaletteId] = useState<BeadPaletteId>(() => beadConversion?.paletteId ?? 'mard221')
   const [algorithm, setAlgorithm] = useState<BeadMatchAlgorithm>(() => beadConversion?.algorithm ?? 'oklab')
   const showPegboard = usePerlerBeadStore((state) => state.showPegboard)
+  const [exportingPattern, setExportingPattern] = useState(false)
 
   // 原始图片宽高比
   const imgAspect = useMemo(() => {
@@ -204,6 +207,38 @@ export function ToolPanel({
     if (!ctx) return
     renderBeadPreview(ctx, cells, gridSize, { x: 0, y: 0, width: canvas.width, height: canvas.height }, showPegboard)
     canvas.toBlob((blob) => { if (blob) saveAs(blob, t('拼豆预览图_{0}x{1}.png', [columns, rows])) }, 'image/png')
+  }
+
+  const handleExportBeadPattern = () => {
+    if (exportDisabled || exportingPattern || !cells?.length) return
+    if (!beadConversion) {
+      message.info(t('请先转换为拼豆色号，再导出拼豆图纸'))
+      return
+    }
+    setExportingPattern(true)
+    let canvas: HTMLCanvasElement | undefined
+    const finish = () => {
+      // Release the large drawing buffer once the PNG has been encoded.
+      if (canvas) canvas.width = canvas.height = 0
+      setExportingPattern(false)
+    }
+    try {
+      canvas = createBeadPatternCanvas(cells, gridSize, beadConversion)
+      const filename = t('拼豆图纸_{0}_{1}x{2}.png', [BEAD_PALETTE_NAMES[beadConversion.paletteId], gridSize.columns, gridSize.rows])
+      canvas.toBlob((blob) => {
+        try {
+          if (blob) saveAs(blob, filename)
+          else message.error(t('拼豆图纸导出失败，请重试'))
+        } catch {
+          message.error(t('拼豆图纸导出失败，请重试'))
+        } finally {
+          finish()
+        }
+      }, 'image/png')
+    } catch {
+      finish()
+      message.error(t('拼豆图纸导出失败，请重试'))
+    }
   }
 
   // 导出豆子用量清单为 TXT
@@ -581,6 +616,12 @@ export function ToolPanel({
               onClick={() => handleExportPNG('hd')}
               menu={{
                 items: [
+                  {
+                    key: 'bead-pattern',
+                    label: t('导出拼豆图纸'),
+                    disabled: exportingPattern,
+                    onClick: handleExportBeadPattern,
+                  },
                   {
                     key: 'hd',
                     label: t("导出高清像素图（无网格）"),
