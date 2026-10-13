@@ -32,8 +32,12 @@ export function GPTImageQuota({
     selectedEndpoint.type === 'yunwu' ||
     selectedEndpoint.type === 'openrouter' ||
     selectedEndpoint.type === 'venice' ||
-    (selectedEndpoint.type === 'custom' && selectedEndpoint.balanceEnabled)
+    (selectedEndpoint.type === 'custom' && selectedEndpoint.balanceEnabled) ||
+    (selectedEndpoint.type === 'laozhang' &&
+      selectedEndpoint.balanceEnabled &&
+      selectedEndpoint.balanceAccessTokenConfigured)
   const isOpenRouter = selectedEndpoint.type === 'openrouter'
+  const isLaoZhang = selectedEndpoint.type === 'laozhang'
   const isNewApi = selectedEndpoint.type === 'yunwu'
   const isVenice = selectedEndpoint.type === 'venice'
   const endpointName =
@@ -98,7 +102,7 @@ export function GPTImageQuota({
                         ]
                           .filter(Boolean)
                           .join(' / ')
-                      : isOpenRouter
+                      : isOpenRouter || isLaoZhang
                         ? `$${quota.total_available.toFixed(2)}`
                         : isNewApi
                           ? `$${(
