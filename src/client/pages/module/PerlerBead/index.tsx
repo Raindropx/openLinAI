@@ -39,7 +39,9 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
     globalRule,
     cellOverrides,
     transparentColorKeys,
+    transparentCellOverrides,
     toggleTransparentColor,
+    toggleTransparentRegion,
     selectedCell,
     setImage,
     setGridSize,
@@ -224,7 +226,7 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
     message.error(t('色号转换失败，请重试'))
   }, [undoBeadConversion])
   const { cells: matchedCells, converting } = useBeadCells(hexCells, beadConversion, handleConversionError)
-  const cells = useMemo(() => applyTransparentColors(matchedCells, transparentColorKeys, beadConversion), [matchedCells, transparentColorKeys, beadConversion])
+  const cells = useMemo(() => applyTransparentColors(matchedCells, transparentColorKeys, beadConversion, transparentCellOverrides), [matchedCells, transparentColorKeys, beadConversion, transparentCellOverrides])
 
   const presetColors = useMemo(() => {
     const counts = new Map<string, number>()
@@ -243,7 +245,12 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
 
   const handleToggleTransparency = () => {
     if (!selectedCellResult || loadingImage || converting || editingSource) return
-    toggleTransparentColor(getTransparencyKey(selectedCellResult, beadConversion))
+    toggleTransparentColor(getTransparencyKey(selectedCellResult, beadConversion), !selectedCellResult.transparent)
+  }
+
+  const handleToggleRegionTransparency = () => {
+    if (!cells || !selectedCell || loadingImage || converting || editingSource) return
+    toggleTransparentRegion(cells, selectedCell.row, selectedCell.column)
   }
 
   // 单格覆盖数量
@@ -351,6 +358,7 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
             onSelectCell={setSelectedCell}
             title={t("拼豆成品效果")}
             onToggleTransparency={handleToggleTransparency}
+            onToggleRegionTransparency={handleToggleRegionTransparency}
             transparencyDisabled={loadingImage || converting || !!editingSource}
           />
         </div>

@@ -1808,6 +1808,8 @@
   "导出拼豆预览图": "Export bead preview",
   "拼豆预览图_{0}x{1}.png": "Bead_preview_{0}x{1}.png",
   "还原所有同色号格子": "Restore all cells with this color code",
+  "油漆桶：还原相连的同色区域": "Paint bucket: restore the connected region of the same color",
+  "油漆桶：将相连的同色区域设为透明（不放豆）": "Paint bucket: make the connected region of the same color transparent (no beads)",
   "将所有同色号格子设为透明（不放豆）": "Make all cells with this color code transparent (no beads)",
   "透明（不放豆）": "Transparent (no bead)",
   "导出拼豆图纸": "Export bead pattern",

@@ -26,6 +26,7 @@ interface GridPreviewProps {
   title?: string
   actions?: React.ReactNode
   onToggleTransparency?: () => void
+  onToggleRegionTransparency?: () => void
   transparencyDisabled?: boolean
 }
 
@@ -41,6 +42,7 @@ export function GridPreview({
   title,
   actions,
   onToggleTransparency,
+  onToggleRegionTransparency,
   transparencyDisabled,
 }: GridPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -64,6 +66,7 @@ export function GridPreview({
   const overlayLabel = renderBeads ? t('显示底板（钉板）') : t('显示网格线')
   const selectedResult = selectedCell ? cells?.[selectedCell.row]?.[selectedCell.column] : undefined
   const transparencyLabel = selectedResult?.transparent ? t('还原所有同色号格子') : t('将所有同色号格子设为透明（不放豆）')
+  const regionTransparencyLabel = selectedResult?.transparent ? t('油漆桶：还原相连的同色区域') : t('油漆桶：将相连的同色区域设为透明（不放豆）')
 
   // 渲染区域逻辑尺寸与原始比例
   const [viewportSize, setViewportSize] = useState<{
@@ -414,6 +417,18 @@ export function GridPreview({
               disabled={transparencyDisabled || !selectedResult}
               icon={<ThunderboltOutlined />}
               onClick={onToggleTransparency}
+            />
+          </Tooltip>}
+          {mode === 'result' && onToggleRegionTransparency && <Tooltip title={regionTransparencyLabel}>
+            <Button
+              type={selectedResult?.transparent ? 'primary' : 'text'}
+              ghost={!!selectedResult?.transparent}
+              size="small"
+              aria-label={regionTransparencyLabel}
+              aria-pressed={!!selectedResult?.transparent}
+              disabled={transparencyDisabled || !selectedResult}
+              icon={<span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center rounded-[2px] border border-current"><ThunderboltOutlined className="text-[11px]" /></span>}
+              onClick={onToggleRegionTransparency}
             />
           </Tooltip>}
           <Tooltip title={renderBeads ? (showPegboard ? t('隐藏底板（钉板）') : overlayLabel) : (showGridLines ? t('隐藏网格线') : overlayLabel)}>

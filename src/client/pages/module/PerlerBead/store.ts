@@ -1,10 +1,12 @@
 import { t } from '../../../i18n'
 import { create } from 'zustand'
 import { getDefaultGridSize } from './processing'
+import { getConnectedColorRegion, getTransparencyKey, type TransparentCellOverrides } from './transparency'
 import type {
   BeadConversion,
   CellOverride,
   CellOverrideMap,
+  CellResult,
   ColorRule,
   GridSize,
 } from './types'
@@ -17,7 +19,9 @@ interface PerlerBeadState {
   globalRule: ColorRule
   cellOverrides: CellOverrideMap
   transparentColorKeys: string[]
-  toggleTransparentColor: (key: string) => void
+  transparentCellOverrides: TransparentCellOverrides
+  toggleTransparentColor: (key: string, transparent?: boolean) => void
+  toggleTransparentRegion: (cells: CellResult[][], row: number, column: number) => void
   selectedCell: { row: number; column: number } | null
   isDetecting: boolean
   loadingImage: boolean
@@ -75,11 +79,31 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
   globalRule: { type: 'dominant', offsetX: 0.5, offsetY: 0.5 },
   cellOverrides: {},
   transparentColorKeys: [],
-  toggleTransparentColor: (key) => set((state) => ({
-    transparentColorKeys: state.transparentColorKeys.includes(key)
-      ? state.transparentColorKeys.filter((entry) => entry !== key)
-      : [...state.transparentColorKeys, key],
-  })),
+  transparentCellOverrides: {},
+  toggleTransparentColor: (key, transparent) => set((state) => {
+    const hidden = transparent ?? !state.transparentColorKeys.includes(key)
+    const keys = state.transparentColorKeys.filter((entry) => entry !== key)
+    const overrides = { ...state.transparentCellOverrides }
+    delete overrides[key]
+    return { transparentColorKeys: hidden ? [...keys, key] : keys, transparentCellOverrides: overrides }
+  }),
+  toggleTransparentRegion: (cells, row, column) => set((state) => {
+    const selected = cells[row]?.[column]
+    if (!selected) return state
+    const key = getTransparencyKey(selected, state.beadConversion)
+    const overrides = { ...state.transparentCellOverrides[key] }
+    const hidden = !selected.transparent
+    const globallyHidden = state.transparentColorKeys.includes(key)
+    for (const cell of getConnectedColorRegion(cells, row, column, state.beadConversion)) {
+      const position = `${cell.row},${cell.column}`
+      if (hidden === globallyHidden) delete overrides[position]
+      else overrides[position] = hidden
+    }
+    const next = { ...state.transparentCellOverrides }
+    if (Object.keys(overrides).length) next[key] = overrides
+    else delete next[key]
+    return { transparentCellOverrides: next }
+  }),
   selectedCell: null,
   isDetecting: false,
   loadingImage: false,
@@ -125,6 +149,7 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
       selectedCell: null,
       cellOverrides: {},
       transparentColorKeys: [],
+      transparentCellOverrides: {},
       loadingImage: false,
       sourceHistory: [url],
       sourceHistoryIndex: 0,
@@ -151,7 +176,15 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
   },
 
   setGridSize: (size) => {
-    const { cellOverrides, selectedCell } = get()
+    const { cellOverrides, selectedCell, transparentCellOverrides } = get()
+    const nextTransparency: TransparentCellOverrides = {}
+    for (const [key, overrides] of Object.entries(transparentCellOverrides)) {
+      const remaining = Object.fromEntries(Object.entries(overrides).filter(([position]) => {
+        const [row, column] = position.split(',').map(Number)
+        return row < size.rows && column < size.columns
+      }))
+      if (Object.keys(remaining).length) nextTransparency[key] = remaining
+    }
     const nextOverrides: CellOverrideMap = {}
     for (const [key, val] of Object.entries(cellOverrides)) {
       const [rStr, cStr] = key.split(',')
@@ -173,6 +206,7 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
     set({
       gridSize: size,
       cellOverrides: nextOverrides,
+      transparentCellOverrides: nextTransparency,
       selectedCell: nextSelected,
     })
   },
@@ -209,6 +243,7 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
       globalRule: { type: 'dominant', offsetX: 0.5, offsetY: 0.5 },
       cellOverrides: {},
       transparentColorKeys: [],
+      transparentCellOverrides: {},
       selectedCell: null,
       isDetecting: false,
       loadingImage: false,
