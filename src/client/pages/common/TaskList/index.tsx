@@ -268,7 +268,7 @@ export function TaskList({
   const focusNewestTaskSignal = useGlobalStore(
     (state) => state.focusNewestTaskSignal,
   )
-  const lastFocusSignalRef = useRef(0)
+  const lastFocusSignalRef = useRef(focusNewestTaskSignal)
 
   const runTaskAction = async (
     summary: Task,
@@ -711,15 +711,25 @@ export function TaskList({
     if (page > 0 && page * pageSize >= filteredTasks.length) setPage(0)
   }, [filteredTasks.length, page, pageSize])
 
-  // 生成新任务后自动聚焦到最新任务（列表顶部，重置分页并滚动定位）
+  // 仅桌面工作台的独立任务栏自动定位；移动端共用页面滚动容器，
+  // 隐藏的任务栏也保持挂载，不能因生成信号打断参数或任务列表的浏览。
   useEffect(() => {
     if (focusNewestTaskSignal === lastFocusSignalRef.current) return
     lastFocusSignalRef.current = focusNewestTaskSignal
+    if (!panelMode || !window.matchMedia('(min-width: 1024px)').matches) return
     setPage(0)
-    requestAnimationFrame(() => {
+    if (
+      !virtualScrollElement ||
+      virtualScrollElement.matches('[data-mobile-scroll-root]') ||
+      virtualScrollElement === document.scrollingElement
+    ) {
+      return
+    }
+    const frame = requestAnimationFrame(() => {
       virtualScrollElement?.scrollTo({ top: 0, behavior: 'smooth' })
     })
-  }, [focusNewestTaskSignal, virtualScrollElement])
+    return () => cancelAnimationFrame(frame)
+  }, [focusNewestTaskSignal, panelMode, virtualScrollElement])
 
   const visibleTasks = filteredTasks.slice(
     page * pageSize,
