@@ -8,6 +8,7 @@ import { ImageSource } from './components/ImageSource'
 import { ToolPanel } from './components/ToolPanel'
 import { SourceImageActions } from './components/SourceImageActions'
 import { useBeadCells } from './useBeadCells'
+import { applyTransparentColors, getTransparencyKey } from './transparency'
 import {
   computeAllCells,
   createPaletteMatcher,
@@ -37,6 +38,8 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
     isDetecting,
     globalRule,
     cellOverrides,
+    transparentColorKeys,
+    toggleTransparentColor,
     selectedCell,
     setImage,
     setGridSize,
@@ -220,11 +223,13 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
     undoBeadConversion()
     message.error(t('色号转换失败，请重试'))
   }, [undoBeadConversion])
-  const { cells, converting } = useBeadCells(hexCells, beadConversion, handleConversionError)
+  const { cells: matchedCells, converting } = useBeadCells(hexCells, beadConversion, handleConversionError)
+  const cells = useMemo(() => applyTransparentColors(matchedCells, transparentColorKeys, beadConversion), [matchedCells, transparentColorKeys, beadConversion])
 
   const presetColors = useMemo(() => {
     const counts = new Map<string, number>()
     for (const row of cells ?? []) for (const cell of row) {
+      if (cell.transparent) continue
       counts.set(cell.color, (counts.get(cell.color) ?? 0) + 1)
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([color]) => color)
@@ -235,6 +240,11 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
     if (!cells || !selectedCell) return null
     return cells[selectedCell.row]?.[selectedCell.column] || null
   }, [cells, selectedCell])
+
+  const handleToggleTransparency = () => {
+    if (!selectedCellResult || loadingImage || converting || editingSource) return
+    toggleTransparentColor(getTransparencyKey(selectedCellResult, beadConversion))
+  }
 
   // 单格覆盖数量
   const modifiedCount = useMemo(() => {
@@ -291,7 +301,7 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
         )}
 
         {/* 左栏：原图与网格对齐 */}
-        <div className={`perler-preview ${editingSource ? 'perler-source-editing h-[420px]' : 'h-[320px]'} min-h-[300px] flex-1 overflow-hidden p-3 lg:h-auto lg:min-h-0`}>
+        <div className={`perler-preview ${editingSource ? 'perler-source-editing h-[420px]' : 'h-[320px]'} flex min-h-[300px] flex-1 flex-col overflow-hidden p-3 lg:h-auto lg:min-h-0`}>
           {editingSource ? <InlineImageEditor
             key={editingSource}
             src={editingSource}
@@ -331,7 +341,7 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
         </div>
 
         {/* 中栏：拼豆效果预览 */}
-        <div className="perler-preview perler-result h-[320px] min-h-[300px] flex-1 overflow-hidden border-t border-slate-200 p-3 lg:h-auto lg:min-h-0 lg:border-t-0 lg:border-l dark:border-slate-800">
+        <div className="perler-preview perler-result flex h-[320px] min-h-[300px] flex-1 flex-col overflow-hidden border-t border-slate-200 p-3 lg:h-auto lg:min-h-0 lg:border-t-0 lg:border-l dark:border-slate-800">
           <GridPreview
             mode="result"
             image={previewImage}
@@ -340,6 +350,8 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
             selectedCell={selectedCell}
             onSelectCell={setSelectedCell}
             title={t("拼豆成品效果")}
+            onToggleTransparency={handleToggleTransparency}
+            transparencyDisabled={loadingImage || converting || !!editingSource}
           />
         </div>
 

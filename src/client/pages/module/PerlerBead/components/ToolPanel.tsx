@@ -143,6 +143,7 @@ export function ToolPanel({
 
   // 统计全图豆子颜色用量
   const beadStats = useMemo(() => getBeadStats(cells), [cells])
+  const totalBeads = beadStats.reduce((sum, item) => sum + item.count, 0)
 
   // 按需精确分析当前选中格的颜色分布（仅在选中格时计算，不阻碍全图流畅性）
   const selectedCellSourceColors = useMemo(() => {
@@ -178,6 +179,7 @@ export function ToolPanel({
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const cell = cells[r]?.[c]
+        if (cell?.transparent) continue
         ctx.fillStyle = cell ? cell.color : '#FFFFFF'
         ctx.fillRect(c * scale, r * scale, scale, scale)
       }
@@ -206,8 +208,7 @@ export function ToolPanel({
 
   // 导出豆子用量清单为 TXT
   const handleExportStats = () => {
-    if (exportDisabled || beadStats.length === 0) return
-    const totalBeads = beadStats.reduce((sum, item) => sum + item.count, 0)
+    if (exportDisabled || !cells?.length) return
     let text = t("拼豆颜色用量清单\n")
     text += t("网格规格：{0} 列 × {1} 行（共 {2} 颗）\n", [gridSize.columns, gridSize.rows, totalBeads])
     text += t("颜色种类：共 {0} 种颜色\n", [beadStats.length])
@@ -377,7 +378,9 @@ export function ToolPanel({
               <div className="flex items-center gap-2">
                 <div
                   className="h-7 w-7 rounded-md border border-slate-300 shadow-2xs dark:border-slate-600"
-                  style={{ backgroundColor: selectedCellResult.color }}
+                  style={{ background: selectedCellResult.transparent
+                    ? 'linear-gradient(135deg, #D1D5DB 44%, #9CA3AF 44%, #9CA3AF 56%, #D1D5DB 56%)'
+                    : selectedCellResult.color }}
                 />
                 <div>
                   <div className="font-mono text-xs font-semibold">
@@ -385,7 +388,9 @@ export function ToolPanel({
                   </div>
                   {selectedCellResult.beadCode && <div className="font-mono text-[11px] text-slate-400">{selectedCellResult.color}</div>}
                   <div className="text-[11px] text-slate-400">
-                    {cellOverride?.color
+                    {selectedCellResult.transparent
+                      ? t('透明（不放豆）')
+                      : cellOverride?.color
                       ? t("已手动指定")
                       : cellOverride?.rule
                         ? t("已覆盖规则")
@@ -537,7 +542,7 @@ export function ToolPanel({
         title={<span className="text-sm font-semibold">{t("拼豆用量清单")}</span>}
         extra={
           <span className="text-xs text-slate-400">
-            {t("共")}{gridSize.columns * gridSize.rows} {t("颗")}</span>
+            {t("共")}{totalBeads} {t("颗")}</span>
         }
         className="shadow-2xs dark:border-slate-800 dark:bg-slate-900/60"
       >

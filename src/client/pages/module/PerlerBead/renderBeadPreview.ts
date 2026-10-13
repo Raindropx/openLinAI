@@ -134,7 +134,7 @@ export function renderBeadPreview(
   for (let row = 0; row < grid.rows; row++) {
     for (let col = 0; col < grid.columns; col++) {
       const cell = cells[row]?.[col]
-      if (!cell) continue
+      if (!cell || cell.transparent) continue
       ctx.drawImage(getBeadSprite(cell.color, spriteSize),
         x + (col + 0.5) * cellW - pitch / 2,
         y + (row + 0.5) * cellH - pitch / 2, pitch, pitch)

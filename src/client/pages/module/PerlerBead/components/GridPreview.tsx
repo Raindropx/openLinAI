@@ -1,6 +1,7 @@
 import { t } from '../../../../i18n'
 import {
   BorderOutlined,
+  ThunderboltOutlined,
   FullscreenExitOutlined,
   OneToOneOutlined,
   ZoomInOutlined,
@@ -24,6 +25,8 @@ interface GridPreviewProps {
   onSelectCell: (cell: { row: number; column: number } | null) => void
   title?: string
   actions?: React.ReactNode
+  onToggleTransparency?: () => void
+  transparencyDisabled?: boolean
 }
 
 export function GridPreview({
@@ -37,6 +40,8 @@ export function GridPreview({
   onSelectCell,
   title,
   actions,
+  onToggleTransparency,
+  transparencyDisabled,
 }: GridPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -57,6 +62,8 @@ export function GridPreview({
   const renderBeads = mode === 'result' && beadPreview
   const showOverlay = renderBeads ? showPegboard : showGridLines
   const overlayLabel = renderBeads ? t('显示底板（钉板）') : t('显示网格线')
+  const selectedResult = selectedCell ? cells?.[selectedCell.row]?.[selectedCell.column] : undefined
+  const transparencyLabel = selectedResult?.transparent ? t('还原所有同色号格子') : t('将所有同色号格子设为透明（不放豆）')
 
   // 渲染区域逻辑尺寸与原始比例
   const [viewportSize, setViewportSize] = useState<{
@@ -157,9 +164,17 @@ export function GridPreview({
           const cw = nextX - cellX
 
           const cell = cells[r]?.[c]
-          ctx.fillStyle = cell ? cell.color : '#FFFFFF'
+          ctx.fillStyle = cell?.transparent ? '#D1D5DB' : cell ? cell.color : '#FFFFFF'
           // 填充矩形，多填 0.3 像素避免浮点缝隙
           ctx.fillRect(cellX, cellY, cw + 0.3, ch + 0.3)
+          if (cell?.transparent) {
+            ctx.strokeStyle = '#9CA3AF'
+            ctx.lineWidth = Math.max(0.5, Math.min(2, Math.min(cw, ch) / 8))
+            ctx.beginPath()
+            ctx.moveTo(cellX + cw * 0.15, cellY + ch * 0.85)
+            ctx.lineTo(cellX + cw * 0.85, cellY + ch * 0.15)
+            ctx.stroke()
+          }
         }
       }
     }
@@ -376,7 +391,7 @@ export function GridPreview({
   }
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900/60">
+    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900/60">
       {/* 头部标题与视图工具栏 */}
       <div className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-y-1 border-b border-slate-200 px-3 py-1 dark:border-slate-800">
         <div className="flex items-center gap-2">
@@ -389,6 +404,18 @@ export function GridPreview({
         </div>
 
         <div className="flex items-center gap-1">
+          {mode === 'result' && onToggleTransparency && <Tooltip title={transparencyLabel}>
+            <Button
+              type={selectedResult?.transparent ? 'primary' : 'text'}
+              ghost={!!selectedResult?.transparent}
+              size="small"
+              aria-label={transparencyLabel}
+              aria-pressed={!!selectedResult?.transparent}
+              disabled={transparencyDisabled || !selectedResult}
+              icon={<ThunderboltOutlined />}
+              onClick={onToggleTransparency}
+            />
+          </Tooltip>}
           <Tooltip title={renderBeads ? (showPegboard ? t('隐藏底板（钉板）') : overlayLabel) : (showGridLines ? t('隐藏网格线') : overlayLabel)}>
             <Button
               type={showOverlay ? 'primary' : 'text'}

@@ -30,6 +30,7 @@ export interface CellResult {
   column: number
   color: string
   beadCode?: string
+  transparent?: boolean
   sourceColors: CellColor[]
 }
 

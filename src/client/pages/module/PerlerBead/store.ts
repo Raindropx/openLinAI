@@ -16,6 +16,8 @@ interface PerlerBeadState {
   gridSize: GridSize
   globalRule: ColorRule
   cellOverrides: CellOverrideMap
+  transparentColorKeys: string[]
+  toggleTransparentColor: (key: string) => void
   selectedCell: { row: number; column: number } | null
   isDetecting: boolean
   loadingImage: boolean
@@ -72,6 +74,12 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
   gridSize: { columns: 50, rows: 50 },
   globalRule: { type: 'dominant', offsetX: 0.5, offsetY: 0.5 },
   cellOverrides: {},
+  transparentColorKeys: [],
+  toggleTransparentColor: (key) => set((state) => ({
+    transparentColorKeys: state.transparentColorKeys.includes(key)
+      ? state.transparentColorKeys.filter((entry) => entry !== key)
+      : [...state.transparentColorKeys, key],
+  })),
   selectedCell: null,
   isDetecting: false,
   loadingImage: false,
@@ -116,6 +124,7 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
       gridSize: initialGrid,
       selectedCell: null,
       cellOverrides: {},
+      transparentColorKeys: [],
       loadingImage: false,
       sourceHistory: [url],
       sourceHistoryIndex: 0,
@@ -199,6 +208,7 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
       gridSize: { columns: 50, rows: 50 },
       globalRule: { type: 'dominant', offsetX: 0.5, offsetY: 0.5 },
       cellOverrides: {},
+      transparentColorKeys: [],
       selectedCell: null,
       isDetecting: false,
       loadingImage: false,

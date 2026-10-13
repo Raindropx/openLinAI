@@ -95,6 +95,7 @@ export function convertBeadCells(cells: CellResult[][] | null, conversion: BeadC
 export function getBeadStats(cells: CellResult[][] | null) {
   const quantities = new Map<string, { color: string; code: string; count: number }>()
   for (const row of cells ?? []) for (const cell of row) {
+    if (cell.transparent) continue
     const code = cell.beadCode ?? cell.color
     const entry = quantities.get(code)
     if (entry) entry.count++
