@@ -31,6 +31,7 @@ import { OffsetPad } from './OffsetPad'
 import { usePerlerBeadStore } from '../store'
 import { renderBeadPreview } from '../renderBeadPreview'
 import { createBeadPatternCanvas } from '../renderBeadPattern'
+import { createPerlerExportFilename } from '../exportFilename'
 
 interface ToolPanelProps {
   gridSize: GridSize
@@ -188,10 +189,11 @@ export function ToolPanel({
       }
     }
 
-    const filename =
+    const filename = createPerlerExportFilename(
       scaleType === '1to1'
         ? t("像素图_1to1_{0}x{1}.png", [cols, rows])
         : t("像素图_高清_{0}x{1}.png", [cols, rows])
+    )
     canvas.toBlob((blob) => { if (blob) saveAs(blob, filename) }, 'image/png')
   }
 
@@ -206,7 +208,8 @@ export function ToolPanel({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     renderBeadPreview(ctx, cells, gridSize, { x: 0, y: 0, width: canvas.width, height: canvas.height }, showPegboard)
-    canvas.toBlob((blob) => { if (blob) saveAs(blob, t('拼豆预览图_{0}x{1}.png', [columns, rows])) }, 'image/png')
+    const filename = createPerlerExportFilename(t('拼豆预览图_{0}x{1}.png', [columns, rows]))
+    canvas.toBlob((blob) => { if (blob) saveAs(blob, filename) }, 'image/png')
   }
 
   const handleExportBeadPattern = () => {
@@ -224,7 +227,7 @@ export function ToolPanel({
     }
     try {
       canvas = createBeadPatternCanvas(cells, gridSize, beadConversion)
-      const filename = t('拼豆图纸_{0}_{1}x{2}.png', [BEAD_PALETTE_NAMES[beadConversion.paletteId], gridSize.columns, gridSize.rows])
+      const filename = createPerlerExportFilename(t('拼豆图纸_{0}_{1}x{2}.png', [BEAD_PALETTE_NAMES[beadConversion.paletteId], gridSize.columns, gridSize.rows]))
       canvas.toBlob((blob) => {
         try {
           if (blob) saveAs(blob, filename)
@@ -257,7 +260,7 @@ export function ToolPanel({
     })
 
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
-    saveAs(blob, t("拼豆用量清单_{0}x{1}.txt", [gridSize.columns, gridSize.rows]))
+    saveAs(blob, createPerlerExportFilename(t("拼豆用量清单_{0}x{1}.txt", [gridSize.columns, gridSize.rows])))
   }
 
   return (
