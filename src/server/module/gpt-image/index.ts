@@ -197,9 +197,10 @@ function getInputImageMimeType(filePath: string): string {
   }
 }
 
-/** GPT Image 2 画质优化指令，保留英文原文以避免翻译改变模型行为。 */
+/** GPT Image 2 画质优化指令，按界面语言注入，保留既有英文原文。 */
 const GPT2_QUALITY_OPTIMIZATION_PROMPT =
   'Favor clean, continuous large forms; merge unnecessary micro-textures, tiny highlights, and small surface details into simpler shapes with low visual noise.'
+const GPT2_QUALITY_OPTIMIZATION_PROMPT_ZH = '整合细碎的细节为更干净的面。'
 
 function endsWithPromptPunctuation(prompt: string) {
   return /[,，。.]/u.test(prompt.slice(-1))
@@ -231,7 +232,12 @@ export function buildPromptWithAspectRatio(template: TaskTemplate): string {
         : appendAspectRatioInstruction(prompt, ratio)
   }
   if (template.gpt2QualityOptimization) {
-    prompt = appendPromptInstruction(prompt, GPT2_QUALITY_OPTIMIZATION_PROMPT)
+    prompt = appendPromptInstruction(
+      prompt,
+      template.generationLanguage === 'en-US'
+        ? GPT2_QUALITY_OPTIMIZATION_PROMPT
+        : GPT2_QUALITY_OPTIMIZATION_PROMPT_ZH,
+    )
   }
   return prompt
 }
