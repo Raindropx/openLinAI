@@ -6,6 +6,7 @@ import {
   LockOutlined,
   RedoOutlined,
   ScanOutlined,
+  UndoOutlined,
   UnlockOutlined,
 } from '@ant-design/icons'
 import {
@@ -16,12 +17,14 @@ import {
   InputNumber,
   Popconfirm,
   Radio,
+  Select,
   Tag,
   Tooltip,
 } from 'antd'
 import { useMemo, useState } from 'react'
 import { analyzeSelectedCellDetails } from '../processing'
-import type { CellOverride, CellResult, ColorRule, GridSize } from '../types'
+import { BEAD_ALGORITHM_NAMES, BEAD_PALETTE_NAMES, getBeadStats } from '../beadPalette'
+import type { BeadConversion, BeadMatchAlgorithm, BeadPaletteId, CellOverride, CellResult, ColorRule, GridSize } from '../types'
 import { getSourceImageSize, type SourceImage } from '../types'
 import { OffsetPad } from './OffsetPad'
 
@@ -36,6 +39,12 @@ interface ToolPanelProps {
   imageData: ImageData | null
   modifiedCount: number
   isDetecting: boolean
+  beadConversion: BeadConversion | null
+  canUndoBeadConversion: boolean
+  conversionDisabled: boolean
+  exportDisabled: boolean
+  onBeadConvert: (conversion: BeadConversion) => void
+  onBeadUndo: () => void
   onGridSizeChange: (size: GridSize) => void
   onRuleChange: (rule: ColorRule) => void
   onCellOverride: (
@@ -58,6 +67,12 @@ export function ToolPanel({
   imageData,
   modifiedCount,
   isDetecting,
+  beadConversion,
+  canUndoBeadConversion,
+  conversionDisabled,
+  exportDisabled,
+  onBeadConvert,
+  onBeadUndo,
   onGridSizeChange,
   onRuleChange,
   onCellOverride,
@@ -66,6 +81,8 @@ export function ToolPanel({
 }: ToolPanelProps) {
   // 默认锁定原图宽高比
   const [lockAspect, setLockAspect] = useState(true)
+  const [paletteId, setPaletteId] = useState<BeadPaletteId>(() => beadConversion?.paletteId ?? 'mard221')
+  const [algorithm, setAlgorithm] = useState<BeadMatchAlgorithm>(() => beadConversion?.algorithm ?? 'oklab')
 
   // 原始图片宽高比
   const imgAspect = useMemo(() => {
@@ -122,21 +139,7 @@ export function ToolPanel({
   }
 
   // 统计全图豆子颜色用量
-  const beadStats = useMemo(() => {
-    if (!cells || cells.length === 0) return []
-    const map = new Map<string, number>()
-    for (const row of cells) {
-      for (const cell of row) {
-        map.set(cell.color, (map.get(cell.color) || 0) + 1)
-      }
-    }
-    const list = Array.from(map.entries()).map(([color, count]) => ({
-      color,
-      count,
-    }))
-    list.sort((a, b) => b.count - a.count)
-    return list
-  }, [cells])
+  const beadStats = useMemo(() => getBeadStats(cells), [cells])
 
   // 按需精确分析当前选中格的颜色分布（仅在选中格时计算，不阻碍全图流畅性）
   const selectedCellSourceColors = useMemo(() => {
@@ -152,7 +155,7 @@ export function ToolPanel({
 
   // 导出完美像素图为 PNG（无网格线，纯净点阵图）
   const handleExportPNG = (scaleType: 'hd' | '1to1' = 'hd') => {
-    if (!cells || cells.length === 0) return
+    if (exportDisabled || !cells || cells.length === 0) return
     const cols = gridSize.columns
     const rows = gridSize.rows
     const scale =
@@ -186,15 +189,18 @@ export function ToolPanel({
 
   // 导出豆子用量清单为 TXT
   const handleExportStats = () => {
-    if (beadStats.length === 0) return
+    if (exportDisabled || beadStats.length === 0) return
     const totalBeads = beadStats.reduce((sum, item) => sum + item.count, 0)
     let text = t("拼豆颜色用量清单\n")
     text += t("网格规格：{0} 列 × {1} 行（共 {2} 颗）\n", [gridSize.columns, gridSize.rows, totalBeads])
     text += t("颜色种类：共 {0} 种颜色\n", [beadStats.length])
+    text += t('调色板：{0}\n', [beadConversion ? `${t(BEAD_PALETTE_NAMES[beadConversion.paletteId])} / ${BEAD_ALGORITHM_NAMES[beadConversion.algorithm]}` : 'HEX'])
     text += `----------------------------------------\n`
     beadStats.forEach((item, idx) => {
       const pct = ((item.count / totalBeads) * 100).toFixed(1)
-      text += t("{0}. 色号 {1} : {2} 颗 ({3}%)\n", [idx + 1, item.color, item.count, pct])
+      text += beadConversion
+        ? t("{0}. 色号 {1} : {2} 颗 ({3}%)\n", [idx + 1, item.code, item.count, pct])
+        : t('{0}. HEX {1} : {2} 颗 ({3}%)\n', [idx + 1, item.color, item.count, pct])
     })
 
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
@@ -358,8 +364,9 @@ export function ToolPanel({
                 />
                 <div>
                   <div className="font-mono text-xs font-semibold">
-                    {selectedCellResult.color}
+                    {selectedCellResult.beadCode ?? selectedCellResult.color}
                   </div>
+                  {selectedCellResult.beadCode && <div className="font-mono text-[11px] text-slate-400">{selectedCellResult.color}</div>}
                   <div className="text-[11px] text-slate-400">
                     {cellOverride?.color
                       ? t("已手动指定")
@@ -477,6 +484,37 @@ export function ToolPanel({
       )}
 
       {/* 5. 豆子用量统计与导出 */}
+      <div className="perler-bead-conversion space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-xs text-slate-500">{t('匹配算法')}</span>
+          <Select<BeadMatchAlgorithm>
+            size="small" value={algorithm} onChange={setAlgorithm}
+            aria-label={t('匹配算法')} disabled={conversionDisabled}
+            className="min-w-0 flex-1"
+            options={[
+              { value: 'oklab', label: 'OKLab' },
+              { value: 'ciede2000', label: 'CIEDE2000' },
+              { value: 'rgb', label: t('RGB 距离') },
+            ]}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Select<BeadPaletteId>
+            size="small" value={paletteId} onChange={setPaletteId}
+            aria-label={t('拼豆版本')} disabled={conversionDisabled}
+            className="min-w-0 flex-1"
+            options={Object.entries(BEAD_PALETTE_NAMES).map(([value, label]) => ({ value, label: t(label) }))}
+          />
+          <Button size="small" type="primary" className="shrink-0" aria-label={t('转换为拼豆色号')}
+            disabled={conversionDisabled || !cells?.length || (beadConversion?.paletteId === paletteId && beadConversion.algorithm === algorithm)}
+            onClick={() => onBeadConvert({ paletteId, algorithm })}>{t('转换')}</Button>
+          <Button size="small" className="shrink-0" icon={<UndoOutlined />} aria-label={t('撤销色号转换')}
+            disabled={conversionDisabled || !canUndoBeadConversion} onClick={onBeadUndo}>{t('撤销')}</Button>
+        </div>
+        <div className="text-xs text-slate-500" aria-live="polite">
+          {t('当前调色板：{0}', [beadConversion ? `${t(BEAD_PALETTE_NAMES[beadConversion.paletteId])} / ${BEAD_ALGORITHM_NAMES[beadConversion.algorithm]}` : 'HEX'])}
+        </div>
+      </div>
       <Card
         size="small"
         title={<span className="text-sm font-semibold">{t("拼豆用量清单")}</span>}
@@ -490,7 +528,7 @@ export function ToolPanel({
           <div className="max-h-36 space-y-1 overflow-y-auto pr-1">
             {beadStats.slice(0, 12).map((item) => (
               <div
-                key={item.color}
+                key={item.code}
                 className="flex items-center justify-between text-xs"
               >
                 <div className="flex items-center gap-2">
@@ -498,8 +536,8 @@ export function ToolPanel({
                     className="h-3.5 w-3.5 rounded border border-black/10"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="font-mono text-slate-600 dark:text-slate-300">
-                    {item.color}
+                  <span className="font-mono text-slate-600 dark:text-slate-300" title={item.color}>
+                    {item.code}
                   </span>
                 </div>
                 <span className="font-medium text-slate-500">
@@ -514,6 +552,7 @@ export function ToolPanel({
 
           <div className="flex gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
             <Dropdown.Button
+              disabled={exportDisabled}
               type="primary"
               size="small"
               icon={<DownloadOutlined />}
@@ -535,7 +574,7 @@ export function ToolPanel({
               className="flex-1"
             >
               {t("导出像素图")}</Dropdown.Button>
-            <Button size="small" onClick={handleExportStats} className="flex-1">
+            <Button size="small" disabled={exportDisabled} onClick={handleExportStats} className="flex-1">
               {t("导出用量清单")}</Button>
           </div>
         </div>

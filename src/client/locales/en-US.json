@@ -1787,5 +1787,19 @@
   "处理当前图片，保留尺寸和透明度；应用后可撤销，也可恢复刚载入的原图。": "Processes the current image and preserves its dimensions and alpha. You can undo the result or restore the image as loaded.",
   "拼豆预览、用量清单和导出沿用减色后的调色板，缩放、透明边缘和单格取色不会增加颜色。": "The bead preview, quantities and exports use the reduced palette. Resizing, transparent edges and cell sampling cannot add colors.",
   "减少颜色失败，请重试": "Could not reduce colors. Please try again.",
-  "颜色数量：{0} → {1}": "Colors: {0} → {1}"
+  "颜色数量：{0} → {1}": "Colors: {0} → {1}",
+  "匹配算法": "Match algorithm",
+  "RGB 距离": "RGB distance",
+  "拼豆版本": "Bead palette",
+  "转换为拼豆色号": "Convert to bead codes",
+  "转换": "Convert",
+  "撤销色号转换": "Undo bead conversion",
+  "当前调色板：{0}": "Current palette: {0}",
+  "调色板：{0}\n": "Palette: {0}\n",
+  "{0}. HEX {1} : {2} 颗 ({3}%)\n": "{0}. HEX {1}: {2} beads ({3}%)\n",
+  "色号转换失败，请重试": "Could not convert bead colors. Please try again.",
+  "正在匹配拼豆色号…": "Matching bead colors…",
+  "漫漫 278": "Manman 278",
+  "盼盼 285": "Panpan 285",
+  "咪小窝 286": "Mixiaowo 286"
 }

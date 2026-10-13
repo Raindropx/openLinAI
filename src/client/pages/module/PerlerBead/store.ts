@@ -2,6 +2,7 @@ import { t } from '../../../i18n'
 import { create } from 'zustand'
 import { getDefaultGridSize } from './processing'
 import type {
+  BeadConversion,
   CellOverride,
   CellOverrideMap,
   ColorRule,
@@ -22,6 +23,10 @@ interface PerlerBeadState {
   sourceHistoryIndex: number
   originalSource: { url: string; image: HTMLImageElement; data: ImageData } | null
   sourcePalette: readonly string[] | null
+  beadConversion: BeadConversion | null
+  beadConversionHistory: (BeadConversion | null)[]
+  applyBeadConversion: (conversion: BeadConversion) => void
+  undoBeadConversion: () => void
   commitEditedImage: (url: string, img: HTMLImageElement, data: ImageData, palette?: readonly string[] | null) => void
   restoreSourceImage: (index: number, img: HTMLImageElement, data: ImageData) => void
 
@@ -70,6 +75,20 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
   sourceHistoryIndex: -1,
   originalSource: null,
   sourcePalette: null,
+  beadConversion: null,
+  beadConversionHistory: [],
+
+  applyBeadConversion: (conversion) => {
+    const state = get()
+    if (!state.imageData || state.loadingImage) return
+    if (state.beadConversion?.paletteId === conversion.paletteId && state.beadConversion.algorithm === conversion.algorithm) return
+    set({ beadConversion: { ...conversion }, beadConversionHistory: [...state.beadConversionHistory, state.beadConversion] })
+  },
+  undoBeadConversion: () => {
+    const { beadConversionHistory } = get()
+    if (!beadConversionHistory.length) return
+    set({ beadConversion: beadConversionHistory[beadConversionHistory.length - 1], beadConversionHistory: beadConversionHistory.slice(0, -1) })
+  },
 
   setImage: (url, img, data, detectedGrid) => {
     releaseSources([...get().sourceHistory, get().originalSource?.url ?? ''], [url])
@@ -94,6 +113,8 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
       sourceHistoryIndex: 0,
       originalSource: { url, image: img, data },
       sourcePalette: null,
+      beadConversion: null,
+      beadConversionHistory: [],
     })
   },
 
@@ -177,6 +198,8 @@ export const usePerlerBeadStore = create<PerlerBeadState>((set, get) => ({
       sourceHistoryIndex: -1,
       originalSource: null,
       sourcePalette: null,
+      beadConversion: null,
+      beadConversionHistory: [],
     })
   },
 }))

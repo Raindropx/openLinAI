@@ -7,6 +7,7 @@ import { GridPreview } from './components/GridPreview'
 import { ImageSource } from './components/ImageSource'
 import { ToolPanel } from './components/ToolPanel'
 import { SourceImageActions } from './components/SourceImageActions'
+import { useBeadCells } from './useBeadCells'
 import {
   computeAllCells,
   createPaletteMatcher,
@@ -52,6 +53,10 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
     restoreSourceImage,
     originalSource,
     sourcePalette,
+    beadConversion,
+    beadConversionHistory,
+    applyBeadConversion,
+    undoBeadConversion,
   } = usePerlerBeadStore()
 
   // 处理图片选择与自动网格识别
@@ -207,10 +212,15 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
   }, [clearAllOverrides])
 
   // 高性能计算拼豆处理结果（带缓存）
-  const cells: CellResult[][] | null = useMemo(() => {
+  const hexCells: CellResult[][] | null = useMemo(() => {
     if (!previewData) return null
     return computeAllCells(previewData, gridSize, globalRule, cellOverrides, previewPalette)
   }, [previewData, gridSize, globalRule, cellOverrides, previewPalette])
+  const handleConversionError = useCallback(() => {
+    undoBeadConversion()
+    message.error(t('色号转换失败，请重试'))
+  }, [undoBeadConversion])
+  const { cells, converting } = useBeadCells(hexCells, beadConversion, handleConversionError)
 
   const presetColors = useMemo(() => {
     const counts = new Map<string, number>()
@@ -274,9 +284,9 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
 
       {/* 主体三栏工作区 */}
       <div className="perler-body perler-content relative flex flex-1 flex-col lg:min-h-0 lg:overflow-hidden lg:flex-row">
-        {loadingImage && (
+        {(loadingImage || converting) && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-xs dark:bg-slate-950/70">
-            <Spin tip={t("正在处理图片与分析网格...")} />
+            <Spin tip={converting ? t('正在匹配拼豆色号…') : t("正在处理图片与分析网格...")} />
           </div>
         )}
 
@@ -346,6 +356,12 @@ export function PerlerBead({ incomingImage, toolbarExtra }: {
             imageData={previewData}
             modifiedCount={modifiedCount}
             isDetecting={isDetecting}
+            beadConversion={beadConversion}
+            canUndoBeadConversion={beadConversionHistory.length > 0}
+            conversionDisabled={loadingImage || converting || !!editingSource}
+            exportDisabled={loadingImage || converting}
+            onBeadConvert={applyBeadConversion}
+            onBeadUndo={undoBeadConversion}
             onGridSizeChange={setGridSize}
             onRuleChange={setGlobalRule}
             onCellOverride={handleCellOverride}

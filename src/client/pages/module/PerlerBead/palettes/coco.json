@@ -1,0 +1,1166 @@
+[
+  {
+    "code": "A01",
+    "hex": "#FFFFFF"
+  },
+  {
+    "code": "A02",
+    "hex": "#FEFCFF"
+  },
+  {
+    "code": "A03",
+    "hex": "#FFFDF7"
+  },
+  {
+    "code": "A04",
+    "hex": "#FFFCEE"
+  },
+  {
+    "code": "A05",
+    "hex": "#FFFBEE"
+  },
+  {
+    "code": "A06",
+    "hex": "#F1EADC"
+  },
+  {
+    "code": "A07",
+    "hex": "#FCFCF9"
+  },
+  {
+    "code": "A08",
+    "hex": "#EFF0EB"
+  },
+  {
+    "code": "A09",
+    "hex": "#FFF7FF"
+  },
+  {
+    "code": "A10",
+    "hex": "#F4F9FF"
+  },
+  {
+    "code": "A11",
+    "hex": "#FFFDF7"
+  },
+  {
+    "code": "A12",
+    "hex": "#F3F5F1"
+  },
+  {
+    "code": "B01",
+    "hex": "#D3DDDE"
+  },
+  {
+    "code": "B02",
+    "hex": "#D6E8EB"
+  },
+  {
+    "code": "B03",
+    "hex": "#AFBBBD"
+  },
+  {
+    "code": "B04",
+    "hex": "#A7BDC4"
+  },
+  {
+    "code": "B05",
+    "hex": "#7F8A8A"
+  },
+  {
+    "code": "B06",
+    "hex": "#5D6163"
+  },
+  {
+    "code": "B07",
+    "hex": "#3A3E40"
+  },
+  {
+    "code": "B08",
+    "hex": "#2B2B2B"
+  },
+  {
+    "code": "B09",
+    "hex": "#000000"
+  },
+  {
+    "code": "B10",
+    "hex": "#C3D1CE"
+  },
+  {
+    "code": "B11",
+    "hex": "#DCE0C8"
+  },
+  {
+    "code": "C01",
+    "hex": "#FF6C71"
+  },
+  {
+    "code": "C02",
+    "hex": "#FF6F60"
+  },
+  {
+    "code": "C03",
+    "hex": "#FF6464"
+  },
+  {
+    "code": "C04",
+    "hex": "#F66B4E"
+  },
+  {
+    "code": "C05",
+    "hex": "#FF8046"
+  },
+  {
+    "code": "C06",
+    "hex": "#F0393B"
+  },
+  {
+    "code": "C07",
+    "hex": "#E03638"
+  },
+  {
+    "code": "C08",
+    "hex": "#CC3133"
+  },
+  {
+    "code": "C09",
+    "hex": "#B82D2D"
+  },
+  {
+    "code": "C10",
+    "hex": "#783644"
+  },
+  {
+    "code": "D1",
+    "hex": "#FFDD94"
+  },
+  {
+    "code": "D2",
+    "hex": "#FFD3A1"
+  },
+  {
+    "code": "D3",
+    "hex": "#FFD64F"
+  },
+  {
+    "code": "D4",
+    "hex": "#FFC31F"
+  },
+  {
+    "code": "D5",
+    "hex": "#FFBA30"
+  },
+  {
+    "code": "D6",
+    "hex": "#FFAE82"
+  },
+  {
+    "code": "D7",
+    "hex": "#FF985C"
+  },
+  {
+    "code": "D8",
+    "hex": "#F28D51"
+  },
+  {
+    "code": "E01",
+    "hex": "#FFFFD5"
+  },
+  {
+    "code": "E02",
+    "hex": "#FFF7D2"
+  },
+  {
+    "code": "E03",
+    "hex": "#FFFFB3"
+  },
+  {
+    "code": "E04",
+    "hex": "#FFFA6A"
+  },
+  {
+    "code": "E05",
+    "hex": "#FFFF9B"
+  },
+  {
+    "code": "E06",
+    "hex": "#FFDA7C"
+  },
+  {
+    "code": "E07",
+    "hex": "#FFEB41"
+  },
+  {
+    "code": "E08",
+    "hex": "#FCCF3E"
+  },
+  {
+    "code": "E09",
+    "hex": "#FFC845"
+  },
+  {
+    "code": "E10",
+    "hex": "#FFDF91"
+  },
+  {
+    "code": "E11",
+    "hex": "#FFF3A2"
+  },
+  {
+    "code": "E12",
+    "hex": "#FFDFBA"
+  },
+  {
+    "code": "E13",
+    "hex": "#FFFFD0"
+  },
+  {
+    "code": "E14",
+    "hex": "#FFDD78"
+  },
+  {
+    "code": "E15",
+    "hex": "#FCBA49"
+  },
+  {
+    "code": "F01",
+    "hex": "#F1FFC2"
+  },
+  {
+    "code": "F02",
+    "hex": "#E3FC9A"
+  },
+  {
+    "code": "F03",
+    "hex": "#D2FCAE"
+  },
+  {
+    "code": "F04",
+    "hex": "#97F5A9"
+  },
+  {
+    "code": "F05",
+    "hex": "#E7F247"
+  },
+  {
+    "code": "F06",
+    "hex": "#C5E848"
+  },
+  {
+    "code": "F07",
+    "hex": "#F7FA46"
+  },
+  {
+    "code": "F08",
+    "hex": "#8ECF53"
+  },
+  {
+    "code": "F09",
+    "hex": "#6FEB67"
+  },
+  {
+    "code": "F10",
+    "hex": "#65C964"
+  },
+  {
+    "code": "F11",
+    "hex": "#3D8C57"
+  },
+  {
+    "code": "F12",
+    "hex": "#1D734E"
+  },
+  {
+    "code": "F13",
+    "hex": "#8FA335"
+  },
+  {
+    "code": "F14",
+    "hex": "#515C22"
+  },
+  {
+    "code": "F15",
+    "hex": "#2A4A2E"
+  },
+  {
+    "code": "F16",
+    "hex": "#27452B"
+  },
+  {
+    "code": "F17",
+    "hex": "#323815"
+  },
+  {
+    "code": "F18",
+    "hex": "#5B8265"
+  },
+  {
+    "code": "F19",
+    "hex": "#948037"
+  },
+  {
+    "code": "F20",
+    "hex": "#E0E8B5"
+  },
+  {
+    "code": "F21",
+    "hex": "#BCF7B1"
+  },
+  {
+    "code": "F22",
+    "hex": "#EDF256"
+  },
+  {
+    "code": "F23",
+    "hex": "#F6FCCB"
+  },
+  {
+    "code": "F24",
+    "hex": "#DEF7AF"
+  },
+  {
+    "code": "F25",
+    "hex": "#B5C26D"
+  },
+  {
+    "code": "G01",
+    "hex": "#E9FADF"
+  },
+  {
+    "code": "G02",
+    "hex": "#E9FFE3"
+  },
+  {
+    "code": "G03",
+    "hex": "#9EDBC8"
+  },
+  {
+    "code": "G04",
+    "hex": "#66E0B2"
+  },
+  {
+    "code": "G05",
+    "hex": "#189E7F"
+  },
+  {
+    "code": "G06",
+    "hex": "#56BD96"
+  },
+  {
+    "code": "G07",
+    "hex": "#3D8773"
+  },
+  {
+    "code": "G08",
+    "hex": "#28594C"
+  },
+  {
+    "code": "GB1",
+    "hex": "#FF4D5E"
+  },
+  {
+    "code": "GB2",
+    "hex": "#FF916E"
+  },
+  {
+    "code": "GB3",
+    "hex": "#F7F587"
+  },
+  {
+    "code": "GB4",
+    "hex": "#CBE38A"
+  },
+  {
+    "code": "GB5",
+    "hex": "#8E92E6"
+  },
+  {
+    "code": "GB6",
+    "hex": "#5193B5"
+  },
+  {
+    "code": "GB7",
+    "hex": "#D42D7B"
+  },
+  {
+    "code": "GB8",
+    "hex": "#7C76BD"
+  },
+  {
+    "code": "H01",
+    "hex": "#DEFAFC"
+  },
+  {
+    "code": "H02",
+    "hex": "#F0FEF2"
+  },
+  {
+    "code": "H03",
+    "hex": "#BDF6ED"
+  },
+  {
+    "code": "H04",
+    "hex": "#B7EEF7"
+  },
+  {
+    "code": "H05",
+    "hex": "#58CBF0"
+  },
+  {
+    "code": "H06",
+    "hex": "#E3FDFF"
+  },
+  {
+    "code": "H07",
+    "hex": "#00AACC"
+  },
+  {
+    "code": "H08",
+    "hex": "#64B2DB"
+  },
+  {
+    "code": "H09",
+    "hex": "#30CBE4"
+  },
+  {
+    "code": "H10",
+    "hex": "#00C5CF"
+  },
+  {
+    "code": "H11",
+    "hex": "#00BAB7"
+  },
+  {
+    "code": "H12",
+    "hex": "#2397A3"
+  },
+  {
+    "code": "H13",
+    "hex": "#198DB4"
+  },
+  {
+    "code": "H14",
+    "hex": "#0065A1"
+  },
+  {
+    "code": "H15",
+    "hex": "#1F5082"
+  },
+  {
+    "code": "H16",
+    "hex": "#0D55B3"
+  },
+  {
+    "code": "H17",
+    "hex": "#0787AC"
+  },
+  {
+    "code": "H18",
+    "hex": "#335F7D"
+  },
+  {
+    "code": "H19",
+    "hex": "#56D7E3"
+  },
+  {
+    "code": "H20",
+    "hex": "#304561"
+  },
+  {
+    "code": "H21",
+    "hex": "#49608F"
+  },
+  {
+    "code": "H22",
+    "hex": "#323578"
+  },
+  {
+    "code": "H23",
+    "hex": "#2C3B4A"
+  },
+  {
+    "code": "H24",
+    "hex": "#324752"
+  },
+  {
+    "code": "H25",
+    "hex": "#78C4BE"
+  },
+  {
+    "code": "H26",
+    "hex": "#DCF2EA"
+  },
+  {
+    "code": "H27",
+    "hex": "#92D4F0"
+  },
+  {
+    "code": "H28",
+    "hex": "#B2F0D7"
+  },
+  {
+    "code": "H29",
+    "hex": "#55B5C4"
+  },
+  {
+    "code": "H30",
+    "hex": "#DFF1FB"
+  },
+  {
+    "code": "H31",
+    "hex": "#BBE3F0"
+  },
+  {
+    "code": "H32",
+    "hex": "#4D6A86"
+  },
+  {
+    "code": "J01",
+    "hex": "#F2FAFF"
+  },
+  {
+    "code": "J02",
+    "hex": "#F5F2FF"
+  },
+  {
+    "code": "J03",
+    "hex": "#E7E6FF"
+  },
+  {
+    "code": "J04",
+    "hex": "#E1DCFC"
+  },
+  {
+    "code": "J05",
+    "hex": "#BCE3FB"
+  },
+  {
+    "code": "J06",
+    "hex": "#C3E1F7"
+  },
+  {
+    "code": "J07",
+    "hex": "#A8CCF0"
+  },
+  {
+    "code": "J08",
+    "hex": "#7DA1C8"
+  },
+  {
+    "code": "J09",
+    "hex": "#E5E5FA"
+  },
+  {
+    "code": "J10",
+    "hex": "#D7B1E3"
+  },
+  {
+    "code": "J11",
+    "hex": "#9F92CF"
+  },
+  {
+    "code": "J12",
+    "hex": "#B36BAA"
+  },
+  {
+    "code": "J13",
+    "hex": "#978BBF"
+  },
+  {
+    "code": "J14",
+    "hex": "#B15095"
+  },
+  {
+    "code": "J15",
+    "hex": "#56498F"
+  },
+  {
+    "code": "J16",
+    "hex": "#74458A"
+  },
+  {
+    "code": "J17",
+    "hex": "#9563B0"
+  },
+  {
+    "code": "J18",
+    "hex": "#6F4285"
+  },
+  {
+    "code": "J19",
+    "hex": "#07004A"
+  },
+  {
+    "code": "J20",
+    "hex": "#6C82C9"
+  },
+  {
+    "code": "J21",
+    "hex": "#3C46A1"
+  },
+  {
+    "code": "J22",
+    "hex": "#EAD5FA"
+  },
+  {
+    "code": "K01",
+    "hex": "#FFF8F3"
+  },
+  {
+    "code": "K02",
+    "hex": "#FFF1E9"
+  },
+  {
+    "code": "K03",
+    "hex": "#FADBD2"
+  },
+  {
+    "code": "K04",
+    "hex": "#FCEBE9"
+  },
+  {
+    "code": "K05",
+    "hex": "#FFE0C4"
+  },
+  {
+    "code": "K06",
+    "hex": "#FFE8D4"
+  },
+  {
+    "code": "K07",
+    "hex": "#FFBCB8"
+  },
+  {
+    "code": "K08",
+    "hex": "#FF9D8A"
+  },
+  {
+    "code": "K09",
+    "hex": "#FFC5A7"
+  },
+  {
+    "code": "K10",
+    "hex": "#FC9798"
+  },
+  {
+    "code": "K11",
+    "hex": "#FFF0F5"
+  },
+  {
+    "code": "K12",
+    "hex": "#FFEBDE"
+  },
+  {
+    "code": "K13",
+    "hex": "#FFE5E6"
+  },
+  {
+    "code": "K14",
+    "hex": "#FFE9F2"
+  },
+  {
+    "code": "K15",
+    "hex": "#FFE7F2"
+  },
+  {
+    "code": "K16",
+    "hex": "#FFC7DD"
+  },
+  {
+    "code": "K17",
+    "hex": "#F7A3C4"
+  },
+  {
+    "code": "K18",
+    "hex": "#F78FCE"
+  },
+  {
+    "code": "K19",
+    "hex": "#F26697"
+  },
+  {
+    "code": "K20",
+    "hex": "#E6758A"
+  },
+  {
+    "code": "K21",
+    "hex": "#E985B1"
+  },
+  {
+    "code": "K22",
+    "hex": "#FF4576"
+  },
+  {
+    "code": "K23",
+    "hex": "#C9427D"
+  },
+  {
+    "code": "K24",
+    "hex": "#AD5081"
+  },
+  {
+    "code": "K25",
+    "hex": "#AB3967"
+  },
+  {
+    "code": "K26",
+    "hex": "#EDE2F0"
+  },
+  {
+    "code": "K27",
+    "hex": "#E0C4C3"
+  },
+  {
+    "code": "K28",
+    "hex": "#D4A0B7"
+  },
+  {
+    "code": "K29",
+    "hex": "#A18A98"
+  },
+  {
+    "code": "K30",
+    "hex": "#FAF2FF"
+  },
+  {
+    "code": "K31",
+    "hex": "#F7B38C"
+  },
+  {
+    "code": "K32",
+    "hex": "#E08743"
+  },
+  {
+    "code": "K33",
+    "hex": "#BF5960"
+  },
+  {
+    "code": "K34",
+    "hex": "#D4A492"
+  },
+  {
+    "code": "K35",
+    "hex": "#FCC7CC"
+  },
+  {
+    "code": "K36",
+    "hex": "#FFD3BF"
+  },
+  {
+    "code": "K37",
+    "hex": "#FA9276"
+  },
+  {
+    "code": "K38",
+    "hex": "#FFCDD0"
+  },
+  {
+    "code": "K39",
+    "hex": "#E34447"
+  },
+  {
+    "code": "L1",
+    "hex": "#D40E1F"
+  },
+  {
+    "code": "L10",
+    "hex": "#F8DA54"
+  },
+  {
+    "code": "L11",
+    "hex": "#FCECF7"
+  },
+  {
+    "code": "L12",
+    "hex": "#D8D4D3"
+  },
+  {
+    "code": "L13",
+    "hex": "#56534E"
+  },
+  {
+    "code": "L14",
+    "hex": "#FFFFFF"
+  },
+  {
+    "code": "L2",
+    "hex": "#F13484"
+  },
+  {
+    "code": "L3",
+    "hex": "#FB852B"
+  },
+  {
+    "code": "L4",
+    "hex": "#F8ED33"
+  },
+  {
+    "code": "L5",
+    "hex": "#32C958"
+  },
+  {
+    "code": "L6",
+    "hex": "#1EBA93"
+  },
+  {
+    "code": "L7",
+    "hex": "#1D779C"
+  },
+  {
+    "code": "L8",
+    "hex": "#1960C8"
+  },
+  {
+    "code": "L9",
+    "hex": "#945AB1"
+  },
+  {
+    "code": "M01",
+    "hex": "#F9F9F9"
+  },
+  {
+    "code": "M02",
+    "hex": "#ABABAB"
+  },
+  {
+    "code": "M03",
+    "hex": "#B6DBAF"
+  },
+  {
+    "code": "M04",
+    "hex": "#FEA2A3"
+  },
+  {
+    "code": "M05",
+    "hex": "#EB903F"
+  },
+  {
+    "code": "M06",
+    "hex": "#63CEA2"
+  },
+  {
+    "code": "M07",
+    "hex": "#E79273"
+  },
+  {
+    "code": "M08",
+    "hex": "#ECDB59"
+  },
+  {
+    "code": "M09",
+    "hex": "#DBD9DA"
+  },
+  {
+    "code": "M10",
+    "hex": "#DBC7EA"
+  },
+  {
+    "code": "M11",
+    "hex": "#F1E9D4"
+  },
+  {
+    "code": "M12",
+    "hex": "#E9EDEE"
+  },
+  {
+    "code": "M13",
+    "hex": "#ADCBF1"
+  },
+  {
+    "code": "M14",
+    "hex": "#337BAD"
+  },
+  {
+    "code": "M15",
+    "hex": "#668575"
+  },
+  {
+    "code": "M16",
+    "hex": "#FDC24E"
+  },
+  {
+    "code": "M17",
+    "hex": "#FDA42E"
+  },
+  {
+    "code": "M18",
+    "hex": "#FEBDA7"
+  },
+  {
+    "code": "M19",
+    "hex": "#FFDEE9"
+  },
+  {
+    "code": "M20",
+    "hex": "#FCBFD1"
+  },
+  {
+    "code": "M21",
+    "hex": "#E8BEC2"
+  },
+  {
+    "code": "M22",
+    "hex": "#DFAAA4"
+  },
+  {
+    "code": "M23",
+    "hex": "#A3656A"
+  },
+  {
+    "code": "N1",
+    "hex": "#FF6FB7"
+  },
+  {
+    "code": "N2",
+    "hex": "#FDB583"
+  },
+  {
+    "code": "N3",
+    "hex": "#D8FCA4"
+  },
+  {
+    "code": "N4",
+    "hex": "#91DAFB"
+  },
+  {
+    "code": "N5",
+    "hex": "#E987EA"
+  },
+  {
+    "code": "S1",
+    "hex": "#A3E7DC"
+  },
+  {
+    "code": "S10",
+    "hex": "#F6BB6F"
+  },
+  {
+    "code": "S11",
+    "hex": "#F3C6C0"
+  },
+  {
+    "code": "S12",
+    "hex": "#C76A62"
+  },
+  {
+    "code": "S13",
+    "hex": "#D093BC"
+  },
+  {
+    "code": "S14",
+    "hex": "#E58EAE"
+  },
+  {
+    "code": "S15",
+    "hex": "#9F85CF"
+  },
+  {
+    "code": "S2",
+    "hex": "#78CEE7"
+  },
+  {
+    "code": "S3",
+    "hex": "#3FCDCE"
+  },
+  {
+    "code": "S4",
+    "hex": "#4E8379"
+  },
+  {
+    "code": "S5",
+    "hex": "#7DCA9C"
+  },
+  {
+    "code": "S6",
+    "hex": "#C8E664"
+  },
+  {
+    "code": "S7",
+    "hex": "#E3CCBA"
+  },
+  {
+    "code": "S8",
+    "hex": "#A17140"
+  },
+  {
+    "code": "S9",
+    "hex": "#6B372C"
+  },
+  {
+    "code": "W1",
+    "hex": "#FEFB00"
+  },
+  {
+    "code": "W2",
+    "hex": "#FFEBFA"
+  },
+  {
+    "code": "W3",
+    "hex": "#F2A5E8"
+  },
+  {
+    "code": "W4",
+    "hex": "#E9EC91"
+  },
+  {
+    "code": "W5",
+    "hex": "#76CEDE"
+  },
+  {
+    "code": "Y01",
+    "hex": "#D5E8D7"
+  },
+  {
+    "code": "Y02",
+    "hex": "#95B091"
+  },
+  {
+    "code": "Y03",
+    "hex": "#62858A"
+  },
+  {
+    "code": "Y04",
+    "hex": "#E0D6C3"
+  },
+  {
+    "code": "Y05",
+    "hex": "#DED7B1"
+  },
+  {
+    "code": "Y06",
+    "hex": "#BDB293"
+  },
+  {
+    "code": "Y07",
+    "hex": "#C9BCA9"
+  },
+  {
+    "code": "Y08",
+    "hex": "#B8A9A6"
+  },
+  {
+    "code": "Y09",
+    "hex": "#CCB88B"
+  },
+  {
+    "code": "Y10",
+    "hex": "#C2B5BC"
+  },
+  {
+    "code": "Y11",
+    "hex": "#AE99B0"
+  },
+  {
+    "code": "Y12",
+    "hex": "#5C5153"
+  },
+  {
+    "code": "Y13",
+    "hex": "#E0AC82"
+  },
+  {
+    "code": "Y14",
+    "hex": "#DE8D6D"
+  },
+  {
+    "code": "Y15",
+    "hex": "#95A19C"
+  },
+  {
+    "code": "Z01",
+    "hex": "#FFF3DE"
+  },
+  {
+    "code": "Z02",
+    "hex": "#FFEAC2"
+  },
+  {
+    "code": "Z03",
+    "hex": "#FDFCD9"
+  },
+  {
+    "code": "Z04",
+    "hex": "#FAE8C8"
+  },
+  {
+    "code": "Z05",
+    "hex": "#FFDDAB"
+  },
+  {
+    "code": "Z06",
+    "hex": "#F5C69B"
+  },
+  {
+    "code": "Z07",
+    "hex": "#F0E49E"
+  },
+  {
+    "code": "Z08",
+    "hex": "#E6C495"
+  },
+  {
+    "code": "Z09",
+    "hex": "#FCDA95"
+  },
+  {
+    "code": "Z10",
+    "hex": "#F0AC46"
+  },
+  {
+    "code": "Z11",
+    "hex": "#F5AE48"
+  },
+  {
+    "code": "Z12",
+    "hex": "#FAB646"
+  },
+  {
+    "code": "Z13",
+    "hex": "#F0D393"
+  },
+  {
+    "code": "Z14",
+    "hex": "#BD8A6A"
+  },
+  {
+    "code": "Z15",
+    "hex": "#BD9044"
+  },
+  {
+    "code": "Z16",
+    "hex": "#54483A"
+  },
+  {
+    "code": "Z17",
+    "hex": "#9E836C"
+  },
+  {
+    "code": "Z18",
+    "hex": "#A67E61"
+  },
+  {
+    "code": "Z19",
+    "hex": "#A36943"
+  },
+  {
+    "code": "Z20",
+    "hex": "#A16446"
+  },
+  {
+    "code": "Z21",
+    "hex": "#9E5B4E"
+  },
+  {
+    "code": "Z22",
+    "hex": "#57423B"
+  },
+  {
+    "code": "Z23",
+    "hex": "#5C3F3B"
+  },
+  {
+    "code": "Z24",
+    "hex": "#C7A58D"
+  }
+]

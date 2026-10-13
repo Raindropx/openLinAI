@@ -29,7 +29,15 @@ export interface CellResult {
   row: number
   column: number
   color: string
+  beadCode?: string
   sourceColors: CellColor[]
+}
+
+export type BeadPaletteId = 'mard221' | 'mard291' | 'coco' | 'manman' | 'panpan' | 'mixiaowo'
+export type BeadMatchAlgorithm = 'oklab' | 'ciede2000' | 'rgb'
+export interface BeadConversion {
+  paletteId: BeadPaletteId
+  algorithm: BeadMatchAlgorithm
 }
 
 export interface CellOverride {

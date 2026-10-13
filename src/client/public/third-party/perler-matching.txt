@@ -1,0 +1,62 @@
+Perler bead palette conversion - third-party notices
+
+MARD, COCO, Manman, Panpan and Mixiaowo code/HEX reference data:
+https://github.com/HansBug/pindou-color-data
+Source commit: 178dafbc9e77d3de556550dbd058270200129186
+Modified to retain code and HEX fields and derive the MARD 221-color subset.
+Panpan and Mixiaowo entries without confirmed codes are excluded.
+Duplicate reference colors use a stable representative code during matching.
+
+MIT License
+
+Copyright (c) 2026 HansBug
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this data and associated documentation files (the "Data"), to deal
+in the Data without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Data, and to permit persons to whom the Data is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Data.
+
+THE DATA IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE DATA OR THE USE OR OTHER DEALINGS IN THE
+DATA.
+
+CIEDE2000 implementation:
+https://github.com/yourlin/Fusible-Beads-Studio
+Source commit: b12b157134af20a6480ece7984f07c3bdb202d2f
+packages/shared/src/color/ciede2000.ts
+Modified to accept Lab coordinate tuples instead of objects.
+
+MIT License
+
+Copyright (c) 2026 yourlin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+OKLab matrices and implementation reference:
+https://bottosson.github.io/posts/oklab/
+The author's implementation is available in the public domain.
