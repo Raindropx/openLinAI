@@ -4,7 +4,7 @@ import {
   UnorderedListOutlined,
 } from '@ant-design/icons'
 import { Segmented } from 'antd'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import type { TaskTemplate } from '../../../../server/common/template-manager'
 import { useTasks } from '../../../hooks/useTasks'
@@ -25,7 +25,11 @@ export const Home = () => {
   useAppLanguage()
 
   const location = useLocation()
+  const workspaceRef = useRef<HTMLDivElement>(null)
   const templateListRef = useRef<TemplateListRef>(null)
+  const [desktopLayout, setDesktopLayout] = useState(
+    () => window.matchMedia('(min-width: 1024px)').matches,
+  )
   const setFillTemplateData = useGlobalStore(
     (state) => state.setFillTemplateData,
   )
@@ -42,6 +46,22 @@ export const Home = () => {
       : 'canvas',
   )
   const [selectedTaskId, setSelectedTaskId] = useState<string>()
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)')
+    const updateLayout = () => setDesktopLayout(media.matches)
+    media.addEventListener('change', updateLayout)
+    return () => media.removeEventListener('change', updateLayout)
+  }, [])
+
+  useLayoutEffect(() => {
+    if (desktopLayout) return
+    // Mobile panels share the page viewport; do not carry another panel's offset.
+    const scrollRoot = workspaceRef.current?.closest<HTMLElement>(
+      '[data-mobile-scroll-root]',
+    )
+    if (scrollRoot) scrollRoot.scrollTop = 0
+  }, [mobilePanel, resourcePanel, desktopLayout])
 
   const imageTasks = useMemo(
     () =>
@@ -80,7 +100,10 @@ export const Home = () => {
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-3 p-3 lg:grid lg:h-full lg:min-h-0 lg:grid-cols-[320px_minmax(0,1fr)_360px] lg:overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)_390px] 2xl:grid-cols-[360px_minmax(0,1fr)_420px]">
+    <div
+      ref={workspaceRef}
+      className="flex min-h-full flex-col gap-3 p-3 lg:grid lg:h-full lg:min-h-0 lg:grid-cols-[320px_minmax(0,1fr)_360px] lg:overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)_390px] 2xl:grid-cols-[360px_minmax(0,1fr)_420px]"
+    >
       <div className="shrink-0 lg:hidden">
         <Segmented<MobileWorkspacePanel>
           block
@@ -162,6 +185,10 @@ export const Home = () => {
           >
             <TaskList
               variant="panel"
+              active={
+                resourcePanel === 'tasks' &&
+                (desktopLayout || mobilePanel === 'resources')
+              }
               selectedTaskId={selectedTaskId}
               onSelectTask={setSelectedTaskId}
             />

@@ -82,6 +82,7 @@ const client = hc<AppType>('/')
 
 interface TaskListProps {
   variant?: 'default' | 'panel' | 'management'
+  active?: boolean
   selectedTaskId?: string
   onSelectTask?: (taskId: string) => void
 }
@@ -197,6 +198,7 @@ function TaskImage({
 
 export function TaskList({
   variant = 'default',
+  active = true,
   selectedTaskId,
   onSelectTask,
 }: TaskListProps) {
@@ -429,7 +431,7 @@ export function TaskList({
     [searchedTasks, folderId, folders],
   )
   useLayoutEffect(() => {
-    if (!infiniteScroll || !filteredTasks.length) return
+    if (!active || !infiniteScroll || !filteredTasks.length) return
     const list = virtualListRef.current
     if (!list) return
     // On narrow workbenches the panel grows with its content; the outer page
@@ -479,6 +481,7 @@ export function TaskList({
       window.removeEventListener('resize', scheduleMeasure)
     }
   }, [
+    active,
     infiniteScroll,
     filteredTasks.length,
     panelMode,
@@ -518,7 +521,7 @@ export function TaskList({
   const taskVirtualizer = useVirtualizer({
     ...virtualOptions,
     getScrollElement: () => virtualScrollElement,
-    enabled: infiniteScroll && Boolean(virtualScrollElement),
+    enabled: active && infiniteScroll && Boolean(virtualScrollElement),
   })
   const visibleFolders = folderId
     ? []

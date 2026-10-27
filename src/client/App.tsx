@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import pkg from '../../package.json'
 import { usePopupTouchScrollGuard } from './hooks/usePopupTouchScrollGuard'
@@ -17,11 +17,16 @@ import { AppThemeProvider } from './theme'
 function App() {
   usePopupTouchScrollGuard()
   const { pathname } = useLocation()
+  const scrollRootRef = useRef<HTMLElement>(null)
   const studioActive = pathname === '/studio'
   const [studioVisited, setStudioVisited] = useState(studioActive)
   useEffect(() => {
     if (studioActive) setStudioVisited(true)
   }, [studioActive])
+
+  useLayoutEffect(() => {
+    if (scrollRootRef.current) scrollRootRef.current.scrollTop = 0
+  }, [pathname])
 
   useEffect(() => {
     useGlobalStore.getState().fetchConfig()
@@ -42,6 +47,7 @@ function App() {
         <MobilePullBalance disabled={studioActive}>
           <MobileTopBar />
           <main
+            ref={scrollRootRef}
             className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain"
             data-mobile-scroll-root
           >
