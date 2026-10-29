@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { taskFolderNameSchema } from './task-folders'
+import { videoTaskSchema } from './video'
 
 export const TASK_BACKUP_MAX_BYTES = 512 * 1024 * 1024
 export const TASK_BACKUP_MAX_EXPANDED_BYTES = 1024 * 1024 * 1024
@@ -79,6 +80,8 @@ export const taskBackupSchema = z.object({
         .object({
           id,
           folderId: z.string().optional(),
+          mediaType: z.enum(['image', 'video']).optional(),
+          video: videoTaskSchema.optional(),
           rawTemplate: templateSchema,
           source: z.string(),
           status: z.enum(['pending', 'running', 'completed', 'failed']),
@@ -148,13 +151,13 @@ export function mapBackupImageUrls(
   if (!value || typeof value !== 'object') return value
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => {
-      if (['images', 'outputUrls'].includes(key) && Array.isArray(item))
+      if (['images', 'inputImages', 'outputUrls'].includes(key) && Array.isArray(item))
         return [
           key,
           item.map((url) => (typeof url === 'string' ? map(url) : url)),
         ]
       if (
-        ['outputUrl', 'imageUrl', 'referenceImageUrl', 'maskImageUrl'].includes(
+        ['outputUrl', 'imageUrl', 'referenceImageUrl', 'maskImageUrl', 'firstImageUrl', 'lastImageUrl'].includes(
           key,
         ) &&
         typeof item === 'string'

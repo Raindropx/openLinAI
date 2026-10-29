@@ -35,6 +35,7 @@ export async function taskSnapshot(): Promise<NonNullable<typeof cached>> {
 export function summarizeTask(task: Task): Task {
   return {
     id: task.id, folderId: task.folderId, source: task.source,
+    mediaType: task.mediaType, video: task.video,
     status: task.status, createdAt: task.createdAt,
     outputUrl: task.outputUrl, outputUrls: task.outputUrls,
     size: task.size, quality: task.quality, endpointName: task.endpointName,

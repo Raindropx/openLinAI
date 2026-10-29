@@ -514,6 +514,28 @@ async function applyTaskBackup(
   ) as StudioItem[]
   for (const task of tasks) {
     task.id = maps.task.get(task.id)!
+    if (task.video) {
+      // Image ZIP backups contain video history and input images, not archived video bytes.
+      // Never trust a restored file ID: it could refer to another task's local file.
+      task.mediaType = 'video'
+      task.outputUrl = undefined
+      task.outputUrls = []
+      task.video.request.inputImages = task.rawTemplate.images
+      task.video.retrievalStatus = 'not_retrieved'
+      task.video.retrievalBytes = 0
+      task.video.retrievalTotalBytes = undefined
+      task.video.retrievalError = undefined
+      if (task.video.result) {
+        task.video.result.localFileId = undefined
+        task.video.result.fileSize = undefined
+        task.video.result.savedAt = undefined
+        task.video.result.posterUrl = undefined
+      }
+      if (['queued', 'submitting', 'processing'].includes(task.video.generationStatus)) {
+        task.video.generationStatus = 'failed'
+        task.video.error = '从备份恢复的任务已暂停；请核对云端任务后手动恢复查询'
+      }
+    }
     if (task.status === 'pending' || task.status === 'running') {
       task.status = 'failed'
       task.error = '[服务] 从备份恢复，原生成任务已中断'

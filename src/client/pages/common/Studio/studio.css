@@ -6,6 +6,9 @@
   gap: 12px;
   padding: 12px;
 }
+.studio-video-content { width: 100%; display: flex; flex-direction: column; gap: 16px; }
+.studio-video-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0 12px; }
+.studio-video-history { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 12px; }
 .studio-workspace,
 .studio-shelf {
   min-width: 0;

@@ -16,6 +16,8 @@ import templateApi from './api/common/template'
 import gptImageApi from './api/gpt-image'
 import modelCatalogApi from './api/model-catalog'
 import studioApi from './api/studio'
+import videoApi from './api/video'
+import { videoManager } from './module/video/manager'
 import styleAnalyzeApi from './api/style-analyze'
 import veniceApi from './api/venice'
 import yunwuTokenApi from './api/yunwu-token'
@@ -36,6 +38,7 @@ const routes = app
   // common
   .route('/api/task', taskApi)
   .route('/api/studio', studioApi)
+  .route('/api/studio/videos', videoApi)
   .route('/api/character-card', characterCardApi)
   .route('/api/template', templateApi)
   .route('/api/style-preset', stylePresetApi)
@@ -81,6 +84,7 @@ serve(
   (info) => {
     console.log(`Server is running on http://localhost:${info.port}`)
     startThumbnailCacheMaintenance()
+    void videoManager.start().catch(() => console.error('视频后台任务恢复失败，请检查任务数据目录'))
     if (
       process.env.NODE_ENV === 'production' &&
       process.env.OPEN_BROWSER !== 'false'

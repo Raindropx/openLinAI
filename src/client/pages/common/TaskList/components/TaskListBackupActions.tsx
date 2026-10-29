@@ -46,6 +46,7 @@ export function TaskListBackupActions({
             )}
           </p>
           <p>{t('备份包含端点 API Key 和余额令牌，请妥善保管。')}</p>
+           <p>{t('视频仅备份任务记录和参考图片，不包含外接存储中的视频文件。')}</p>
           <p>
             {t(
               streamTransfers

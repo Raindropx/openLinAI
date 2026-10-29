@@ -52,6 +52,7 @@ import {
   uploadStudioFile,
 } from './api'
 import { CivitaiStudio } from './CivitaiStudio'
+import { VideoStudio } from './VideoStudio'
 import { GeneratedImageShelf } from './GeneratedImageShelf'
 import { NovelAIStudio } from './NovelAIStudio'
 import { ProviderBalance } from './ProviderBalance'
@@ -120,6 +121,8 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const [perlerVisited, setPerlerVisited] = useState(false)
   const [perlerImage, setPerlerImage] = useState<{ id: number; url: string }>()
   const [perlerShelfExpanded, setPerlerShelfExpanded] = useState(false)
+  const [videoShelfExpanded, setVideoShelfExpanded] = useState(false)
+  const [videoReference, setVideoReference] = useState<{ id: number; url: string }>()
   const [perlerShelfTab, setPerlerShelfTab] = useState<'files' | 'generated'>(
     'files',
   )
@@ -294,6 +297,11 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       sendImageToPerler(studioFileUrl(item.id))
       return
     }
+    if (tab === 'video') {
+      setVideoReference({ id: ++signal.current, url: studioFileUrl(item.id) })
+      if (window.matchMedia('(max-width: 1023px)').matches) setVideoShelfExpanded(false)
+      return
+    }
     const payload = { id: ++signal.current, itemId: item.id }
     if (tab === 'novelai') {
       setNovelaiReference(payload)
@@ -387,7 +395,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   }
   return (
     <div
-      className={`studio-layout ${tab === 'novelai' || tab === 'civitai' ? 'studio-layout-novelai' : ''} ${tab === 'perler-bead' ? `studio-layout-perler ${perlerShelfExpanded ? 'studio-perler-shelf-expanded' : 'studio-perler-shelf-collapsed'}` : ''}`}
+      className={`studio-layout ${tab === 'novelai' || tab === 'civitai' ? 'studio-layout-novelai' : ''} ${tab === 'perler-bead' || tab === 'video' ? `studio-layout-perler ${(tab === 'video' ? videoShelfExpanded : perlerShelfExpanded) ? 'studio-perler-shelf-expanded' : 'studio-perler-shelf-collapsed'}` : ''}`}
       style={
         {
           color: token.colorText,
@@ -414,7 +422,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       />
       <div
         className="studio-mobile-switch"
-        style={tab === 'perler-bead' ? { display: 'none' } : undefined}
+        style={tab === 'perler-bead' || tab === 'video' ? { display: 'none' } : undefined}
       >
         <Segmented
           block
@@ -449,7 +457,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
         />
       </div>
       <section
-        className={`studio-workspace ${tab !== 'perler-bead' && mobileShelf ? 'studio-mobile-hidden' : ''}`}
+        className={`studio-workspace ${tab !== 'perler-bead' && tab !== 'video' && mobileShelf ? 'studio-mobile-hidden' : ''}`}
         aria-label={t('工作室工具')}
       >
         <div
@@ -460,6 +468,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           {[
             ['novelai', 'NovelAI Image'],
             ['civitai', 'Civitai Image'],
+            ['video', t('视频生成')],
             ['photopea', 'Photopea'],
             ['perler-bead', t('拼豆 / 像素图')],
           ].map(([key, label]) => (
@@ -476,6 +485,15 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             </button>
           ))}
         </div>
+        {tab === 'video' && active && <div className="studio-native-panel" role="tabpanel" id="studio-panel-video" aria-labelledby="studio-tab-video">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <Button size="small" className="studio-perler-shelf-button"
+              icon={videoShelfExpanded ? <CaretRightOutlined /> : <CaretLeftOutlined />}
+              aria-expanded={videoShelfExpanded} aria-controls="studio-shelf"
+              onClick={() => setVideoShelfExpanded((expanded) => !expanded)}>{videoShelfExpanded ? t('收起暂存台') : t('展开暂存台')}</Button>
+          </div>
+          <VideoStudio items={items} incomingReference={videoReference} />
+        </div>}
         {(perlerVisited || tab === 'perler-bead') && (
           <div
             className="studio-perler-panel"
@@ -626,11 +644,11 @@ export function StudioPage({ active = true }: { active?: boolean }) {
       <aside
         id="studio-shelf"
         style={
-          tab === 'perler-bead' && !perlerShelfExpanded
+          ((tab === 'perler-bead' && !perlerShelfExpanded) || (tab === 'video' && !videoShelfExpanded))
             ? { display: 'none' }
             : undefined
         }
-        className={`studio-shelf ${(tab === 'perler-bead' ? perlerShelfExpanded : mobileShelf) ? '' : 'studio-mobile-hidden'}`}
+        className={`studio-shelf ${(tab === 'video' ? videoShelfExpanded : tab === 'perler-bead' ? perlerShelfExpanded : mobileShelf) ? '' : 'studio-mobile-hidden'}`}
         aria-label={t('暂存台')}
       >
         {tab === 'perler-bead' && (
@@ -872,6 +890,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                               ? t('在 Photopea 打开')
                               : tab === 'perler-bead'
                                 ? t('在拼豆 / 像素图打开')
+                              : tab === 'video' ? t('放入视频参考素材')
                               : t('放入图生图参考图')
                           }
                         >
@@ -883,6 +902,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
                                 ? t('在 Photopea 打开 {0}', [item.name])
                                 : tab === 'perler-bead'
                                   ? t('在拼豆 / 像素图打开 {0}', [item.name])
+                                : tab === 'video' ? t('将 {0} 放入视频参考素材', [item.name])
                                 : t('将 {0} 放入图生图参考图', [item.name])
                             }
                             disabled={

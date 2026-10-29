@@ -67,6 +67,7 @@ import {
 import { ThumbnailImage } from '../components/ThumbnailImage'
 import { generateNovelAIStudioImages } from '../Studio/api'
 import { CopyToStudioButton } from '../Studio/CopyToStudioButton'
+import { VideoTaskCard } from '../Studio/VideoTaskCard'
 import { TaskFolderCard } from './components/TaskFolderCard'
 import { TaskItemDeleteButton } from './components/TaskItemDeleteButton'
 import { TaskItemDownloadButton } from './components/TaskItemDownloadButton'
@@ -983,8 +984,8 @@ export function TaskList({
     Modal.confirm({
       title: t('确认删除选中的 {0} 个任务？', [tasksToDelete.length]),
       content: gptImageSettings.keepImageWhenDeleteTask
-        ? t('任务记录会被删除，生成的图片文件将保留。')
-        : t('任务记录和生成的图片文件都会被永久删除，无法恢复。'),
+        ? t('任务记录会被删除，生成的图片和本地视频文件将保留；没有记录的视频只能从存储目录手动访问。')
+        : t('任务记录、生成的图片和本地视频文件都会被永久删除，无法恢复。云端视频任务不会被取消。'),
       okText: t('批量删除'),
       okType: 'danger',
       onOk: async () => {
@@ -1247,6 +1248,10 @@ export function TaskList({
                     const reviewing =
                       managementMode && task.id === reviewedTaskId
                     const selected = selectedIds.includes(task.id)
+                    if (task.video) return <div key={task.id} className="w-full">
+                      {selectionMode && <Checkbox checked={selected} onChange={() => toggleTaskSelection(task.id)}>{t('选择任务')}</Checkbox>}
+                      <VideoTaskCard task={task} />
+                    </div>
                     return (
                       <Card
                         key={task.id}

@@ -13,6 +13,10 @@ export default defineConfig({
     port: 5174,
     watch: { ignored: ['**/data/**'] },
     proxy: {
+      '/api/studio/videos': {
+        target: process.env.LINAI_DEV_API_TARGET || 'http://127.0.0.1:3000',
+        changeOrigin: false,
+      },
       '/api': {
         target: process.env.LINAI_DEV_API_TARGET || 'http://127.0.0.1:3000',
         changeOrigin: true

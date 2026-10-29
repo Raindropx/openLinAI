@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 import type { StudioProvenance } from '../../../shared/studio'
 import type { NovelAIGenerationSnapshot } from '../../../shared/studio-generation'
 import type { TaskListActions } from '../../../shared/task-list'
+import type { VideoTask } from '../../../shared/video'
 import {
   taskFolderNameSchema,
   type TaskFolder,
@@ -21,6 +22,8 @@ import { TaskTemplate } from '../template-manager'
 
 export interface Task {
   id: string
+  mediaType?: 'image' | 'video'
+  video?: VideoTask
   folderId?: string
   rawTemplate: TaskTemplate
   source: string
@@ -85,7 +88,7 @@ export class TaskManager extends EventEmitter {
           task.imageBilling.status = 'unavailable'
           changed = true
         }
-        if (task.status === 'pending' || task.status === 'running') {
+        if (!task.video && (task.status === 'pending' || task.status === 'running')) {
           task.status = 'failed'
           task.error = '[服务] 连接已丢失'
           changed = true
@@ -209,6 +212,45 @@ export class TaskManager extends EventEmitter {
     this.notifyTasksUpdate(tasks)
   }
 
+  public async addVideoTask(task: Task): Promise<void> {
+    if (!task.video || task.mediaType !== 'video') throw new Error('无效的视频任务')
+    await withImageLifecycle(async () => {
+      await assertInputImagesExist(task.rawTemplate.images)
+      for (const url of task.rawTemplate.images) {
+        const root = await fs.realpath(path.join(this.dataDir, 'images', 'input'))
+        const file = path.join(root, url.split('/').pop()!)
+        const resolved = await fs.realpath(file)
+        if (path.dirname(resolved) !== root || (await fs.lstat(file)).isSymbolicLink()) throw new Error('参考图路径无效')
+        const info = await fs.stat(file)
+        if (!info.isFile() || info.size > 16 * 1024 * 1024) throw new Error('参考图不能超过 16 MiB')
+        const bytes = await fs.readFile(file)
+        const png = bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+        const jpeg = bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
+        const webp = bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP'
+        if (!png && !jpeg && !webp) throw new Error('视频参考图必须是 PNG、JPEG 或 WebP')
+      }
+      const tasks = await this.store.mutate((list) => {
+        if (list.some((item) => item.id === task.id)) throw new Error('任务编号已存在')
+        return [...list, task]
+      })
+      await this.notifyTasksUpdate(tasks)
+    })
+  }
+
+  /** Atomic video updates prevent retrieval progress from overwriting generation state. */
+  public async mutateVideoTask(id: string, mutate: (video: VideoTask) => void): Promise<void> {
+    const tasks = await this.store.mutate((list) => list.map((task) => {
+      if (task.id !== id || !task.video) return task
+      mutate(task.video)
+      const state = task.video.generationStatus
+      return { ...task, status: state === 'succeeded' ? 'completed' as const :
+        state === 'failed' || state === 'cancelled' ? 'failed' as const :
+          state === 'queued' ? 'pending' as const : 'running' as const,
+        error: task.video.error }
+    }))
+    await this.notifyTasksUpdate(tasks)
+  }
+
   /** Append a validated backup without replacing existing tasks or folders. */
   public async restoreTasks(
     tasks: Task[],
@@ -321,6 +363,10 @@ export class TaskManager extends EventEmitter {
     if (!selected.size) throw new Error('请先选择要删除的任务')
     const existing = new Set((await this.getTasks()).map((task) => task.id))
     if ([...selected].some((id) => !existing.has(id))) throw new Error('任务不存在')
+    if ((await this.getTasks()).some((task) => selected.has(task.id) && task.video)) {
+      const { videoManager } = await import('../../module/video/manager')
+      await videoManager.beforeDelete([...selected], !keepImage)
+    }
     // Do not hold the image lock while awaiting generators: they need it to finish.
     await Promise.all([...selected].map(cancelGenerationTask))
     return withImageLifecycle(async () => {
