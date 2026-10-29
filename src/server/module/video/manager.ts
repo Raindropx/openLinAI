@@ -1,8 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { constants } from 'node:fs'
 import fs from 'node:fs/promises'
-import { Writable } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
 import type {
   VideoResult,
   VideoSources,
@@ -16,14 +13,15 @@ import {
   videoRequestSchema,
 } from './providers'
 import { openRemoteVideo, validateVideoUrl } from './remote'
+import { retrieveVideoPart } from './retrieval'
 import {
+  hashVideoFile,
   openLocalVideo,
+  openPartialVideo,
   positiveEnv,
   videoFilePath,
-  videoMaxBytes,
   videoStorageRoot,
   videoTimeoutMs,
-  VideoTransfer,
 } from './storage'
 
 type Run = { controller: AbortController; done: Promise<void> }
@@ -51,7 +49,7 @@ export class VideoManager {
   private cancellingRetrieval = new Set<string>()
   private actions = new Map<string, Promise<unknown>>()
   private timer?: ReturnType<typeof setTimeout>
-  private ticking = false
+  private ticking?: Promise<void>
   private stopped = false
 
   private serial<T>(id: string, action: () => Promise<T>): Promise<T> {
@@ -138,13 +136,14 @@ export class VideoManager {
       if (task.video.retrievalStatus === 'downloading') {
         await taskManager.mutateVideoTask(task.id, (video) => {
           video.retrievalStatus = 'queued'
-          video.retrievalBytes = 0
+          video.retrievalBytes = video.retrievalCheckpoint?.bytes ?? 0
         })
       }
     }
   }
 
   async start() {
+    clearTimeout(this.timer)
     this.stopped = false
     await this.recover()
     const schedule = () => {
@@ -162,53 +161,58 @@ export class VideoManager {
   async stop() {
     this.stopped = true
     clearTimeout(this.timer)
+    await this.ticking?.catch(() => {})
     const runs = [...this.generating.values(), ...this.retrieving.values()]
     runs.forEach((run) => run.controller.abort())
     await Promise.all(runs.map((run) => run.done))
   }
 
   /** Independent of browser requests; bounded global polling and retrieval concurrency. */
-  async tick() {
-    if (this.ticking) return
-    this.ticking = true
-    try {
-      for (const task of await taskManager.getTasks()) {
-        if (!task.video || this.deleting.has(task.id)) continue
-        if (
-          activeGeneration(task.video) &&
-          Date.now() >
-            (task.video.generationDeadlineAt ??
-              task.createdAt + generationTimeout()) &&
-          !this.generating.has(task.id)
-        ) {
-          await taskManager.mutateVideoTask(task.id, (video) => {
-            video.generationStatus = 'failed'
-            video.error = '视频生成等待已超时；请核对云端任务后手动恢复查询'
-          })
-          continue
-        }
-        if (
-          activeGeneration(task.video) &&
-          (task.video.nextPollAt ?? 0) <= Date.now() &&
-          !this.generating.has(task.id) &&
-          this.generating.size < 2
-        )
-          this.launch(this.generating, task.id, (signal) =>
-            this.generate(task.id, signal),
-          )
-        if (
-          task.video.retrievalStatus === 'queued' &&
-          !this.cancellingRetrieval.has(task.id) &&
-          !this.retrieving.has(task.id) &&
-          this.retrieving.size <
-            positiveEnv('VIDEO_RETRIEVAL_CONCURRENCY', 1, 4)
-        )
-          this.launch(this.retrieving, task.id, (signal) =>
-            this.retrieve(task.id, signal),
-          )
+  tick(): Promise<void> {
+    if (this.stopped) return Promise.resolve()
+    if (!this.ticking) {
+      this.ticking = this.tickOnce().finally(() => {
+        this.ticking = undefined
+      })
+    }
+    return this.ticking
+  }
+
+  private async tickOnce() {
+    for (const task of await taskManager.getTasks()) {
+      if (this.stopped) break
+      if (!task.video || this.deleting.has(task.id)) continue
+      if (
+        activeGeneration(task.video) &&
+        Date.now() >
+          (task.video.generationDeadlineAt ??
+            task.createdAt + generationTimeout()) &&
+        !this.generating.has(task.id)
+      ) {
+        await taskManager.mutateVideoTask(task.id, (video) => {
+          video.generationStatus = 'failed'
+          video.error = '视频生成等待已超时；请核对云端任务后手动恢复查询'
+        })
+        continue
       }
-    } finally {
-      this.ticking = false
+      if (
+        activeGeneration(task.video) &&
+        (task.video.nextPollAt ?? 0) <= Date.now() &&
+        !this.generating.has(task.id) &&
+        this.generating.size < 2
+      )
+        this.launch(this.generating, task.id, (signal) =>
+          this.generate(task.id, signal),
+        )
+      if (
+        task.video.retrievalStatus === 'queued' &&
+        !this.cancellingRetrieval.has(task.id) &&
+        !this.retrieving.has(task.id) &&
+        this.retrieving.size < positiveEnv('VIDEO_RETRIEVAL_CONCURRENCY', 1, 4)
+      )
+        this.launch(this.retrieving, task.id, (signal) =>
+          this.retrieve(task.id, signal),
+        )
     }
   }
 
@@ -263,6 +267,8 @@ export class VideoManager {
     let submitting = false
     try {
       let { video } = await this.task(id)
+      timeout.throwIfAborted()
+      if (!activeGeneration(video)) return
       const provider = getVideoProvider(video.request.provider)
       if (!video.remoteTaskId) {
         submitting = true
@@ -435,37 +441,44 @@ export class VideoManager {
       if (current.retrievalStatus === 'retrieved') throw new Error('视频已取回')
       await taskManager.mutateVideoTask(id, (value) => {
         value.retrievalStatus = 'queued'
-        value.retrievalBytes = 0
-        value.retrievalTotalBytes = undefined
+        value.retrievalBytes = value.retrievalCheckpoint?.bytes ?? 0
         value.retrievalError = undefined
       })
     })
   }
 
   private async retrieve(id: string, signal: AbortSignal) {
-    let root: string | undefined
-    let lastProgress = Date.now()
-    let progressWrite = Promise.resolve()
     const transferSignal = AbortSignal.any([
       signal,
       AbortSignal.timeout(videoTimeoutMs()),
     ])
     try {
-      root = await videoStorageRoot()
-      // A final file can survive a crash after rename but before the catalog commit.
       const { video: before } = await this.task(id)
+      transferSignal.throwIfAborted()
+      if (before.retrievalStatus !== 'queued') return
+      const root = await videoStorageRoot()
+      // A verified final file may survive a crash between rename and catalog commit.
       try {
         const recovered = await openLocalVideo(id)
-        await recovered.handle.close()
-        if (
-          before.retrievalTotalBytes &&
-          recovered.stat.size === before.retrievalTotalBytes
-        ) {
+        let verified = false
+        try {
+          verified =
+            !!before.retrievalCommit &&
+            recovered.stat.size === before.retrievalCommit.bytes &&
+            (await hashVideoFile(recovered.handle, transferSignal)) ===
+              before.retrievalCommit.sha256
+        } finally {
+          await recovered.handle.close()
+        }
+        if (verified) {
           await taskManager.mutateVideoTask(id, (value) => {
             value.retrievalStatus = 'retrieved'
             value.retrievalBytes = recovered.stat.size
+            value.retrievalCheckpoint = undefined
+            value.retrievalError = undefined
             value.result = {
               ...value.result,
+              mimeType: before.retrievalCommit!.mimeType,
               localFileId: id,
               fileSize: recovered.stat.size,
               savedAt: Date.now(),
@@ -477,137 +490,167 @@ export class VideoManager {
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       }
-      await fs.rm(videoFilePath(root, id, true), { force: true })
+      if (before.retrievalCommit) {
+        try {
+          const part = await openPartialVideo(root, id)
+          let verified = false
+          try {
+            verified =
+              part.stat.size === before.retrievalCommit.bytes &&
+              (await hashVideoFile(part.handle, transferSignal)) ===
+                before.retrievalCommit.sha256
+          } finally {
+            await part.handle.close()
+          }
+          if (verified) {
+            transferSignal.throwIfAborted()
+            await fs.rename(
+              videoFilePath(root, id, true),
+              videoFilePath(root, id),
+            )
+            await taskManager.mutateVideoTask(id, (value) => {
+              value.retrievalStatus = 'retrieved'
+              value.retrievalBytes = before.retrievalCommit!.bytes
+              value.retrievalCheckpoint = undefined
+              value.retrievalError = undefined
+              value.result = {
+                ...value.result,
+                mimeType: before.retrievalCommit!.mimeType,
+                localFileId: id,
+                fileSize: before.retrievalCommit!.bytes,
+                savedAt: Date.now(),
+              }
+            })
+            return
+          }
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        }
+      }
       const result = await this.remoteResult(id)
       transferSignal.throwIfAborted()
-      const response = await this.network.open(
-        result.remoteUrl!,
-        transferSignal,
-      )
-      const length = response.headers['content-length']
-      const total = length === undefined ? undefined : Number(length)
-      if (
-        total !== undefined &&
-        (!Number.isSafeInteger(total) || total <= 0 || total > videoMaxBytes())
-      ) {
-        response.destroy()
-        throw new Error('云端视频大小超出限制')
-      }
-      const mimeType = response.headers['content-type']!.split(';')[0] as
-        | 'video/mp4'
-        | 'video/webm'
-      let output: Awaited<ReturnType<typeof fs.open>> | undefined
-      try {
-        await videoStorageRoot(total ?? 0)
-        await taskManager.mutateVideoTask(id, (value) => {
-          value.retrievalStatus = 'downloading'
-          value.retrievalTotalBytes = total
-          value.result = { ...value.result, mimeType }
-        })
-        output = await fs.open(
-          videoFilePath(root, id, true),
-          constants.O_WRONLY |
-            constants.O_CREAT |
-            constants.O_EXCL |
-            (constants.O_NOFOLLOW || 0),
-          0o600,
-        )
-        const transfer = new VideoTransfer({
-          total,
-          checkSpace: () => videoStorageRoot(),
-          progress: (bytes) => {
-            if (Date.now() - lastProgress < 5000) return
-            lastProgress = Date.now()
-            progressWrite = progressWrite.then(() =>
-              taskManager.mutateVideoTask(id, (value) => {
-                value.retrievalBytes = bytes
-              }),
-            )
-          },
-        })
-        const file = output
-        const sink = new Writable({
-          write(chunk: Buffer, _encoding, callback) {
-            file.writeFile(chunk).then(
-              () => callback(),
-              (error: Error) => callback(error),
-            )
-          },
-        })
-        await pipeline(response, transfer, sink, { signal: transferSignal })
-        await output.sync()
-        await output.close()
-        output = undefined
-        await progressWrite
-        transferSignal.throwIfAborted()
-        if (root !== (await videoStorageRoot()))
-          throw new Error('视频存储发生变化')
-        await taskManager.mutateVideoTask(id, (value) => {
-          value.retrievalTotalBytes = transfer.bytes
-        })
-        await fs.rename(videoFilePath(root, id, true), videoFilePath(root, id))
-        const committed = await openLocalVideo(id)
-        await committed.handle.close()
-        if (committed.stat.size !== transfer.bytes)
-          throw new Error('保存的视频大小不符')
-        await taskManager.mutateVideoTask(id, (value) => {
-          value.retrievalStatus = 'retrieved'
-          value.retrievalBytes = transfer.bytes
-          value.retrievalError = undefined
-          value.result = {
-            ...value.result,
-            localFileId: id,
-            fileSize: transfer.bytes,
-            savedAt: Date.now(),
-          }
-        })
-      } finally {
-        response.destroy()
-        await output?.close().catch(() => {})
-      }
+      const downloaded = await retrieveVideoPart({
+        id,
+        root,
+        url: result.remoteUrl!,
+        signal: transferSignal,
+        checkpoint: before.retrievalCheckpoint,
+        open: this.network.open,
+        save: (progress) =>
+          taskManager.mutateVideoTask(id, (value) => {
+            value.retrievalStatus = 'downloading'
+            value.retrievalBytes = progress.bytes
+            value.retrievalTotalBytes = progress.total
+            value.retrievalCheckpoint = progress.checkpoint
+            value.retrievalCommit = undefined
+            value.retrievalNotice = progress.notice
+            if (progress.mimeType)
+              value.result = { ...value.result, mimeType: progress.mimeType }
+          }),
+      })
+      transferSignal.throwIfAborted()
+      if (root !== (await videoStorageRoot()))
+        throw new Error('视频存储发生变化')
+      await taskManager.mutateVideoTask(id, (value) => {
+        value.retrievalTotalBytes = downloaded.bytes
+        value.retrievalCommit = downloaded
+        value.result = { ...value.result, mimeType: downloaded.mimeType }
+      })
+      await fs.rename(videoFilePath(root, id, true), videoFilePath(root, id))
+      await taskManager.mutateVideoTask(id, (value) => {
+        value.retrievalStatus = 'retrieved'
+        value.retrievalBytes = downloaded.bytes
+        value.retrievalCheckpoint = undefined
+        value.retrievalError = undefined
+        value.result = {
+          ...value.result,
+          localFileId: id,
+          fileSize: downloaded.bytes,
+          savedAt: Date.now(),
+        }
+      })
     } catch {
-      await progressWrite.catch(() => {})
       if (!this.deleting.has(id))
         await taskManager.mutateVideoTask(id, (value) => {
-          value.retrievalStatus = signal.aborted ? 'cancelled' : 'failed'
+          value.retrievalStatus = signal.aborted
+            ? this.stopped
+              ? 'queued'
+              : 'paused'
+            : 'failed'
+          value.retrievalBytes = value.retrievalCheckpoint?.bytes ?? 0
           value.retrievalError = signal.aborted
             ? undefined
-            : '取回失败：请检查云端链接、网络、文件大小限制和外接存储；可从头重试'
+            : '取回中断，请检查云端链接、网络和外接存储；继续取回时将校验断点'
         })
-    } finally {
-      // Check the mount again before cleanup; never write into a missing mount's underlying directory.
-      if (root)
-        try {
-          if (root === (await videoStorageRoot()))
-            await fs.rm(videoFilePath(root, id, true), { force: true })
-        } catch {
-          /* clean on retry */
-        }
     }
+  }
+
+  private async withRetrievalStopped<T>(id: string, action: () => Promise<T>) {
+    return this.serial(`retrieval:${id}`, async () => {
+      this.cancellingRetrieval.add(id)
+      try {
+        const run = this.retrieving.get(id)
+        run?.controller.abort()
+        await run?.done
+        return await this.serial(id, action)
+      } finally {
+        this.cancellingRetrieval.delete(id)
+      }
+    })
+  }
+
+  async pauseRetrieval(id: string) {
+    return this.withRetrievalStopped(id, async () => {
+      await taskManager.mutateVideoTask(id, (value) => {
+        if (activeRetrieval(value) || value.retrievalStatus === 'paused') {
+          value.retrievalStatus = 'paused'
+          value.retrievalError = undefined
+        }
+      })
+    })
   }
 
   async cancelRetrieval(id: string) {
-    this.cancellingRetrieval.add(id)
-    try {
-      const run = this.retrieving.get(id)
-      run?.controller.abort()
-      await run?.done
-      await this.serial(id, async () => {
-        await taskManager.mutateVideoTask(id, (value) => {
-          if (activeRetrieval(value)) {
-            value.retrievalStatus = 'cancelled'
-            value.retrievalError = undefined
-          }
-        })
+    return this.withRetrievalStopped(id, async () => {
+      const { video } = await this.task(id)
+      if (video.retrievalStatus === 'retrieved') return
+      const root = await videoStorageRoot(0, false)
+      await fs.rm(videoFilePath(root, id, true), { force: true })
+      await taskManager.mutateVideoTask(id, (value) => {
+        value.retrievalStatus = 'cancelled'
+        value.retrievalBytes = 0
+        value.retrievalTotalBytes = undefined
+        value.retrievalCheckpoint = undefined
+        value.retrievalCommit = undefined
+        value.retrievalNotice = undefined
+        value.retrievalError = undefined
       })
-    } finally {
-      this.cancellingRetrieval.delete(id)
-    }
+    })
+  }
+
+  async restartRetrieval(id: string) {
+    return this.withRetrievalStopped(id, async () => {
+      const { video } = await this.task(id)
+      if (
+        video.generationStatus !== 'succeeded' ||
+        video.retrievalStatus === 'retrieved'
+      )
+        throw new Error('任务状态不支持重新取回')
+      const root = await videoStorageRoot()
+      await fs.rm(videoFilePath(root, id, true), { force: true })
+      await taskManager.mutateVideoTask(id, (value) => {
+        value.retrievalStatus = 'queued'
+        value.retrievalBytes = 0
+        value.retrievalCheckpoint = undefined
+        value.retrievalCommit = undefined
+        value.retrievalNotice = undefined
+        value.retrievalError = undefined
+      })
+    })
   }
 
   async deleteLocal(id: string) {
-    await this.cancelRetrieval(id)
-    return this.serial(id, async () => {
+    return this.withRetrievalStopped(id, async () => {
       await this.task(id)
       const root = await videoStorageRoot(0, false)
       await fs.rm(videoFilePath(root, id), { force: true })
@@ -617,6 +660,9 @@ export class VideoManager {
         value.retrievalBytes = 0
         value.retrievalTotalBytes = undefined
         value.retrievalError = undefined
+        value.retrievalCheckpoint = undefined
+        value.retrievalCommit = undefined
+        value.retrievalNotice = undefined
         if (value.result) {
           value.result.localFileId = undefined
           value.result.fileSize = undefined
@@ -646,7 +692,9 @@ export class VideoManager {
         if (
           task?.video &&
           removeFiles &&
-          (task.video.result?.localFileId || task.video.retrievalBytes)
+          (task.video.result?.localFileId ||
+            task.video.retrievalBytes ||
+            task.video.retrievalCheckpoint)
         )
           await this.deleteLocal(id)
       }

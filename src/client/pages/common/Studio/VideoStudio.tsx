@@ -37,6 +37,8 @@ export function VideoStudio({
 }) {
   useAppLanguage()
   const [caps, setCaps] = useState<VideoCapabilities[]>([])
+  const [loadingCapabilities, setLoadingCapabilities] = useState(true)
+  const [capabilityAttempt, setCapabilityAttempt] = useState(0)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -53,9 +55,38 @@ export function VideoStudio({
   const provider = caps.find((entry) => entry.provider === providerId)
   const tasks = useTasks()
   const consumedReference = useRef<number | undefined>(undefined)
+  const uploadPending = useRef(false)
+  const submitPending = useRef(false)
+  const referenceLimitReached = (type: VideoReference['type']) => {
+    const limits = provider?.references
+    const max =
+      limits &&
+      (type === 'image'
+        ? limits.maxImages
+        : type === 'video'
+          ? limits.maxVideos
+          : limits.maxAudio)
+    return (
+      !limits ||
+      references.length >= limits.maxTotalFiles ||
+      references.filter((ref) => ref.type === type).length >= (max ?? 0)
+    )
+  }
+  const invalidReferences =
+    generationType === 'reference_to_video' &&
+    (!provider?.references ||
+      references.length > provider.references.maxTotalFiles ||
+      references.filter((ref) => ref.type === 'image').length >
+        provider.references.maxImages ||
+      references.filter((ref) => ref.type === 'video').length >
+        provider.references.maxVideos ||
+      references.filter((ref) => ref.type === 'audio').length >
+        provider.references.maxAudio)
 
   useEffect(() => {
     let cancelled = false
+    setLoadingCapabilities(true)
+    setError('')
     studioRequest<VideoCapabilities[]>('/videos/capabilities')
       .then((data) => {
         if (cancelled) return
@@ -65,10 +96,13 @@ export function VideoStudio({
       .catch((cause: Error) => {
         if (!cancelled) setError(cause.message)
       })
+      .finally(() => {
+        if (!cancelled) setLoadingCapabilities(false)
+      })
     return () => {
       cancelled = true
     }
-  }, [form])
+  }, [form, capabilityAttempt])
   useEffect(() => {
     if (!provider) return
     form.setFieldsValue({
@@ -79,6 +113,7 @@ export function VideoStudio({
       aspectRatio: provider.aspectRatios[0],
       frameMode: provider.frameModes?.[0] || 'first_frame',
     })
+    setMediaType(provider.references?.maxVideos ? 'video' : 'audio')
   }, [provider, form])
 
   useEffect(() => {
@@ -88,7 +123,6 @@ export function VideoStudio({
       consumedReference.current === incomingReference.id
     )
       return
-    consumedReference.current = incomingReference.id
     const currentMode = form.getFieldValue(
       'generationType',
     ) as VideoRequest['generationType']
@@ -98,6 +132,19 @@ export function VideoStudio({
           ? 'reference_to_video'
           : 'image_to_video'
         : currentMode
+    if (!provider.generationTypes.includes(mode)) {
+      consumedReference.current = incomingReference.id
+      message.warning(t('当前服务商不支持图片输入'))
+      return
+    }
+    if (mode === 'reference_to_video' && referenceLimitReached('image')) {
+      consumedReference.current = incomingReference.id
+      message.warning(t('参考素材数量已达上限，请先移除素材'))
+      return
+    }
+    if (uploadPending.current) return
+    consumedReference.current = incomingReference.id
+    uploadPending.current = true
     form.setFieldValue('generationType', mode)
     setUploading(true)
     void uploadInputImageFromUrl(incomingReference.url)
@@ -115,10 +162,22 @@ export function VideoStudio({
         else setReference(url)
       })
       .catch((cause: Error) => message.error(cause.message))
-      .finally(() => setUploading(false))
-  }, [incomingReference, provider, form, frameSlot])
+      .finally(() => {
+        uploadPending.current = false
+        setUploading(false)
+      })
+  }, [incomingReference, provider, form, frameSlot, uploading])
 
   async function stageReference(load: () => Promise<string>) {
+    if (uploadPending.current) return
+    if (
+      generationType === 'reference_to_video' &&
+      referenceLimitReached('image')
+    ) {
+      message.warning(t('参考素材数量已达上限，请先移除素材'))
+      return
+    }
+    uploadPending.current = true
     setUploading(true)
     try {
       const url = await load()
@@ -133,6 +192,7 @@ export function VideoStudio({
     } catch (cause) {
       message.error((cause as Error).message)
     } finally {
+      uploadPending.current = false
       setUploading(false)
     }
   }
@@ -146,8 +206,21 @@ export function VideoStudio({
           '视频在云端生成；取回保存到服务端外接存储，下载保存到当前设备。',
         )}
       />
-      {error && <Alert type="error" title={error} />}
-      {!caps.length && (
+      {error && (
+        <Alert
+          type="error"
+          title={error}
+          action={
+            <Button onClick={() => setCapabilityAttempt((value) => value + 1)}>
+              {t('重试')}
+            </Button>
+          }
+        />
+      )}
+      {loadingCapabilities && (
+        <Alert type="info" title={t('正在加载视频服务商配置…')} />
+      )}
+      {!loadingCapabilities && !error && !caps.length && (
         <Alert
           type="warning"
           showIcon
@@ -169,7 +242,16 @@ export function VideoStudio({
       <Form
         form={form}
         layout="vertical"
+        disabled={uploading || submitting || loadingCapabilities}
         onFinish={async (input) => {
+          if (
+            submitPending.current ||
+            uploadPending.current ||
+            invalidReferences ||
+            !provider
+          )
+            return
+          submitPending.current = true
           setSubmitting(true)
           try {
             const { frameMode: selectedFrames, ...common } = input
@@ -211,6 +293,7 @@ export function VideoStudio({
           } catch (cause) {
             message.error((cause as Error).message)
           } finally {
+            submitPending.current = false
             setSubmitting(false)
           }
         }}
@@ -339,6 +422,10 @@ export function VideoStudio({
             <Space wrap>
               <Button
                 loading={uploading}
+                disabled={
+                  generationType === 'reference_to_video' &&
+                  referenceLimitReached('image')
+                }
                 onClick={() =>
                   openGallery({
                     maxCount: 1,
@@ -354,6 +441,11 @@ export function VideoStudio({
                 {t('从图库选图')}
               </Button>
               <Upload
+                disabled={
+                  uploading ||
+                  (generationType === 'reference_to_video' &&
+                    referenceLimitReached('image'))
+                }
                 accept="image/png,image/jpeg,image/webp"
                 showUploadList={false}
                 beforeUpload={(file) => {
@@ -375,7 +467,11 @@ export function VideoStudio({
                 placeholder={t('从暂存台选图')}
                 style={{ minWidth: 180 }}
                 value={undefined}
-                disabled={uploading}
+                disabled={
+                  uploading ||
+                  (generationType === 'reference_to_video' &&
+                    referenceLimitReached('image'))
+                }
                 options={items
                   .filter((item) => item.format !== 'psd')
                   .map((item) => ({ value: item.id, label: item.name }))}
@@ -431,6 +527,13 @@ export function VideoStudio({
                     ? `${provider.references.maxImages} / ${provider.references.maxVideos} / ${provider.references.maxAudio} / ${provider.references.maxTotalFiles}`
                     : '—'}
                 </small>
+                {invalidReferences && (
+                  <Alert
+                    type="warning"
+                    title={t('参考素材超过当前模型上限，请移除多余素材')}
+                    showIcon
+                  />
+                )}
                 {provider?.references?.maxVideos ||
                 provider?.references?.maxAudio ? (
                   <Space.Compact style={{ display: 'flex', marginTop: 8 }}>
@@ -453,9 +556,17 @@ export function VideoStudio({
                       placeholder={t('可公开访问的 HTTPS 素材链接')}
                     />
                     <Button
+                      disabled={referenceLimitReached(mediaType)}
                       onClick={() => {
                         try {
-                          if (new URL(mediaUrl).protocol !== 'https:')
+                          const url = new URL(mediaUrl.trim())
+                          if (
+                            url.protocol !== 'https:' ||
+                            url.username ||
+                            url.password ||
+                            url.hash ||
+                            (url.port && url.port !== '443')
+                          )
                             throw new Error()
                           setReferences((current) => [
                             ...current,
@@ -494,7 +605,11 @@ export function VideoStudio({
                     {ref.type === 'image' ? (
                       <Image src={ref.imageUrl} width={60} />
                     ) : (
-                      <span>{t('已添加 HTTPS 素材')}</span>
+                      <span style={{ overflowWrap: 'anywhere', minWidth: 0 }}>
+                        {new URL(ref.remoteUrl).hostname} ·{' '}
+                        {new URL(ref.remoteUrl).pathname.split('/').pop() ||
+                          t('已添加 HTTPS 素材')}
+                      </span>
                     )}
                     <Button
                       size="small"
@@ -511,6 +626,22 @@ export function VideoStudio({
                       }
                     >
                       {t('上移')}
+                    </Button>
+                    <Button
+                      size="small"
+                      disabled={index === references.length - 1}
+                      onClick={() =>
+                        setReferences((current) => {
+                          const next = [...current]
+                          ;[next[index], next[index + 1]] = [
+                            next[index + 1],
+                            next[index],
+                          ]
+                          return next
+                        })
+                      }
+                    >
+                      {t('下移')}
                     </Button>
                     <Button
                       size="small"
@@ -534,6 +665,7 @@ export function VideoStudio({
           loading={submitting}
           disabled={
             !provider ||
+            invalidReferences ||
             uploading ||
             (generationType === 'image_to_video' &&
               (!reference ||

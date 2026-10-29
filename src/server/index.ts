@@ -76,7 +76,7 @@ if (process.env.NODE_ENV !== 'development') {
   })
 }
 
-serve(
+const server = serve(
   {
     fetch: app.fetch,
     port: BACKEND_PORT,
@@ -101,5 +101,26 @@ serve(
     }
   },
 )
+
+let shuttingDown = false
+async function shutdown() {
+  if (shuttingDown) return
+  shuttingDown = true
+  // Finish durable video checkpoints before the process exits. A hard kill still
+  // recovers from the last periodic checkpoint on the next startup.
+  const deadline = setTimeout(() => process.exit(1), 15000)
+  deadline.unref()
+  server.close(() => {})
+  try {
+    await videoManager.stop()
+    if ('closeAllConnections' in server) server.closeAllConnections()
+    clearTimeout(deadline)
+    process.exit(0)
+  } catch {
+    process.exit(1)
+  }
+}
+process.once('SIGINT', () => void shutdown())
+process.once('SIGTERM', () => void shutdown())
 
 export default app

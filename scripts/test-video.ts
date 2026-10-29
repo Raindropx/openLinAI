@@ -96,7 +96,7 @@ async function main() {
       return source
     },
   }
-  const manager = new VideoManager(mockNetwork)
+  let manager = new VideoManager(mockNetwork)
   let mode = 'normal',
     active = 0,
     maxActive = 0
@@ -291,6 +291,7 @@ async function main() {
       'succeeded',
     )
     await manager.stop()
+    manager = new VideoManager(mockNetwork)
     await taskManager.mutateVideoTask(queued.id, (video) => {
       video.generationStatus = 'failed'
     })
@@ -457,6 +458,12 @@ async function main() {
       body: '{}',
     })
     assert.equal(csrf.status, 403)
+    for (const operation of ['pause-retrieval', 'restart-retrieval']) {
+      const blocked = await videoApi.request(`/${id}/${operation}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example' }, body: '{}',
+      })
+      assert.equal(blocked.status, 403)
+    }
     assert.equal((await videoApi.request(`/${randomUUID()}/file`)).status, 400)
     assert.equal(
       (
@@ -519,6 +526,8 @@ async function main() {
     for (const task of restored) {
       assert.equal(task.video!.retrievalStatus, 'not_retrieved')
       assert.equal(task.video!.result?.localFileId, undefined)
+      assert.equal(task.video!.retrievalCheckpoint, undefined)
+      assert.equal(task.video!.retrievalCommit, undefined)
     }
     console.log(
       `Video integration passed: modes/references, persistence/recovery, independent states, retrieval, cancellation/limits, sources, Range/HEAD/download, URL/path policy, CSRF. 200 MiB stream RSS delta: ${((peakRss - startRss) / 1024 / 1024).toFixed(1)} MiB.`,

@@ -523,6 +523,9 @@ async function applyTaskBackup(
       task.video.request.inputImages = task.rawTemplate.images
       task.video.retrievalStatus = 'not_retrieved'
       task.video.retrievalBytes = 0
+      task.video.retrievalCheckpoint = undefined
+      task.video.retrievalCommit = undefined
+      task.video.retrievalNotice = undefined
       task.video.retrievalTotalBytes = undefined
       task.video.retrievalError = undefined
       if (task.video.result) {

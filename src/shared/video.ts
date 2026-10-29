@@ -11,6 +11,7 @@ export type VideoRetrievalStatus =
   | 'not_retrieved'
   | 'queued'
   | 'downloading'
+  | 'paused'
   | 'retrieved'
   | 'failed'
   | 'cancelled'
@@ -54,11 +55,28 @@ export interface VideoTask {
   retrievalBytes: number
   retrievalTotalBytes?: number
   retrievalError?: string
+  /** Durable, verified prefix of the .part file; never restored from a backup. */
+  retrievalCheckpoint?: VideoRetrievalCheckpoint
+  retrievalCommit?: {
+    bytes: number
+    sha256: string
+    mimeType: 'video/mp4' | 'video/webm'
+  }
+  retrievalNotice?: string
   error?: string
   pollFailures?: number
   nextPollAt?: number
   generationDeadlineAt?: number
   result?: VideoResult
+}
+
+export interface VideoRetrievalCheckpoint {
+  bytes: number
+  totalBytes: number
+  etag: string
+  urlHash: string
+  sha256: string
+  mimeType: 'video/mp4' | 'video/webm'
 }
 
 export interface VideoCapabilities {
@@ -148,6 +166,7 @@ export const videoTaskSchema = z.object({
     'not_retrieved',
     'queued',
     'downloading',
+    'paused',
     'retrieved',
     'failed',
     'cancelled',
@@ -156,6 +175,24 @@ export const videoTaskSchema = z.object({
   retrievalTotalBytes: z.number().finite().nonnegative().optional(),
   remoteTaskId: z.string().min(1).max(500).optional(),
   retrievalError: z.string().max(2000).optional(),
+  retrievalNotice: z.string().max(2000).optional(),
+  retrievalCommit: z
+    .object({
+      bytes: z.number().int().positive(),
+      sha256: z.string().regex(/^[a-f0-9]{64}$/),
+      mimeType: z.enum(['video/mp4', 'video/webm']),
+    })
+    .optional(),
+  retrievalCheckpoint: z
+    .object({
+      bytes: z.number().int().positive(),
+      totalBytes: z.number().int().positive(),
+      etag: z.string().max(1000),
+      urlHash: z.string().regex(/^[a-f0-9]{64}$/),
+      sha256: z.string().regex(/^[a-f0-9]{64}$/),
+      mimeType: z.enum(['video/mp4', 'video/webm']),
+    })
+    .optional(),
   error: z.string().max(2000).optional(),
   pollFailures: z.number().int().nonnegative().optional(),
   nextPollAt: z.number().finite().optional(),
@@ -195,6 +232,7 @@ export const VIDEO_RETRIEVAL_LABELS: Record<VideoRetrievalStatus, string> = {
   not_retrieved: '未取回',
   queued: '等待取回',
   downloading: '取回中',
+  paused: '取回已暂停',
   retrieved: '已取回',
   failed: '取回失败',
   cancelled: '取回已取消',

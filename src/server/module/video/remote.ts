@@ -75,9 +75,15 @@ export async function validateVideoUrl(
 }
 
 /** Resolve/check every redirect and pin the checked address on the actual TLS connection. */
+export interface VideoRangeRequest {
+  offset: number
+  etag: string
+}
+
 export async function openRemoteVideo(
   raw: string,
   signal: AbortSignal,
+  range?: VideoRangeRequest,
   redirects = 0,
 ): Promise<IncomingMessage> {
   signal.throwIfAborted()
@@ -92,6 +98,9 @@ export async function openRemoteVideo(
         headers: {
           Accept: 'video/mp4, video/webm',
           'Accept-Encoding': 'identity',
+          ...(range
+            ? { Range: `bytes=${range.offset}-`, 'If-Range': range.etag }
+            : {}),
         },
         lookup: (_hostname, _options, callback) =>
           callback(null, address.address, address.family),
@@ -108,9 +117,16 @@ export async function openRemoteVideo(
     const location = response.headers.location
     response.destroy()
     if (!location || redirects >= 4) throw new Error('视频重定向无效或过多')
-    return openRemoteVideo(new URL(location, raw).href, signal, redirects + 1)
+    return openRemoteVideo(
+      new URL(location, raw).href,
+      signal,
+      range,
+      redirects + 1,
+    )
   }
-  if (response.statusCode !== 200) {
+  // The retrieval worker validates 206 and handles 416 by restarting, never appending blindly.
+  if (range && response.statusCode === 416) return response
+  if (response.statusCode !== 200 && !(range && response.statusCode === 206)) {
     const status = response.statusCode
     response.destroy()
     throw new Error(`云端视频读取失败 (HTTP ${status})`)

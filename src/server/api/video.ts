@@ -154,6 +154,14 @@ export const videoApi = new Hono()
     await videoManager.cancelRetrieval(c.req.valid('param').id)
     return c.json({ success: true as const })
   })
+  .post('/:id/pause-retrieval', zValidator('param', idSchema), async (c) => {
+    await videoManager.pauseRetrieval(c.req.valid('param').id)
+    return c.json({ success: true as const })
+  })
+  .post('/:id/restart-retrieval', zValidator('param', idSchema), async (c) => {
+    await videoManager.restartRetrieval(c.req.valid('param').id)
+    return c.json({ success: true as const })
+  })
   .delete('/:id/local', zValidator('param', idSchema), async (c) => {
     await videoManager.deleteLocal(c.req.valid('param').id)
     return c.json({ success: true as const })

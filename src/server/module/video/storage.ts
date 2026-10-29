@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -104,6 +105,44 @@ export async function openLocalVideo(id: string) {
   }
 }
 
+/** Open existing partial files without following symlinks, including on Windows. */
+export async function openPartialVideo(root: string, id: string) {
+  const file = videoFilePath(root, id, true)
+  if (
+    (await fs.lstat(file)).isSymbolicLink() ||
+    !inside(root, await fs.realpath(file))
+  )
+    throw new Error('视频临时文件路径不安全')
+  const handle = await fs.open(
+    file,
+    constants.O_RDWR | (constants.O_NOFOLLOW || 0),
+  )
+  try {
+    const stat = await handle.stat()
+    if (!stat.isFile()) throw new Error('视频临时文件不可用')
+    return { handle, stat }
+  } catch (error) {
+    await handle.close()
+    throw error
+  }
+}
+
+export async function hashVideoFile(
+  handle: Awaited<ReturnType<typeof fs.open>>,
+  signal: AbortSignal,
+) {
+  const hash = createHash('sha256')
+  const buffer = Buffer.alloc(64 * 1024)
+  let position = 0
+  while (true) {
+    signal.throwIfAborted()
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, position)
+    if (!bytesRead) return hash.digest('hex')
+    hash.update(buffer.subarray(0, bytesRead))
+    position += bytesRead
+  }
+}
+
 export function parseVideoRange(range: string | undefined, size: number) {
   if (!range) return { start: 0, end: size - 1, partial: false }
   const match = /^bytes=(\d*)-(\d*)$/.exec(range)
@@ -126,7 +165,7 @@ export function parseVideoRange(range: string | undefined, size: number) {
 /** Bounds memory to stream buffers, validates the container header and exact known length. */
 export class VideoTransfer extends Transform {
   bytes = 0
-  private head = Buffer.alloc(0)
+  private head: Buffer = Buffer.alloc(0)
   private nextSpaceCheck = 4 * 1024 * 1024
   constructor(
     private options: {
@@ -134,9 +173,14 @@ export class VideoTransfer extends Transform {
       max?: number
       checkSpace?: () => Promise<unknown>
       progress?: (bytes: number) => void
+      offset?: number
+      head?: Buffer
     },
   ) {
     super()
+    this.bytes = options.offset ?? 0
+    this.head = options.head ?? Buffer.alloc(0)
+    this.nextSpaceCheck = this.bytes + 4 * 1024 * 1024
   }
   _transform(
     chunk: Buffer,

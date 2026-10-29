@@ -21,11 +21,13 @@ export function VideoTaskCard({
   const video = task.video!
   const [sources, setSources] = useState<VideoSources>({})
   const [playing, setPlaying] = useState(false)
+  const [playbackUrl, setPlaybackUrl] = useState<string>()
   const [busy, setBusy] = useState(false)
   const [playError, setPlayError] = useState('')
   const player = useRef<HTMLVideoElement>(null)
   const container = useRef<HTMLDivElement>(null)
   const visible = useRef(false)
+  const actionPending = useRef(false)
   const base = `/videos/${encodeURIComponent(task.id)}`
   const resolveSources = useCallback(async () => {
     const value = await studioRequest<VideoSources>(`${base}/sources`)
@@ -58,14 +60,20 @@ export function VideoTaskCard({
   ])
 
   async function action(suffix: string, method = 'POST') {
+    if (actionPending.current) return false
+    actionPending.current = true
     setBusy(true)
     try {
       await studioRequest(`${base}/${suffix}`, studioJson(method, {}))
-      if (video.generationStatus === 'succeeded') await resolveSources()
       onChanged?.()
+      if (video.generationStatus === 'succeeded')
+        await resolveSources().catch(() => {})
+      return true
     } catch (error) {
       message.error((error as Error).message)
+      return false
     } finally {
+      actionPending.current = false
       setBusy(false)
     }
   }
@@ -75,7 +83,10 @@ export function VideoTaskCard({
       setPlayError('')
       const value = await resolveSources()
       if (!value.playbackUrl) throw new Error(value.error || '视频暂不可播放')
+      setPlaybackUrl(value.playbackUrl)
       setPlaying(true)
+      if (player.current?.getAttribute('src') === value.playbackUrl)
+        player.current.load()
     } catch (error) {
       setPlayError((error as Error).message)
     }
@@ -113,7 +124,7 @@ export function VideoTaskCard({
         const result = await response.json()
         if (!response.ok || !result.success) {
           message.error(t('删除失败，请检查存储与任务状态'))
-          return
+          throw new Error('delete failed')
         }
         onChanged?.()
       },
@@ -140,7 +151,13 @@ export function VideoTaskCard({
               )}
             </Tag>
           )}
-          <Tag>{t(VIDEO_GENERATION_LABELS[video.generationStatus])}</Tag>
+          <Tag>
+            {t(
+              video.generationStatus === 'queued' && video.remoteTaskId
+                ? '云端排队中'
+                : VIDEO_GENERATION_LABELS[video.generationStatus],
+            )}
+          </Tag>
           <Tag
             color={video.retrievalStatus === 'retrieved' ? 'green' : undefined}
           >
@@ -155,6 +172,10 @@ export function VideoTaskCard({
             {video.request.provider} · {video.request.model}
           </span>
         </Space>
+        <p style={{ marginBottom: 0 }}>
+          {video.request.durationSeconds}s · {video.request.resolution} ·{' '}
+          {video.request.aspectRatio}
+        </p>
         <p
           style={{
             whiteSpace: 'pre-wrap',
@@ -165,15 +186,15 @@ export function VideoTaskCard({
         >
           {video.request.prompt}
         </p>
-        {playing && sources.playbackUrl ? (
+        {playing && playbackUrl ? (
           <video
-            key={sources.playbackUrl}
+            key={playbackUrl}
             ref={player}
             data-linai-video
             controls
             playsInline
             preload="none"
-            src={sources.playbackUrl}
+            src={playbackUrl}
             poster={video.result?.posterUrl}
             style={{ width: '100%', maxHeight: 360 }}
             onPlay={() =>
@@ -213,7 +234,9 @@ export function VideoTaskCard({
             </span>
           </div>
         )}
-        {retrievalActive && (
+        {(retrievalActive ||
+          video.retrievalStatus === 'paused' ||
+          !!video.retrievalCheckpoint) && (
           <div>
             {video.retrievalTotalBytes ? (
               <Progress
@@ -233,6 +256,21 @@ export function VideoTaskCard({
                 : ''}
             </small>
           </div>
+        )}
+        {video.retrievalNotice && (
+          <Alert
+            type="info"
+            showIcon
+            title={t(video.retrievalNotice)}
+            style={{ marginTop: 8 }}
+          />
+        )}
+        {video.retrievalStatus === 'paused' && !video.retrievalCheckpoint && (
+          <Alert
+            type="info"
+            title={t('没有可验证的断点，继续时将从头取回')}
+            style={{ marginTop: 8 }}
+          />
         )}
         {[video.error, video.retrievalError, sources.error, playError]
           .filter(Boolean)
@@ -258,9 +296,9 @@ export function VideoTaskCard({
                 <Button
                   size="small"
                   loading={busy}
-                  onClick={() => void action('cancel-retrieval')}
+                  onClick={() => void action('pause-retrieval')}
                 >
-                  {t('取消取回')}
+                  {t('暂停取回')}
                 </Button>
               ) : (
                 <Button
@@ -270,11 +308,56 @@ export function VideoTaskCard({
                   onClick={() => void action('retrieve')}
                 >
                   {t(
-                    video.retrievalStatus === 'failed' ||
-                      video.retrievalStatus === 'cancelled'
-                      ? '重新取回'
-                      : '取回到外接存储',
+                    video.retrievalStatus === 'paused' ||
+                      video.retrievalCheckpoint
+                      ? '继续取回'
+                      : video.retrievalStatus === 'failed' ||
+                          video.retrievalStatus === 'cancelled'
+                        ? '重新取回'
+                        : '取回到外接存储',
                   )}
+                </Button>
+              )}
+              {(video.retrievalCheckpoint ||
+                video.retrievalStatus === 'paused') &&
+                !retrievalActive && (
+                  <Button
+                    size="small"
+                    disabled={busy}
+                    onClick={() =>
+                      Modal.confirm({
+                        title: t('丢弃断点并从头取回？'),
+                        content: t(
+                          '已下载的临时内容将清除，重新下载完整视频。',
+                        ),
+                        onOk: async () => {
+                          if (!(await action('restart-retrieval')))
+                            throw new Error('restart failed')
+                        },
+                      })
+                    }
+                  >
+                    {t('从头取回')}
+                  </Button>
+                )}
+              {(retrievalActive ||
+                video.retrievalStatus === 'paused' ||
+                video.retrievalCheckpoint) && (
+                <Button
+                  size="small"
+                  disabled={busy}
+                  onClick={() =>
+                    Modal.confirm({
+                      title: t('取消取回并清除断点？'),
+                      content: t('只清除临时下载，保留生成结果和任务记录。'),
+                      onOk: async () => {
+                        if (!(await action('cancel-retrieval')))
+                          throw new Error('cancel failed')
+                      },
+                    })
+                  }
+                >
+                  {t('取消取回')}
                 </Button>
               )}
               <Button
@@ -298,7 +381,10 @@ export function VideoTaskCard({
                       content: t(
                         '保留任务记录。云端链接可能已过期，请确认后再删除。',
                       ),
-                      onOk: () => action('local', 'DELETE'),
+                      onOk: async () => {
+                        if (!(await action('local', 'DELETE')))
+                          throw new Error('delete failed')
+                      },
                     })
                   }
                 >
@@ -324,7 +410,10 @@ export function VideoTaskCard({
                       ? '沿用已保存的远端任务编号，不创建新任务。'
                       : '未收到远端任务编号时，之前的请求也可能已被接单。请先核对服务商记录，重试可能再次计费。',
                   ),
-                  onOk: () => action('retry'),
+                  onOk: async () => {
+                    if (!(await action('retry')))
+                      throw new Error('retry failed')
+                  },
                 })
               }
             >
