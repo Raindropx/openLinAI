@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { GptImageQuality } from '../../server/module/gpt-image/enum'
+import { STUDIO_TOOLS, type StudioTool } from '../../shared/studio'
 
 export interface GPTImageSettings {
   enable1K: boolean
@@ -12,6 +13,8 @@ export interface GPTImageSettings {
   keepImageWhenDeleteTask?: boolean
   showImageSizeInTaskList?: boolean
   autoSaveStudioTasksToTaskList?: boolean
+  /** 每次进入工作室时默认打开的工具。 */
+  studioStartPage?: StudioTool
   autoSelectAspectRatioFromReference?: boolean
   /** 提示词优化时向 LLM 发送当前画面比例。 */
   sendAspectRatioToPromptOptimize?: boolean
@@ -49,6 +52,7 @@ export const defaultGPTImageSettings: GPTImageSettings = {
   keepImageWhenDeleteTask: false,
   showImageSizeInTaskList: true,
   autoSaveStudioTasksToTaskList: false,
+  studioStartPage: 'novelai',
   autoSelectAspectRatioFromReference: true,
   sendAspectRatioToPromptOptimize: true,
   writeGenerationMetadata: true,
@@ -171,6 +175,10 @@ export function useLocalSetting() {
     () => ({
       ...defaultGPTImageSettings,
       ...gptImageSettings,
+      studioStartPage:
+        STUDIO_TOOLS.find(
+          (tool) => tool.value === gptImageSettings.studioStartPage,
+        )?.value ?? 'novelai',
       selectedEndpointId:
         gptImageSettings.selectedEndpointId ||
         gptImageSettings.defaultEndpointId,

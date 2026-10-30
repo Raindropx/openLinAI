@@ -3,6 +3,16 @@ import type { GenerationMetadataInput } from '../server/module/gpt-image/generat
 import type { CivitaiGenerationSnapshot } from './civitai-generation'
 import type { NovelAIGenerationSnapshot } from './studio-generation'
 
+export const STUDIO_TOOLS = [
+  { value: 'novelai', label: 'NovelAI Image' },
+  { value: 'civitai', label: 'Civitai Image' },
+  { value: 'video', label: '视频生成' },
+  { value: 'photopea', label: 'Photopea' },
+  { value: 'perler-bead', label: '拼豆 / 像素图' },
+] as const
+
+export type StudioTool = (typeof STUDIO_TOOLS)[number]['value']
+
 export interface StudioProvenance {
   origin: 'photopea' | 'novelai' | 'civitai' | 'import' | 'other'
   photopea?: 'created' | 'edited'

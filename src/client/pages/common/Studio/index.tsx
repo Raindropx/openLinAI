@@ -33,16 +33,19 @@ import { saveAs } from 'file-saver'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
+  STUDIO_TOOLS,
   studioFileUrl,
   studioSourceLabel,
   studioSourceTypeLabels,
   type StudioItem,
+  type StudioTool,
 } from '../../../../shared/studio'
 import type {
   NovelAIStudioGenerateRequest,
   StudioProviderSettings,
 } from '../../../../shared/studio-generation'
 import type { VideoRequest } from '../../../../shared/video'
+import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { getSecondaryAccentColor, useAppTheme } from '../../../theme'
@@ -113,12 +116,15 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const { mode } = useAppTheme()
   const navigate = useNavigate()
   const location = useLocation()
+  const { gptImageSettings } = useLocalSetting()
+  const startPage = gptImageSettings.studioStartPage
   const [items, setItems] = useState<StudioItem[]>([])
   const [providerSettings, setProviderSettings] =
     useState<StudioProviderSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [tab, setTab] = useState('novelai')
+  const [tab, setTab] = useState<StudioTool>(startPage)
+  const wasActive = useRef(false)
   const [perlerVisited, setPerlerVisited] = useState(false)
   const [perlerImage, setPerlerImage] = useState<{ id: number; url: string }>()
   const [perlerShelfExpanded, setPerlerShelfExpanded] = useState(false)
@@ -214,6 +220,14 @@ export function StudioPage({ active = true }: { active?: boolean }) {
 
   // A keyed child owns the bridge so an explicit reload resets all command state.
   const editorRef = useRef<EditorHandle | null>(null)
+
+  useEffect(() => {
+    if (active && !wasActive.current) {
+      setTab(startPage)
+      setMobileShelf(false)
+    }
+    wasActive.current = active
+  }, [active, startPage])
 
   useEffect(() => {
     const state = location.state as {
@@ -471,13 +485,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           role="tablist"
           aria-label={t('工作室工具标签')}
         >
-          {[
-            ['novelai', 'NovelAI Image'],
-            ['civitai', 'Civitai Image'],
-            ['video', t('视频生成')],
-            ['photopea', 'Photopea'],
-            ['perler-bead', t('拼豆 / 像素图')],
-          ].map(([key, label]) => (
+          {STUDIO_TOOLS.map(({ value: key, label }) => (
             <button
               key={key}
               role="tab"
@@ -487,7 +495,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
               onClick={() => setTab(key)}
               className={tab === key ? 'is-active' : ''}
             >
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>

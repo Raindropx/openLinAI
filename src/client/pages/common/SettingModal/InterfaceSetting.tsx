@@ -1,4 +1,5 @@
 import { Button, ColorPicker, Select, Switch } from 'antd'
+import { STUDIO_TOOLS } from '../../../../shared/studio'
 import { useLocalSetting } from '../../../hooks/useLocalSetting'
 import { t, useAppLanguage } from '../../../i18n'
 import { DEFAULT_ACCENT_COLOR, useAppTheme } from '../../../theme'
@@ -167,6 +168,31 @@ export function InterfaceSetting() {
             </div>
           </div>
           <Switch checked={squareCorners} onChange={setSquareCorners} />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-[#303640] bg-[#181c22] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div id="studio-start-page-label">{t('工作室起始页')}</div>
+            <div className="mt-1 text-sm text-slate-500">
+              {t(
+                '每次进入工作室时默认打开的页面；从任务回填或工具入口进入时优先打开对应页面。',
+              )}
+            </div>
+          </div>
+          <Select
+            aria-labelledby="studio-start-page-label"
+            value={gptImageSettings.studioStartPage}
+            className="w-48"
+            options={STUDIO_TOOLS.map((tool) => ({
+              value: tool.value,
+              label: t(tool.label),
+            }))}
+            onChange={(value) =>
+              setGptImageSettings((prev) => ({ ...prev, studioStartPage: value }))
+            }
+          />
         </div>
       </div>
 
