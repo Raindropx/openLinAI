@@ -23,6 +23,7 @@ import {
   videoApiResponse,
   type Json,
 } from './api-transport'
+import { validateVideoApiTarget } from './endpoint-network'
 import { validateVideoRequest, type VideoProvider } from './providers'
 import type { VideoRangeRequest } from './remote'
 
@@ -535,6 +536,7 @@ export class ConfiguredVideoProvider implements VideoProvider {
           'openlux-minimax': '/minimax/v2/video_generation',
           'openai-video': '/videos',
           fastvideo: '/videos',
+          comfyui: '/prompt',
         } as const
       )[endpoint.protocol]
     }
@@ -605,6 +607,7 @@ export class ConfiguredVideoProvider implements VideoProvider {
       'openlux-omni': `/v1/video/query?id=${key}`,
       'openai-video': `/videos/${key}`,
       fastvideo: `/videos/${key}`,
+      comfyui: undefined,
     }[this.endpoint.protocol]
     return this.json(this.endpoint, route!, signal)
   }
@@ -647,6 +650,15 @@ export class ConfiguredVideoProvider implements VideoProvider {
         : typeof expires === 'string'
           ? Date.parse(expires)
           : undefined
+    if (typeof url === 'string' && this.endpoint.network === 'local') {
+      const route = url.startsWith('/')
+        ? url
+        : url.slice(this.endpoint.baseURL.length)
+      const target = await validateVideoApiTarget(this.endpoint, route)
+      if (!url.startsWith('/') && target.url.href !== new URL(url).href)
+        throw new Error('内网结果地址超出配置的视频端点')
+      return { remoteUrl: target.url.href, providerMedia: true }
+    }
     if (typeof url === 'string' && url.startsWith('https://'))
       return {
         remoteUrl: url,
@@ -678,7 +690,12 @@ export class ConfiguredVideoProvider implements VideoProvider {
     return undefined
   }
   async openResult(id: string, signal: AbortSignal, range?: VideoRangeRequest) {
-    const route = this.mediaRoute(id)
+    const route =
+      this.endpoint.network === 'local'
+        ? (await this.getResult(id, signal)).remoteUrl!.slice(
+            this.endpoint.baseURL.length,
+          )
+        : this.mediaRoute(id)
     if (!route) throw new Error('该视频端点未声明受控视频下载接口')
     return videoApiMedia(
       this.endpoint,
@@ -700,6 +717,8 @@ export async function discoverVideoModels(
   endpoint: StoredVideoEndpoint,
   transport: typeof videoApiJson = videoApiJson,
 ): Promise<Array<{ id: string; name: string; options?: VideoModelOptions }>> {
+  if (endpoint.protocol === 'comfyui')
+    throw new Error('ComfyUI 使用导入的 API 工作流，不读取云端模型目录')
   if (endpoint.protocol === 'civitai')
     throw new Error(
       'Civitai 未提供视频模型目录接口，请选择内置候选或手动填写模型 ID',

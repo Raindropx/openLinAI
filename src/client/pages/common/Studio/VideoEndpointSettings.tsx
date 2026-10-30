@@ -29,6 +29,7 @@ import {
 import { t, useAppLanguage } from '../../../i18n'
 import { ModelIdInput } from '../SettingModal/ModelIdInput'
 import { studioJson, studioRequest } from './api'
+import { ComfyVideoWorkflowEditor } from './ComfyVideoWorkflowEditor'
 
 const newEndpoint = (): VideoEndpoint => ({
   id: uuidv4(),
@@ -52,6 +53,7 @@ export function VideoEndpointSettings({
   const [draft, setDraft] = useState<VideoEndpoint>()
   const [busy, setBusy] = useState(false)
   const [loadingModels, setLoadingModels] = useState(false)
+  const [testingConnection, setTestingConnection] = useState(false)
   const [modelsError, setModelsError] = useState<string | null>(null)
   const [refreshModels, setRefreshModels] = useState(0)
   const [error, setError] = useState('')
@@ -91,7 +93,7 @@ export function VideoEndpointSettings({
     if (draft) form.setFieldsValue(draft)
   }, [draft, form])
   const update = (values: Partial<VideoEndpoint>) => {
-    if ('baseURL' in values || 'protocol' in values) {
+    if ('baseURL' in values || 'protocol' in values || 'network' in values) {
       modelAttempt.current++
       values = {
         ...values,
@@ -188,6 +190,7 @@ export function VideoEndpointSettings({
   const discoveryBase = draft?.baseURL.trim() || ''
   const discoveryKey = draft?.apiKey?.trim() || ''
   const discoverySavedKey = draft?.apiKeyConfigured
+  const discoveryNetwork = draft?.network
   useEffect(() => {
     const attempt = ++modelAttempt.current
     setModels([])
@@ -197,9 +200,10 @@ export function VideoEndpointSettings({
       !open ||
       !discoveryId ||
       !discoveryProtocol ||
-      !/^https:\/\//.test(discoveryBase) ||
-      (!discoveryKey && !discoverySavedKey) ||
-      discoveryProtocol === 'civitai'
+      !/^https?:\/\//.test(discoveryBase) ||
+      (!discoveryKey && !discoverySavedKey && discoveryNetwork !== 'local') ||
+      discoveryProtocol === 'civitai' ||
+      discoveryProtocol === 'comfyui'
     )
       return
     const controller = new AbortController()
@@ -212,6 +216,7 @@ export function VideoEndpointSettings({
           protocol: discoveryProtocol,
           baseURL: discoveryBase,
           apiKey: discoveryKey,
+          network: discoveryNetwork,
         }),
         signal: controller.signal,
       })
@@ -261,6 +266,7 @@ export function VideoEndpointSettings({
     discoveryBase,
     discoveryKey,
     discoverySavedKey,
+    discoveryNetwork,
     refreshModels,
   ])
   const activePreset = VIDEO_ENDPOINT_PRESETS.find(
@@ -451,12 +457,31 @@ export function VideoEndpointSettings({
                     />
                   </Form.Item>
                   <Form.Item
+                    label={t('连接方式')}
+                    extra={t(
+                      '内网模式仅访问此 API 地址；127.0.0.1 指 openLinAI 服务端所在机器。',
+                    )}
+                  >
+                    <Select
+                      value={draft.network || 'public'}
+                      options={[
+                        { value: 'public', label: t('公网 HTTPS') },
+                        { value: 'local', label: t('本机 / 内网 HTTP(S)') },
+                      ]}
+                      onChange={(network) => update({ network })}
+                    />
+                  </Form.Item>
+                  <Form.Item
                     label="API Key"
                     htmlFor="video-endpoint-settings-api-key"
                     extra={
                       draft.apiKeyConfigured
                         ? t('已保存 {0}；留空保留原密钥', [draft.keyHint])
-                        : t('密钥仅保存在服务端，读取设置时不会返回明文')
+                        : t(
+                            draft.network === 'local'
+                              ? '内网服务不需要鉴权时可留空；密钥仅保存在服务端。'
+                              : '密钥仅保存在服务端，读取设置时不会返回明文',
+                          )
                     }
                   >
                     <Input.Password
@@ -469,51 +494,110 @@ export function VideoEndpointSettings({
                     />
                   </Form.Item>
                   <Form.Item
-                    label={t('模型 ID')}
+                    label={t(
+                      draft.protocol === 'comfyui' ? '工作流标识' : '模型 ID',
+                    )}
                     name="model"
                     rules={[{ required: true }]}
                   >
-                    <ModelIdInput
-                      value={draft.model}
-                      models={choices}
-                      loading={loadingModels}
-                      error={modelsError}
-                      onRefresh={() => setRefreshModels((value) => value + 1)}
-                      waitingForKey={!draft.apiKey && !draft.apiKeyConfigured}
-                      directoryLabel={t('视频模型目录')}
-                      placeholder={t('搜索或输入视频模型 ID')}
-                      onChange={(model) => {
-                        const choice = choices.find(
-                          (choice) => choice.id === model,
-                        )
-                        update({
-                          model,
-                          ...(choice?.options
-                            ? { options: structuredClone(choice.options) }
-                            : {}),
-                        })
-                      }}
-                    />
-                  </Form.Item>
-                  <Button
-                    loading={loadingModels}
-                    disabled={
-                      busy ||
-                      draft.protocol === 'civitai' ||
-                      !draft.baseURL ||
-                      (!draft.apiKey && !draft.apiKeyConfigured)
-                    }
-                    onClick={() => setRefreshModels((value) => value + 1)}
-                  >
-                    {t('刷新模型目录')}
-                  </Button>
-                  <div className="studio-video-endpoint-hint">
-                    {t(
-                      draft.protocol === 'civitai'
-                        ? '此服务使用内置模型候选，可手动填写模型 ID 和调整参数。'
-                        : '填写地址和 Key 后自动探测视频模型；目录不可用或未收录时，可直接填写模型 ID 和参数。',
+                    {draft.protocol === 'comfyui' ? (
+                      <Input
+                        value={draft.model}
+                        onChange={(event) =>
+                          update({ model: event.target.value })
+                        }
+                      />
+                    ) : (
+                      <ModelIdInput
+                        value={draft.model}
+                        models={choices}
+                        loading={loadingModels}
+                        error={modelsError}
+                        onRefresh={() => setRefreshModels((value) => value + 1)}
+                        waitingForKey={
+                          draft.network !== 'local' &&
+                          !draft.apiKey &&
+                          !draft.apiKeyConfigured
+                        }
+                        directoryLabel={t('视频模型目录')}
+                        placeholder={t('搜索或输入视频模型 ID')}
+                        onChange={(model) => {
+                          const choice = choices.find(
+                            (choice) => choice.id === model,
+                          )
+                          update({
+                            model,
+                            ...(choice?.options
+                              ? { options: structuredClone(choice.options) }
+                              : {}),
+                          })
+                        }}
+                      />
                     )}
-                  </div>
+                  </Form.Item>
+                  {draft.protocol === 'comfyui' ? (
+                    <>
+                      <Button
+                        loading={testingConnection}
+                        disabled={busy || !draft.baseURL}
+                        onClick={async () => {
+                          const attempt = modelAttempt.current
+                          setTestingConnection(true)
+                          try {
+                            const result = await studioRequest<{
+                              version: string
+                            }>(
+                              '/videos/endpoints/test',
+                              studioJson('POST', {
+                                id: draft.id,
+                                protocol: draft.protocol,
+                                baseURL: draft.baseURL,
+                                network: draft.network,
+                                apiKey: draft.apiKey || '',
+                              }),
+                            )
+                            if (attempt === modelAttempt.current)
+                              message.success(
+                                t('ComfyUI 连接成功，版本 {0}', [
+                                  result.version,
+                                ]),
+                              )
+                          } catch (cause) {
+                            if (attempt === modelAttempt.current)
+                              message.error((cause as Error).message)
+                          } finally {
+                            setTestingConnection(false)
+                          }
+                        }}
+                      >
+                        {t('测试 ComfyUI 连接')}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        loading={loadingModels}
+                        disabled={
+                          busy ||
+                          draft.protocol === 'civitai' ||
+                          !draft.baseURL ||
+                          (draft.network !== 'local' &&
+                            !draft.apiKey &&
+                            !draft.apiKeyConfigured)
+                        }
+                        onClick={() => setRefreshModels((value) => value + 1)}
+                      >
+                        {t('刷新模型目录')}
+                      </Button>
+                      <div className="studio-video-endpoint-hint">
+                        {t(
+                          draft.protocol === 'civitai'
+                            ? '此服务使用内置模型候选，可手动填写模型 ID 和调整参数。'
+                            : '填写地址和 Key 后自动探测视频模型；目录不可用或未收录时，可直接填写模型 ID 和参数。',
+                        )}
+                      </div>
+                    </>
+                  )}
                   <Form.Item
                     label={t('视频与参考素材域名')}
                     extra={t(
@@ -695,6 +779,15 @@ export function VideoEndpointSettings({
                   </div>
                 </section>
               </div>
+              {draft.protocol === 'comfyui' && (
+                <div style={{ marginTop: 16 }}>
+                  <ComfyVideoWorkflowEditor
+                    key={draft.id}
+                    value={draft.comfyUI}
+                    onChange={(comfyUI) => update({ comfyUI })}
+                  />
+                </div>
+              )}
               <Button
                 danger
                 disabled={

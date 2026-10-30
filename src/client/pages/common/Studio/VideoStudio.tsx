@@ -160,7 +160,12 @@ export function VideoStudio({
   }, [provider, form, refillVersion])
 
   function fillRequest(request: VideoRequest) {
-    const { inputImages, frames, references: savedReferences, ...values } = request
+    const {
+      inputImages,
+      frames,
+      references: savedReferences,
+      ...values
+    } = request
     form.setFieldsValue({
       ...values,
       frameMode: request.frameMode || 'first_frame',
@@ -375,7 +380,7 @@ export function VideoStudio({
                 type="info"
                 showIcon
                 title={t(
-                  '视频在云端生成；取回保存到运行程序的设备，下载保存到当前设备。',
+                  '视频由所选服务生成；取回保存到运行程序的设备，下载保存到当前设备。',
                 )}
               />
               {error && (
@@ -400,7 +405,7 @@ export function VideoStudio({
                   showIcon
                   title={t('尚未配置视频服务商')}
                   description={t(
-                    '点击上方“视频端点设置”，选择预设并填写 API Key 后保存和启用。',
+                    '点击上方“视频端点设置”，配置云端或本机 / 内网服务后保存和启用。',
                   )}
                 />
               )}

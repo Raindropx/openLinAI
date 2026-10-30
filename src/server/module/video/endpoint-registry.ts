@@ -1,4 +1,5 @@
 import { videoEndpointSettings } from '../../common/video-endpoint-settings'
+import { ComfyVideoProvider } from './comfyui-provider'
 import { ConfiguredVideoProvider } from './configured-provider'
 import { videoProviders } from './providers'
 
@@ -11,8 +12,11 @@ export async function syncVideoEndpoints() {
   for (const id of configured) videoProviders.delete(id)
   configured.clear()
   for (const endpoint of endpoints) {
-    if (!endpoint.apiKey) continue
-    const provider = new ConfiguredVideoProvider(endpoint)
+    if (!endpoint.apiKey && endpoint.network !== 'local') continue
+    const provider =
+      endpoint.protocol === 'comfyui'
+        ? new ComfyVideoProvider(endpoint)
+        : new ConfiguredVideoProvider(endpoint)
     videoProviders.set(endpoint.id, provider)
     configured.add(endpoint.id)
   }

@@ -6,6 +6,8 @@ import type {
   VideoTask,
 } from '../../../shared/video'
 import { taskManager, type Task } from '../../common/task-manager'
+import { videoEndpointSettings } from '../../common/video-endpoint-settings'
+import { validateVideoApiTarget } from './endpoint-network'
 import { syncVideoEndpoints } from './endpoint-registry'
 import {
   getVideoProvider,
@@ -235,13 +237,46 @@ export class VideoManager {
     map.set(id, { controller, done })
   }
 
-  private async checkedResult(result: VideoResult): Promise<VideoResult> {
+  private async validateResultUrl(
+    result: VideoResult,
+    providerId: string,
+    allowNewHost = false,
+  ) {
+    if (!result.remoteUrl) throw new Error('服务商未提供可直连的视频地址')
+    const endpoint =
+      result.providerMedia &&
+      (await videoEndpointSettings.read()).find(
+        (endpoint) => endpoint.id === providerId,
+      )
+    if (endpoint && endpoint.network === 'local') {
+      if (
+        !getVideoProvider(providerId).openResult ||
+        !result.remoteUrl.startsWith(endpoint.baseURL + '/')
+      )
+        throw new Error('内网结果地址超出配置的视频端点')
+      const target = await validateVideoApiTarget(
+        endpoint,
+        result.remoteUrl.slice(endpoint.baseURL.length),
+      )
+      if (target.url.href !== new URL(result.remoteUrl).href)
+        throw new Error('内网结果地址无效')
+      return
+    }
+    await this.network.validate(
+      result.remoteUrl,
+      undefined,
+      allowNewHost ? [new URL(result.remoteUrl).hostname] : [],
+    )
+  }
+
+  private async checkedResult(
+    result: VideoResult,
+    providerId: string,
+  ): Promise<VideoResult> {
     if (!result.remoteUrl) throw new Error('服务商未提供可直连的视频地址')
     // Successful generation is retained even when a new CDN still needs approval.
     // The public-address check remains mandatory; playback/retrieval enforce the allowlist.
-    await this.network.validate(result.remoteUrl, undefined, [
-      new URL(result.remoteUrl).hostname,
-    ])
+    await this.validateResultUrl(result, providerId, true)
     if (
       result.remoteUrlExpiresAt !== undefined &&
       (!Number.isFinite(result.remoteUrlExpiresAt) ||
@@ -316,6 +351,7 @@ export class VideoManager {
         state.status === 'succeeded'
           ? await this.checkedResult(
               await provider.getResult(video.remoteTaskId!, timeout),
+              video.request.provider,
             )
           : undefined
       await taskManager.mutateVideoTask(id, (value) => {
@@ -325,7 +361,7 @@ export class VideoManager {
         value.nextPollAt = Date.now() + 10000
         value.error =
           state.status === 'failed'
-            ? '云端视频生成失败，请检查服务商任务记录'
+            ? state.error || '云端视频生成失败，请检查服务商任务记录'
             : undefined
         if (result) value.result = result
       })
@@ -333,7 +369,7 @@ export class VideoManager {
       if (signal.aborted || this.deleting.has(id)) return
       const detail =
         error instanceof Error &&
-        /^(视频 API|视频模型|Gemini|Civitai|不支持的 Civitai)/.test(
+        /^(视频 API|视频模型|Gemini|Civitai|ComfyUI|工作流|第 \d+ 张输入图片|不支持的 Civitai)/.test(
           error.message,
         )
           ? `；${error.message}`
@@ -391,6 +427,7 @@ export class VideoManager {
               video.remoteTaskId!,
               AbortSignal.timeout(60000),
             ),
+            video.request.provider,
           )
           result = {
             ...result,
@@ -405,7 +442,7 @@ export class VideoManager {
         }
       }
       if (!result?.remoteUrl) throw new Error('云端结果已失效')
-      await this.network.validate(result.remoteUrl)
+      await this.validateResultUrl(result, video.request.provider)
       return result
     })
   }

@@ -11,6 +11,7 @@ import {
 } from '../../shared/video-endpoints'
 import { taskManager } from '../common/task-manager'
 import { videoEndpointSettings } from '../common/video-endpoint-settings'
+import { videoApiJson } from '../module/video/api-transport'
 import { discoverVideoModels } from '../module/video/configured-provider'
 import { syncVideoEndpoints } from '../module/video/endpoint-registry'
 import { videoManager } from '../module/video/manager'
@@ -19,8 +20,8 @@ import {
   openLocalVideo,
   parseVideoRange,
   videoMaxBytes,
-  videoTimeoutMs,
   VideoStorageError,
+  videoTimeoutMs,
   VideoTransfer,
 } from '../module/video/storage'
 
@@ -126,7 +127,11 @@ export const videoApi = new Hono()
     }
     await next()
   })
-  .use('*', bodyLimit({ maxSize: 64 * 1024 }))
+  .use('/endpoints', bodyLimit({ maxSize: 3 * 1024 * 1024 }))
+  .use('*', async (c, next) => {
+    if (c.req.path.endsWith('/endpoints')) return next()
+    return bodyLimit({ maxSize: 64 * 1024 })(c, next)
+  })
   .get('/endpoints', async (c) =>
     c.json({
       success: true as const,
@@ -173,10 +178,12 @@ export const videoApi = new Hono()
         )
         const sameDestination =
           saved?.protocol === input.protocol &&
+          saved?.network === input.network &&
           saved?.baseURL.replace(/\/+$/, '') ===
             input.baseURL.replace(/\/+$/, '')
         const apiKey = input.apiKey || (sameDestination ? saved?.apiKey : '')
-        if (!apiKey) throw new Error('读取模型前请填写 API Key')
+        if (!apiKey && input.network !== 'local')
+          throw new Error('读取模型前请填写 API Key')
         const data = await discoverVideoModels({
           ...input,
           name: '',
@@ -184,9 +191,53 @@ export const videoApi = new Hono()
           enabled: false,
           mediaHosts: [],
           options: input.options || videoOptions(),
-          apiKey,
+          apiKey: apiKey || '',
         })
         return c.json({ success: true as const, data })
+      } catch (error) {
+        return c.json(
+          { success: false as const, error: (error as Error).message },
+          400,
+        )
+      }
+    },
+  )
+  .post(
+    '/endpoints/test',
+    zValidator('json', videoModelDiscoverySchema),
+    async (c) => {
+      try {
+        const input = c.req.valid('json')
+        if (input.protocol !== 'comfyui')
+          throw new Error('此连接测试用于 ComfyUI 端点')
+        const saved = (await videoEndpointSettings.read()).find(
+          (endpoint) => endpoint.id === input.id,
+        )
+        const sameDestination =
+          saved?.protocol === input.protocol &&
+          saved?.network === input.network &&
+          saved?.baseURL.replace(/\/+$/, '') ===
+            input.baseURL.replace(/\/+$/, '')
+        const data = await videoApiJson(
+          {
+            ...input,
+            name: '',
+            enabled: false,
+            model: '',
+            mediaHosts: [],
+            options: videoOptions(),
+            apiKey:
+              input.apiKey || (sameDestination ? saved?.apiKey : '') || '',
+          },
+          '/system_stats',
+          AbortSignal.timeout(10000),
+        )
+        if (!data.system || !Array.isArray(data.devices))
+          throw new Error('端点未返回 ComfyUI 系统信息')
+        return c.json({
+          success: true as const,
+          data: { version: String(data.system.comfyui_version || 'unknown') },
+        })
       } catch (error) {
         return c.json(
           { success: false as const, error: (error as Error).message },

@@ -1,12 +1,10 @@
 import type { IncomingMessage } from 'node:http'
+import { request as httpRequest } from 'node:http'
 import { request } from 'node:https'
 import type { StoredVideoEndpoint } from '../../common/video-endpoint-settings'
+import { validateVideoApiTarget } from './endpoint-network'
 import { pinnedVideoLookup } from './public-dns'
-import {
-  openRemoteVideo,
-  validateVideoUrl,
-  type VideoRangeRequest,
-} from './remote'
+import { openRemoteVideo, type VideoRangeRequest } from './remote'
 
 export type Json = Record<string, any>
 export async function videoApiResponse(
@@ -16,34 +14,33 @@ export async function videoApiResponse(
   body?: unknown,
   extraHeaders: Record<string, string> = {},
 ): Promise<IncomingMessage> {
-  const base = new URL(endpoint.baseURL + '/')
-  const target = new URL(endpoint.baseURL + route)
-  if (
-    target.origin !== base.origin ||
-    !target.pathname.startsWith(base.pathname)
-  )
-    throw new Error('视频 API 请求超出配置的地址范围')
-  const { address } = await validateVideoUrl(target.href, undefined, [
-    base.hostname,
-  ])
-  const payload = body === undefined ? undefined : JSON.stringify(body)
+  const { url: target, address } = await validateVideoApiTarget(endpoint, route)
+  const multipart = body instanceof FormData ? new Response(body) : undefined
+  const payload = multipart
+    ? Buffer.from(await multipart.arrayBuffer())
+    : body === undefined
+      ? undefined
+      : JSON.stringify(body)
   if (payload && Buffer.byteLength(payload) > 48 * 1024 * 1024)
     throw new Error('视频参考图总大小超出 48 MiB 请求限制')
   signal.throwIfAborted()
   return new Promise((resolve, reject) => {
-    const req = request(
+    const req = (target.protocol === 'http:' ? httpRequest : request)(
       target,
       {
         method: body === undefined ? 'GET' : 'POST',
         signal,
         headers: {
           Accept: 'application/json',
-          ...(endpoint.protocol === 'gemini'
-            ? { 'x-goog-api-key': endpoint.apiKey }
-            : { Authorization: `Bearer ${endpoint.apiKey}` }),
+          ...(endpoint.apiKey
+            ? endpoint.protocol === 'gemini'
+              ? { 'x-goog-api-key': endpoint.apiKey }
+              : { Authorization: `Bearer ${endpoint.apiKey}` }
+            : {}),
           ...(payload
             ? {
-                'Content-Type': 'application/json',
+                'Content-Type':
+                  multipart?.headers.get('content-type') || 'application/json',
                 'Content-Length': String(Buffer.byteLength(payload)),
               }
             : {}),
@@ -98,9 +95,10 @@ export async function readVideoJson(
       ].find((item) => typeof item === 'string') ||
       '请检查 Key、模型权限和请求参数'
     throw new Error(
-      `视频 API (HTTP ${response.statusCode})：${String(error)
-        .split(endpoint.apiKey)
-        .join('[已隐藏]')
+      `视频 API (HTTP ${response.statusCode})：${(endpoint.apiKey
+        ? String(error).split(endpoint.apiKey).join('[已隐藏]')
+        : String(error)
+      )
         .replace(/https?:\/\/\S+/g, '[链接]')
         .slice(0, 400)}`,
     )
@@ -137,6 +135,8 @@ export async function videoApiMedia(
     const location = response.headers.location
     response.destroy()
     if (!location) throw new Error('视频下载重定向无效')
+    if (endpoint.network === 'local')
+      throw new Error('内网视频下载不接受重定向，请使用实际服务地址')
     // Credentials never follow a redirect to a CDN.
     return openRemoteVideo(
       new URL(location, endpoint.baseURL).href,

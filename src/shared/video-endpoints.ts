@@ -1,7 +1,13 @@
 import { z } from 'zod'
+import {
+  comfyVideoSchema,
+  videoConnectionIssue,
+  type ComfyVideoConfig,
+} from './comfyui-video'
 import type { VideoCapabilities, VideoRequest } from './video'
 
 export const VIDEO_PROTOCOLS = {
+  comfyui: 'ComfyUI Workflow API',
   spicy: 'SpicyAPI Jobs',
   openrouter: 'OpenRouter Videos',
   venice: 'Venice Video',
@@ -43,6 +49,8 @@ export interface VideoEndpoint {
   apiKey?: string
   allowMatureContent?: boolean
   notes?: string
+  network?: 'public' | 'local'
+  comfyUI?: ComfyVideoConfig
 }
 export interface VideoEndpointPreset extends Omit<
   VideoEndpoint,
@@ -61,7 +69,7 @@ const hostname = z
     /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/,
   )
 const list = <T extends z.ZodType>(item: T) => z.array(item).min(1).max(600)
-export const videoEndpointSchema = z.object({
+const videoEndpointFields = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(120),
   enabled: z.boolean(),
@@ -71,16 +79,22 @@ export const videoEndpointSchema = z.object({
     .url()
     .max(500)
     .refine((raw) => {
-      const url = new URL(raw)
+      let url: URL
+      try {
+        url = new URL(raw)
+      } catch {
+        return false
+      }
       return (
-        url.protocol === 'https:' &&
+        ['http:', 'https:'].includes(url.protocol) &&
         !url.username &&
         !url.password &&
         !url.search &&
-        !url.hash &&
-        (!url.port || url.port === '443')
+        !url.hash
       )
-    }, '视频 API 地址必须是无凭据和查询参数的 HTTPS 地址'),
+    }, '视频 API 地址必须是无凭据和查询参数的 HTTP(S) 地址'),
+  network: z.enum(['public', 'local']).optional(),
+  comfyUI: comfyVideoSchema.optional(),
   protocol: z.enum(
     Object.keys(VIDEO_PROTOCOLS) as [VideoProtocol, ...VideoProtocol[]],
   ),
@@ -109,6 +123,29 @@ export const videoEndpointSchema = z.object({
   allowMatureContent: z.boolean().optional(),
   notes: z.string().max(2000).optional(),
 })
+export const videoEndpointSchema = videoEndpointFields.superRefine(
+  (value, ctx) => {
+    const issue = videoConnectionIssue(value)
+    if (issue)
+      ctx.addIssue({ code: 'custom', path: ['baseURL'], message: issue })
+    if (value.protocol === 'comfyui' && value.enabled && !value.comfyUI)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['comfyUI'],
+        message: '请导入 API 工作流并配置参数映射',
+      })
+    if (
+      value.protocol === 'comfyui' &&
+      value.options.references &&
+      (value.options.references.maxVideos || value.options.references.maxAudio)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['options', 'references'],
+        message: 'ComfyUI 当前支持上传参考图片，视频和音频输入请在工作流内配置',
+      })
+  },
+)
 
 const range = (min: number, max: number) =>
   Array.from({ length: max - min + 1 }, (_, i) => min + i)
@@ -522,6 +559,25 @@ export const VIDEO_MODEL_CATALOG: VideoEndpointPreset[] = [
 
 // Keep separate presets only where the wire protocol or API base differs.
 export const VIDEO_ENDPOINT_PRESETS: VideoEndpointPreset[] = [
+  {
+    ...preset(
+      'comfyui-local',
+      'ComfyUI · 本机 / 内网工作流',
+      'comfyui',
+      'http://127.0.0.1:8188',
+      'workflow',
+      videoOptions({
+        generationTypes: ['text_to_video'],
+        maxImages: 0,
+        frameModes: undefined,
+      }),
+      'https://docs.comfy.org/development/comfyui-server/comms_routes',
+      [],
+      '导入 API 格式工作流并映射输入；模型由工作流决定，API Key 可留空。',
+    ),
+    network: 'local' as const,
+    enabled: false,
+  },
   ...new Map(
     VIDEO_MODEL_CATALOG.map((model) => [
       `${model.protocol}|${model.baseURL}`,
@@ -557,11 +613,17 @@ export const VIDEO_ENDPOINT_PRESETS: VideoEndpointPreset[] = [
         )[model.protocol] || model.name,
 }))
 
-export const videoModelDiscoverySchema = videoEndpointSchema
+export const videoModelDiscoverySchema = videoEndpointFields
   .pick({
     id: true,
     baseURL: true,
     protocol: true,
     apiKey: true,
+    network: true,
   })
   .extend({ options: videoEndpointSchema.shape.options.optional() })
+  .superRefine((value, ctx) => {
+    const issue = videoConnectionIssue(value)
+    if (issue)
+      ctx.addIssue({ code: 'custom', path: ['baseURL'], message: issue })
+  })

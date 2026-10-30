@@ -68,7 +68,7 @@ async function main() {
       new Set(VIDEO_ENDPOINT_PRESETS.map((p) => p.id)).size,
       VIDEO_ENDPOINT_PRESETS.length,
     )
-    assert.equal(VIDEO_ENDPOINT_PRESETS.length, 14)
+    assert.equal(VIDEO_ENDPOINT_PRESETS.length, 15)
     assert.equal(
       new Set(VIDEO_ENDPOINT_PRESETS.map((p) => `${p.protocol}|${p.baseURL}`))
         .size,

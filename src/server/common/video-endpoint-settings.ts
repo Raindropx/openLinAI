@@ -41,21 +41,24 @@ export class VideoEndpointSettings {
         previous &&
         (previous.baseURL.replace(/\/+$/, '') !==
           input.baseURL.replace(/\/+$/, '') ||
-          previous.protocol !== input.protocol)
+          previous.protocol !== input.protocol ||
+          previous.network !== input.network)
       if (
         previous &&
         inUse.has(input.id) &&
         (changedDestination ||
           previous.model !== input.model ||
-          JSON.stringify(previous.options) !== JSON.stringify(input.options))
+          JSON.stringify(previous.options) !== JSON.stringify(input.options) ||
+          JSON.stringify(previous.comfyUI) !== JSON.stringify(input.comfyUI))
       )
         throw new Error(
           '端点仍有关联视频任务。请复制为新端点，或仅修改名称、密钥和启用状态',
         )
-      if (changedDestination && !input.apiKey)
+      if (changedDestination && !input.apiKey && input.network !== 'local')
         throw new Error('修改 API 地址或协议后需要重新填写 API Key')
-      const apiKey = input.apiKey || previous?.apiKey || ''
-      if (input.enabled && !apiKey)
+      const apiKey =
+        input.apiKey || (!changedDestination ? previous?.apiKey : '') || ''
+      if (input.enabled && !apiKey && input.network !== 'local')
         throw new Error('启用视频端点前请填写 API Key')
       const next: StoredVideoEndpoint = {
         ...input,
