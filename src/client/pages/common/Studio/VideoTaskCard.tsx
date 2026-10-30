@@ -13,10 +13,12 @@ import { studioJson, studioRequest } from './api'
 export function VideoTaskCard({
   task,
   onChanged,
+  onRefill,
   variant = 'default',
 }: {
   task: Task
   onChanged?: () => void
+  onRefill?: () => void
   variant?: 'default' | 'preview'
 }) {
   useAppLanguage()
@@ -315,6 +317,11 @@ export function VideoTaskCard({
             variant === 'preview' ? { marginBottom: 10 } : { marginTop: 12 }
           }
         >
+          {onRefill && (
+            <Button size="small" onClick={onRefill}>
+              {t('回填')}
+            </Button>
+          )}
           {video.generationStatus === 'succeeded' && (
             <>
               <Button size="small" onClick={() => void preview()}>
@@ -345,7 +352,7 @@ export function VideoTaskCard({
                       : video.retrievalStatus === 'failed' ||
                           video.retrievalStatus === 'cancelled'
                         ? '重新取回'
-                        : '取回到外接存储',
+                        : '取回',
                   )}
                 </Button>
               )}

@@ -23,7 +23,7 @@
 
 ## 0. 工作原理
 
-视频生成的架构、mock、配置和验收见 [视频生成说明](../../docs/video-generation.md)。视频仅在云端生成；取回到外接存储后由 Node 流式提供 Range 播放，不新增视频转码依赖。
+视频生成的架构、mock、配置和验收见 [视频生成说明](../../docs/video-generation.md)。视频仅在云端生成；取回后由 Node 流式提供 Range 播放，不新增视频转码依赖。
 
 - 后端经 tsup 打包成**单个 JS**（`dist/server/index.js`），当前只有 `sharp` 保持为动态外部依赖，其余第三方依赖均已内联。OpenWrt 使用 ffmpeg 处理上传图片和缩略图，不会走 sharp 分支，因此**路由器上无需 `node_modules`**，只要可用的 `node` 与 `ffmpeg` 即可运行。
 - 所有数据路径由 `DATA_DIR` 环境变量决定（默认 `cwd/data`），本部署固定指向 `/mnt/sda1/linai/data`。
@@ -112,7 +112,7 @@ scp -r dist/data root@<路由器IP>:/mnt/sda1/linai/
 
 ## 5. 配置 API Key
 
-视频取回需先确认外接磁盘已挂载，再手动创建目录：`mkdir -p /mnt/sda1/linai/videos`。`run.sh` 默认将 `VIDEO_STORAGE_DIR` 指向此处、`VIDEO_STORAGE_MOUNT` 指向 `/mnt/sda1`；程序不会替你创建缺失目录。更换挂载位置须同时修改这两个配置。默认域名允许列表为空、没有真实视频 provider；启用 mock 和其他限制见根目录 `.env.video.example`。磁盘未挂载、overlay、系统根文件系统或空间不足时拒绝取回。
+视频取回默认跟随 `DATA_DIR`，首次取回自动创建 `/mnt/sda1/linai/data/videos`，与图片目录 `data/images` 平级，无需额外配置或手动建目录。`run.sh` 的 `VIDEO_STORAGE_MOUNT` 默认指向 `/mnt/sda1`，更换磁盘挂载位置时一并修改。已有 `VIDEO_STORAGE_DIR` 配置仍优先生效。默认域名允许列表为空、没有真实视频 provider；启用 mock 和其他限制见根目录 `.env.video.example`。磁盘未挂载、overlay、系统根文件系统或空间不足时拒绝取回。
 
 先手动跑一次确认无误：
 

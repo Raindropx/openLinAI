@@ -620,7 +620,7 @@ export class VideoManager {
           value.retrievalBytes = value.retrievalCheckpoint?.bytes ?? 0
           value.retrievalError = signal.aborted
             ? undefined
-            : '取回中断，请检查云端链接、网络和外接存储；继续取回时将校验断点'
+            : '取回中断，请检查云端链接、网络和存储；继续取回时将校验断点'
         })
     }
   }

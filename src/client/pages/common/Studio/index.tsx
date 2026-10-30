@@ -42,6 +42,7 @@ import type {
   NovelAIStudioGenerateRequest,
   StudioProviderSettings,
 } from '../../../../shared/studio-generation'
+import type { VideoRequest } from '../../../../shared/video'
 import { t, useAppLanguage } from '../../../i18n'
 import { useGlobalStore } from '../../../store/global'
 import { getSecondaryAccentColor, useAppTheme } from '../../../theme'
@@ -123,6 +124,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   const [perlerShelfExpanded, setPerlerShelfExpanded] = useState(false)
   const [videoShelfExpanded, setVideoShelfExpanded] = useState(false)
   const [videoReference, setVideoReference] = useState<{ id: number; url: string }>()
+  const [videoRequest, setVideoRequest] = useState<{ id: number; request: VideoRequest }>()
   const [perlerShelfTab, setPerlerShelfTab] = useState<'files' | 'generated'>(
     'files',
   )
@@ -216,16 +218,20 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   useEffect(() => {
     const state = location.state as {
       novelaiRequest?: NovelAIStudioGenerateRequest
+      videoRequest?: VideoRequest
       studioTool?: string
     } | null
-    if (!active || (!state?.novelaiRequest && state?.studioTool !== 'perler-bead')) return
-    if (state.novelaiRequest) {
+    if (!active || (!state?.novelaiRequest && !state?.videoRequest && state?.studioTool !== 'perler-bead')) return
+    if (state.videoRequest) {
+      setVideoRequest({ id: ++signal.current, request: state.videoRequest })
+      setTab('video')
+    } else if (state.novelaiRequest) {
       setNovelaiRequest({ id: Date.now(), request: state.novelaiRequest })
       setTab('novelai')
       setNovelaiPanel('parameters')
     } else setTab('perler-bead')
     setMobileShelf(false)
-    const { novelaiRequest: _request, studioTool: _tool, ...rest } = state
+    const { novelaiRequest: _request, videoRequest: _videoRequest, studioTool: _tool, ...rest } = state
     navigate(location.pathname, { replace: true, state: rest })
   }, [active, location.pathname, location.state, navigate])
 
@@ -486,7 +492,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
           ))}
         </div>
         {tab === 'video' && active && <div className="studio-video-panel" role="tabpanel" id="studio-panel-video" aria-labelledby="studio-tab-video">
-          <VideoStudio items={items} incomingReference={videoReference} toolbarExtra={
+          <VideoStudio items={items} incomingReference={videoReference} incomingRequest={videoRequest} toolbarExtra={
             <Button size="small" className="studio-perler-shelf-button"
               icon={videoShelfExpanded ? <CaretRightOutlined /> : <CaretLeftOutlined />}
               aria-expanded={videoShelfExpanded} aria-controls="studio-shelf"

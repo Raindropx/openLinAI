@@ -20,6 +20,7 @@ import {
   parseVideoRange,
   videoMaxBytes,
   videoTimeoutMs,
+  VideoStorageError,
   VideoTransfer,
 } from '../module/video/storage'
 
@@ -86,11 +87,14 @@ export async function serveLocalVideo(
 }
 
 export const videoApi = new Hono()
-  .onError((_error, c) =>
+  .onError((error, c) =>
     c.json(
       {
         success: false as const,
-        error: '视频操作失败，请检查任务状态、服务商与存储配置',
+        error:
+          error instanceof VideoStorageError
+            ? error.message
+            : '视频操作失败，请检查任务状态、服务商与存储配置',
       },
       400,
     ),

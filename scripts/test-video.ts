@@ -338,7 +338,7 @@ async function main() {
     assert.ok(summary.video)
     assert.deepEqual(taskListActions(summary), {
       addToTemplate: false,
-      refill: false,
+      refill: true,
       retry: false,
     })
     await retrieve(id, 'retrieved')
@@ -528,6 +528,47 @@ async function main() {
       assert.equal(task.video!.result?.localFileId, undefined)
       assert.equal(task.video!.retrievalCheckpoint, undefined)
       assert.equal(task.video!.retrievalCommit, undefined)
+    }
+
+    // No video storage settings: create DATA_DIR/videos and retrieve via the API.
+    delete process.env.VIDEO_STORAGE_DIR
+    const mount = process.env.VIDEO_STORAGE_MOUNT
+    delete process.env.VIDEO_STORAGE_MOUNT
+    try {
+      const defaultStorage = path.join(await fs.realpath(root), 'videos')
+      await assert.rejects(fs.stat(defaultStorage), { code: 'ENOENT' })
+      mode = 'normal'
+      const defaultId = await complete()
+      const response = await videoApi.request(`/${defaultId}/retrieve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      assert.equal(response.status, 200)
+      assert.equal(await videoStorageRoot(), defaultStorage)
+      await manager.tick()
+      await waitFor(
+        async () => (await manager.task(defaultId)).video.retrievalStatus === 'retrieved',
+        'default storage retrieval',
+      )
+      assert.equal((await fs.stat(videoFilePath(defaultStorage, defaultId))).size, size)
+      assert.equal((await manager.sources(defaultId)).source, 'local')
+      const head = await serveLocalVideo(defaultId, { head: true })
+      assert.equal(head.status, 200)
+      assert.equal(head.headers.get('Content-Length'), String(size))
+
+      process.env.VIDEO_STORAGE_DIR = path.join(root, 'missing-videos')
+      const failed = await videoApi.request(`/${defaultId}/retrieve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      assert.equal(failed.status, 400)
+      assert.match((await failed.json()).error, /^视频存储不可用/)
+      await assert.rejects(fs.stat(process.env.VIDEO_STORAGE_DIR), { code: 'ENOENT' })
+    } finally {
+      process.env.VIDEO_STORAGE_DIR = storage
+      if (mount !== undefined) process.env.VIDEO_STORAGE_MOUNT = mount
     }
     console.log(
       `Video integration passed: modes/references, persistence/recovery, independent states, retrieval, cancellation/limits, sources, Range/HEAD/download, URL/path policy, CSRF. 200 MiB stream RSS delta: ${((peakRss - startRss) / 1024 / 1024).toFixed(1)} MiB.`,

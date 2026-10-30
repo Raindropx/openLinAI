@@ -9,7 +9,7 @@ export interface TaskListActions {
 
 /** Determine available actions from the full record before removing snapshots. */
 export function taskListActions(task: Task): TaskListActions {
-  if (task.video) return { addToTemplate: false, refill: false, retry: false }
+  if (task.video) return { addToTemplate: false, refill: true, retry: false }
   if (task.summaryOnly && task.listActions) return task.listActions
   const provenance = task.studioProvenance
   return {

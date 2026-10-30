@@ -39,10 +39,12 @@ import { VideoTaskCard } from './VideoTaskCard'
 export function VideoStudio({
   items,
   incomingReference,
+  incomingRequest,
   toolbarExtra,
 }: {
   items: StudioItem[]
   incomingReference?: { id: number; url: string }
+  incomingRequest?: { id: number; request: VideoRequest }
   toolbarExtra?: React.ReactNode
 }) {
   useAppLanguage()
@@ -68,6 +70,7 @@ export function VideoStudio({
     'parameters' | 'preview' | 'tasks'
   >('parameters')
   const [selectedTaskId, setSelectedTaskId] = useState<string>()
+  const [refillVersion, setRefillVersion] = useState(0)
   const videoTasks = useMemo(
     () =>
       tasks.data
@@ -78,6 +81,8 @@ export function VideoStudio({
   const selectedTask =
     videoTasks.find((task) => task.id === selectedTaskId) || videoTasks[0]
   const consumedReference = useRef<number | undefined>(undefined)
+  const consumedRequest = useRef<number | undefined>(undefined)
+  const pendingRefill = useRef<VideoRequest | undefined>(undefined)
   const uploadPending = useRef(false)
   const submitPending = useRef(false)
   const referenceLimitReached = (type: VideoReference['type']) => {
@@ -133,6 +138,11 @@ export function VideoStudio({
   }, [form, capabilityAttempt])
   useEffect(() => {
     if (!provider) return
+    if (pendingRefill.current?.provider === provider.provider) {
+      fillRequest(pendingRefill.current)
+      pendingRefill.current = undefined
+      return
+    }
     form.setFieldsValue({
       model: provider.models[0],
       generationType: provider.generationTypes[0],
@@ -147,7 +157,44 @@ export function VideoStudio({
       frameMode: provider.frameModes?.[0] || 'first_frame',
     })
     setMediaType(provider.references?.maxVideos ? 'video' : 'audio')
-  }, [provider, form])
+  }, [provider, form, refillVersion])
+
+  function fillRequest(request: VideoRequest) {
+    const { inputImages, frames, references: savedReferences, ...values } = request
+    form.setFieldsValue({
+      ...values,
+      frameMode: request.frameMode || 'first_frame',
+    })
+    setReference(frames?.firstImageUrl || inputImages[0] || '')
+    setLastReference(frames?.lastImageUrl || inputImages[1] || '')
+    setReferences(savedReferences || [])
+    setFrameSlot('first')
+    setMediaUrl('')
+    setMobilePanel('parameters')
+    message.success(t('已回填视频生成参数和端点'))
+  }
+
+  function refillRequest(request: VideoRequest) {
+    if (!caps.some((entry) => entry.provider === request.provider)) {
+      message.warning(t('原视频端点不可用，请先在视频端点设置中启用'))
+      return
+    }
+    consumedReference.current = incomingReference?.id
+    pendingRefill.current = structuredClone(request)
+    form.setFieldValue('provider', request.provider)
+    setRefillVersion((value) => value + 1)
+  }
+
+  useEffect(() => {
+    if (
+      !incomingRequest ||
+      loadingCapabilities ||
+      consumedRequest.current === incomingRequest.id
+    )
+      return
+    consumedRequest.current = incomingRequest.id
+    refillRequest(incomingRequest.request)
+  }, [incomingRequest, loadingCapabilities, caps, form])
 
   useEffect(() => {
     if (
@@ -328,7 +375,7 @@ export function VideoStudio({
                 type="info"
                 showIcon
                 title={t(
-                  '视频在云端生成；取回保存到服务端外接存储，下载保存到当前设备。',
+                  '视频在云端生成；取回保存到运行程序的设备，下载保存到当前设备。',
                 )}
               />
               {error && (
@@ -801,6 +848,7 @@ export function VideoStudio({
                 task={selectedTask}
                 variant="preview"
                 onChanged={() => tasks.refresh()}
+                onRefill={() => refillRequest(selectedTask.video!.request)}
               />
             ) : (
               <Empty

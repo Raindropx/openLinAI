@@ -306,6 +306,10 @@ export function TaskList({
   }
 
   const handleRefill = (task: Task) => {
+    if (task.video) {
+      navigate('/studio', { state: { videoRequest: task.video.request } })
+      return
+    }
     const novelai = task.novelaiSnapshots?.[0] || task.studioProvenance?.novelai
     if (novelai) {
       navigate('/studio', { state: { novelaiRequest: novelai.request } })
@@ -381,8 +385,9 @@ export function TaskList({
       tasks
         .filter(
           (task) =>
-            task.rawTemplate?.usageType === 'image' ||
-            task.rawTemplate?.usageType === 'chat-image',
+            (!panelMode || (!task.video && task.mediaType !== 'video')) &&
+            (task.rawTemplate?.usageType === 'image' ||
+              task.rawTemplate?.usageType === 'chat-image'),
         )
         .map((task) => ({
           ...task,
@@ -392,7 +397,7 @@ export function TaskList({
               ? [task.outputUrl]
               : [],
         })),
-    [tasks],
+    [tasks, panelMode],
   )
 
   const searchedTasks = useMemo(() => {
@@ -1250,7 +1255,7 @@ export function TaskList({
                     const selected = selectedIds.includes(task.id)
                     if (task.video) return <div key={task.id} className="w-full">
                       {selectionMode && <Checkbox checked={selected} onChange={() => toggleTaskSelection(task.id)}>{t('选择任务')}</Checkbox>}
-                      <VideoTaskCard task={task} />
+                      <VideoTaskCard task={task} onRefill={() => handleRefill(task)} />
                     </div>
                     return (
                       <Card

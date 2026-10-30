@@ -4,6 +4,9 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { TransformCallback } from 'node:stream'
 import { Transform } from 'node:stream'
+import { getDataDir } from '../../common/data-dir'
+
+export class VideoStorageError extends Error {}
 
 export const videoMaxBytes = () =>
   positiveEnv(
@@ -20,24 +23,28 @@ export function positiveEnv(name: string, fallback: number, max: number) {
     : fallback
 }
 
-/** Never create the configured storage root: a missing mount must fail closed. */
+/** Default to a sibling of images; explicit storage roots must already exist. */
 export async function videoStorageRoot(requiredBytes = 0, writing = true) {
   const configured = process.env.VIDEO_STORAGE_DIR
-  if (!configured || !path.isAbsolute(configured))
-    throw new Error('请先配置已存在的外接视频目录 VIDEO_STORAGE_DIR')
+  if (configured && !path.isAbsolute(configured))
+    throw new VideoStorageError('VIDEO_STORAGE_DIR 必须是绝对路径')
   let root: string
   try {
-    root = await fs.realpath(configured)
+    if (!configured) {
+      const data = await fs.realpath(getDataDir())
+      if (writing) await fs.mkdir(path.join(data, 'videos'), { recursive: true })
+      root = await fs.realpath(path.join(data, 'videos'))
+    } else root = await fs.realpath(configured)
   } catch {
-    throw new Error('视频存储不可用：目录不存在或外接磁盘未挂载')
+    throw new VideoStorageError('视频存储不可用：目录不存在、不可写或磁盘未挂载')
   }
-  if (process.platform === 'linux') {
+  if (process.platform === 'linux' && process.env.VIDEO_STORAGE_MOUNT) {
     const mount = process.env.VIDEO_STORAGE_MOUNT
-    if (!mount || !path.isAbsolute(mount))
-      throw new Error('Linux 取回必须配置 VIDEO_STORAGE_MOUNT 外接挂载点')
+    if (!path.isAbsolute(mount))
+      throw new VideoStorageError('VIDEO_STORAGE_MOUNT 必须是绝对路径')
     const canonicalMount = await fs.realpath(mount)
     if (canonicalMount === '/' || !inside(canonicalMount, root))
-      throw new Error('视频目录不在指定外接挂载点内')
+      throw new VideoStorageError('视频目录不在指定外接挂载点内')
     const mountinfo = await fs.readFile('/proc/self/mountinfo', 'utf8')
     const mounted = mountinfo.split('\n').some((line) => {
       const fields = line.split(' ')
@@ -46,13 +53,13 @@ export async function videoStorageRoot(requiredBytes = 0, writing = true) {
       )
       return target === canonicalMount
     })
-    if (!mounted) throw new Error('外接视频存储未挂载')
+    if (!mounted) throw new VideoStorageError('外接视频存储未挂载')
     const info = await fs.statfs(root)
     if ([0x794c7630, 0x01021994].includes(info.type))
-      throw new Error('禁止将视频保存到 overlay 或 tmpfs')
+      throw new VideoStorageError('禁止将视频保存到 overlay 或 tmpfs')
     const [disk, system] = await Promise.all([fs.stat(root), fs.stat('/')])
     if (disk.dev === system.dev)
-      throw new Error('视频存储不能位于系统根文件系统')
+      throw new VideoStorageError('视频存储不能位于系统根文件系统')
   }
   await fs.access(
     root,
@@ -66,7 +73,7 @@ export async function videoStorageRoot(requiredBytes = 0, writing = true) {
     1024 * 1024 * 1024,
   )
   if (stat.bavail * stat.bsize < requiredBytes + reserve)
-    throw new Error('外接存储可用空间不足')
+    throw new VideoStorageError('视频存储可用空间不足')
   return root
 }
 

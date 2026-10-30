@@ -46,6 +46,8 @@
 
 生成状态与取回状态独立。取回失败不改变生成成功状态。视频 `outputUrls` 保持为空，避免图片组件、图片 ZIP 下载误处理视频；视频卡片提供单独下载按钮。
 
+任务列表和视频预览卡片均提供“回填”：恢复原视频端点、模型、提示词、时长、分辨率、画面比例、首尾帧或有序参考素材，微调后可重新提交。原端点停用或不可用时提示先启用，不自动替换为其他端点。
+
 | 状态 | 播放 | 下载到用户设备 | 取回 |
 | --- | --- | --- | --- |
 | 成功、未取回 | 浏览器直连有效云端 URL | 同源受控流式 cloud-download（attachment） | 可加入后端队列 |
@@ -60,7 +62,7 @@
 
 ### 断点续传与暂停
 
-- 作用于“取回到外接存储”。浏览器“下载到设备”的云端代理仍是完整流式下载，不承诺浏览器下载续传。
+- 作用于“取回”。浏览器“下载到设备”的云端代理仍是完整流式下载，不承诺浏览器下载续传。
 - 只对提供强 ETag 和已知总长度的 MP4/WebM 保存可续传断点。断点记录已同步到磁盘的字节数、前缀 SHA-256、原下载 URL 的哈希和文件类型，不额外保存明文签名链接。
 - 继续前以 64 KiB 缓冲重读并核对前缀哈希；截断异常退出时留下、但未提交断点的尾部字节。HTTP 请求使用 `Range` + `If-Range`，严格核对 206 的起点、终点、总长、ETag、MIME 和响应长度后才能追加，依据 [RFC 9110 的 If-Range / Range 语义](https://www.rfc-editor.org/rfc/rfc9110.html#name-if-range)。
 - 云端忽略 Range、返回 416、文件标识或范围不符时，丢弃旧断点后重新完整下载。缺少强 ETag / 总长、本地前缀损坏或被截短、下载 URL（包括签名参数）变化时，同样安全重下，并在卡片上说明原因。签名更新后不跨 URL 拼接字节。
@@ -74,9 +76,10 @@
 
 详见根目录 `.env.video.example`。默认不启用真实或 mock provider；域名允许列表默认空。
 
-- `VIDEO_STORAGE_DIR`：必须是已存在的绝对目录。程序不会自动创建它，避免外接盘未挂载时误写底层目录。
+- 取回默认保存到 `DATA_DIR/videos`，首次取回时自动创建，与图片目录 `DATA_DIR/images` 平级；Windows 默认是运行目录下的 `data/videos`，路由器跟随已有的 `DATA_DIR`。无需单独配置视频路径。
+- `VIDEO_STORAGE_DIR`：可选，覆盖默认位置；指定时必须是已存在的绝对目录，不自动创建。
 - `VIDEO_PUBLIC_ORIGIN`：HTTPS 在认证反向代理终止时，设置浏览器实际访问的精确 origin，用于视频写请求的同源校验。开发代理为视频路由保留原 Host；nginx 示例也保留 Host 的端口。
-- `VIDEO_STORAGE_MOUNT`：Linux 必须指定实际外接挂载点；每次写入前检查 `/proc/self/mountinfo`、根目录所在设备与文件系统，拒绝根文件系统、overlay、tmpfs。
+- `VIDEO_STORAGE_MOUNT`：可选的 Linux 外接挂载点校验，OpenWrt 的 `run.sh` 默认设为 `/mnt/sda1`；启用时检查 `/proc/self/mountinfo`、根目录所在设备与文件系统，拒绝根文件系统、overlay、tmpfs。
 - `VIDEO_MAX_FILE_BYTES`：默认 1 GiB，硬上限 8 GiB。`VIDEO_MIN_FREE_BYTES` 默认保留 128 MiB。已知 Content-Length 在开始前检查空间，传输每 4 MiB 再检查；磁盘满不应阻止已有本地文件的只读播放或删除。
 - `VIDEO_TRANSFER_TIMEOUT_MS`：默认 30 分钟，硬上限 2 小时，另有 30 秒网络空闲超时。
 - `VIDEO_GENERATION_TIMEOUT_MS`：生成查询默认最多持续 6 小时，硬上限 24 小时；超时后停止自动查询，手动恢复沿用远端 ID 并开启新等待周期。
