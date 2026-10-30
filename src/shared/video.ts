@@ -35,6 +35,8 @@ export type VideoReference =
   | { type: 'video' | 'audio'; remoteUrl: string }
 
 export interface VideoResult {
+  /** Media is fetched through the saved provider; never expose its credential. */
+  providerMedia?: boolean
   remoteUrl?: string
   remoteUrlExpiresAt?: number
   localFileId?: string
@@ -80,6 +82,7 @@ export interface VideoRetrievalCheckpoint {
 }
 
 export interface VideoCapabilities {
+  enabled?: boolean
   provider: string
   label: string
   mock?: boolean
@@ -199,6 +202,7 @@ export const videoTaskSchema = z.object({
   generationDeadlineAt: z.number().finite().optional(),
   result: z
     .object({
+      providerMedia: z.boolean().optional(),
       remoteUrl: z.string().max(16000).optional(),
       remoteUrlExpiresAt: z.number().finite().optional(),
       localFileId: z.string().uuid().optional(),

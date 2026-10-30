@@ -2,6 +2,12 @@ import { lookup } from 'node:dns/promises'
 import type { IncomingMessage } from 'node:http'
 import { request } from 'node:https'
 import { BlockList, isIP } from 'node:net'
+import { videoEndpointSettings } from '../../common/video-endpoint-settings'
+import {
+  pinnedVideoLookup,
+  resolveVideoPublicDns,
+  type VideoDnsAddress,
+} from './public-dns'
 
 const blocked = new BlockList()
 for (const [address, bits] of [
@@ -35,10 +41,16 @@ export function isPublicVideoAddress(address: string) {
   return false
 }
 
+export function isVideoFakeAddress(address: string) {
+  return isIP(address) === 4 && /^198\.(18|19)\./.test(address)
+}
+
 export async function validateVideoUrl(
   raw: string,
   resolveAddresses = (hostname: string) =>
     lookup(hostname, { all: true, verbatim: true }),
+  extraHosts: string[] = [],
+  resolveFakeAddresses = resolveVideoPublicDns,
 ) {
   let url: URL
   try {
@@ -46,26 +58,41 @@ export async function validateVideoUrl(
   } catch {
     throw new Error('视频结果地址无效')
   }
-  const hosts = (process.env.VIDEO_ALLOWED_HOSTS || '')
-    .split(',')
-    .map((host) => host.trim().toLowerCase())
-    .filter(Boolean)
+  const hosts = [
+    ...(process.env.VIDEO_ALLOWED_HOSTS || '')
+      .split(',')
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean),
+    ...(await videoEndpointSettings.mediaHosts()),
+    ...extraHosts,
+  ]
   if (
     url.protocol !== 'https:' ||
     url.username ||
     url.password ||
     url.hash ||
     (url.port && url.port !== '443') ||
-    !hosts.includes(url.hostname.toLowerCase()) ||
     isIP(url.hostname.replace(/^\[|\]$/g, ''))
   )
     throw new Error('视频地址必须使用 HTTPS 和已配置的服务商域名')
-  let addresses: Array<{ address: string; family: number }>
+  if (!hosts.includes(url.hostname.toLowerCase()))
+    throw new Error(`视频域名尚未加入允许列表：${url.hostname}`)
+  let addresses: VideoDnsAddress[]
   try {
     addresses = await resolveAddresses(url.hostname)
   } catch {
     throw new Error('视频域名解析失败')
   }
+  // Fake-IP is only a trigger for an independent lookup, never a permitted target.
+  // A mixed response containing a private/loopback address is still rejected outright.
+  if (
+    addresses.some(({ address }) => isVideoFakeAddress(address)) &&
+    addresses.every(
+      ({ address }) =>
+        isVideoFakeAddress(address) || isPublicVideoAddress(address),
+    )
+  )
+    addresses = await resolveFakeAddresses(url.hostname)
   if (
     !addresses.length ||
     addresses.some(({ address }) => !isPublicVideoAddress(address))
@@ -102,8 +129,7 @@ export async function openRemoteVideo(
             ? { Range: `bytes=${range.offset}-`, 'If-Range': range.etag }
             : {}),
         },
-        lookup: (_hostname, _options, callback) =>
-          callback(null, address.address, address.family),
+        lookup: pinnedVideoLookup(address),
       },
       resolve,
     )

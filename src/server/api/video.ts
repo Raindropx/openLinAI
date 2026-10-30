@@ -4,9 +4,17 @@ import { bodyLimit } from 'hono/body-limit'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { z } from 'zod'
+import {
+  videoEndpointSchema,
+  videoModelDiscoverySchema,
+  videoOptions,
+} from '../../shared/video-endpoints'
+import { taskManager } from '../common/task-manager'
+import { videoEndpointSettings } from '../common/video-endpoint-settings'
+import { discoverVideoModels } from '../module/video/configured-provider'
+import { syncVideoEndpoints } from '../module/video/endpoint-registry'
 import { videoManager } from '../module/video/manager'
 import { videoRequestSchema } from '../module/video/providers'
-import { openRemoteVideo } from '../module/video/remote'
 import {
   openLocalVideo,
   parseVideoRange,
@@ -17,6 +25,12 @@ import {
 
 const idSchema = z.object({ id: z.string().uuid() })
 let activeCloudDownloads = 0
+const inUseVideoEndpoints = async () =>
+  new Set(
+    (await taskManager.getTasks()).flatMap((task) =>
+      task.video ? [task.video.request.provider] : [],
+    ),
+  )
 
 export async function serveLocalVideo(
   id: string,
@@ -109,9 +123,78 @@ export const videoApi = new Hono()
     await next()
   })
   .use('*', bodyLimit({ maxSize: 64 * 1024 }))
-  .get('/capabilities', (c) =>
-    c.json({ success: true as const, data: videoManager.capabilities() }),
+  .get('/endpoints', async (c) =>
+    c.json({
+      success: true as const,
+      data: await videoEndpointSettings.publicSettings(),
+    }),
   )
+  .put('/endpoints', zValidator('json', videoEndpointSchema), async (c) => {
+    try {
+      const input = c.req.valid('json')
+      const inUse = await inUseVideoEndpoints()
+      const data = await videoEndpointSettings.save(input, inUse)
+      await syncVideoEndpoints()
+      return c.json({ success: true as const, data })
+    } catch (error) {
+      return c.json(
+        { success: false as const, error: (error as Error).message },
+        400,
+      )
+    }
+  })
+  .delete('/endpoints/:id', zValidator('param', idSchema), async (c) => {
+    try {
+      const data = await videoEndpointSettings.remove(
+        c.req.valid('param').id,
+        await inUseVideoEndpoints(),
+      )
+      await syncVideoEndpoints()
+      return c.json({ success: true as const, data })
+    } catch (error) {
+      return c.json(
+        { success: false as const, error: (error as Error).message },
+        400,
+      )
+    }
+  })
+  .post(
+    '/endpoints/models',
+    zValidator('json', videoModelDiscoverySchema),
+    async (c) => {
+      try {
+        const input = c.req.valid('json')
+        const saved = (await videoEndpointSettings.read()).find(
+          (endpoint) => endpoint.id === input.id,
+        )
+        const sameDestination =
+          saved?.protocol === input.protocol &&
+          saved?.baseURL.replace(/\/+$/, '') ===
+            input.baseURL.replace(/\/+$/, '')
+        const apiKey = input.apiKey || (sameDestination ? saved?.apiKey : '')
+        if (!apiKey) throw new Error('读取模型前请填写 API Key')
+        const data = await discoverVideoModels({
+          ...input,
+          name: '',
+          model: '',
+          enabled: false,
+          mediaHosts: [],
+          options: input.options || videoOptions(),
+          apiKey,
+        })
+        return c.json({ success: true as const, data })
+      } catch (error) {
+        return c.json(
+          { success: false as const, error: (error as Error).message },
+          400,
+        )
+      }
+    },
+  )
+  .get('/capabilities', async (c) => {
+    await syncVideoEndpoints()
+    return c.json({ success: true as const, data: videoManager.capabilities() })
+  })
   .post('/', zValidator('json', videoRequestSchema), async (c) => {
     try {
       return c.json({
@@ -179,69 +262,79 @@ export const videoApi = new Hono()
       head: c.req.method === 'HEAD',
     }),
   )
-  .get('/:id/cloud-download', zValidator('param', idSchema), async (c) => {
-    if (activeCloudDownloads >= 2)
-      return c.json(
-        { success: false as const, error: '云端下载并发已满，请稍后重试' },
-        429,
-      )
-    activeCloudDownloads++
-    let released = false
-    const release = () => {
-      if (!released) {
-        released = true
-        activeCloudDownloads--
+  .get(
+    '/:id/:delivery',
+    zValidator(
+      'param',
+      idSchema.extend({
+        delivery: z.enum(['cloud-download', 'cloud-preview']),
+      }),
+    ),
+    async (c) => {
+      if (activeCloudDownloads >= 2)
+        return c.json(
+          { success: false as const, error: '云端下载并发已满，请稍后重试' },
+          429,
+        )
+      activeCloudDownloads++
+      let released = false
+      const release = () => {
+        if (!released) {
+          released = true
+          activeCloudDownloads--
+        }
       }
-    }
-    try {
-      const id = c.req.valid('param').id
-      const result = await videoManager.remoteResult(id)
-      const controller = new AbortController()
-      const signal = AbortSignal.any([
-        controller.signal,
-        c.req.raw.signal,
-        AbortSignal.timeout(videoTimeoutMs()),
-      ])
-      const remote = await openRemoteVideo(result.remoteUrl!, signal)
-      const total =
-        remote.headers['content-length'] === undefined
-          ? undefined
-          : Number(remote.headers['content-length'])
-      if (
-        total !== undefined &&
-        (!Number.isSafeInteger(total) || total <= 0 || total > videoMaxBytes())
-      ) {
-        remote.destroy()
-        throw new Error('视频大小超出限制')
-      }
-      const mime = remote.headers['content-type']!.split(';')[0]
-      const headers: Record<string, string> = {
-        'Content-Type': mime,
-        'Content-Disposition': `attachment; filename="video-${id}.${mime === 'video/webm' ? 'webm' : 'mp4'}"`,
-        'Cache-Control': 'private, no-store',
-        'X-Content-Type-Options': 'nosniff',
-        'Accept-Ranges': 'none',
-      }
-      if (total !== undefined) headers['Content-Length'] = String(total)
-      if (c.req.method === 'HEAD') {
-        remote.destroy()
+      try {
+        const id = c.req.valid('param').id
+        const controller = new AbortController()
+        const signal = AbortSignal.any([
+          controller.signal,
+          c.req.raw.signal,
+          AbortSignal.timeout(videoTimeoutMs()),
+        ])
+        const remote = await videoManager.openCloud(id, signal)
+        const total =
+          remote.headers['content-length'] === undefined
+            ? undefined
+            : Number(remote.headers['content-length'])
+        if (
+          total !== undefined &&
+          (!Number.isSafeInteger(total) ||
+            total <= 0 ||
+            total > videoMaxBytes())
+        ) {
+          remote.destroy()
+          throw new Error('视频大小超出限制')
+        }
+        const mime = remote.headers['content-type']!.split(';')[0]
+        const headers: Record<string, string> = {
+          'Content-Type': mime,
+          'Content-Disposition': `${c.req.valid('param').delivery === 'cloud-preview' ? 'inline' : 'attachment'}; filename="video-${id}.${mime === 'video/webm' ? 'webm' : 'mp4'}"`,
+          'Cache-Control': 'private, no-store',
+          'X-Content-Type-Options': 'nosniff',
+          'Accept-Ranges': 'none',
+        }
+        if (total !== undefined) headers['Content-Length'] = String(total)
+        if (c.req.method === 'HEAD') {
+          remote.destroy()
+          release()
+          return new Response(null, { headers })
+        }
+        const transfer = new VideoTransfer({ total })
+        transfer.once('close', release)
+        transfer.on('close', () => controller.abort())
+        void pipeline(remote, transfer, { signal }).catch(() =>
+          transfer.destroy(),
+        )
+        return new Response(
+          Readable.toWeb(transfer) as ReadableStream<Uint8Array>,
+          { headers },
+        )
+      } catch (error) {
         release()
-        return new Response(null, { headers })
+        throw error
       }
-      const transfer = new VideoTransfer({ total })
-      transfer.once('close', release)
-      transfer.on('close', () => controller.abort())
-      void pipeline(remote, transfer, { signal }).catch(() =>
-        transfer.destroy(),
-      )
-      return new Response(
-        Readable.toWeb(transfer) as ReadableStream<Uint8Array>,
-        { headers },
-      )
-    } catch (error) {
-      release()
-      throw error
-    }
-  })
+    },
+  )
 
 export default videoApi

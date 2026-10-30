@@ -3,6 +3,7 @@ import type { EndpointModelOption } from '../../../hooks/useEndpointModels'
 import { t, useAppLanguage } from '../../../i18n'
 
 interface ModelIdInputProps {
+  id?: string
   value?: string
   onChange: (value: string) => void
   models: EndpointModelOption[]
@@ -16,6 +17,7 @@ interface ModelIdInputProps {
 }
 
 export function ModelIdInput({
+  id,
   value,
   onChange,
   models,
@@ -32,6 +34,7 @@ export function ModelIdInput({
   return (
     <>
       <AutoComplete
+        id={id}
         value={value || undefined}
         onChange={onChange}
         options={models.map((model) => ({

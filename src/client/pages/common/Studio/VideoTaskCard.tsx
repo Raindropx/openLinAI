@@ -13,9 +13,11 @@ import { studioJson, studioRequest } from './api'
 export function VideoTaskCard({
   task,
   onChanged,
+  variant = 'default',
 }: {
   task: Task
   onChanged?: () => void
+  variant?: 'default' | 'preview'
 }) {
   useAppLanguage()
   const video = task.video!
@@ -136,8 +138,18 @@ export function VideoTaskCard({
     video.retrievalStatus === 'downloading'
   const bytes = (video.retrievalBytes / 1024 / 1024).toFixed(1)
   return (
-    <div ref={container} onClick={(event) => event.stopPropagation()}>
-      <Card size="small" title={t('视频生成')} style={{ width: '100%' }}>
+    <div
+      ref={container}
+      className={
+        variant === 'preview' ? 'studio-video-preview-card' : undefined
+      }
+      onClick={(event) => event.stopPropagation()}
+    >
+      <Card
+        size="small"
+        title={variant === 'preview' ? undefined : t('视频生成')}
+        style={{ width: '100%' }}
+      >
         <Space wrap>
           <Tag color="purple">
             {t(videoModeLabel(video.request.generationType))}
@@ -177,10 +189,11 @@ export function VideoTaskCard({
           {video.request.aspectRatio}
         </p>
         <p
+          className="studio-video-detail-prompt"
           style={{
             whiteSpace: 'pre-wrap',
             overflowWrap: 'anywhere',
-            maxHeight: 100,
+            maxHeight: variant === 'preview' ? 44 : 100,
             overflow: 'auto',
           }}
         >
@@ -188,6 +201,7 @@ export function VideoTaskCard({
         </p>
         {playing && playbackUrl ? (
           <video
+            className="studio-video-player"
             key={playbackUrl}
             ref={player}
             data-linai-video
@@ -196,7 +210,10 @@ export function VideoTaskCard({
             preload="none"
             src={playbackUrl}
             poster={video.result?.posterUrl}
-            style={{ width: '100%', maxHeight: 360 }}
+            style={{
+              width: '100%',
+              maxHeight: variant === 'preview' ? 240 : 360,
+            }}
             onPlay={() =>
               document
                 .querySelectorAll<HTMLVideoElement>('video[data-linai-video]')
@@ -211,11 +228,15 @@ export function VideoTaskCard({
           />
         ) : (
           <div
+            className="studio-video-player-placeholder"
             style={{
-              minHeight: 80,
+              minHeight: variant === 'preview' ? 120 : 80,
               display: 'grid',
               placeItems: 'center',
-              background: 'var(--studio-panel)',
+              background:
+                variant === 'preview'
+                  ? 'var(--task-list-card-media-bg)'
+                  : 'var(--studio-panel)',
             }}
           >
             {video.result?.posterUrl && (
@@ -230,7 +251,11 @@ export function VideoTaskCard({
               {video.result?.durationSeconds
                 ? `${video.result.durationSeconds}s · `
                 : ''}
-              {t('点击预览后加载视频')}
+              {t(
+                video.generationStatus === 'succeeded'
+                  ? '点击预览后加载视频'
+                  : VIDEO_GENERATION_LABELS[video.generationStatus],
+              )}
             </span>
           </div>
         )}
@@ -283,7 +308,13 @@ export function VideoTaskCard({
               style={{ marginTop: 8 }}
             />
           ))}
-        <Space wrap style={{ marginTop: 12 }}>
+        <Space
+          className="studio-video-task-actions"
+          wrap
+          style={
+            variant === 'preview' ? { marginBottom: 10 } : { marginTop: 12 }
+          }
+        >
           {video.generationStatus === 'succeeded' && (
             <>
               <Button size="small" onClick={() => void preview()}>

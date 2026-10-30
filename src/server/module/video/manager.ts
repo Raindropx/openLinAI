@@ -6,6 +6,7 @@ import type {
   VideoTask,
 } from '../../../shared/video'
 import { taskManager, type Task } from '../../common/task-manager'
+import { syncVideoEndpoints } from './endpoint-registry'
 import {
   getVideoProvider,
   validateVideoRequest,
@@ -78,8 +79,12 @@ export class VideoManager {
   }
 
   private async createUnlocked(raw: unknown) {
+    await syncVideoEndpoints()
     const input = videoRequestSchema.parse(raw)
-    validateVideoRequest(input, getVideoProvider(input.provider))
+    const provider = getVideoProvider(input.provider)
+    if (provider.getCapabilities().enabled === false)
+      throw new Error('视频端点已停用')
+    validateVideoRequest(input, provider)
     for (const reference of input.references || []) {
       if (reference.type !== 'image')
         await this.network.validate(reference.remoteUrl)
@@ -143,6 +148,7 @@ export class VideoManager {
   }
 
   async start() {
+    await syncVideoEndpoints()
     clearTimeout(this.timer)
     this.stopped = false
     await this.recover()
@@ -231,7 +237,11 @@ export class VideoManager {
 
   private async checkedResult(result: VideoResult): Promise<VideoResult> {
     if (!result.remoteUrl) throw new Error('服务商未提供可直连的视频地址')
-    await this.network.validate(result.remoteUrl)
+    // Successful generation is retained even when a new CDN still needs approval.
+    // The public-address check remains mandatory; playback/retrieval enforce the allowlist.
+    await this.network.validate(result.remoteUrl, undefined, [
+      new URL(result.remoteUrl).hostname,
+    ])
     if (
       result.remoteUrlExpiresAt !== undefined &&
       (!Number.isFinite(result.remoteUrlExpiresAt) ||
@@ -250,6 +260,7 @@ export class VideoManager {
     // Only known result metadata crosses the provider boundary; never arbitrary credentials/paths.
     return {
       remoteUrl: result.remoteUrl,
+      providerMedia: result.providerMedia === true,
       remoteUrlExpiresAt: result.remoteUrlExpiresAt,
       posterUrl,
       mimeType:
@@ -263,7 +274,14 @@ export class VideoManager {
   }
 
   private async generate(id: string, signal: AbortSignal) {
-    const timeout = AbortSignal.any([signal, AbortSignal.timeout(60000)])
+    const { video: pendingVideo } = await this.task(id)
+    const submitTimeout =
+      videoProviders.get(pendingVideo.request.provider)?.submitTimeoutMs ||
+      60000
+    const timeout = AbortSignal.any([
+      signal,
+      AbortSignal.timeout(submitTimeout),
+    ])
     let submitting = false
     try {
       let { video } = await this.task(id)
@@ -311,8 +329,15 @@ export class VideoManager {
             : undefined
         if (result) value.result = result
       })
-    } catch {
+    } catch (error) {
       if (signal.aborted || this.deleting.has(id)) return
+      const detail =
+        error instanceof Error &&
+        /^(视频 API|视频模型|Gemini|Civitai|不支持的 Civitai)/.test(
+          error.message,
+        )
+          ? `；${error.message}`
+          : ''
       await taskManager.mutateVideoTask(id, (video) => {
         video.pollFailures = (video.pollFailures || 0) + 1
         video.nextPollAt =
@@ -320,8 +345,8 @@ export class VideoManager {
         if (submitting || video.pollFailures >= 5) {
           video.generationStatus = 'failed'
           video.error = submitting
-            ? '提交未确认，请先核对云端任务再重试，避免重复计费'
-            : '视频查询或结果校验失败，已停止自动查询；可手动恢复查询'
+            ? `提交未确认，请先核对云端任务再重试，避免重复计费${detail}`
+            : `视频查询或结果校验失败，已停止自动查询；可手动恢复查询${detail}`
         }
       })
     }
@@ -416,11 +441,19 @@ export class VideoManager {
       const result = await this.remoteResult(id)
       return {
         source: 'cloud',
-        playbackUrl: result.remoteUrl,
+        playbackUrl: result.providerMedia
+          ? `/api/studio/videos/${id}/cloud-preview`
+          : result.remoteUrl,
         downloadUrl: `/api/studio/videos/${id}/cloud-download`,
       }
-    } catch {
-      return { error: '云端结果已失效或不可访问；请刷新链接或检查本地存储' }
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error &&
+          error.message.startsWith('视频域名尚未加入允许列表：')
+            ? error.message
+            : '云端结果已失效或不可访问；请刷新链接或检查本地存储',
+      }
     }
   }
 
@@ -535,7 +568,14 @@ export class VideoManager {
         url: result.remoteUrl!,
         signal: transferSignal,
         checkpoint: before.retrievalCheckpoint,
-        open: this.network.open,
+        open: result.providerMedia
+          ? (_url, signal, range) =>
+              getVideoProvider(before.request.provider).openResult!(
+                before.remoteTaskId!,
+                signal,
+                range,
+              )
+          : this.network.open,
         save: (progress) =>
           taskManager.mutateVideoTask(id, (value) => {
             value.retrievalStatus = 'downloading'
@@ -704,9 +744,20 @@ export class VideoManager {
   }
 
   capabilities() {
-    return [...videoProviders.values()].map((provider) =>
-      provider.getCapabilities(),
-    )
+    return [...videoProviders.values()]
+      .map((provider) => provider.getCapabilities())
+      .filter((capability) => capability.enabled !== false)
+  }
+
+  async openCloud(id: string, signal: AbortSignal) {
+    const result = await this.remoteResult(id)
+    const { video } = await this.task(id)
+    return result.providerMedia
+      ? getVideoProvider(video.request.provider).openResult!(
+          video.remoteTaskId!,
+          signal,
+        )
+      : this.network.open(result.remoteUrl!, signal)
   }
 }
 

@@ -395,7 +395,7 @@ export function StudioPage({ active = true }: { active?: boolean }) {
   }
   return (
     <div
-      className={`studio-layout ${tab === 'novelai' || tab === 'civitai' ? 'studio-layout-novelai' : ''} ${tab === 'perler-bead' || tab === 'video' ? `studio-layout-perler ${(tab === 'video' ? videoShelfExpanded : perlerShelfExpanded) ? 'studio-perler-shelf-expanded' : 'studio-perler-shelf-collapsed'}` : ''}`}
+      className={`studio-layout ${tab === 'video' ? 'studio-layout-video' : ''} ${tab === 'novelai' || tab === 'civitai' ? 'studio-layout-novelai' : ''} ${tab === 'perler-bead' || tab === 'video' ? `studio-layout-perler ${(tab === 'video' ? videoShelfExpanded : perlerShelfExpanded) ? 'studio-perler-shelf-expanded' : 'studio-perler-shelf-collapsed'}` : ''}`}
       style={
         {
           color: token.colorText,
@@ -485,14 +485,13 @@ export function StudioPage({ active = true }: { active?: boolean }) {
             </button>
           ))}
         </div>
-        {tab === 'video' && active && <div className="studio-native-panel" role="tabpanel" id="studio-panel-video" aria-labelledby="studio-tab-video">
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        {tab === 'video' && active && <div className="studio-video-panel" role="tabpanel" id="studio-panel-video" aria-labelledby="studio-tab-video">
+          <VideoStudio items={items} incomingReference={videoReference} toolbarExtra={
             <Button size="small" className="studio-perler-shelf-button"
               icon={videoShelfExpanded ? <CaretRightOutlined /> : <CaretLeftOutlined />}
               aria-expanded={videoShelfExpanded} aria-controls="studio-shelf"
               onClick={() => setVideoShelfExpanded((expanded) => !expanded)}>{videoShelfExpanded ? t('收起暂存台') : t('展开暂存台')}</Button>
-          </div>
-          <VideoStudio items={items} incomingReference={videoReference} />
+          } />
         </div>}
         {(perlerVisited || tab === 'perler-bead') && (
           <div

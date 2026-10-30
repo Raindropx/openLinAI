@@ -1,13 +1,21 @@
+import type { IncomingMessage } from 'node:http'
 import type {
   VideoCapabilities,
   VideoGenerationStatus,
   VideoRequest,
   VideoResult,
 } from '../../../shared/video'
+import type { VideoRangeRequest } from './remote'
 export { videoRequestSchema } from '../../../shared/video'
 
 /** Provider credentials and API calls belong here, never in browser configuration. */
 export interface VideoProvider {
+  submitTimeoutMs?: number
+  openResult?(
+    remoteTaskId: string,
+    signal: AbortSignal,
+    range?: VideoRangeRequest,
+  ): Promise<IncomingMessage>
   getCapabilities(): VideoCapabilities
   submitGeneration(
     input: VideoRequest,
@@ -24,7 +32,7 @@ export interface VideoProvider {
 
 export function validateVideoRequest(
   input: VideoRequest,
-  provider: VideoProvider,
+  provider: Pick<VideoProvider, 'getCapabilities'>,
 ) {
   const caps = provider.getCapabilities()
   if (
