@@ -19,6 +19,7 @@ import {
 import { v4 as uuidv4 } from 'uuid'
 import type { GptImageEndpoint } from '../../../../server/common/config'
 import { GEMINI_BASE_URL, GEMINI_IMAGE_MODEL } from '../../../../shared/gemini'
+import { showGptImageModeration } from '../../../../shared/gpt-image'
 import {
   getLaoZhangImageFamily,
   LAOZHANG_BASE_URL,
@@ -900,6 +901,27 @@ export const GPTImageSetting = forwardRef<GPTImageSettingRef>((_props, ref) => {
                 endpoint={activeEndpoint}
                 onChange={updateActiveEndpoint}
               />
+            )}
+            {showGptImageModeration(activeEndpoint) && (
+              <Form.Item
+                label={t('GPT Image 内容审核')}
+                extra={t(
+                  '文生图和参考图编辑默认使用 low（较宽松），auto 为标准审核。仅用于 GPT Image 的 OpenAI 兼容接口；中转站可能忽略或拒绝此参数，接受请求也不代表设置生效。若提示不支持 moderation，改选“不发送（由服务商决定）”。不会自动重试生成。',
+                )}
+              >
+                <Select<NonNullable<GptImageEndpoint['moderation']>>
+                  value={activeEndpoint.moderation || 'low'}
+                  onChange={(moderation) => updateActiveEndpoint({ moderation })}
+                  options={[
+                    {
+                      value: 'omit',
+                      label: t('不发送（由服务商决定）'),
+                    },
+                    { value: 'auto', label: t('auto（标准）') },
+                    { value: 'low', label: t('low（较宽松，默认）') },
+                  ]}
+                />
+              </Form.Item>
             )}
             {isSpicyEndpoint && (
               <div className="mb-4 rounded-lg border border-slate-700 p-3">

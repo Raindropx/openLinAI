@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
+import type { GptImageModeration } from '../src/server/module/gpt-image/enum'
 
 async function main() {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'linai-laozhang-'))
@@ -148,6 +149,7 @@ async function main() {
       apiKey: 'test-key',
       type: 'laozhang' as const,
       engine: 'laozhang-images' as const,
+      moderation: undefined as GptImageModeration | undefined,
       balanceEnabled: true,
       balanceAccessToken: 'test-access-token',
     }
@@ -210,6 +212,7 @@ async function main() {
     assert.deepEqual(submissions.at(-1)!.body, {
       model: 'gpt-image-2-vip',
       prompt: 'mock',
+      moderation: 'low',
       size: '2048x2048',
       quality: 'medium',
     })
@@ -219,6 +222,62 @@ async function main() {
     )
     const reference = path.join(INPUT_IMAGES_DIR, 'reference.png')
     await fs.writeFile(reference, image)
+    for (const moderation of [undefined, 'auto', 'low', 'omit'] as const) {
+      for (const edit of [false, true]) {
+        const request = await buildLaoZhangImageRequest({
+          ...options,
+          moderation,
+          imagePaths: edit ? [reference] : [],
+        })
+        assert.equal(
+          edit
+            ? ((request.init.body as FormData).get('moderation') ?? undefined)
+            : JSON.parse(request.init.body as string).moderation,
+          moderation === 'omit' ? undefined : (moderation ?? 'low'),
+        )
+      }
+      const generated = await trial({}, { ...endpoint, moderation })
+      assert.equal(generated.success, true)
+      assert.equal(
+        submissions.at(-1)!.body.moderation,
+        moderation === 'omit' ? undefined : (moderation ?? 'low'),
+      )
+      const edited = await trial(
+        { images: ['/api/static/input/reference.png'] },
+        { ...endpoint, moderation },
+      )
+      assert.equal(edited.success, true)
+      if (moderation === 'omit')
+        assert.doesNotMatch(submissions.at(-1)!.body, /name="moderation"/)
+      else
+        assert.match(
+          submissions.at(-1)!.body,
+          new RegExp(
+            `name="moderation"\\r\\n\\r\\n${moderation ?? 'low'}\\r\\n`,
+          ),
+        )
+    }
+    for (const model of [
+      'gemini-3.1-flash-image',
+      'seedream-5-0-flash-260915',
+      'grok-imagine-image-2.0',
+    ]) {
+      for (const imagePaths of [[], [reference]]) {
+        const request = await buildLaoZhangImageRequest({
+          ...options,
+          model,
+          imagePaths,
+          moderation: 'auto',
+        })
+        assert.equal(
+          request.init.body instanceof FormData
+            ? (request.init.body.get('moderation') ?? undefined)
+            : JSON.parse(request.init.body as string).moderation,
+          undefined,
+          `No GPT moderation parameter for ${model}`,
+        )
+      }
+    }
     const web = await trial({}, { ...endpoint, model: 'gpt-image-2.5-web' })
     assert.equal(submissions.at(-1)!.body.quality, undefined)
     assert.equal(submissions.at(-1)!.body.size, '2048x2048')
@@ -289,6 +348,7 @@ async function main() {
     assert.deepEqual(submissions.at(-1)!.body, {
       model: 'gpt-image-2',
       prompt: 'mock',
+      moderation: 'low',
     })
     const official = await buildLaoZhangImageRequest({
       ...options,
@@ -305,6 +365,7 @@ async function main() {
     assert.deepEqual(JSON.parse(transparent.init.body as string), {
       model: 'gpt-image-2.5-flare-vip',
       prompt: 'mock',
+      moderation: 'low',
       size: '2048x2048',
       quality: 'max',
       background: 'transparent',

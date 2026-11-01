@@ -597,6 +597,7 @@ const gptImageApi = new Hono()
         return c.json(result.data, result.status as any)
       }
       const result = await handleImageGeneration({
+        moderation: endpoint.moderation,
         queryBilling: endpoint.type === 'yunwu',
         billingGroupRatio: endpoint.groupRatio,
         apiKey: endpoint.apiKey,
@@ -797,6 +798,7 @@ const gptImageApi = new Hono()
         return c.json(result.data, result.status as any)
       }
       const result = await handleImageGeneration({
+        moderation: endpoint.moderation,
         queryBilling: endpoint.type === 'yunwu',
         billingGroupRatio: endpoint.groupRatio,
         apiKey: endpoint.apiKey,

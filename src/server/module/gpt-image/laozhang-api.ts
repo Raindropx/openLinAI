@@ -18,6 +18,7 @@ export interface LaoZhangImageRequestOptions {
   aspectRatio: string
   size: GptImageSize
   quality: GptImageQuality
+  moderation?: GptImageEndpoint['moderation']
   imagePaths: string[]
   laozhangGptImage2Mode?: GptImageEndpoint['laozhangGptImage2Mode']
   laozhangQuality?: GptImageEndpoint['laozhangQuality']
@@ -263,6 +264,9 @@ export async function buildLaoZhangImageRequest(
   const body = {
     model,
     prompt: options.prompt,
+    ...(options.moderation !== 'omit'
+      ? { moderation: options.moderation ?? 'low' }
+      : {}),
     ...(!perCallLegacy
       ? {
           size: laoZhangImageSize(options.aspectRatio, options.size),

@@ -3,13 +3,14 @@ import { withImageGeneration } from '../../common/image-lifecycle'
 import fs from 'fs-extra'
 import OpenAI, { toFile } from 'openai'
 import path from 'path'
+import { isGptImageModel } from '../../../shared/gpt-image'
 import { INPUT_IMAGES_DIR } from '../../common/static'
 import { GENERATED_IMAGES_API_PATH } from '../../common/static/enum'
 import { taskManager } from '../../common/task-manager'
 import { TaskTemplate } from '../../common/template-manager'
 import { logger } from '../utils/logger'
 import { fetchImageBill, getBillingRequestId } from './billing'
-import { GptImageQuality, GptImageSize } from './enum'
+import { GptImageModeration, GptImageQuality, GptImageSize } from './enum'
 import type { GenerationMetadataInput } from './generation-metadata'
 import { decodeImageBase64, persistImageBuffers } from './image-files'
 import { estimatePollinationsImageBilling } from './pollinations-billing'
@@ -38,6 +39,7 @@ interface GenerateGPTImageOptions {
   prompt: string
   size: string
   quality: GptImageQuality
+  moderation?: GptImageModeration
   imagePaths: string[]
   n?: number
   generationMetadata?: GenerationMetadataInput
@@ -312,6 +314,13 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
     generationMetadata,
   } = options
   const client = getOpenAIClient(apiKey, baseURL)
+  // 不自动探测或失败重试：第三方可能忽略此参数，生图重试可能重复扣费。
+  // 文生图和参考图编辑默认使用 low；不兼容的服务商可显式选择不传。
+  const moderation =
+    !isGptImageModel(model) || options.moderation === 'omit'
+      ? undefined
+      : options.moderation ?? 'low'
+  const moderationParams = moderation ? { moderation } : {}
   const imagesToUpload = images.length
     ? await Promise.all(
         images.map(
@@ -330,6 +339,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
       .edit({
         model,
         image: imagesToUpload || [],
+        ...moderationParams,
         prompt: prompt,
         n,
         size: size as any,
@@ -346,7 +356,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
         n,
         size: size as any,
         quality,
-        moderation: 'low',
+        ...moderationParams,
       }, { signal: generationSignal() })
       .withResponse()
     res = response.data
@@ -394,6 +404,7 @@ async function runHandleImageGeneration(options: {
   template: TaskTemplate
   size?: GptImageSize
   quality?: GptImageQuality
+  moderation?: GptImageModeration
   endpointName?: string
   originalPrompt?: string
   folderId?: string
@@ -482,6 +493,7 @@ async function runHandleImageGeneration(options: {
             prompt: finalPrompt,
             size: finalSize,
             quality,
+            moderation: options.moderation,
             imagePaths,
             n: requestCount,
             generationMetadata: writeMetadata

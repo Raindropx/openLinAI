@@ -330,6 +330,86 @@ async function main() {
         .resolution,
       '2K',
     )
+    // Add schema-only fixtures without changing the model-catalog assertions below.
+    const moderationCatalogStart = catalog.length
+    for (const model of [
+      'gpt-image-1-official',
+      'gpt-image-1.5-official',
+      'gpt-image-2.5-flare',
+      'gpt-image-2.5-sunburst',
+    ]) {
+      catalog.push({
+        ...catalog[1],
+        id: model,
+      })
+    }
+    for (const moderation of [undefined, 'auto', 'low', 'omit'] as const) {
+      for (const images of [[], ['https://example.invalid/reference.png']]) {
+        const official = await buildAPIMartImageBody({
+          ...bodyOptions,
+          model: 'gpt-image-2-official',
+          moderation,
+          images,
+        })
+        assert.equal(
+          official.moderation,
+          moderation === 'omit' ? undefined : (moderation ?? 'low'),
+        )
+        const standard = await buildAPIMartImageBody({
+          ...bodyOptions,
+          moderation,
+          images,
+        })
+        assert.equal(
+          standard.moderation,
+          undefined,
+          'Do not send moderation on the standard route',
+        )
+        assert.equal(
+          standard.nsfw_check,
+          undefined,
+          'Do not confuse moderation with the pre-submission review',
+        )
+      }
+      for (const model of [
+        'gpt-image-1-official',
+        'gpt-image-1.5-official',
+        'gpt-image-2.5-flare',
+        'gpt-image-2.5-sunburst',
+      ]) {
+        const body = await buildAPIMartImageBody({
+          ...bodyOptions,
+          model,
+          moderation,
+        })
+        assert.equal(
+          body.moderation,
+          moderation === 'omit' ? undefined : (moderation ?? 'low'),
+        )
+      }
+    }
+    catalog.splice(moderationCatalogStart)
+    for (const moderation of [undefined, 'auto', 'low', 'omit'] as const) {
+      updateConfig({
+        endpoints: [
+          {
+            ...endpoint,
+            model: 'gpt-image-2-official',
+            editModel: 'gpt-image-2-official',
+            moderation,
+          },
+        ],
+      })
+      for (const images of [[], ['/api/static/images/input/reference.png']]) {
+        const result = await trial('moderation', 1, images)
+        assert.equal(result.status, 200, JSON.stringify(result.data))
+        assert.equal(
+          submissions.at(-1)?.moderation,
+          moderation === 'omit' ? undefined : (moderation ?? 'low'),
+        )
+      }
+    }
+    updateConfig({ endpoints: [endpoint] })
     await assert.rejects(
       buildAPIMartImageBody({ ...bodyOptions, aspectRatio: '7:3' }),
       /不支持比例/,

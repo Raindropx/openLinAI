@@ -1,5 +1,6 @@
+import { isAPIMartModerationModel } from '../../../shared/gpt-image'
 import { generationFetch, checkGenerationCancelled } from '../../common/image-lifecycle'
-import type { GptImageQuality, GptImageSize } from './enum'
+import type { GptImageModeration, GptImageQuality, GptImageSize } from './enum'
 
 type JsonObject = Record<string, any>
 
@@ -94,6 +95,7 @@ export async function buildAPIMartImageBody(options: {
   aspectRatio: string
   size: GptImageSize
   quality: GptImageQuality
+  moderation?: GptImageModeration
   images: string[]
 }) {
   const { model, aspectRatio, size, images } = options
@@ -185,6 +187,16 @@ export async function buildAPIMartImageBody(options: {
       throw new Error(`APImart 模型 ${model} 不支持 ${options.quality} 画质`)
     }
     body.quality = options.quality
+  }
+  if (
+    isAPIMartModerationModel(model) &&
+    options.moderation !== 'omit'
+  ) {
+    const moderation = options.moderation ?? 'low'
+    const values = properties.moderation?.enum
+    if (Array.isArray(values) && !values.includes(moderation))
+      throw new Error(`APImart 模型 ${model} 不支持 moderation=${moderation}`)
+    body.moderation = moderation
   }
   return body
 }

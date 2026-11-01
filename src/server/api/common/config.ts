@@ -43,6 +43,7 @@ const configApi = new Hono()
               baseURL: z.string(),
               model: z.string(),
               editModel: z.string().optional(),
+              moderation: z.enum(['auto', 'low', 'omit']).optional(),
               apiKey: z.string(),
               type: z.enum([
                 'yunwu',

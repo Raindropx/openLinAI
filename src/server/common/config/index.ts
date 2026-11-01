@@ -8,6 +8,7 @@ import type {
 } from '../../../shared/laozhang'
 import { decryptApiKey } from '../../module/gpt-image/encrypt'
 import { GPT_IMAGE_SOURCE_MODEL } from '../../module/gpt-image/enum'
+import type { GptImageModeration } from '../../module/gpt-image/enum'
 import { getDataDir } from '../data-dir'
 import {
   DEFAULT_NOVELAI_ANIME_PROMPT,
@@ -49,6 +50,8 @@ export interface GptImageEndpoint {
   model: string
   /** 参考图编辑模型；供生成、编辑使用不同模型的端点选择。 */
   editModel?: string
+  /** GPT Image 内容审核；适用的引擎/模型默认 low，omit 表示不发送。 */
+  moderation?: GptImageModeration
   apiKey: string
   /**
    * 余额来源类型：

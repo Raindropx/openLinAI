@@ -7,7 +7,7 @@ import { taskManager } from '../../common/task-manager'
 import type { TaskTemplate } from '../../common/template-manager'
 import { logger } from '../utils/logger'
 import { buildAPIMartImageBody, generateAPIMartImage } from './apimart-api'
-import type { GptImageQuality, GptImageSize } from './enum'
+import type { GptImageModeration, GptImageQuality, GptImageSize } from './enum'
 import { persistImages, readImageAsDataUrl } from './image-files'
 import { buildPromptWithAspectRatio } from './index'
 
@@ -16,6 +16,7 @@ async function runHandleAPIMartImageGeneration(options: {
   baseURL: string
   model: string
   editModel?: string
+  moderation?: GptImageModeration
   template: TaskTemplate
   size: GptImageSize
   quality: GptImageQuality
