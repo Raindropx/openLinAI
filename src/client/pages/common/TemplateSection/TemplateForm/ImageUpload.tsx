@@ -1,7 +1,7 @@
-import { changePendingImages } from '../../../../hooks/usePendingImages'
 import { PictureOutlined, UploadOutlined } from '@ant-design/icons'
-import { Button, message, Upload } from 'antd'
-import { useEffect, useRef } from 'react'
+import { Button, message, Modal, Upload } from 'antd'
+import { useEffect, useRef, useState } from 'react'
+import { changePendingImages } from '../../../../hooks/usePendingImages'
 import { useRecentImages } from '../../../../hooks/useRecentImages'
 import { t, useAppLanguage } from '../../../../i18n'
 import { imageBlobToUploadDataUrl } from '../../../../utils/image'
@@ -15,7 +15,10 @@ import {
 } from '../../components/Gallery'
 import { ImageEditorModal } from './ImageEdit/ImageEditorModal'
 import { ImageUploadItem } from './ImageEdit/ImageUploadItem'
-import { useImageEditUpload } from './ImageEdit/useImageEditUpload'
+import {
+  useImageEditUpload,
+  type ImageEditTarget,
+} from './ImageEdit/useImageEditUpload'
 
 interface ImageUploadProps {
   value?: string[]
@@ -66,6 +69,11 @@ export function ImageUpload({
 
   const latestValueRef = useRef(value)
   latestValueRef.current = value
+  const [replaceTarget, setReplaceTarget] = useState<ImageEditTarget | null>(
+    null,
+  )
+  const [replacing, setReplacing] = useState(false)
+  const replacingRef = useRef(false)
 
   const handleUploadCountChange = (delta: number) => {
     const newCount = Math.max(0, uploadingCountRef.current + delta)
@@ -86,6 +94,51 @@ export function ImageUpload({
     onChange,
     addRecentImages,
   })
+
+  const handleReplace = async (
+    target: ImageEditTarget,
+    loadUrl: () => Promise<string>,
+    selection?: GalleryImageSelection,
+  ) => {
+    if (replacingRef.current) return
+    replacingRef.current = true
+    setReplacing(true)
+    handleUploadCountChange(1)
+    const assertCurrent = () => {
+      if (latestValueRef.current[target.index] !== target.url) {
+        throw new Error(t('图片列表已变化，请重新选择要替换的图片'))
+      }
+    }
+    try {
+      assertCurrent()
+      const url = await loadUrl()
+      assertCurrent()
+      const newUrls = [...latestValueRef.current]
+      newUrls[target.index] = url
+      latestValueRef.current = newUrls
+      onChange?.(newUrls)
+      addRecentImages(url)
+      setReplaceTarget(null)
+      message.success(t('图片替换成功'))
+      if (selection?.type === 'input') {
+        try {
+          await changePendingImages('remove', [selection.url])
+        } catch (error) {
+          message.error(
+            error instanceof Error ? t(error.message) : t('请求失败'),
+          )
+        }
+      }
+    } catch (error) {
+      message.error(
+        error instanceof Error ? t(error.message) : t('图片替换失败'),
+      )
+    } finally {
+      replacingRef.current = false
+      setReplacing(false)
+      handleUploadCountChange(-1)
+    }
+  }
 
   const handleUpload = async (file: File) => {
     handleUploadCountChange(1)
@@ -223,8 +276,17 @@ export function ImageUpload({
                   onChange?.(newUrls)
                   addRecentImages(processedUrls)
                   try {
-                    await changePendingImages('remove', images.filter(({ type }) => type === 'input').map(({ url }) => url))
-                  } catch (error) { message.error(error instanceof Error ? t(error.message) : t('请求失败')) }
+                    await changePendingImages(
+                      'remove',
+                      images
+                        .filter(({ type }) => type === 'input')
+                        .map(({ url }) => url),
+                    )
+                  } catch (error) {
+                    message.error(
+                      error instanceof Error ? t(error.message) : t('请求失败'),
+                    )
+                  }
                 } catch (error) {
                   message.error(
                     error instanceof Error
@@ -250,10 +312,75 @@ export function ImageUpload({
               index={index}
               onRemove={handleRemove}
               onEdit={openEditor}
+              onReplace={(target) => {
+                if (!replacingRef.current) setReplaceTarget(target)
+              }}
             />
           ))}
         </div>
       )}
+      <Modal
+        title={t('替换图片')}
+        open={!!replaceTarget}
+        onCancel={() => {
+          if (!replacingRef.current) setReplaceTarget(null)
+        }}
+        closable={!replacing}
+        footer={null}
+        destroyOnHidden
+      >
+        <p>{t('请选择替换图片的来源')}</p>
+        <div className="flex flex-wrap gap-2">
+          <Upload
+            accept="image/jpeg,image/png,image/webp"
+            showUploadList={false}
+            multiple={false}
+            disabled={replacing}
+            beforeUpload={async (file) => {
+              const target = replaceTarget
+              if (target) {
+                await handleReplace(target, async () =>
+                  uploadInputImageBase64(await imageBlobToUploadDataUrl(file)),
+                )
+              }
+              return false
+            }}
+          >
+            <Button
+              icon={<UploadOutlined />}
+              disabled={replacing}
+              loading={replacing}
+            >
+              {t('上传本地图片')}
+            </Button>
+          </Upload>
+          <Button
+            icon={<PictureOutlined />}
+            disabled={replacing}
+            onClick={() => {
+              const target = replaceTarget
+              if (!target) return
+              setReplaceTarget(null)
+              openGallery({
+                maxCount: 1,
+                onSelect: async ([image]) => {
+                  if (!image) return
+                  await handleReplace(
+                    target,
+                    async () =>
+                      image.type === 'generated'
+                        ? uploadInputImageFromUrl(image.url)
+                        : image.url,
+                    image,
+                  )
+                },
+              })
+            }}
+          >
+            {t('从图库选择')}
+          </Button>
+        </div>
+      </Modal>
       <ImageEditorModal
         open={!!editTarget}
         src={editTarget?.url || null}

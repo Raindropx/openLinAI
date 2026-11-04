@@ -1,4 +1,8 @@
-import { CloseCircleFilled, EditOutlined } from '@ant-design/icons'
+import {
+  CloseCircleFilled,
+  EditOutlined,
+  SwapOutlined,
+} from '@ant-design/icons'
 import { Image as AntImage, Button, Tooltip } from 'antd'
 import { t, useAppLanguage } from '../../../../../i18n'
 
@@ -7,6 +11,7 @@ interface ImageUploadItemProps {
   index: number
   onRemove: (index: number) => void
   onEdit: (target: { index: number; url: string }) => void
+  onReplace: (target: { index: number; url: string }) => void
 }
 
 export function ImageUploadItem({
@@ -14,6 +19,7 @@ export function ImageUploadItem({
   index,
   onRemove,
   onEdit,
+  onReplace,
 }: ImageUploadItemProps) {
   useAppLanguage()
 
@@ -52,6 +58,19 @@ export function ImageUploadItem({
             onClick={(event) => {
               event.stopPropagation()
               onEdit({ index, url })
+            }}
+          />
+        </Tooltip>
+        <Tooltip title={t('替换图片')}>
+          <Button
+            type="text"
+            size="small"
+            aria-label={t('替换图片')}
+            icon={<SwapOutlined />}
+            className="text-white! hover:bg-white/20!"
+            onClick={(event) => {
+              event.stopPropagation()
+              onReplace({ index, url })
             }}
           />
         </Tooltip>
