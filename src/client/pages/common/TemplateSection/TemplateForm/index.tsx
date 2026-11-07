@@ -8,6 +8,7 @@ import { Button, Form, message, Segmented } from 'antd'
 import { hc } from 'hono/client'
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/shallow'
+import { validateGptImageOptions } from '../../../../../shared/gpt-image-options'
 import type { AppType } from '../../../../../server'
 import type { TaskTemplate } from '../../../../../server/common/template-manager'
 import type {
@@ -156,6 +157,7 @@ export function TemplateForm({
   // 触发填入模板数据
   useEffect(() => {
     if (fillTemplateData) {
+      form.setFieldValue('gptImageOptions', fillTemplateData.gptImageOptions || {})
       form.setFieldsValue({
         title: fillTemplateData.title,
         folder: fillTemplateData.folder,
@@ -245,6 +247,15 @@ export function TemplateForm({
       message.warning(t('无可用端点，请到设置中添加或启用'))
       return
     }
+    const gptImageOptions = form.getFieldValue('gptImageOptions')
+    const endpoint = endpoints.find((item) => item.id === endpointId)
+    const optionsError = endpoint && validateGptImageOptions(
+      gptImageOptions, endpoint, imageUrls.length, n,
+    )
+    if (optionsError) {
+      message.warning(t(optionsError))
+      return
+    }
     // 一次优化记录只绑定下一次生成，避免后续普通任务复用旧提示词。
     const originalPrompt = pendingOriginalPromptRef.current
     pendingOriginalPromptRef.current = undefined
@@ -261,6 +272,7 @@ export function TemplateForm({
           aspectRatio,
           injectAspectRatio,
           gpt2QualityOptimization,
+          gptImageOptions,
           language,
           images: imageUrls,
           size,
@@ -393,6 +405,7 @@ export function TemplateForm({
               prompt: payload.prompt,
               aspectRatio: payload.aspectRatio,
               injectAspectRatio: payload.injectAspectRatio,
+              gptImageOptions: payload.gptImageOptions,
               folder: payload.folder,
               images: payload.images,
               n: payload.n,
@@ -439,6 +452,7 @@ export function TemplateForm({
   }
 
   const promptValue = Form.useWatch('prompt', form) || ''
+  const isGif = Form.useWatch(['gptImageOptions', 'outputFormat'], form) === 'gif'
 
   return (
     <>
@@ -539,17 +553,17 @@ export function TemplateForm({
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 [&>:last-child:nth-child(odd)]:col-span-2">
-              {gptImageSettings.enable1K && (
+              {(isGif || gptImageSettings.enable1K) && (
                 <Button
                   onClick={() => handleTrial('1k')}
                   disabled={uploadingCount > 0}
                   size="large"
                   className="app-accent-outline grow"
                 >
-                  {t('生成1K图')}
+                  {isGif ? t('生成 GIF 动图') : t('生成1K图')}
                 </Button>
               )}
-              {gptImageSettings.enable2K && (
+              {!isGif && gptImageSettings.enable2K && (
                 <Button
                   onClick={() => handleTrial('2k')}
                   disabled={uploadingCount > 0}
@@ -559,7 +573,7 @@ export function TemplateForm({
                   {t('生成2K图')}
                 </Button>
               )}
-              {gptImageSettings.enable4K && (
+              {!isGif && gptImageSettings.enable4K && (
                 <Button
                   onClick={() => handleTrial('4k')}
                   disabled={uploadingCount > 0}

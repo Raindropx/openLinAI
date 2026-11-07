@@ -234,7 +234,7 @@ export async function serveImage(
 
   let filePath = sourcePath
   let contentType = getImageMimeType(filename)
-  if (thumb) {
+  if (thumb && !/\.gif$/i.test(filename)) {
     const thumbPath = getThumbnailPath(type, filename)
     if (await ensureThumbnail(sourcePath, thumbPath)) {
       filePath = thumbPath
@@ -257,6 +257,13 @@ export async function serveImage(
       'Content-Type': contentType,
       'Content-Length': String(stat.size),
       'Cache-Control': 'public, max-age=86400, immutable',
+      ...(contentType === 'image/svg+xml'
+        ? {
+            'Content-Security-Policy':
+              "sandbox; default-src 'none'; style-src 'unsafe-inline'",
+            'X-Content-Type-Options': 'nosniff',
+          }
+        : {}),
     }
     if (headOnly) {
       await file.close()

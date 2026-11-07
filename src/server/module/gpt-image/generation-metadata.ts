@@ -1,5 +1,6 @@
 import { inflateSync } from 'zlib'
 import packageJson from '../../../../package.json'
+import type { GptImageOptions } from '../../../shared/gpt-image-options'
 import type { NovelAIGenerationSnapshot } from '../../../shared/studio-generation'
 import { TRIAL_TEMPLATE_TITLE } from '../../common/template-manager/enum'
 import { logger } from '../utils/logger'
@@ -16,6 +17,7 @@ export type GenerationImageFormat =
   | 'svg'
 
 export interface GenerationMetadataInput {
+  gptImageOptions?: GptImageOptions
   title?: string
   prompt: string
   /** 采纳提示词优化结果前的本地文本 */

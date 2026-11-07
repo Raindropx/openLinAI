@@ -16,6 +16,7 @@ import { t, useAppLanguage } from '../../../../i18n'
 import { GPTImageQuota } from '../../Header/GPTImageQuota'
 import { FolderFormItem } from './FolderSelectInput'
 import { ImageUpload } from './ImageUpload'
+import { GptImageOutputOptions } from './GptImageOutputOptions'
 import { StyleExtractModal } from './StyleExtractModal'
 import { StylePresetModal } from './StylePresetModal'
 
@@ -193,6 +194,7 @@ function PromptOptionsFormItem({ className }: { className?: string }) {
 
 function CountFormItem({ className }: { className?: string }) {
   useAppLanguage()
+  const format = Form.useWatch(['gptImageOptions', 'outputFormat'])
 
   return (
     <Form.Item
@@ -200,7 +202,12 @@ function CountFormItem({ className }: { className?: string }) {
       label={t('张数')}
       className={classnames(className, '[&_.ant-input-number]:w-full!')}
     >
-      <InputNumber min={1} max={8} className="" />
+      <InputNumber
+        min={1}
+        max={format === 'svg' ? 1 : 8}
+        disabled={format === 'svg'}
+        className=""
+      />
     </Form.Item>
   )
 }
@@ -364,6 +371,7 @@ export function TemplateFormFields({
         )}
       </div>
 
+      <GptImageOutputOptions imageCount={imageUrls.length} />
       <PromptFormItem form={form} optimizeButton={optimizeButton} />
     </>
   )

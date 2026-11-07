@@ -362,6 +362,7 @@ export function TaskList({
         aspectRatio: task.rawTemplate.aspectRatio,
         injectAspectRatio: task.rawTemplate.injectAspectRatio,
         gpt2QualityOptimization: task.rawTemplate.gpt2QualityOptimization,
+        gptImageOptions: task.rawTemplate.gptImageOptions,
         n: task.rawTemplate.n,
         endpointId,
         size: (task.size as any) || '2k',

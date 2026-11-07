@@ -2,6 +2,10 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
+import {
+  gptImageOptionsSchema,
+  validateGptImageOptions,
+} from '../../shared/gpt-image-options'
 import { usesLaoZhangImages } from '../../shared/laozhang'
 import { spicyBaseURL } from '../../shared/spicyapi'
 import { getEndpointById } from '../common/config'
@@ -483,6 +487,11 @@ const gptImageApi = new Hono()
           404,
         )
       }
+      const optionsError = validateGptImageOptions(
+        template.gptImageOptions, endpoint, template.images.length, template.n,
+      )
+      if (optionsError)
+        return c.json({ success: false as const, error: optionsError }, 400)
       if (endpoint.engine === 'gemini-images') {
         const result = await handleGeminiImageGeneration({
           ...endpoint,
@@ -626,6 +635,7 @@ const gptImageApi = new Hono()
         aspectRatio: z.string().optional().default('1:1'),
         injectAspectRatio: z.boolean().optional(),
         gpt2QualityOptimization: z.boolean().optional(),
+        gptImageOptions: gptImageOptionsSchema.optional(),
         language: z.enum(['zh-CN', 'en-US']).optional(),
         images: z.array(z.string()).optional(),
         size: z.enum(['1k', '2k', '4k']).optional().default('1k'),
@@ -644,6 +654,7 @@ const gptImageApi = new Hono()
         aspectRatio,
         injectAspectRatio,
         gpt2QualityOptimization,
+        gptImageOptions,
         language,
         images,
         size,
@@ -679,11 +690,17 @@ const gptImageApi = new Hono()
         injectAspectRatio,
         gpt2QualityOptimization,
         generationLanguage: language,
+        gptImageOptions,
         usageType: isChat ? 'chat-image' : 'image',
         images: images || [],
         title: title?.trim() || TRIAL_TEMPLATE_TITLE,
         n,
       }
+      const optionsError = validateGptImageOptions(
+        gptImageOptions, endpoint, template.images.length, n,
+      )
+      if (optionsError)
+        return c.json({ success: false as const, error: optionsError }, 400)
       if (endpoint.engine === 'gemini-images') {
         const result = await handleGeminiImageGeneration({
           ...endpoint,

@@ -4,6 +4,11 @@ import fs from 'fs-extra'
 import OpenAI, { toFile } from 'openai'
 import path from 'path'
 import { isGptImageModel } from '../../../shared/gpt-image'
+import {
+  gptImageRequestParams,
+  validateGptImageOptions,
+  type GptImageOptions,
+} from '../../../shared/gpt-image-options'
 import { INPUT_IMAGES_DIR } from '../../common/static'
 import { GENERATED_IMAGES_API_PATH } from '../../common/static/enum'
 import { taskManager } from '../../common/task-manager'
@@ -41,6 +46,7 @@ interface GenerateGPTImageOptions {
   quality: GptImageQuality
   moderation?: GptImageModeration
   imagePaths: string[]
+  gptImageOptions?: GptImageOptions
   n?: number
   generationMetadata?: GenerationMetadataInput
 }
@@ -321,6 +327,7 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
       ? undefined
       : options.moderation ?? 'low'
   const moderationParams = moderation ? { moderation } : {}
+  const outputParams = gptImageRequestParams(options.gptImageOptions)
   const imagesToUpload = images.length
     ? await Promise.all(
         images.map(
@@ -335,29 +342,41 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
   let res: OpenAI.Images.ImagesResponse
   let requestId: string | undefined
   if (imagesToUpload) {
+    const editBody = {
+      model,
+      image: imagesToUpload,
+      ...moderationParams,
+      prompt,
+      n,
+      size,
+      quality,
+      ...outputParams,
+    }
+    // The SDK's types predate GIF/SVG edits, but its multipart serializer forwards
+    // these fields unchanged. Keep the compatibility cast at the SDK boundary.
     const response = await client.images
-      .edit({
-        model,
-        image: imagesToUpload || [],
-        ...moderationParams,
-        prompt: prompt,
-        n,
-        size: size as any,
-        quality,
-      }, { signal: generationSignal() })
+      .edit(editBody as OpenAI.Images.ImageEditParamsNonStreaming, {
+        signal: generationSignal(),
+      })
       .withResponse()
     res = response.data
     requestId = getBillingRequestId(response.response.headers)
   } else {
-    const response = await client.images
-      .generate({
-        model,
-        prompt,
-        n,
-        size: size as any,
-        quality,
-        ...moderationParams,
-      }, { signal: generationSignal() })
+    // The installed SDK predates GIF/SVG; its HTTP client preserves the same
+    // timeout, cancellation and no-retry behavior without narrowing new fields.
+    const response = await client
+      .post<OpenAI.Images.ImagesResponse>('/images/generations', {
+        body: {
+          model,
+          prompt,
+          n,
+          size,
+          quality,
+          ...moderationParams,
+          ...outputParams,
+        },
+        signal: generationSignal(),
+      })
       .withResponse()
     res = response.data
     requestId = getBillingRequestId(response.response.headers)
@@ -430,6 +449,13 @@ async function runHandleImageGeneration(options: {
     const serviceLabel = getServiceLabel(endpointName, baseURL)
     const activeModel = template.images.length > 0 ? editModel || model : model
 
+    const optionsError = validateGptImageOptions(
+      template.gptImageOptions, { model, editModel, baseURL },
+      template.images.length, template.n,
+    )
+    if (optionsError)
+      return { status: 400, data: { success: false as const, error: optionsError } }
+
     logger.info(`Generating GPT image`)
 
     const task = await taskManager.createTaskFromTemplate({
@@ -494,6 +520,7 @@ async function runHandleImageGeneration(options: {
             size: finalSize,
             quality,
             moderation: options.moderation,
+            gptImageOptions: template.gptImageOptions,
             imagePaths,
             n: requestCount,
             generationMetadata: writeMetadata
@@ -504,10 +531,12 @@ async function runHandleImageGeneration(options: {
                   model: activeModel,
                   engine: 'images',
                   endpointName,
-                  requestedSize: size,
+                  requestedSize:
+                    template.gptImageOptions?.outputFormat === 'gif' ? 'auto' : size,
                   aspectRatio: template.aspectRatio || '1:1',
                   quality,
                   referenceImageCount: imagePaths.length,
+                  gptImageOptions: template.gptImageOptions,
                   generatedAt: new Date().toISOString(),
                 }
               : undefined,

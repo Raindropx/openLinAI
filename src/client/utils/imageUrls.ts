@@ -13,6 +13,8 @@ export function localImageVariant(
 }
 
 export const imageThumbnailUrl = (src: string, version = '') => {
+  // GIF previews must keep every frame. Also bypass old cached static thumbnails.
+  if (/\.gif(?:[?#]|$)/i.test(src)) return src
   const thumbnail = localImageVariant(src, 'thumb')
   if (!thumbnail) return src
   if (!version) return thumbnail

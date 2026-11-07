@@ -37,6 +37,7 @@ export function TemplateEditButton({ template }: TemplateEditButtonProps) {
 
   const handleOpenChange = (visible: boolean) => {
     if (!visible) return
+    form.setFieldValue('gptImageOptions', template.gptImageOptions || {})
     form.setFieldsValue({
       title: template.title,
       endpointId: resolveImageEndpointId(

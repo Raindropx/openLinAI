@@ -1,6 +1,7 @@
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { gptImageOptionsSchema } from '../../../shared/gpt-image-options'
 import { templateManager } from '../../common/template-manager'
 import { GPT_IMAGE_OUTPUT_MAX_N } from '../../module/gpt-image/enum'
 
@@ -27,6 +28,7 @@ const templateApi = new Hono()
         aspectRatio: z.string().optional(),
         injectAspectRatio: z.boolean().optional(),
         gpt2QualityOptimization: z.boolean().optional(),
+        gptImageOptions: gptImageOptionsSchema.optional(),
         folder: z.string().optional(),
         n: z.number().min(1).max(GPT_IMAGE_OUTPUT_MAX_N).optional(),
       }),
@@ -156,6 +158,7 @@ const templateApi = new Hono()
         aspectRatio: z.string().optional(),
         injectAspectRatio: z.boolean().optional(),
         gpt2QualityOptimization: z.boolean().optional(),
+        gptImageOptions: gptImageOptionsSchema.optional(),
         folder: z.string().optional(),
         images: z.array(z.string()).optional(),
         n: z.number().min(1).max(GPT_IMAGE_OUTPUT_MAX_N).optional(),

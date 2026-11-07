@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { gptImageOptionsSchema } from './gpt-image-options'
 import { taskFolderNameSchema } from './task-folders'
 import { videoTaskSchema } from './video'
 
@@ -23,6 +24,7 @@ const templateSchema = z
     aspectRatio: z.string().optional(),
     injectAspectRatio: z.boolean().optional(),
     gpt2QualityOptimization: z.boolean().optional(),
+    gptImageOptions: gptImageOptionsSchema.optional(),
     generationLanguage: z.enum(['zh-CN', 'en-US']).optional(),
     n: z.number().finite().optional(),
   })

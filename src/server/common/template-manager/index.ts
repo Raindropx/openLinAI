@@ -4,6 +4,7 @@ import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { getDataDir } from '../data-dir'
 import { SafeJsonStore } from '../safe-json-store'
+import type { GptImageOptions } from '../../../shared/gpt-image-options'
 
 export interface TaskTemplate {
   id: string
@@ -20,6 +21,7 @@ export interface TaskTemplate {
   injectAspectRatio?: boolean
   /** 勾选后会在提示词末尾追加 GPT Image 2 画质优化指令。 */
   gpt2QualityOptimization?: boolean
+  gptImageOptions?: GptImageOptions
   /** Language of built-in generation text for this request. */
   generationLanguage?: 'zh-CN' | 'en-US'
   folder?: string
