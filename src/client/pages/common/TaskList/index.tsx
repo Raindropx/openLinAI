@@ -58,7 +58,10 @@ import { loadTask, useTasks, useTaskDetails } from '../../../hooks/useTasks'
 import { t, useAppLanguage } from '../../../i18n'
 import { ImageGroup } from '../../../pages/common/components/ImageGroup'
 import { useGlobalStore } from '../../../store/global'
-import { localImageVariant } from '../../../utils/imageUrls'
+import {
+  imageOutputFormatLabel,
+  localImageVariant,
+} from '../../../utils/imageUrls'
 import {
   ListToolbar,
   sortListItems,
@@ -129,6 +132,7 @@ function TaskImage({
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
   const metadataUrl = localImageVariant(src, 'metadata')
   const currentInfo = info?.src === src ? info : null
+  const format = imageOutputFormatLabel(src)
 
   const handleLoaded = useCallback(
     (image: HTMLImageElement) => {
@@ -184,13 +188,14 @@ function TaskImage({
           }}
         />
       </div>
-      {showSize && currentInfo && (
+      {showSize && (currentInfo || format) && (
         <div className="pointer-events-none absolute top-0 left-0 z-10 rounded-br bg-black/55 px-1 text-[10px] leading-4 text-white">
-          {currentInfo.width && currentInfo.height
+          {currentInfo?.width && currentInfo.height
             ? `${currentInfo.width}×${currentInfo.height}`
             : ''}
-          {currentInfo.bytes !== undefined &&
+          {currentInfo?.bytes !== undefined &&
             `${currentInfo.width && currentInfo.height ? ' · ' : ''}${formatFileSize(currentInfo.bytes)}`}
+          {format && <div>{format}</div>}
         </div>
       )}
     </>
@@ -223,6 +228,7 @@ export function TaskList({
   const [moveFolderId, setMoveFolderId] = useState('')
   const [moving, setMoving] = useState(false)
   const { gptImageSettings } = useLocalSetting()
+  const showImageSize = gptImageSettings.showImageSizeInTaskList ?? true
   const endpoints = useEnabledImageEndpoints()
   const [downloadedIds, setDownloadedIds] = useLocalStorageState<string[]>(
     'downloadedTaskIds',
@@ -1374,6 +1380,7 @@ export function TaskList({
                                   images={task.outputUrls}
                                   width={panelMode ? 90 : 100}
                                   height={panelMode ? 120 : 130}
+                                  showOutputFormat={showImageSize}
                                   onPreview={
                                     managementMode
                                       ? (imageIndex) =>
@@ -1399,10 +1406,7 @@ export function TaskList({
                                         })
                                     : undefined
                                 }
-                                showSize={
-                                  gptImageSettings.showImageSizeInTaskList ??
-                                  true
-                                }
+                                showSize={showImageSize}
                               />
                             )}
                           </div>

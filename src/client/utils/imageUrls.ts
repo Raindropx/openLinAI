@@ -12,9 +12,14 @@ export function localImageVariant(
   return `${url.pathname}${url.search}${url.hash}`
 }
 
+export function imageOutputFormatLabel(src: string): string | undefined {
+  const [pathname] = src.split(/[?#]/, 1)
+  return /\.(gif|svg)$/i.exec(pathname)?.[1].toUpperCase()
+}
+
 export const imageThumbnailUrl = (src: string, version = '') => {
   // GIF previews must keep every frame. Also bypass old cached static thumbnails.
-  if (/\.gif(?:[?#]|$)/i.test(src)) return src
+  if (imageOutputFormatLabel(src) === 'GIF') return src
   const thumbnail = localImageVariant(src, 'thumb')
   if (!thumbnail) return src
   if (!version) return thumbnail

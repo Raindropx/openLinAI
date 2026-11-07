@@ -1,5 +1,6 @@
 import { Image } from 'antd'
 import { t, useAppLanguage } from '../../../i18n'
+import { imageOutputFormatLabel } from '../../../utils/imageUrls'
 import { ThumbnailImage } from './ThumbnailImage'
 
 interface ImageGroupProps {
@@ -7,6 +8,7 @@ interface ImageGroupProps {
   width: number
   height: number
   preview?: boolean
+  showOutputFormat?: boolean
   onPreview?: (index: number) => void
 }
 
@@ -18,6 +20,7 @@ export function ImageGroup({
   width,
   height,
   preview = true,
+  showOutputFormat = false,
   onPreview,
 }: ImageGroupProps) {
   useAppLanguage()
@@ -44,6 +47,9 @@ export function ImageGroup({
     >
       <Image.PreviewGroup items={images} preview={onPreview ? false : preview}>
         {visibleImages.map((url, index) => {
+          const format = showOutputFormat
+            ? imageOutputFormatLabel(url)
+            : undefined
           const rowIndex = rows === 1 ? 0 : index < rowCounts[0] ? 0 : 1
           const colIndex =
             rows === 1 ? index : rowIndex === 0 ? index : index - rowCounts[0]
@@ -102,6 +108,11 @@ export function ImageGroup({
                 className="object-cover"
                 style={{ objectFit: 'cover' }}
               />
+              {format && (
+                <div className="pointer-events-none absolute top-0 left-0 z-10 rounded-br bg-black/55 px-1 text-[10px] leading-4 text-white">
+                  {format}
+                </div>
+              )}
             </div>
           )
         })}
