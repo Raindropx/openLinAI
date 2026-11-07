@@ -5,6 +5,10 @@ import os from 'node:os'
 import path from 'node:path'
 import sharp from 'sharp'
 import { imageThumbnailUrl } from '../src/client/utils/imageUrls'
+import {
+  supportsGptImageOptions,
+  validateGptImageOptions,
+} from '../src/shared/gpt-image-options'
 
 async function main() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'linai-image-output-'))
@@ -26,6 +30,7 @@ async function main() {
   )
   const requests: Record<string, unknown>[] = []
   let reject = false
+  let returnPng = false
   let rejectionMessage = 'GIF preview not enabled'
   const server = http.createServer(async (req, res) => {
     try {
@@ -60,14 +65,13 @@ async function main() {
           .writeHead(400)
           .end(JSON.stringify({ error: { message: rejectionMessage } }))
       } else {
-        const output =
-          parsed.output_format === 'gif'
-            ? gif
-            : parsed.output_format === 'svg'
-              ? svg
-              : png
+        const formats: Record<string, Buffer> = { gif, svg }
+        const output = returnPng ? png : (formats[parsed.output_format] || png)
         res.end(
-          JSON.stringify({ data: [{ b64_json: output.toString('base64') }] }),
+          JSON.stringify({
+            output_format: parsed.output_format,
+            data: [{ b64_json: output.toString('base64') }],
+          }),
         )
       }
     } catch (error) {
@@ -114,6 +118,24 @@ async function main() {
       frameDurationMs: 120,
       complexity: 'low',
     }
+    for (const [baseURL, model] of [
+      ['https://api.openlux.ai/v1', 'gpt-image-2.6-sunburst-c'],
+      ['https://newapi.dragon3api.com/v1', 'gpt-image-2.6'],
+    ]) {
+      assert.equal(supportsGptImageOptions({ ...endpoint, baseURL, model }), true)
+      assert.equal(supportsGptImageOptions({ ...endpoint, model }), false)
+      assert.equal(
+        supportsGptImageOptions({ ...endpoint, baseURL, editModel: model }, true),
+        true,
+      )
+    }
+    const dragon = {
+      ...endpoint,
+      baseURL: 'https://newapi.dragon3api.com/v1',
+      model: 'gpt-image-2.6',
+    }
+    assert.equal(validateGptImageOptions({ outputFormat: 'gif' }, dragon, 0), undefined)
+    assert.match(validateGptImageOptions({ outputFormat: 'svg' }, dragon, 0)!, /Dragon.*PNG/)
     const generated = await post('/trial', {
       ...base,
       gptImageOptions: options,
@@ -201,6 +223,16 @@ async function main() {
     const xml = await vector.text()
     assert.match(xml, /<rect/)
     assert.doesNotMatch(xml, /<script/)
+    updateConfig({ endpoints: [{ ...endpoint, engine: 'laozhang-images' }] })
+    const laoZhangVector = await post('/generate', {
+      ...base,
+      templateId: template.id,
+    })
+    assert.equal(laoZhangVector.status, 200, await laoZhangVector.text())
+    assert.equal(requests.at(-1)?.url, '/v1/images/generations')
+    assert.equal(requests.at(-1)?.output_format, 'svg')
+    assert.deepEqual(requests.at(-1)?.svg, { model: 'mock-svg-author' })
+    updateConfig({ endpoints: [endpoint] })
     await templates.request(`/${template.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -228,11 +260,16 @@ async function main() {
       '/api/static/images/input/reference.png',
       '/api/static/images/input/second.png',
     ]
-    for (const editModel of ['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst']) {
+    for (const [engine, editModel] of [
+      ['openai-images', 'gpt-image-2.6-flare'],
+      ['openai-images', 'gpt-image-2.6-sunburst'],
+      ['laozhang-images', 'gpt-image-2.6-sunburst'],
+    ] as const) {
       updateConfig({
-        endpoints: [{ ...endpoint, model: 'gpt-image-2', editModel }],
+        endpoints: [{ ...endpoint, model: 'gpt-image-2', engine, editModel }],
       })
       for (const outputFormat of ['gif', 'svg']) {
+        const before = requests.length
         const outputOptions =
           outputFormat === 'gif'
             ? options
@@ -243,6 +280,12 @@ async function main() {
           gptImageOptions: outputOptions,
         })
         const edited = await response.json()
+        if (engine === 'laozhang-images' && outputFormat === 'svg') {
+          assert.equal(response.status, 400)
+          assert.match(edited.error, /仅支持文生图/)
+          assert.equal(requests.length, before)
+          continue
+        }
         assert.equal(response.status, 200, JSON.stringify(edited))
         const sent = requests.at(-1)!
         assert.equal(sent.url, '/v1/images/edits')
@@ -301,6 +344,7 @@ async function main() {
         }
       }
     }
+    updateConfig({ endpoints: [{ ...endpoint, editModel: 'gpt-image-2.6-sunburst' }] })
     // Saved template generation must choose the same edit path as direct generation.
     await templates.request(`/${template.id}`, {
       method: 'PUT',
@@ -359,7 +403,6 @@ async function main() {
     )
     for (const engine of [
       'gemini-images',
-      'laozhang-images',
       'apimart-images',
     ] as const) {
       updateConfig({ endpoints: [{ ...endpoint, engine }] })
@@ -416,6 +459,23 @@ async function main() {
     )
     assert.equal(requests.at(-1)?.url, '/v1/images/edits')
     assert.equal(requests.at(-1)?.complexity, 'medium')
+
+    returnPng = true
+    for (const engine of ['openai-images', 'laozhang-images'] as const) {
+      updateConfig({ endpoints: [{ ...endpoint, engine }] })
+      for (const outputFormat of ['gif', 'svg']) {
+        const before = requests.length
+        const mismatch = await post('/trial', {
+          ...base,
+          gptImageOptions: { outputFormat },
+        })
+        assert.equal(mismatch.status, 500)
+        assert.match((await mismatch.json()).error, /上游返回 PNG/)
+        assert.equal(requests.length, before + 1)
+      }
+    }
+    returnPng = false
+    updateConfig({ endpoints: [endpoint] })
 
     reject = true
     const beforeReject = requests.length

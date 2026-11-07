@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { usesLaoZhangImages } from './laozhang'
+import { normalizeLaoZhangModel, usesLaoZhangImages } from './laozhang'
 
 // Both the guide and API reference specify 2–16 frames (checked 2026-11-07).
 export const GPT_IMAGE_GIF_MAX_FRAMES = 16
@@ -18,28 +18,55 @@ export function isGptImage26(model: string) {
   )
 }
 
-/** Only the generic Images adapter forwards these options. Provider adapters opt in separately. */
+interface GptImageOptionsEndpoint {
+  model: string
+  editModel?: string
+  baseURL: string
+  engine?: string
+}
+
+function compatibleModelProvider(baseURL: string, model: string) {
+  try {
+    const { hostname } = new URL(baseURL)
+    if (hostname === 'api.openlux.ai' && model === 'gpt-image-2.6-sunburst-c')
+      return 'openlux'
+    if (hostname === 'newapi.dragon3api.com' && model === 'gpt-image-2.6')
+      return 'dragon'
+  } catch {
+    return
+  }
+}
+
+/** The OpenAI and LaoZhang Images adapters forward these options. */
 export function supportsGptImageOptions(
-  endpoint: {
-    model: string
-    editModel?: string
-    baseURL: string
-    engine?: string
-  },
+  endpoint: GptImageOptionsEndpoint,
   editing = false,
 ) {
+  const model = editing ? endpoint.editModel || endpoint.model : endpoint.model
+  if (usesLaoZhangImages(endpoint)) {
+    const normalized = normalizeLaoZhangModel(model)
+    return normalized.startsWith('gpt-image-') && isGptImage26(normalized)
+  }
+  if (endpoint.engine && endpoint.engine !== 'openai-images') return false
   return (
-    (!endpoint.engine || endpoint.engine === 'openai-images') &&
-    !usesLaoZhangImages(endpoint) &&
-    isGptImage26(
-      editing ? endpoint.editModel || endpoint.model : endpoint.model,
-    )
+    isGptImage26(model) || Boolean(compatibleModelProvider(endpoint.baseURL, model))
   )
+}
+
+export function gptImageSvgRestriction(
+  endpoint: GptImageOptionsEndpoint,
+  editing: boolean,
+) {
+  if (editing && usesLaoZhangImages(endpoint))
+    return '老张端点仅支持文生图输出 SVG'
+  const model = editing ? endpoint.editModel || endpoint.model : endpoint.model
+  if (compatibleModelProvider(endpoint.baseURL, model) === 'dragon')
+    return '此 Dragon 模型的 SVG 请求会返回 PNG'
 }
 
 export function validateGptImageOptions(
   options: GptImageOptions | undefined,
-  endpoint: Parameters<typeof supportsGptImageOptions>[0],
+  endpoint: GptImageOptionsEndpoint,
   imageCount: number,
   n = 1,
 ): string | undefined {
@@ -50,7 +77,11 @@ export function validateGptImageOptions(
   if (!supportsGptImageOptions(endpoint, imageCount > 0))
     return '当前端点或模型不支持 GPT Image 2.6 输出参数'
   if (imageCount > 16) return 'GPT Image 最多支持 16 张参考图'
-  if (options.outputFormat === 'svg' && n !== 1) return 'SVG 每次只能生成一张'
+  if (options.outputFormat === 'svg') {
+    const restriction = gptImageSvgRestriction(endpoint, imageCount > 0)
+    if (restriction) return restriction
+    if (n !== 1) return 'SVG 每次只能生成一张'
+  }
   if (options.outputFormat !== 'svg' && options.svgModel?.trim())
     return 'SVG 作者模型仅适用于 SVG 输出'
   if (

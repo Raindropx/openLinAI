@@ -56,6 +56,7 @@ async function runHandleLaoZhangImageGeneration(
       data: { success: false as const, error: '[服务] Failed to create task' },
     }
   const start = Date.now()
+  const { gptImageOptions } = template
   const filenames: string[] = []
   const failures: string[] = []
   await taskManager.updateTaskStatus(task.id, 'running')
@@ -75,6 +76,7 @@ async function runHandleLaoZhangImageGeneration(
       prompt,
       aspectRatio: template.aspectRatio || '1:1',
       imagePaths,
+      gptImageOptions,
     }
     // Validate the whole batch before the first paid submission.
     const builtRequest = await buildLaoZhangImageRequest(request)
@@ -96,10 +98,11 @@ async function runHandleLaoZhangImageGeneration(
           model,
           engine: 'laozhang-images',
           endpointName,
-          requestedSize: size,
+          requestedSize: gptImageOptions?.outputFormat === 'gif' ? 'auto' : size,
           aspectRatio: template.aspectRatio || '1:1',
           quality: providerQuality,
           referenceImageCount: imagePaths.length,
+          gptImageOptions,
           generatedAt: new Date().toISOString(),
         }
       : undefined
@@ -109,6 +112,7 @@ async function runHandleLaoZhangImageGeneration(
         const saved = await persistImages(
           await generateLaoZhangImage(request, builtRequest),
           metadata,
+          gptImageOptions?.outputFormat,
         )
         if (!saved.length) throw new Error('老张返回的图片无法保存')
         filenames.push(...saved)

@@ -1,6 +1,7 @@
 import { Alert, Button, Form, Input, InputNumber, Select } from 'antd'
 import {
   GPT_IMAGE_GIF_MAX_FRAMES,
+  gptImageSvgRestriction,
   supportsGptImageOptions,
   validateGptImageOptions,
   type GptImageOptions,
@@ -26,6 +27,8 @@ export function GptImageOutputOptions({ imageCount }: { imageCount: number }) {
   const error =
     endpoint && validateGptImageOptions(options, endpoint, imageCount, n)
   const format = options?.outputFormat || 'png'
+  const svgRestriction =
+    endpoint && gptImageSvgRestriction(endpoint, imageCount > 0)
 
   return (
     <div className="mb-4 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2">
@@ -59,6 +62,7 @@ export function GptImageOutputOptions({ imageCount }: { imageCount: number }) {
                 {
                   value: 'svg',
                   label: t('SVG 矢量图'),
+                  disabled: Boolean(svgRestriction),
                 },
               ]}
               onChange={(value) => {
@@ -93,6 +97,11 @@ export function GptImageOutputOptions({ imageCount }: { imageCount: number }) {
               ]}
             />
           </Form.Item>
+          {svgRestriction && error !== svgRestriction && (
+            <div className="col-span-2 text-xs text-slate-400">
+              {t(svgRestriction)}
+            </div>
+          )}
           {format === 'gif' && (
             <>
               <Form.Item
@@ -151,7 +160,7 @@ export function GptImageOutputOptions({ imageCount }: { imageCount: number }) {
               </Form.Item>
               <div className="text-xs text-slate-400">
                 {t(
-                  'SVG 可使用参考图，每次一张，下载保留矢量格式；需要上游模型和账号开通 SVG 权限。',
+                  'SVG 每次一张，下载保留矢量格式；参考图支持和 SVG 权限取决于上游。',
                 )}
               </div>
             </div>

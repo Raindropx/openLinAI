@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import fs from 'fs-extra'
 import { writeGenerationImage } from '../../common/image-lifecycle'
 import path from 'path'
+import type { GptImageOptions } from '../../../shared/gpt-image-options'
 import { fetchWithTimeout } from '../utils/fetch'
 import { logger } from '../utils/logger'
 import {
@@ -153,8 +154,19 @@ async function persistImageBuffer(
   sourceBuffer: Buffer,
   mimeHint: string | null,
   generationMetadata?: GenerationMetadataInput,
+  requestedFormat?: GptImageOptions['outputFormat'],
 ): Promise<string | null> {
-  const detectedFormat = detectImageFormat(sourceBuffer, mimeHint)
+  const exactFormat = requestedFormat === 'gif' || requestedFormat === 'svg'
+  const detectedFormat = detectImageFormat(
+    sourceBuffer,
+    exactFormat ? null : mimeHint,
+  )
+  if (exactFormat && detectedFormat?.extension !== requestedFormat) {
+    const actual = detectedFormat?.extension.toUpperCase() || '未知格式'
+    throw new Error(
+      `上游返回 ${actual}，请求的格式为 ${requestedFormat.toUpperCase()}`,
+    )
+  }
   if (!detectedFormat) {
     logger.error(`Unsupported generated image format: ${mimeHint || 'unknown'}`)
     return null
@@ -203,10 +215,16 @@ export function decodeImageBase64(value: string): Buffer {
 export async function persistImageBuffers(
   buffers: Buffer[],
   generationMetadata?: GenerationMetadataInput,
+  requestedFormat?: GptImageOptions['outputFormat'],
 ): Promise<string[]> {
   const filenames: string[] = []
   for (const buffer of buffers) {
-    const filename = await persistImageBuffer(buffer, null, generationMetadata)
+    const filename = await persistImageBuffer(
+      buffer,
+      null,
+      generationMetadata,
+      requestedFormat,
+    )
     if (filename) filenames.push(filename)
   }
   return filenames
@@ -216,6 +234,7 @@ export async function persistImageBuffers(
 export async function persistImages(
   imageUrls: string[],
   generationMetadata?: GenerationMetadataInput,
+  requestedFormat?: GptImageOptions['outputFormat'],
 ): Promise<string[]> {
   const filenames: string[] = []
   for (const url of imageUrls) {
@@ -241,6 +260,7 @@ export async function persistImages(
       buffer,
       mimeHint,
       generationMetadata,
+      requestedFormat,
     )
     if (filename) filenames.push(filename)
   }

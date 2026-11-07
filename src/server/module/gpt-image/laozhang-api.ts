@@ -1,6 +1,11 @@
 import fs from 'fs-extra'
 import path from 'path'
 import {
+  gptImageRequestParams,
+  validateGptImageOptions,
+  type GptImageOptions,
+} from '../../../shared/gpt-image-options'
+import {
   getLaoZhangImageFamily,
   isLaoZhangBaseURL,
   normalizeLaoZhangModel,
@@ -19,6 +24,7 @@ export interface LaoZhangImageRequestOptions {
   size: GptImageSize
   quality: GptImageQuality
   moderation?: GptImageEndpoint['moderation']
+  gptImageOptions?: GptImageOptions
   imagePaths: string[]
   laozhangGptImage2Mode?: GptImageEndpoint['laozhangGptImage2Mode']
   laozhangQuality?: GptImageEndpoint['laozhangQuality']
@@ -107,6 +113,12 @@ export async function buildLaoZhangImageRequest(
 ): Promise<{ url: string; init: RequestInit }> {
   const root = laoZhangApiRoot(options.baseURL)
   const model = normalizeLaoZhangModel(options.model)
+  const outputError = validateGptImageOptions(
+    options.gptImageOptions,
+    { baseURL: options.baseURL, model, engine: 'laozhang-images' },
+    options.imagePaths.length,
+  )
+  if (outputError) throw new Error(outputError)
   const family = getLaoZhangImageFamily(model)
   if (!family) throw new Error(`老张图片引擎尚不支持模型 ${model}`)
   const headers = {
@@ -261,6 +273,9 @@ export async function buildLaoZhangImageRequest(
     !/^gpt-image-2\.5-(flare|sunburst)-vip$/.test(model)
   )
     throw new Error('透明背景目前仅适配 GPT Image 2.5 Flare/Sunburst VIP')
+  const { svg, size: outputSize, ...outputParams } = gptImageRequestParams(
+    options.gptImageOptions,
+  )
   const body = {
     model,
     prompt: options.prompt,
@@ -269,18 +284,22 @@ export async function buildLaoZhangImageRequest(
       : {}),
     ...(!perCallLegacy
       ? {
-          size: laoZhangImageSize(options.aspectRatio, options.size),
+          size: outputSize ?? laoZhangImageSize(options.aspectRatio, options.size),
           ...(model !== 'gpt-image-2.5-web' ? { quality } : {}),
         }
       : {}),
     ...(options.laozhangTransparentBackground
       ? { background: 'transparent', output_format: 'png' }
       : {}),
+    ...outputParams,
   }
   if (!options.imagePaths.length)
-    return json(`${root}/v1/images/generations`, body)
+    return json(`${root}/v1/images/generations`, {
+      ...body,
+      ...(svg ? { svg } : {}),
+    })
   const form = new FormData()
-  for (const [key, value] of Object.entries(body)) form.append(key, value)
+  for (const [key, value] of Object.entries(body)) form.append(key, String(value))
   for (const filename of options.imagePaths)
     form.append(
       options.imagePaths.length === 1 ? 'image' : 'image[]',

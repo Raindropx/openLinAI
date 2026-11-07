@@ -406,7 +406,11 @@ async function generateGPTImageNew(options: GenerateGPTImageOptions) {
     }
   }
 
-  const filenames = await persistImageBuffers(imageBuffers, generationMetadata)
+  const filenames = await persistImageBuffers(
+    imageBuffers,
+    generationMetadata,
+    options.gptImageOptions?.outputFormat,
+  )
 
   return {
     filenames,
